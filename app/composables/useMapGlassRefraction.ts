@@ -424,6 +424,15 @@ function resolveSourceSize(source: HTMLCanvasElement | HTMLImageElement): { widt
   return { width: source.width, height: source.height }
 }
 
+/** 纹理按 0.5x 降采样：底图 canvas 是 dpr2 的全屏尺寸，整张上传一次要搬 4 倍像素；
+ *  玻璃只做低频弯折，半分辨率肉眼看不出差别，上传量直接降到 1/4。 */
+const GLASS_UPLOAD_SCALE = 0.5
+/** 上传限频 30Hz：底图只在用户平移缩放时才变，稳态下 60Hz 重传同一张纹理纯属白烧 GPU。 */
+const GLASS_UPLOAD_INTERVAL_MS = 33
+
+let downscaleCanvas: HTMLCanvasElement | null = null
+let downscaleContext: CanvasRenderingContext2D | null = null
+
 function uploadSource(
   gl: WebGL2RenderingContext,
   texture: WebGLTexture,
@@ -431,12 +440,22 @@ function uploadSource(
 ): boolean {
   const size = resolveSourceSize(source)
   if (!(size.width >= 1) || !(size.height >= 1)) return false
+  const targetWidth = Math.max(1, Math.round(size.width * GLASS_UPLOAD_SCALE))
+  const targetHeight = Math.max(1, Math.round(size.height * GLASS_UPLOAD_SCALE))
+  if (!downscaleCanvas) downscaleCanvas = document.createElement('canvas')
+  if (!downscaleContext) downscaleContext = downscaleCanvas.getContext('2d')
+  if (!downscaleContext) return false
+  if (downscaleCanvas.width !== targetWidth || downscaleCanvas.height !== targetHeight) {
+    downscaleCanvas.width = targetWidth
+    downscaleCanvas.height = targetHeight
+  }
   gl.bindTexture(gl.TEXTURE_2D, texture)
   try {
-    // 底图会随用户平移缩放变化，所以每帧都整张重传；这是这个方案最大的一笔开销。
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+    // 半分辨率离屏 canvas 中转：drawImage 负责缩放，texImage2D 只搬 1/4 的像素。
+    downscaleContext.drawImage(source, 0, 0, targetWidth, targetHeight)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, downscaleCanvas)
   } catch {
-    // 跨域污染时 texImage2D 会抛 DOMException；本帧不画，下一帧继续试。
+    // 跨域污染时 drawImage / texImage2D 会抛 DOMException；本帧不画，下一帧继续试。
     return false
   }
   return true
@@ -446,11 +465,16 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   attach: (container: HTMLElement) => void
   start: () => void
   stop: () => void
+  /** T-024：过渡动画期间暂停绘制，只保留清屏。 */
+  setPaused: (value: boolean) => void
   readonly ready: Ref<boolean>
   readonly fps: Ref<number>
+  readonly paused: Ref<boolean>
 } {
   const ready = ref(false)
   const fps = ref(0)
+  /** T-024：展开/收起动画期间暂停绘制（只清屏），动画结束立刻恢复。 */
+  const paused = ref(false)
 
   let mount: GlassMount | null = null
   let rafId: number | null = null
@@ -458,6 +482,9 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   let resumeAfterRestore = false
   let frameCount = 0
   let fpsWindowStart = 0
+  /** 纹理是否已经传过一次；没有的话第一帧必须无条件上传。 */
+  let textureUploaded = false
+  let lastUploadAt = 0
 
   const strength = clamp(
     typeof options.strength === 'number' ? options.strength : DEFAULT_GLASS_STRENGTH,
@@ -486,10 +513,20 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
 
+    // T-024：过渡期只清屏不画。面板高度每帧在变，四边形与底图纹理都要重算，
+    // 正好是掉帧最狠的一段；这段交给 CSS 白纱兜底，transitionend 后接回来。
+    if (paused.value) return
+
     // source 拿不到（地图还没就绪）就先清成透明，等下一帧。
     const source = options.source()
     if (!source) return
-    if (!uploadSource(gl, pipeline.texture, source)) return
+    // 上传限频：底图只在平移缩放时才变，稳态 60Hz 重传同一张纹理是白烧 GPU。
+    const now = globalThis.performance?.now?.() ?? 0
+    if (!textureUploaded || now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS) {
+      if (!uploadSource(gl, pipeline.texture, source)) return
+      textureUploaded = true
+      lastUploadAt = now
+    }
 
     const quads = collectGlassQuads(options.targets(), {
       left: bounds.left,
@@ -536,6 +573,8 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   function loop(now: number): void {
     rafId = globalThis.requestAnimationFrame(loop)
     renderFrame()
+    // 暂停期不数帧：这段 fps 必须是 0，否则「过渡期归零」验不出来。
+    if (paused.value) return
 
     // FPS 数的是「循环实际跑起来的频率」，不是「成功画了几帧」：底图没就绪时
     // 每帧只 clear，但循环仍是 60Hz，报 0 会让人以为卡死。
@@ -560,6 +599,16 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     fps.value = 0
   }
 
+  /** T-024：过渡动画期间暂停绘制（renderFrame 只清屏）。幂等，可反复调用。 */
+  function setPaused(value: boolean): void {
+    if (paused.value === value) return
+    paused.value = value
+    // 两个方向都重置统计窗口：暂停期 fps 必须是 0，恢复后也不该把旧帧数带进新窗口。
+    frameCount = 0
+    fpsWindowStart = 0
+    if (value) fps.value = 0
+  }
+
   function start(): void {
     // 非浏览器 / 没有 WebGL2 / 还没 attach：全部静默返回，不抛错。
     if (!import.meta.client) return
@@ -567,6 +616,8 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     if (rafId !== null) return
     fpsWindowStart = 0
     frameCount = 0
+    // 重新启动时纹理可能已被换掉（上下文丢失后 pipeline 重建），第一帧必须无条件上传。
+    textureUploaded = false
     rafId = globalThis.requestAnimationFrame(loop)
   }
 
@@ -586,6 +637,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     const pipeline = buildPipeline(gl)
     if (!pipeline) return
     mount.pipeline = pipeline
+    textureUploaded = false
     if (resumeAfterRestore) {
       resumeAfterRestore = false
       start()
@@ -669,5 +721,5 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     onScopeDispose(detach)
   }
 
-  return { attach, start, stop, ready, fps }
+  return { attach, start, stop, setPaused, ready, fps, paused }
 }

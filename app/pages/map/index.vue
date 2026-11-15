@@ -178,7 +178,14 @@ function resolveGlassTargets(): GlassTarget[] {
   return targets
 }
 
-const { attach: attachMapGlass, start: startMapGlass, stop: stopMapGlass, ready: mapGlassReady, fps: mapGlassFps } = useMapGlassRefraction({
+const {
+  attach: attachMapGlass,
+  start: startMapGlass,
+  stop: stopMapGlass,
+  setPaused: setMapGlassPaused,
+  ready: mapGlassReady,
+  fps: mapGlassFps
+} = useMapGlassRefraction({
   strength: 36,
   // 底图 canvas 由 provider 建在 mapElement 里（maplibre 的 getCanvas 就是它）；
   // 换 provider 时如果拿不到 canvas，source 返回 null，玻璃层只清屏不画。
@@ -191,6 +198,46 @@ const { attach: attachMapGlass, start: startMapGlass, stop: stopMapGlass, ready:
 
 /** 真折射跑起来了才去掉 DOM 上的 blur；否则一律走兜底。 */
 const mapGlassActive = computed(() => glassEnabled.value && mapGlassReady.value && glassStrengthScale.value > 0)
+
+/**
+ * T-024：展开/收起这 280ms 里不画折射。面板高度每帧都在变，玻璃层要重算四边形、
+ * 重传底图，正好是掉帧最狠的一段；这段改走 CSS 白纱兜底（90% + blur(16px)），
+ * 动画一结束立刻接回来。过渡期 canvas 是清空的，所以 DOM 类同时切回
+ * map-glass-surface，避免 72% 白纱透出没折射的底图。
+ */
+const glassTransitioning = ref(false)
+let glassTransitionTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearGlassTransitionTimer(): void {
+  if (glassTransitionTimer === null) return
+  clearTimeout(glassTransitionTimer)
+  glassTransitionTimer = null
+}
+
+function endGlassTransition(): void {
+  clearGlassTransitionTimer()
+  glassTransitioning.value = false
+  setMapGlassPaused(false)
+}
+
+function beginGlassTransition(): void {
+  glassTransitioning.value = true
+  setMapGlassPaused(true)
+  // transitionend 可能被吞掉（快速连点、中途反向拖拽、tab 切走）：
+  // 用略长于动画的兜底定时器保证一定能恢复，不让折射卡在暂停态。
+  clearGlassTransitionTimer()
+  glassTransitionTimer = setTimeout(endGlassTransition, 360)
+}
+
+function handleSheetTransitionStart(event: TransitionEvent): void {
+  if (event.propertyName !== 'height') return
+  beginGlassTransition()
+}
+
+function handleSheetTransitionEnd(event: TransitionEvent): void {
+  if (event.propertyName !== 'height') return
+  endGlassTransition()
+}
 
 function readGlassPreference(): boolean {
   try {
@@ -788,8 +835,11 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   >
     <aside
       ref="mobileSheetElement"
-      class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-300 ease-[cubic-bezier(0.2,0,0,1)] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
+      @transitionstart="handleSheetTransitionStart"
+      @transitionend="handleSheetTransitionEnd"
+      @transitioncancel="handleSheetTransitionEnd"
       :class="[
         mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
@@ -798,7 +848,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
         // 08-WebGL全屏折射 里「楼在玻璃里折」的观感就没了。ready=false 才回落到 blur。
-        mapGlassActive ? 'map-glass-refracting' : 'map-glass-surface',
+        mapGlassActive && !glassTransitioning ? 'map-glass-refracting' : 'map-glass-surface',
         // 折叠态也要有视觉边界：没有边框和阴影，面板会和地图糊在一起，
         // 用户看不出「这里还有一列地点、可以上滑」。
         mobileSheetState === 'collapsed'
