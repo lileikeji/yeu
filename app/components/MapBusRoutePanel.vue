@@ -313,14 +313,13 @@ const collapsedEta = computed(() => {
 const collapsedTitle = computed(() => {
   const bus = leadBus.value
   if (!bus) return '叮叮车 · ' + emptyBusesText.value
-  const eta = collapsedEta.value
-  return eta ? (eta === '到站' ? '叮叮车 ' + eta : '叮叮车 ' + eta + ' 到') : '叮叮车'
+  // 叮叮车只有车名（叮叮车10 / 叮叮车2），没有车牌；ETA 只由右侧胶囊表达，标题不再重复分钟数。
+  return bus.busName || '叮叮车'
 })
 const collapsedDetail = computed(() => {
   const bus = leadBus.value
   if (!bus) return SERVICE_HOURS_LABEL
-  const where = bus.isAtSite ? bus.atSiteLabel + ' · ' + bus.atSiteDetail : '下一站 ' + bus.nextStopName
-  return bus.busName + ' · ' + where
+  return bus.isAtSite ? bus.atSiteLabel + ' · ' + bus.atSiteDetail : '下一站 ' + bus.nextStopName
 })
 /** 车辆卡副行：到站说「已到 X」，在途说「正驶向「X」」。 */
 const vehicleWhereText = computed(() => {
