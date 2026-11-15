@@ -2026,6 +2026,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       :fetched-at="busFetchedAt"
       :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       :user-location="userLocation"
+      :dock-visible="mapSheetView !== 'bus'"
       @open-sheet="openBusSheet"
       @select-route="busSelectedRouteId = $event"
     />
