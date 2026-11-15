@@ -116,3 +116,36 @@ test('mobile sheet half height is pinned by the max-md breakpoint', () => {
 test('mobile sheet collapsed state collapses via the max-md breakpoint', () => {
   assert.match(pageSource, /max-md:!h-0 max-md:border-t-0 max-md:shadow-none/, '折叠态收起与边框阴影应走 max-md:')
 })
+
+test('mobile sheet no longer renders an in-panel search input', () => {
+  assert.doesNotMatch(pageSource, /aria-label="面板里搜索地图地点"/)
+  // dock 搜索胶囊与桌面搜索块保持不变
+  assert.match(pageSource, /aria-label="搜索地图地点"/)
+  assert.match(pageSource, /hidden md:block/)
+})
+
+test('mobile sheet stays bound to the two glass state classes', () => {
+  assert.match(pageSource, /mapGlassActive \? 'map-glass-refracting' : 'map-glass-surface'/)
+})
+
+test('mobile sheet is registered as a glass refraction target', () => {
+  assert.match(pageSource, /push\(mobileSheetElement\.value,/)
+})
+
+test('sheet fallback keeps a 90% veil with blur(16px) when WebGL is unavailable', () => {
+  const rule = pageSource.match(/\.map-workspace \.map-glass-sheet \{([^}]*)\}/)
+  assert.ok(rule, '应存在 .map-glass-sheet 基础规则')
+  const body = rule[1] ?? ''
+  assert.match(body, /var\(--surface\) 90%/, '回落态白纱应为 90%')
+  assert.match(body, /blur\(16px\)/, '回落态 blur 应为 16px')
+})
+
+test('sheet refracting state drops the veil to <=82% and blur to <=2px', () => {
+  const rule = pageSource.match(/\.map-workspace \.map-glass-sheet\.map-glass-refracting \{([^}]*)\}/)
+  assert.ok(rule, '应存在 .map-glass-sheet.map-glass-refracting 规则')
+  const body = rule[1] ?? ''
+  const veil = Number(body.match(/var\(--surface\) (\d+(?:\.\d+)?)%/)?.[1])
+  assert.ok(Number.isFinite(veil) && veil <= 82, '折射态白纱应 ≤82%，实际 ' + veil + '%')
+  const blur = Number(body.match(/blur\((\d+(?:\.\d+)?)px\)/)?.[1])
+  assert.ok(Number.isFinite(blur) && blur <= 2, '折射态 blur 应 ≤2px，实际 ' + blur + 'px')
+})

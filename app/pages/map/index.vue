@@ -170,6 +170,9 @@ function resolveGlassTargets(): GlassTarget[] {
     if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost })
   }
   push(glassChipsElement.value, 0.5, 2, 0.25)
+  // T-023：底部面板重新进 target。radius 0.043 → min(390,326)×0.043×2 ≈ 28px，对齐 rounded-t-[28px]；
+  // frost 压到 0.18（chips 是 0.25），别把底图糊平。
+  push(mobileSheetElement.value, 0.043, 1.4, 0.18)
   push(glassLocateElement.value, 0.35, 1.4, 0)
   push(glassSearchElement.value, 0.5, 1.8, 0.3)
   return targets
@@ -848,28 +851,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         </button>
       </div>
 
-            <div
-        v-show="mobileSheetState !== 'collapsed'"
-        class="shrink-0 px-3 pb-1 pt-1 md:hidden"
-      >
-        <div class="relative">
-          <UIcon
-            name="i-lucide-search"
-            class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
-          />
-          <input
-            :value="searchQuery"
-            type="search"
-            enterkeyhint="search"
-            class="h-11 w-full rounded-[22px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_60%,transparent)] pl-9 pr-3 text-[13px] text-zinc-800 outline-none placeholder:text-zinc-400 dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] dark:text-zinc-100"
-            placeholder="搜索地点或附近商家"
-            aria-label="面板里搜索地图地点"
-            @input="onSearchQueryInput(($event.target as HTMLInputElement).value)"
-            @compositionstart="onSearchCompositionStart"
-            @compositionend="onSearchCompositionEnd"
-          >
-        </div>
-      </div>
 
       <div
         v-if="mobileSheetState === 'collapsed'"
@@ -2198,13 +2179,20 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     color: color-mix(in srgb, var(--muted-ink) 82%, transparent);
   }
 
-  /* 面板不再走折射（T-020）：90% 白纱 + blur(16px)，两种状态同一条值。
-     之前 72% + backdrop-filter:none（因为它是折射 target）时，header 背后的楼栋标注
-     直接穿过来，半屏态可读性不达标；纯透明更差（P-004 实测亮度众数 250 → 139）。 */
-  .map-workspace .map-glass-sheet,
-  .map-workspace .map-glass-sheet.map-glass-refracting {
+  /* T-023：面板重新成为折射 target（见 resolveGlassTargets）。
+     折射不可用（WebGL 缺 VAO / 用户关掉玻璃）时回落到这条：90% 白纱 + blur(16px)。
+     T-020 曾把两态并成同一条 90%，理由是折射态下 header 背后楼栋标注顶穿可读性不达标；
+     这次把折射态白纱降到 72% + blur(2px)，靠「白纱 + 极轻模糊」换回可读性（P-004 实测纯透明亮度众数 250 → 139，纯透明不可取）。 */
+  .map-workspace .map-glass-sheet {
     background: color-mix(in srgb, var(--surface) 90%, transparent);
     backdrop-filter: blur(16px) saturate(1.1);
+  }
+
+  /* T-023：面板重新成为折射 target，白纱降到 72%、blur 收到 2px，让弯折的底图色带透出来。
+     72% 是 390×844 半屏态 13px 标签可读性实测值（72%–82% 区间取偏透一端）。 */
+  .map-workspace .map-glass-sheet.map-glass-refracting {
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    backdrop-filter: blur(2px) saturate(1.05);
   }
 
   /*
