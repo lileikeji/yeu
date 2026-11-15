@@ -9,7 +9,7 @@ const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts')
 const detailsSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
 const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const e2eFixtureSource = readFileSync(resolve('scripts/prepare-e2e-database.ts'), 'utf8')
-// T-024：展开/收起过渡期的暂停与纹理降本都在这个 composable 里。
+// 展开/收起过渡期不暂停绘制、只冻结纹理上传；纹理降本都在这个 composable 里。
 const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
 
 test('map place details use compact mobile and desktop-only floating panels', () => {
@@ -180,16 +180,21 @@ test('sheet height transition animates height only and keeps a 280ms soft ease',
   assert.match(pageSource, /\[contain:layout_paint\]/)
 })
 
-test('sheet transition pauses glass refraction and resumes afterwards', () => {
-  // T-024：过渡期不画折射，靠 transitionstart/end 开关；360ms 兜底定时器覆盖反向拖拽。
+test('sheet transition keeps glass refracting and only freezes the texture upload', () => {
+  // 面板在动、底图没动：过渡期照常画折射，只冻结底图纹理上传。
+  // 停画会让面板退回 90% 白纱、落定瞬间再切回 66% 玻璃，收起时看得见闪一下。
   assert.match(pageSource, /@transitionstart="handleSheetTransitionStart"/)
   assert.match(pageSource, /@transitionend="handleSheetTransitionEnd"/)
-  assert.match(pageSource, /setMapGlassPaused\(true\)/)
-  assert.match(pageSource, /setMapGlassPaused\(false\)/)
+  assert.doesNotMatch(pageSource, /setMapGlassPaused/, '过渡期不应暂停玻璃绘制')
+  assert.doesNotMatch(pageSource, /glassTransitioning/, '折射类不应随过渡期切换')
+  assert.match(pageSource, /mapGlassActive \? 'map-glass-refracting' : 'map-glass-surface'/)
+  assert.match(pageSource, /setMapGlassUploadFrozen\(true\)/)
+  assert.match(pageSource, /setMapGlassUploadFrozen\(false\)/)
   assert.match(pageSource, /setTimeout\(endGlassTransition, 360\)/)
-  assert.match(glassSource, /function setPaused\(value: boolean\): void/)
-  assert.match(glassSource, /if \(paused\.value\) return/, 'renderFrame 应在暂停时提前返回')
-  assert.match(glassSource, /return \{ attach, start, stop, setPaused, ready, fps, paused \}/)
+  assert.match(glassSource, /let uploadFrozen = false/)
+  assert.match(glassSource, /function setUploadFrozen\(value: boolean\): void/)
+  assert.match(glassSource, /!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS/, '过渡期应跳过纹理上传')
+  assert.match(glassSource, /return \{ attach, start, stop, setUploadFrozen, ready, fps \}/)
 })
 
 test('glass texture upload is downsampled to half size and rate limited to 30Hz', () => {
@@ -198,5 +203,5 @@ test('glass texture upload is downsampled to half size and rate limited to 30Hz'
   assert.match(glassSource, /const GLASS_UPLOAD_INTERVAL_MS = 33/)
   assert.match(glassSource, /downscaleContext\.drawImage\(source, 0, 0, targetWidth, targetHeight\)/)
   assert.match(glassSource, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA, gl\.RGBA, gl\.UNSIGNED_BYTE, downscaleCanvas\)/)
-  assert.match(glassSource, /if \(!textureUploaded \|\| now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS\)/)
+  assert.match(glassSource, /if \(!textureUploaded \|\| \(!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS\)\)/)
 })

@@ -465,16 +465,13 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   attach: (container: HTMLElement) => void
   start: () => void
   stop: () => void
-  /** T-024：过渡动画期间暂停绘制，只保留清屏。 */
-  setPaused: (value: boolean) => void
+  /** 过渡动画期间只冻结底图纹理上传（四边形照常重画）：面板在动，底图没动。 */
+  setUploadFrozen: (value: boolean) => void
   readonly ready: Ref<boolean>
   readonly fps: Ref<number>
-  readonly paused: Ref<boolean>
 } {
   const ready = ref(false)
   const fps = ref(0)
-  /** T-024：展开/收起动画期间暂停绘制（只清屏），动画结束立刻恢复。 */
-  const paused = ref(false)
 
   let mount: GlassMount | null = null
   let rafId: number | null = null
@@ -492,13 +489,21 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     120
   )
 
+  /** 过渡期只冻结底图纹理上传（四边形照常重画）：面板在动、底图没动。 */
+  let uploadFrozen = false
+
+  function setUploadFrozen(value: boolean): void {
+    uploadFrozen = value
+  }
+
+
   function renderFrame(): void {
     if (!mount) return
     const { container, canvas } = mount
     const bounds = container.getBoundingClientRect()
     if (!(bounds.width > 0) || !(bounds.height > 0)) return
 
-    const dpr = resolveGlassPixelRatio(globalThis.devicePixelRatio ?? 1)
+    const dpr = resolveGlassPixelRatio(globalThis.devicePixelRatio ?? 1) 
     const pixelWidth = Math.max(1, Math.round(bounds.width * dpr))
     const pixelHeight = Math.max(1, Math.round(bounds.height * dpr))
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -515,14 +520,12 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
 
     // T-024：过渡期只清屏不画。面板高度每帧在变，四边形与底图纹理都要重算，
     // 正好是掉帧最狠的一段；这段交给 CSS 白纱兜底，transitionend 后接回来。
-    if (paused.value) return
-
     // source 拿不到（地图还没就绪）就先清成透明，等下一帧。
     const source = options.source()
     if (!source) return
     // 上传限频：底图只在平移缩放时才变，稳态 60Hz 重传同一张纹理是白烧 GPU。
     const now = globalThis.performance?.now?.() ?? 0
-    if (!textureUploaded || now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS) {
+    if (!textureUploaded || (!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS)) {
       if (!uploadSource(gl, pipeline.texture, source)) return
       textureUploaded = true
       lastUploadAt = now
@@ -573,9 +576,6 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   function loop(now: number): void {
     rafId = globalThis.requestAnimationFrame(loop)
     renderFrame()
-    // 暂停期不数帧：这段 fps 必须是 0，否则「过渡期归零」验不出来。
-    if (paused.value) return
-
     // FPS 数的是「循环实际跑起来的频率」，不是「成功画了几帧」：底图没就绪时
     // 每帧只 clear，但循环仍是 60Hz，报 0 会让人以为卡死。
     // 窗口取 500ms：再短单帧抖动就会把数字打到 30，看着像掉帧。
@@ -597,16 +597,6 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     frameCount = 0
     fpsWindowStart = 0
     fps.value = 0
-  }
-
-  /** T-024：过渡动画期间暂停绘制（renderFrame 只清屏）。幂等，可反复调用。 */
-  function setPaused(value: boolean): void {
-    if (paused.value === value) return
-    paused.value = value
-    // 两个方向都重置统计窗口：暂停期 fps 必须是 0，恢复后也不该把旧帧数带进新窗口。
-    frameCount = 0
-    fpsWindowStart = 0
-    if (value) fps.value = 0
   }
 
   function start(): void {
@@ -721,5 +711,5 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     onScopeDispose(detach)
   }
 
-  return { attach, start, stop, setPaused, ready, fps, paused }
+  return { attach, start, stop, setUploadFrozen, ready, fps }
 }
