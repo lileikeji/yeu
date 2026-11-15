@@ -112,11 +112,21 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
 // T-022 修正 01（R-010 F14）：半屏 326 / 折叠 0 必须由 CSS 断点决定（max-md:），
 // 不能挂在 panelIsDesktop 上——JS 断点与 CSS 断点不同源时面板会卡在 58vh。
 test('mobile sheet half height is pinned by the max-md breakpoint', () => {
-  assert.match(pageSource, /max-md:!h-\[326px\]/, '半屏高度应使用 max-md:!h-[326px]')
+  assert.match(
+    pageSource,
+    /sheetHydrated && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
+    '半屏高度必须挂在水合完成 + half 的守卫上，无条件挂 max-md 会把 expanded 也压成 326'
+  )
+  assert.equal((pageSource.match(/max-md:!h-\[326px\]/g) || []).length, 1, '半屏高度类只应出现一次')
 })
 
 test('mobile sheet collapsed state collapses via the max-md breakpoint', () => {
-  assert.match(pageSource, /max-md:!h-0 max-md:border-t-0 max-md:shadow-none/, '折叠态收起与边框阴影应走 max-md:')
+  assert.match(
+    pageSource,
+    /!sheetHydrated \|\| mobileSheetState === 'collapsed'\s*\?\s*'max-md:!h-0 max-md:border-t-0 max-md:shadow-none'\s*:\s*''/,
+    '折叠态收起与边框阴影应挂在「未水合或 collapsed」守卫上'
+  )
+  assert.equal((pageSource.match(/max-md:!h-0/g) || []).length, 1, '折叠高度类只应出现一次')
 })
 
 test('mobile sheet no longer renders an in-panel search input', () => {
@@ -146,8 +156,19 @@ test('mobile sheet sections scroller hides the scrollbar', () => {
   )
 })
 
+test('favorite star keeps 3:1 against surface in both states', () => {
+  // 非文本图标按 WCAG 1.4.11 要 3:1：amber-500 压纸白仅 2.13、zinc-400 仅 2.6
+  assert.match(detailsSource, /text-amber-600 dark:text-amber-400/, '点亮态浅色需 amber-600')
+  assert.match(detailsSource, /text-zinc-500 dark:text-zinc-400/, '未点亮态浅色需 zinc-500')
+  assert.doesNotMatch(detailsSource, /text-amber-500/)
+})
+
 test('mobile sheet stays bound to the two glass state classes', () => {
-  assert.match(pageSource, /mapGlassActive \? 'map-glass-refracting' : 'map-glass-surface'/)
+  // 全文另有三处同串（chips / dock / 桌面侧栏），只查全文会被「删掉面板那条」骗过，必须锚到 aside
+  const sheetStart = pageSource.indexOf('class="map-glass-sheet')
+  assert.ok(sheetStart > 0, '未找到 .map-glass-sheet 面板节点')
+  const sheetBlock = pageSource.slice(sheetStart, sheetStart + 2500)
+  assert.match(sheetBlock, /'map-glass-refracting' : 'map-glass-surface'/, '面板本身必须绑定折射/回落两个状态类')
 })
 
 test('mobile sheet is registered as a glass refraction target', () => {
