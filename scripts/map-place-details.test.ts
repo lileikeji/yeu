@@ -172,9 +172,9 @@ test('sheet refracting state drops the veil to <=82% and blur to <=2px', () => {
   assert.ok(Number.isFinite(blur) && blur <= 2, '折射态 blur 应 ≤2px，实际 ' + blur + 'px')
 })
 
-test('sheet height transition animates height only and keeps a 280ms soft ease', () => {
+test('sheet height transition animates height only and keeps a 320ms soft ease', () => {
   // T-024：只过渡 height。transition-all 会把圆角、阴影、边框一起插值，展开时抖动明显。
-  assert.match(pageSource, /transition-\[height\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]/)
+  assert.match(pageSource, /transition-\[height\] duration-\[320ms\] ease-\[cubic-bezier\(0\.24,1,0\.32,1\)\]/)
   assert.equal(pageSource.match(/transition-all/g), null, '页面里不应出现 transition-all')
   // 面板内容隔离 layout/paint：高度变化不再触发整块重排。
   assert.match(pageSource, /\[contain:layout_paint\]/)
@@ -190,7 +190,7 @@ test('sheet transition keeps glass refracting and only freezes the texture uploa
   assert.match(pageSource, /mapGlassActive \? 'map-glass-refracting' : 'map-glass-surface'/)
   assert.match(pageSource, /setMapGlassUploadFrozen\(true\)/)
   assert.match(pageSource, /setMapGlassUploadFrozen\(false\)/)
-  assert.match(pageSource, /setTimeout\(endGlassTransition, 360\)/)
+  assert.match(pageSource, /setTimeout\(endGlassTransition, 420\)/)
   assert.match(glassSource, /let uploadFrozen = false/)
   assert.match(glassSource, /function setUploadFrozen\(value: boolean\): void/)
   assert.match(glassSource, /!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS/, '过渡期应跳过纹理上传')
