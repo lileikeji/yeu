@@ -56,12 +56,12 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   // 结构以 mockup 18-地图页-真折射手机.png 为准。
   assert.match(
     pageSource,
-    /:aria-label="mobileSheetState === 'collapsed' \? '展开地点面板' : '收起地点面板'"/,
+    /:aria-label="mobileSheetState === 'collapsed' \? '展开地点面板' : '收起地点面板'"/
   )
   assert.equal(
     (pageSource.match(/class="justify-center size-9"/g) || []).length,
     0,
-    '三态图标按钮应已被文字按钮取代',
+    '三态图标按钮应已被文字按钮取代'
   )
   assert.match(pageSource, /class="min-h-10(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*\s+md:mt-3(?:\s+dark:[^"\s]+)*\s+md:min-h-11(?:\s+dark:[^"\s]+)*"/)
   assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
@@ -114,7 +114,7 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
 test('mobile sheet half height is pinned by the max-md breakpoint', () => {
   assert.match(
     pageSource,
-    /sheetHydrated && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
+    /sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
     '半屏高度必须挂在水合完成 + half 的守卫上，无条件挂 max-md 会把 expanded 也压成 326'
   )
   assert.equal((pageSource.match(/max-md:!h-\[326px\]/g) || []).length, 1, '半屏高度类只应出现一次')
@@ -141,18 +141,18 @@ test('mobile sheet no longer renders an in-panel search input', () => {
 test('mobile sheet drops the empty desktop search strip and its border', () => {
   assert.doesNotMatch(
     pageSource,
-    /searchQuery\.trim\(\) \|\| nativeSearchLoading \|\| mapFallbackMessage \? '' : 'hidden md:block'/,
+    /searchQuery\.trim\(\) \|\| nativeSearchLoading \|\| mapFallbackMessage \? '' : 'hidden md:block'/
   )
   assert.match(
     pageSource,
-    /class="hidden shrink-0 border-b border-\[var\(--line\)\] px-3 py-2 md:block md:px-5 md:py-4"/,
+    /class="hidden shrink-0 border-b border-\[var\(--line\)\] px-3 py-2 md:block md:px-5 md:py-4"/
   )
 })
 
 test('mobile sheet sections scroller hides the scrollbar', () => {
   assert.match(
     pageSource,
-    /class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"/,
+    /class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"/
   )
 })
 
@@ -231,8 +231,8 @@ test('sheet stays collapsed before hydration so mobile first paint never flashes
   // 用户手机反馈：地图还在转圈时面板已经展开，hydration 完才收起。
   assert.match(pageSource, /const sheetHydrated = ref\(false\)/)
   assert.match(pageSource, /sheetHydrated\.value = true/)
-  assert.ok(pageSource.includes("sheetHydrated && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : ''"))
-  assert.ok(pageSource.includes("!sheetHydrated || mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : ''"))
+  assert.ok(pageSource.includes('sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
+  assert.ok(pageSource.includes('!sheetHydrated || mobileSheetState === \'collapsed\' ? \'max-md:!h-0 max-md:border-t-0 max-md:shadow-none\' : \'\''))
 })
 
 test('map chrome backdrop follows the palette instead of a fixed green grey', () => {
@@ -240,4 +240,58 @@ test('map chrome backdrop follows the palette instead of a fixed green grey', ()
   assert.doesNotMatch(pageSource, /#e5ebe7/)
   assert.doesNotMatch(pageSource, /#1c231e/)
   assert.match(pageSource, /bg-\[var\(--page-bg\)\]/)
+})
+test('glass pipeline keeps premultiplied alpha consistent and clears the staging canvas', () => {
+  // CR-4：上下文与混合函数必须同为预乘表示，着色器输出也要预乘，否则颜色被二次衰减。
+  assert.match(glassSource, /premultipliedAlpha: true/)
+  assert.match(glassSource, /outColor = vec4\(col \* alpha, alpha\);/)
+  assert.match(glassSource, /gl\.blendFunc\(gl\.ONE, gl\.ONE_MINUS_SRC_ALPHA\)/)
+  // CR-2：中转画布复用，上传前必须擦除，透明区域不能留上一帧。
+  assert.match(glassSource, /downscaleContext\.clearRect\(0, 0, targetWidth, targetHeight\)/)
+})
+
+test('glass pipeline stops claiming ready when the source or targets are missing', () => {
+  // CR-3：源不可用时 ready 必须落回 false，页面才会走 backdrop-filter 兜底。
+  assert.match(glassSource, /if \(!source\) \{\s*\/\/[^\n]*\n\s*ready\.value = false/)
+  // CR-5：没有 target 就不上传底图，顺手把状态收干净。
+  assert.match(glassSource, /const targets = options\.targets\(\)/)
+  assert.match(glassSource, /if \(targets\.length === 0\) \{/)
+})
+
+test('glass stop clears run intent, ready flag and canvas', () => {
+  // CR-5：stop() 要清掉「上下文恢复后继续」的意图；CR-6：停画后 ready=false 并擦画布。
+  assert.match(glassSource, /function stop\(\): void \{[\s\S]{0,400}?resumeAfterRestore = false/)
+  assert.match(glassSource, /function stop\(\): void \{[\s\S]{0,900}?ready\.value = false/)
+  assert.match(glassSource, /function stop\(\): void \{[\s\S]{0,900}?gl\.clear\(gl\.COLOR_BUFFER_BIT\)/)
+})
+
+test('sheet category tap lands on the filtered place list', () => {
+  // CR-7：分类点进去要看到地点（整表视图），且分类入口含「全部地点」，与注释一致。
+  assert.match(pageSource, /function openMapSheetCategory\(id: MapSheetCategoryId\): void \{[\s\S]{0,220}?mapSheetView\.value = 'all'/)
+  assert.match(pageSource, /\{ id: 'all', label: '全部地点'/)
+})
+
+test('sheet live height records the collapsed zero baseline', () => {
+  // CR-8：折叠态高度 0 也要记进基线，dock 才会贴底。
+  assert.match(pageSource, /mobileSheetLiveHeightPx\.value = height/)
+  assert.doesNotMatch(pageSource, /if \(height > 0\) mobileSheetLiveHeightPx/)
+})
+
+test('mobile dock search expands the sheet and renders results in the panel', () => {
+  // CR-11：手机搜索要有加载态/结果列表并可点选。
+  assert.match(pageSource, /function onMobileDockSearchInput\(value: string\): void \{/)
+  assert.match(pageSource, /@input="onMobileDockSearchInput\(/)
+  assert.match(pageSource, /aria-label="地图搜索结果"/)
+  assert.match(pageSource, /正在搜索地图里的地点…/)
+  assert.match(pageSource, /找到 \{\{ nativeSearchResults\.length \}\} 个地点/)
+})
+
+test('mobile sheet exposes the display settings entry', () => {
+  // CR-12：手机要有「地图显示设置」入口，开的是同一个面板。
+  assert.match(pageSource, /aria-label="地图显示设置"[\s\S]{0,120}?@click="toggleDisplaySettings"/)
+})
+
+test('page source keeps no multiple consecutive blank lines', () => {
+  // CR-10：@stylistic/no-multiple-empty-lines。
+  assert.doesNotMatch(pageSource, /\n[ \t]*\n[ \t]*\n/)
 })

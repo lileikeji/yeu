@@ -191,10 +191,18 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     this.disposeMap()
     const lifecycleVersion = ++this.lifecycleVersion
-    const [maplibre] = await Promise.all([
+    const [maplibre, , workerModule] = await Promise.all([
       import('maplibre-gl'),
-      import('maplibre-gl/dist/maplibre-gl.css')
+      import('maplibre-gl/dist/maplibre-gl.css'),
+      // CR-13：worker 交给打包器产出 URL。库自身按 import.meta.url 推导时，产物里没有
+      // maplibre-gl-worker*.mjs（`.output/public/_nuxt` 实测只有 css 与主 chunk），
+      // worker 请求 404 → 地图一直「正在载入」。?worker&url 让 Vite 打包 worker 并给出产物地址。
+      import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')
     ])
+    const maplibreWorkerUrl: unknown = (workerModule as { default?: unknown }).default
+    if (typeof maplibreWorkerUrl === 'string' && maplibreWorkerUrl) {
+      maplibre.setWorkerUrl(maplibreWorkerUrl)
+    }
 
     if (lifecycleVersion !== this.lifecycleVersion) {
       return

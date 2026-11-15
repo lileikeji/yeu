@@ -245,7 +245,8 @@ void main() {
   alpha += rim * 0.25 + topLit * 0.12 + gloss * 0.06;
   alpha = clamp(alpha, 0.0, 1.0);
 
-  outColor = vec4(col, alpha);
+  // CR-4：上下文按 premultipliedAlpha:true 创建，输出必须是预乘色，否则合成器会再乘一次 alpha。
+  outColor = vec4(col * alpha, alpha);
 }
 `
 
@@ -451,7 +452,9 @@ function uploadSource(
   }
   gl.bindTexture(gl.TEXTURE_2D, texture)
   try {
-    // 半分辨率离屏 canvas 中转：drawImage 负责缩放，texImage2D 只搬 1/4 的像素。
+    // CR-2：中转画布复用，source-over 是叠加不是替换，先擦干净再画，纹理才等于当前帧。
+    downscaleContext.clearRect(0, 0, targetWidth, targetHeight)
+    downscaleContext.drawImage(source, 0, 0, targetWidth, targetHeight)
     downscaleContext.drawImage(source, 0, 0, targetWidth, targetHeight)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, downscaleCanvas)
   } catch {
@@ -496,14 +499,13 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     uploadFrozen = value
   }
 
-
   function renderFrame(): void {
     if (!mount) return
     const { container, canvas } = mount
     const bounds = container.getBoundingClientRect()
     if (!(bounds.width > 0) || !(bounds.height > 0)) return
 
-    const dpr = resolveGlassPixelRatio(globalThis.devicePixelRatio ?? 1) 
+    const dpr = resolveGlassPixelRatio(globalThis.devicePixelRatio ?? 1)
     const pixelWidth = Math.max(1, Math.round(bounds.width * dpr))
     const pixelHeight = Math.max(1, Math.round(bounds.height * dpr))
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -522,7 +524,20 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     // 正好是掉帧最狠的一段；这段交给 CSS 白纱兜底，transitionend 后接回来。
     // source 拿不到（地图还没就绪）就先清成透明，等下一帧。
     const source = options.source()
-    if (!source) return
+    if (!source) {
+      // CR-3：源不可用时不能继续声称折射可用，否则页面拿不到 backdrop-filter 回落。
+      ready.value = false
+      return
+    }
+
+    const targets = options.targets()
+    if (targets.length === 0) {
+      // CR-5：没有 target 就没有要画的玻璃，不上传整张底图，顺手把状态收干净。
+      ready.value = false
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      return
+    }
+
     // 上传限频：底图只在平移缩放时才变，稳态 60Hz 重传同一张纹理是白烧 GPU。
     const now = globalThis.performance?.now?.() ?? 0
     if (!textureUploaded || (!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS)) {
@@ -531,7 +546,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
       lastUploadAt = now
     }
 
-    const quads = collectGlassQuads(options.targets(), {
+    const quads = collectGlassQuads(targets, {
       left: bounds.left,
       top: bounds.top,
       width: bounds.width,
@@ -566,8 +581,8 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     gl.uniform1f(pipeline.uDpr, dpr)
 
     gl.enable(gl.BLEND)
-    // 直通 alpha 混合：上下文按 premultipliedAlpha:false 创建，颜色不能预乘。
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // 上下文按 premultipliedAlpha:true 创建、着色器输出预乘色，混合也必须按预乘来（否则颜色被二次衰减）。
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, quads.length)
     gl.bindVertexArray(null)
     ready.value = true
@@ -590,6 +605,8 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   }
 
   function stop(): void {
+  // 停画 = 不需要运行：连「上下文恢复后继续」的意图一起清掉，否则 restored 会把循环拉回来。
+    resumeAfterRestore = false
     if (rafId !== null) {
       globalThis.cancelAnimationFrame(rafId)
       rafId = null
@@ -597,6 +614,13 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     frameCount = 0
     fpsWindowStart = 0
     fps.value = 0
+    // 停画后不能继续声称折射可用：页面据此回落到 backdrop-filter，画布也要擦干净，别留上一帧。
+    ready.value = false
+    const gl = mount?.pipeline?.gl
+    if (gl) {
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+    }
   }
 
   function start(): void {
@@ -614,8 +638,9 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   function handleContextLost(event: Event): void {
     // 不 preventDefault 的话浏览器不会尝试恢复上下文。
     event.preventDefault()
-    resumeAfterRestore = rafId !== null
+    const wasRunning = rafId !== null
     stop()
+    resumeAfterRestore = wasRunning
     ready.value = false
     if (mount) mount.pipeline = null
   }
@@ -674,7 +699,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     // 拿不到 WebGL2 就把 canvas 撤掉，ready 保持 false，调用方继续用 CSS 兜底。
     const gl = canvas.getContext('webgl2', {
       alpha: true,
-      premultipliedAlpha: false,
+      premultipliedAlpha: true,
       antialias: false,
       depth: false,
       stencil: false,
