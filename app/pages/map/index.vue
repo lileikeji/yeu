@@ -728,6 +728,9 @@ const {
   notify: notice => toast.add(notice)
 })
 
+// 折叠态地图上的校车 ETA 胶囊：位置来自 provider.projectToScreen 投影 seam。
+const busEtaPills = useMapBusEta({ buses: busVehicles, routes: busRoutes, provider: mapProvider, activeRouteId: busSelectedRouteId })
+
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
   sheetHydrated.value = true
@@ -1411,6 +1414,20 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         class="pointer-events-none absolute inset-0 z-[18] md:hidden"
         aria-hidden="true"
       />
+      <!-- 校车 ETA 胶囊：只在折叠态浮在地图上方；位置由投影 seam 给出，半屏/展开不显示。 -->
+      <div
+        v-if="mobileSheetState === 'collapsed'"
+        class="pointer-events-none absolute inset-0 z-[19] md:hidden"
+        data-bus-eta-layer
+      >
+        <MapBusEtaPill
+          v-for="pill in busEtaPills"
+          :key="pill.id"
+          :label="pill.label"
+          :eta-minutes="pill.etaMinutes"
+          :style="{ transform: pill.transform }"
+        />
+      </div>
 
       <!-- 移动端浮层（<768px）：搜索胶囊 / 分类 chips / 底图来源条 / 右侧定位与列表。
            桌面端整块 md:hidden，侧栏保持原样。 -->
