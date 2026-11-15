@@ -3396,11 +3396,21 @@ export function lookupCompetitionResult(
     validationError('姓名、学号、QQ 三项都要填', !name ? 'name' : !studentNo ? 'studentNo' : 'qq')
   }
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const singer = listSingers(client, eventRow.id).find(item =>
-    normalizeLookup(item.name ?? undefined) === name
-    && normalizeLookup(item.studentNo ?? undefined) === studentNo
-    && normalizeLookup(item.qq ?? undefined) === qq
+  // 老选手可能没在选手库填 QQ：允许用他预报名时留下的 QQ 对上。
+  const preRows = client.db.select().from(competitionPreRegistrations)
+    .where(eq(competitionPreRegistrations.eventId, eventRow.id))
+    .all()
+  const preQqByNameAndNo = new Map(
+    preRows
+      .filter(row => row.qq)
+      .map(row => [`${normalizeLookup(row.name ?? undefined)}|${normalizeLookup(row.studentNo ?? undefined)}`, normalizeLookup(row.qq ?? undefined)])
   )
+  const singer = listSingers(client, eventRow.id).find((item) => {
+    const itemName = normalizeLookup(item.name ?? undefined)
+    const itemNo = normalizeLookup(item.studentNo ?? undefined)
+    const itemQq = normalizeLookup(item.qq ?? undefined) || preQqByNameAndNo.get(`${itemName}|${itemNo}`) || ''
+    return itemName === name && itemNo === studentNo && itemQq === qq
+  })
   if (!singer) {
     conflictError('COMPETITION_LOOKUP_NOT_FOUND', '姓名、学号、QQ 对不上，请核对后重试')
   }
