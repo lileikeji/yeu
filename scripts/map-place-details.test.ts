@@ -312,7 +312,24 @@ test('mobile dock search input stays visible while searching', () => {
   // F23：抬到半屏后 dock 整块被 v-show 关掉，用户正在输入的搜索框会消失。
   assert.match(pageSource, /v-show="mobileSheetState === 'collapsed' \|\| mapSheetSearching"/)
   // 搜索把面板抬到半屏后，dock 要让开面板高度，否则搜索框被面板压在下面看不见。
-  assert.match(pageSource, /mobileSheetState === 'collapsed' \? '' : 'bottom-\[var\(--map-mobile-dock\)\]'/)
+  // F26：bottom 只能由一个分支给，静态类里不许再留 bottom-0 与 arbitrary 抢胜负。
+  assert.match(pageSource, /:class="mobileSheetState === 'collapsed' \? 'bottom-0' : 'bottom-\[var\(--map-mobile-dock\)\]'"/)
+  assert.doesNotMatch(pageSource, /class="pointer-events-none absolute inset-x-0 bottom-0 z-30 md:hidden"/)
+})
+
+test('native search widgets are hidden so only the custom clear button shows', () => {
+  // F27：appearance:none 挡不住 ::-webkit-search-cancel-button，必须显式 display:none。
+  assert.match(pageSource, /\.map-workspace input\[type='search'\]::-webkit-search-cancel-button,/)
+  assert.match(pageSource, /\.map-workspace input\[type='search'\]::-webkit-search-decoration \{/)
+  const rule = pageSource.match(/\.map-workspace input\[type='search'\]::-webkit-search-cancel-button,[\s\S]{0,200}?\{([\s\S]{0,120}?)\}/)
+  assert.ok(rule, '取消钮与装饰伪元素应合并成一条规则')
+  assert.match(rule![1], /display:\s*none/)
+})
+
+test('sheet empty state yields to the local place list when it has matches', () => {
+  // F28：地图侧零结果时不再直接断言「没有找到」，本地有匹配就交给列表。
+  assert.match(pageSource, /<p\s+v-else-if="!filteredPois\.length"/)
+  assert.doesNotMatch(pageSource, /<p\s+v-else\s+class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"\s+role="status"/)
 })
 
 test('glass upload scales the source once per frame', () => {
