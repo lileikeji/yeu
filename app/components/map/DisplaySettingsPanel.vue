@@ -6,6 +6,8 @@ type DisplayToggleKey = Exclude<keyof MapDisplayOptions, 'labelSize'>
 const props = defineProps<{
   baseStyle: MapBaseStyle
   displayOptions: MapDisplayOptions
+  /** 玻璃折射开关（移动端浮层）。桌面端不启用，开关本身仍然可见，切了不报错。 */
+  glassRefraction: boolean
 }>()
 
 const emit = defineEmits<{
@@ -13,6 +15,7 @@ const emit = defineEmits<{
   setBaseStyle: [style: MapBaseStyle]
   toggleOption: [option: DisplayToggleKey]
   setLabelSize: [size: MapLabelSize]
+  setGlassRefraction: [enabled: boolean]
 }>()
 
 const labelSizeOptions: Array<{ value: MapLabelSize, label: string }> = [
@@ -125,6 +128,32 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
           {{ size.label }}
         </button>
       </div>
+    </div>
+
+    <!-- 玻璃折射开关：WebGL2 缺失或掉帧时会自动降级，这里只是让用户能手动关掉。
+         关掉后浮层退回 backdrop-filter blur，布局与可读性不变。 -->
+    <div class="mt-4 flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+          玻璃折射
+        </p>
+        <p class="mt-0.5 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
+          手机关掉后改用普通模糊
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        class="mt-0.5 flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors"
+        :class="props.glassRefraction
+          ? 'justify-end border-green-700 bg-green-700'
+          : 'justify-start border-zinc-300 bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-700'"
+        :aria-checked="props.glassRefraction"
+        aria-label="玻璃折射"
+        @click="emit('setGlassRefraction', !props.glassRefraction)"
+      >
+        <span class="mx-0.5 block size-5 rounded-full bg-[var(--surface)] shadow-sm" />
+      </button>
     </div>
   </section>
 </template>
