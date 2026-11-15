@@ -24,10 +24,10 @@ const STOP_ROW_HEIGHT = 56
 const STOP_DOT_CENTER = 16.5
 /** 校园减速带总数（校园口径，与具体线路无关）。 */
 const campusSpeedBumpCount = CAMPUS_SPEED_BUMPS.length
-/** 校车运营时段（07:00–22:30），用于空车时的收车态文案。 */
-const SERVICE_OPEN_MINUTES = 7 * 60
-const SERVICE_CLOSE_MINUTES = 22 * 60 + 30
-const SERVICE_HOURS_LABEL = '运营时段 07:00–22:30'
+/** 校车冬令时运营时段，用于空车时的收车态文案。 */
+const SERVICE_OPEN_MINUTES = 7 * 60 + 20
+const SERVICE_CLOSE_MINUTES = 21 * 60 + 20
+const SERVICE_HOURS_LABEL = '运营时段 07:20–21:20（冬令时） · 末班车 21:10'
 
 /** 上海时区分钟数（不依赖浏览器本地时区）。 */
 function shanghaiMinutes(epochMs: number): number {
