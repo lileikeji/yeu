@@ -213,3 +213,119 @@ test('品牌底不放白字：class 串同时出现 bg-green-700 与 text-white 
   }
   assert.deepEqual(broken, [], '品牌底上有白字（暗色会白压白）：' + broken.join(' | '))
 })
+
+// ── T-021 歌手三页：写死色归零 + 暗色可读性守门 ────────────────────────────
+// 背景：/singer、/singer/pre-register、/singer/register 三页原先有 128 处写死 hex
+// （34 种暖橙/暖灰），换主题或切暗色时不再跟随，深底上会白压白。这里锁三件事：
+// 1) 三页不允许再出现 hex 字面量（白名单是空的，一处都不放过）；
+// 2) 四套 × 浅深的正文/次文压在 --surface 与 --page-bg 上都过 4.5:1，主色 700 压在卡片面上同理；
+// 3) 这三页的外壳必须是 .singer-canvas 主题壳层，且该壳层用主题变量画，不回退到写死渐变。
+
+function singerPages(): string[] {
+  return walkVue(new URL('../app/pages/singer/', import.meta.url))
+}
+
+test('歌手三页不得再写死颜色：app/pages/singer/**/*.vue 的 #hex 归零', () => {
+  const files = singerPages()
+  assert.ok(files.length >= 3, '没扫到 app/pages/singer/*.vue：' + files.join(', '))
+  const broken: string[] = []
+  for (const rel of files) {
+    const src = readFileSync(new URL('../app/pages/singer/' + rel, import.meta.url), 'utf8')
+    for (const m of src.matchAll(/#[0-9a-fA-F]{3,8}\b/g))
+      broken.push(rel + ' → ' + m[0])
+  }
+  assert.deepEqual(broken, [], '歌手三页仍有写死 hex：' + broken.join(' | '))
+})
+
+test('四套 × 浅深：--ink / --muted-ink 压 --surface 与 --page-bg 都过 4.5:1（歌手页正文底）', () => {
+  const blocks = collect()
+  const rows: string[] = []
+  for (const id of PAGES) {
+    for (const mode of ['light', 'dark'] as const) {
+      const key = `${id}-${mode}`
+      const t = blocks[key]
+      assert.ok(t, `缺少 ${key} 变量块`)
+      for (const fg of ['--ink', '--muted-ink'] as const) {
+        for (const bg of ['--surface', '--page-bg'] as const) {
+          const ratio = contrast(t[fg], t[bg])
+          assert.ok(ratio !== null, `${key} ${fg}/${bg} 无法解析`)
+          rows.push(`${key} ${fg}/${bg} ${ratio.toFixed(2)}`)
+          assert.ok(ratio >= TEXT_MIN, `${key} ${fg}/${bg} = ${ratio.toFixed(2)} < ${TEXT_MIN}`)
+        }
+      }
+      const accent = contrast(t['--color-green-700'], t['--surface'])
+      assert.ok(accent !== null, `${key} --color-green-700 / --surface 无法解析`)
+      rows.push(`${key} 主色700/面 ${accent.toFixed(2)}`)
+      assert.ok(accent >= TEXT_MIN, `${key} 主色700/面 = ${accent.toFixed(2)} < ${TEXT_MIN}`)
+    }
+  }
+  assert.equal(rows.length, PAGES.length * 2 * 5)
+})
+
+test('歌手三页外壳走 .singer-canvas 主题壳层（main.css 里有该块，且用 --page-bg / --color-green-600 画）', () => {
+  const block = CSS.match(/\.singer-canvas\s*\{([^}]*)\}/)
+  assert.ok(block, 'main.css 缺少 .singer-canvas 块')
+  const body = block[1]
+  assert.ok(/var\(--page-bg\)/.test(body), '.singer-canvas 未使用 --page-bg')
+  assert.ok(/var\(--color-green-600\)/.test(body), '.singer-canvas 未使用 --color-green-600')
+  const missing: string[] = []
+  for (const rel of singerPages()) {
+    const src = readFileSync(new URL('../app/pages/singer/' + rel, import.meta.url), 'utf8')
+    if (!/class="singer-canvas\b/.test(src)) missing.push(rel)
+  }
+  assert.deepEqual(missing, [], '这些页面外壳没换成 singer-canvas：' + missing.join(', '))
+})
+
+// ===== R-008 F1/F2 修正后的两条守门（2026-11-15，t16） =====
+// F1：浅色下 --muted-ink 压 .singer-canvas 顶端只有 2.91:1（paper 浅 #6f6f6f on #c5c5c5）。
+// 修法是浅色不再放径向光晕、线性只留 4% 的 --surface 洗色，顶端比 --page-bg 更亮；
+// 暗色暗底有余量，保留 18% 径向 + 10% 线性。这条断言按同一套公式逐套复算文字落点。
+// F2：register.vue 的静态 bg-green-600(#16a34a) 不跟主题，白字压它八套一律 3.3:1，故禁止静态品牌色工具类。
+const SINGER_LIGHT_WASH = 0.04
+const SINGER_DARK_LINEAR = 0.1
+const SINGER_DARK_RADIAL = 0.18
+
+function mixSingerRgb(a: number[], b: number[], t: number): number[] {
+  return [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t))
+}
+
+function singerHex(c: number[]): string {
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('')
+}
+
+test('歌手页 canvas 顶端（弱化文字实际落点）过 4.5:1：浅色 = 4% --surface 洗色，暗色 = 18% 径向 + 10% 线性', () => {
+  const blocks = collect()
+  const rows: string[] = []
+  for (const id of PAGES) {
+    for (const mode of ['light', 'dark'] as const) {
+      const key = `${id}-${mode}`
+      const t = blocks[key]
+      assert.ok(t, `缺少 ${key} 变量块`)
+      const page = rgb(t['--page-bg'])
+      const surface = rgb(t['--surface'])
+      const accent = rgb(t['--color-green-600'])
+      assert.ok(page && surface && accent, `${key} 的 --page-bg/--surface/--color-green-600 无法解析`)
+      const top = mode === 'light'
+        ? mixSingerRgb(surface, accent, SINGER_LIGHT_WASH)
+        : mixSingerRgb(mixSingerRgb(page, accent, SINGER_DARK_LINEAR), accent, SINGER_DARK_RADIAL)
+      const topHex = singerHex(top)
+      const ratio = contrast(t['--muted-ink'], topHex)
+      assert.ok(ratio !== null, `${key} canvas 顶端对比度无法解析`)
+      rows.push(`${key} canvas 顶端 ${topHex} ↔ 弱化文字 ${ratio.toFixed(2)}`)
+      assert.ok(ratio >= TEXT_MIN, `${key} canvas 顶端 ${topHex} 压 --muted-ink = ${ratio.toFixed(2)} < ${TEXT_MIN}`)
+    }
+  }
+  assert.equal(rows.length, PAGES.length * 2)
+})
+
+test('歌手三页不得再用静态品牌色工具类：bg|text|border|ring-(green|emerald)-(500|600|700) 归零', () => {
+  const files = singerPages()
+  assert.ok(files.length >= 3, '没扫到 app/pages/singer/*.vue：' + files.join(', '))
+  const broken: string[] = []
+  for (const rel of files) {
+    const src = readFileSync(new URL('../app/pages/singer/' + rel, import.meta.url), 'utf8')
+    const hits = src.match(/(?:bg|text|border|ring)-(?:green|emerald)-(?:500|600|700)\b/g) ?? []
+    if (hits.length) broken.push(rel + ' → ' + [...new Set(hits)].join(', '))
+  }
+  assert.deepEqual(broken, [], '这些页面还有静态品牌色工具类：' + broken.join(' | '))
+})
