@@ -194,7 +194,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           吃喝玩乐
@@ -256,7 +256,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
               <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 选“学校周边”或“泉州市区”，再点吃饭、景点、夜游、看展等标签。每个标签会给出几种不同地点，挑一个适合当天时间和预算的就行。
               </p>
-              <p class="mt-5 inline-flex items-center gap-2 rounded-xl border border-green-200 dark:border-green-800 bg-white/80 dark:bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-green-900 dark:text-green-300">
+              <p class="mt-5 inline-flex items-center gap-2 rounded-xl border border-green-200 dark:border-green-800 bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] dark:bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-green-900 dark:text-green-300">
                 <UIcon
                   name="i-lucide-route"
                   class="size-4"
@@ -315,14 +315,14 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 role="tab"
                 class="group flex min-h-16 items-center gap-3 rounded-2xl border px-4 text-left transition"
                 :class="activeGuideScope === scope.id
-                  ? 'border-green-600 bg-green-700 text-white shadow-sm'
-                  : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/50'"
+                  ? 'border-green-600 bg-green-700 text-[var(--surface)] shadow-sm'
+                  : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/50'"
                 :aria-selected="activeGuideScope === scope.id"
                 @click="selectGuideScope(scope.id)"
               >
                 <span
                   class="grid size-10 shrink-0 place-items-center rounded-xl"
-                  :class="activeGuideScope === scope.id ? 'bg-white/15 dark:bg-zinc-900/15 text-white' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400'"
+                  :class="activeGuideScope === scope.id ? 'bg-[color-mix(in_srgb,var(--surface)_15%,transparent)] dark:bg-zinc-900/15 text-white' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400'"
                 >
                   <UIcon
                     :name="scope.icon"
@@ -356,7 +356,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
                   class="inline-flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-sm font-semibold transition"
                   :class="activeGuideTag === tag.id
                     ? 'border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 text-orange-800 dark:text-orange-300'
-                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-orange-300 hover:text-orange-800 dark:hover:text-orange-300'"
+                    : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-orange-300 hover:text-orange-800 dark:hover:text-orange-300'"
                   :aria-selected="activeGuideTag === tag.id"
                   @click="selectGuideTag(tag.id)"
                 >
@@ -426,7 +426,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
             class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             :class="isNeedShortcutActive(shortcut, activeCategory)
               ? 'border-green-600 bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300'
-              : 'border-[var(--line)] bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40'"
+              : 'border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40'"
             :aria-pressed="isNeedShortcutActive(shortcut, activeCategory)"
             @click="selectNearbyNeed(shortcut.category)"
           >
@@ -546,7 +546,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           >
             <button
               type="button"
-              class="group flex min-h-24 w-full items-start gap-3 rounded-md border border-[var(--line)] bg-white dark:bg-zinc-900 p-4 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="group flex min-h-24 w-full items-start gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 p-4 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :aria-label="`查看${tip.title}地点`"
               @click="selectNearbyNeed(tip.category)"
             >
@@ -645,7 +645,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           </p>
         </div>
 
-        <details class="group mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <details class="group mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
           <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 marker:hidden">
             <span class="inline-flex items-center gap-2">
               <UIcon
@@ -685,7 +685,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           </template>
           · 名单更新于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
-        <details class="group mt-4 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <details class="group mt-4 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
           <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 marker:hidden">
             <span class="inline-flex items-center gap-2">
               <UIcon

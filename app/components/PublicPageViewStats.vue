@@ -75,10 +75,10 @@ watch(currentPath, (path) => {
     v-if="stats"
     class="text-center text-xs text-zinc-400 dark:text-zinc-500"
     :class="{
-      'border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2': props.variant === 'bar',
+      'border-t border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-2': props.variant === 'bar',
       'px-1 py-3': props.variant === 'inline',
-      'pointer-events-none absolute bottom-[calc(var(--mobile-nav-height)+0.75rem)] right-3 z-20 rounded-full border border-white/70 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:bottom-3 md:right-4': props.variant === 'overlay',
-      'pointer-events-none absolute bottom-3 right-3 z-20 max-w-[calc(100%-7rem)] whitespace-nowrap rounded-full border border-white/70 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:bottom-3 md:right-4': props.variant === 'map-dock'
+      'pointer-events-none absolute bottom-[calc(var(--mobile-nav-height)+0.75rem)] right-3 z-20 rounded-full border border-white/70 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:bottom-3 md:right-4': props.variant === 'overlay',
+      'pointer-events-none absolute bottom-3 right-3 z-20 max-w-[calc(100%-7rem)] whitespace-nowrap rounded-full border border-white/70 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:bottom-3 md:right-4': props.variant === 'map-dock'
     }"
     aria-live="polite"
   >

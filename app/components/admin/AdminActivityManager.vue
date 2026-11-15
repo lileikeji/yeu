@@ -456,7 +456,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+  <section class="rounded-xl border border-gray-200 bg-[var(--surface)] p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="text-xs font-medium tracking-wide text-green-700 dark:text-green-400">
@@ -488,14 +488,14 @@ onMounted(() => {
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition"
         :class="activeStatus === tab.value
-          ? 'border-green-700 bg-green-700 text-white dark:border-green-600 dark:bg-green-600'
-          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'"
+          ? 'border-green-700 bg-green-700 text-[var(--surface)]'
+          : 'border-gray-200 bg-[var(--surface)] text-gray-700 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'"
         @click="changeStatus(tab.value)"
       >
         {{ tab.label }}
         <span
           class="rounded-full px-1.5 text-xs"
-          :class="activeStatus === tab.value ? 'bg-white/20' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'"
+          :class="activeStatus === tab.value ? 'bg-[color-mix(in_srgb,var(--surface)_20%,transparent)]' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'"
         >{{ tabCount(tab.value) }}</span>
       </button>
     </div>
@@ -523,7 +523,7 @@ onMounted(() => {
 
   <div
     v-if="loading"
-    class="mt-4 grid min-h-52 place-items-center rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"
+    class="mt-4 grid min-h-52 place-items-center rounded-xl border border-gray-200 bg-[var(--surface)] dark:border-gray-800 dark:bg-gray-900"
     role="status"
   >
     <UIcon
@@ -534,7 +534,7 @@ onMounted(() => {
 
   <div
     v-else-if="items.length === 0"
-    class="mt-4 rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900"
+    class="mt-4 rounded-xl border border-dashed border-gray-300 bg-[var(--surface)] p-10 text-center dark:border-gray-700 dark:bg-gray-900"
   >
     <UIcon
       name="i-lucide-calendar-days"
@@ -552,7 +552,7 @@ onMounted(() => {
     <article
       v-for="item in items"
       :key="item.id"
-      class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+      class="rounded-xl border border-gray-200 bg-[var(--surface)] p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
     >
       <div class="flex flex-col gap-4 sm:flex-row">
         <img
