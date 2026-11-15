@@ -1468,7 +1468,10 @@ export const competitionPreRegisterSchema = z.object({
 export const competitionResultLookupSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(20),
-  qq: z.string().trim().regex(/^[0-9]{5,12}$/, 'QQ 填数字，5-12 位')
+  /** 第三要素：QQ 号或邮箱，二选一。 */
+  contact: z.string().trim().min(4).max(120),
+  /** 兼容旧客户端只传 qq 的写法。 */
+  qq: z.string().trim().max(120).optional()
 }).strict()
 
 export const competitionLookupSchema = z.object({
