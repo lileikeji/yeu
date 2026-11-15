@@ -12,7 +12,7 @@ useSeoMeta({
     <main class="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
       <!-- 头部 -->
       <header class="text-center">
-        <p class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm">
+        <p class="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm">
           仰恩大学音乐协会 · Music Association of YUE
         </p>
         <h1 class="mt-5 text-4xl font-black leading-tight tracking-wide text-[#2f3a34] sm:text-5xl">
@@ -28,7 +28,7 @@ useSeoMeta({
 
       <!-- 关键信息卡 -->
       <section class="mt-8 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-[#f2d8c4]">
+        <div class="rounded-2xl bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] p-4 shadow-sm ring-1 ring-[#f2d8c4]">
           <p class="text-xs font-semibold text-[#b4552f]">
             报名时间
           </p>
@@ -39,7 +39,7 @@ useSeoMeta({
             现场报名也可以
           </p>
         </div>
-        <div class="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-[#f2d8c4]">
+        <div class="rounded-2xl bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] p-4 shadow-sm ring-1 ring-[#f2d8c4]">
           <p class="text-xs font-semibold text-[#b4552f]">
             初赛时间
           </p>
@@ -50,7 +50,7 @@ useSeoMeta({
             两天 19:00 开始，自选一天
           </p>
         </div>
-        <div class="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-[#f2d8c4]">
+        <div class="rounded-2xl bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] p-4 shadow-sm ring-1 ring-[#f2d8c4]">
           <p class="text-xs font-semibold text-[#b4552f]">
             初赛地点
           </p>
@@ -91,7 +91,7 @@ useSeoMeta({
         <div class="mt-4">
           <NuxtLink
             to="/singer/pre-register"
-            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-[#c2543c] shadow transition hover:bg-orange-50 sm:w-auto"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-3 text-sm font-bold text-[#c2543c] shadow transition hover:bg-orange-50 sm:w-auto"
           >
             <UIcon
               name="i-lucide-calendar-plus"
@@ -105,7 +105,7 @@ useSeoMeta({
 
       <!-- 赛程与规则 -->
       <section class="mt-8 space-y-5">
-        <article class="rounded-2xl bg-white/85 p-5 shadow-sm ring-1 ring-[#eef0e9] sm:p-6">
+        <article class="rounded-2xl bg-[color-mix(in_srgb,var(--surface)_85%,transparent)] p-5 shadow-sm ring-1 ring-[#eef0e9] sm:p-6">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-xl font-black text-[#2f3a34]">
               初赛
@@ -142,7 +142,7 @@ useSeoMeta({
           </ol>
         </article>
 
-        <article class="rounded-2xl bg-white/85 p-5 shadow-sm ring-1 ring-[#eef0e9] sm:p-6">
+        <article class="rounded-2xl bg-[color-mix(in_srgb,var(--surface)_85%,transparent)] p-5 shadow-sm ring-1 ring-[#eef0e9] sm:p-6">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-xl font-black text-[#2f3a34]">
               复赛
@@ -172,7 +172,7 @@ useSeoMeta({
           </ol>
         </article>
 
-        <article class="rounded-2xl bg-white/85 p-5 shadow-sm ring-1 ring-[#eef0e9] sm:p-6">
+        <article class="rounded-2xl bg-[color-mix(in_srgb,var(--surface)_85%,transparent)] p-5 shadow-sm ring-1 ring-[#eef0e9] sm:p-6">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-xl font-black text-[#2f3a34]">
               决赛

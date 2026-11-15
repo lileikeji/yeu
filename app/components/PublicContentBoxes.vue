@@ -6,7 +6,7 @@ defineProps<{
 }>()
 
 const toneClasses: Record<PublicContentBox['tone'], string> = {
-  plain: 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900',
+  plain: 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900',
   green: 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/60',
   blue: 'border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/60',
   amber: 'border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/70'
@@ -26,7 +26,7 @@ const toneClasses: Record<PublicContentBox['tone'], string> = {
         :class="toneClasses[box.tone]"
       >
         <div class="flex items-start gap-3">
-          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm">
+          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--surface)] dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm">
             <UIcon
               :name="box.icon"
               class="size-4"
@@ -67,7 +67,7 @@ const toneClasses: Record<PublicContentBox['tone'], string> = {
           <figure
             v-for="image in box.images"
             :key="image.url"
-            class="overflow-hidden rounded-md border border-black/10 bg-white dark:bg-zinc-900 p-2"
+            class="overflow-hidden rounded-md border border-black/10 bg-[var(--surface)] dark:bg-zinc-900 p-2"
           >
             <ImagePreviewButton
               :src="image.url"

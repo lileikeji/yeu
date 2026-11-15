@@ -884,7 +884,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else>
-      <div class="sticky top-16 z-20 -mx-4 mb-5 flex flex-wrap items-center gap-3 border-y border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
+      <div class="sticky top-16 z-20 -mx-4 mb-5 flex flex-wrap items-center gap-3 border-y border-zinc-200 dark:border-zinc-800 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] dark:bg-zinc-900/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
         <div class="min-w-0 flex-1">
           <p class="text-xs font-semibold text-green-700 dark:text-green-400">
             {{ isCreating ? '可视化新增' : '可视化编辑' }}
@@ -929,7 +929,7 @@ onBeforeUnmount(() => {
       </p>
 
       <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#fafafa] dark:bg-zinc-900">
-        <header class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <header class="border-b border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
           <div class="mx-auto max-w-4xl px-5 py-8 md:px-8 md:py-11">
             <div class="flex flex-wrap items-center gap-2">
               <span class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
@@ -1123,7 +1123,7 @@ onBeforeUnmount(() => {
                       />
                     </span>
                     <div class="flex flex-wrap gap-2">
-                      <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                      <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                         <UIcon
                           :name="uploadTarget === 'icon' ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
                           class="size-4"
@@ -1304,7 +1304,7 @@ onBeforeUnmount(() => {
               <article
                 v-for="(box, index) in model.boxes"
                 :key="box.id"
-                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
               >
                 <div class="flex items-center gap-1">
                   <span class="mr-auto text-xs font-semibold text-zinc-500 dark:text-zinc-400">
@@ -1408,7 +1408,7 @@ onBeforeUnmount(() => {
                         最多 8 张，可填写图片标题；前台支持点击放大。
                       </p>
                     </div>
-                    <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+                    <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
                       <UIcon
                         :name="uploadTarget === boxUploadTarget(box) ? 'i-lucide-loader-circle' : 'i-lucide-images'"
                         class="size-4"
@@ -1432,7 +1432,7 @@ onBeforeUnmount(() => {
                     <div
                       v-for="(imageUrl, imageIndex) in box.imageUrls"
                       :key="imageUrl"
-                      class="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2"
+                      class="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-2"
                     >
                       <img
                         :src="imageUrl"
@@ -1557,7 +1557,7 @@ onBeforeUnmount(() => {
                   </div>
                   <div
                     v-if="sourcesLoading && !publishableSources.length"
-                    class="grid min-h-24 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                    class="grid min-h-24 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
                     role="status"
                   >
                     <UIcon
@@ -1567,7 +1567,7 @@ onBeforeUnmount(() => {
                   </div>
                   <div
                     v-else-if="publishableSources.length"
-                    class="max-h-64 space-y-2 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2"
+                    class="max-h-64 space-y-2 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-2"
                   >
                     <label
                       v-for="source in publishableSources"
@@ -1663,7 +1663,7 @@ onBeforeUnmount(() => {
                   <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     招新与群聊二维码
                   </p>
-                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                     <UIcon
                       name="i-lucide-image-plus"
                       class="size-4"
@@ -1683,12 +1683,12 @@ onBeforeUnmount(() => {
                   <figure
                     v-for="(url, index) in model.groupQrUrls"
                     :key="url"
-                    class="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
+                    class="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3"
                   >
                     <ImagePreviewButton
                       :src="url"
                       :alt="model.groupQrTitles[index] || `招新与群聊二维码 ${index + 1}`"
-                      button-class="aspect-square w-full rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                      button-class="aspect-square w-full rounded-md border border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
                       image-class="size-full object-contain"
                     />
                     <UButton
@@ -1719,7 +1719,7 @@ onBeforeUnmount(() => {
                   <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     负责人二维码
                   </p>
-                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                     <UIcon
                       name="i-lucide-image-plus"
                       class="size-4"
@@ -1739,12 +1739,12 @@ onBeforeUnmount(() => {
                   <figure
                     v-for="(url, index) in model.contactQrUrls"
                     :key="url"
-                    class="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
+                    class="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3"
                   >
                     <ImagePreviewButton
                       :src="url"
                       :alt="model.contactQrTitles[index] || `${model.contactName || '负责人'}二维码 ${index + 1}`"
-                      button-class="aspect-square w-full rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                      button-class="aspect-square w-full rounded-md border border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
                       image-class="size-full object-contain"
                     />
                     <UButton
