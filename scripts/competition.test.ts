@@ -8,6 +8,8 @@ import {
   DEFAULT_COMPETITION_DIMENSIONS
 } from '../shared/utils/competition'
 import {
+  adminUpsertRoundScore,
+  buildCompetitionExport,
   competitionEmailBodyToHtml,
   createEmailImage,
   createJudgeAccount,
@@ -1501,6 +1503,108 @@ test('数据库：切到第二天后叫号/评委/旧缓存归零，新人出场
 
   const day2Queue = getSingerQueuePosition(client, musicId, day2First.id)
   assert.deepEqual(day2Queue, { state: 'idle', ahead: 0, position: 1, total: 1 })
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：后台可改分与补录，平均分、名次与三种导出同步', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  createSinger(client, event.id, { name: '乙二', song: '崂山道士' })
+  checkInEntries(client, musicId, 'prelim')
+
+  let round = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, round, { status: 'open', judgeCount: 2 })
+  round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 2)
+
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const first = roster[0]!.singer.id
+  const second = roster[1]!.singer.id
+
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, first, { scores: scoresForAll(4) })
+  submitJudgeScore(client, { ...judges[1]!, eventId: event.id, roundId: round.id }, first, { scores: scoresForAll(8) })
+
+  // 改分：把第一位评委的 4 分改成 10 分（每维 10 → 总分 50）
+  const updated = adminUpsertRoundScore(client, round, {
+    singerId: first,
+    judgeId: judges[0]!.id,
+    scores: scoresForAll(10),
+    comment: '现场更正'
+  })
+  assert.equal(updated.total, 50)
+  assert.equal(updated.comment, '现场更正')
+
+  // 补录：第二位选手没有任何评分，管理员替第一位评委补一份
+  adminUpsertRoundScore(client, round, {
+    singerId: second,
+    judgeId: judges[0]!.id,
+    scores: scoresForAll(6)
+  })
+
+  let view = roundView(getAdminCompetitionPayload(client, musicId), 'prelim')
+  const firstEntry = view.entries.find(entry => entry.singer.id === first)!
+  const secondEntry = view.entries.find(entry => entry.singer.id === second)!
+  assert.equal(firstEntry.average, 45) // (50 + 40) / 2
+  assert.equal(firstEntry.scoreCount, 2)
+  assert.equal(secondEntry.average, 30)
+  assert.equal(secondEntry.scoreCount, 1)
+  assert.equal(view.scores.length, 3)
+
+  // 导出：明细一行 = 一位评委给一位选手的一次评分
+  const detail = buildCompetitionExport(client, round, 'detail')
+  assert.match(detail.filename, /成绩明细/)
+  const detailLines = detail.csv.split('\r\n')
+  assert.equal(detailLines.length, 4) // 表头 + 甲一两人 + 乙二一人
+  assert.match(detailLines[0]!, /选手,班级,歌曲,参赛天,签到时间,评委/)
+  assert.match(detailLines[1]!, /甲一/)
+  assert.match(detailLines[3]!, /乙二.*崂山道士/)
+
+  const summary = buildCompetitionExport(client, round, 'summary')
+  const summaryLines = summary.csv.split('\r\n')
+  assert.equal(summaryLines.length, 3)
+  assert.match(summaryLines[0]!, /排名,选手,班级,歌曲,参赛天,评分人数,平均分,状态/)
+  assert.match(summaryLines[1]!, /^1,甲一/)
+  assert.match(summaryLines[1]!, /45\.00/)
+
+  // 晋级名单：进行中按当前排名预排，并标注状态
+  updateRound(client, round, { advanceCount: 1 })
+  round = getRoundByKey(client, event.id, 'prelim')
+  const advancing = buildCompetitionExport(client, round, 'advancing')
+  const advancingLines = advancing.csv.split('\r\n')
+  assert.equal(advancingLines.length, 2)
+  assert.match(advancingLines[1]!, /^1,甲一/)
+  assert.match(advancingLines[1]!, /本轮未结束，按当前排名预排/)
+
+  // 结束评分后再改分：名次与晋级标记立刻跟着变
+  updateRound(client, round, { status: 'closed' })
+  round = getRoundByKey(client, event.id, 'prelim')
+  adminUpsertRoundScore(client, round, {
+    singerId: first,
+    judgeId: judges[0]!.id,
+    scores: scoresForAll(0)
+  })
+  view = roundView(getAdminCompetitionPayload(client, musicId), 'prelim')
+  const ranked = [...view.entries].sort((left, right) => (left.rank ?? 99) - (right.rank ?? 99))
+  assert.equal(ranked[0]!.singer.name, '乙二')
+  assert.equal(ranked[0]!.rank, 1)
+  assert.equal(ranked[0]!.qualified, true)
+  assert.equal(ranked[1]!.singer.name, '甲一')
+  assert.equal(ranked[1]!.average, 20) // (0 + 40) / 2
+  assert.equal(ranked[1]!.qualified, false)
 
   closeDatabase(':memory:')
 })
