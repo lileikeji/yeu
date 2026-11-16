@@ -1443,7 +1443,7 @@ export const adminCompetitionScoreSchema = z.object({
   comment: z.string().trim().max(500).optional()
 }).strict()
 
-export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing', 'confirmed'])
+export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing', 'confirmed', 'confirmed-plain'])
 
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
 // 带 preRegistrationId = 从预报名确认生成。

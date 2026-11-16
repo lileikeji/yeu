@@ -1664,6 +1664,17 @@ onBeforeUnmount(stopLiveRefresh)
                   size="xs"
                   color="neutral"
                   variant="outline"
+                  icon="i-lucide-list-ordered"
+                  :loading="exportingKind === 'confirmed-plain'"
+                  @click="exportRound(activeRound, 'confirmed-plain')"
+                >
+                  名单（不带成绩）
+                </UButton>
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
+                  variant="outline"
                   :loading="advanceBusyKey.endsWith(':reopen')"
                   @click="reopenAdvance"
                 >
