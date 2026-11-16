@@ -1498,6 +1498,8 @@ export const competitionSingerSchema = z.object({
   studentNo: z.string().trim().max(20).nullable().optional(),
   phone: z.string().trim().max(20).nullable().optional(),
   email: z.string().trim().max(120).nullable().optional(),
+  /** 留空可以，服务端会尝试从 QQ 邮箱推出来；填了就必须是 5-12 位数字。 */
+  qq: z.string().trim().max(20).nullable().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional()
 }).strict()
 
