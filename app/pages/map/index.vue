@@ -2597,8 +2597,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   /* T-031 B3：高度过渡只有 320ms，站列底部渐隐的 mask 会在这段时间里对面积不断变化的
      整块面板重建合成层。过渡期先摘掉 mask，结束自动恢复；肉眼只差一条 24px 柔边。 */
   .map-workspace[data-sheet-transition='on'] [data-bus-stops-fade] {
-    mask-image: none;
-    -webkit-mask-image: none;
+    /* 面板的 mask 写在组件内联 style 上，普通声明会被内联压过，必须 !important 才真正摘掉 */
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
   }
 
   .map-workspace input[aria-label='搜索地图地点']::placeholder {

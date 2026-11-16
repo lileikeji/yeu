@@ -369,7 +369,7 @@ function markerBarTop(ratio: number): string {
       data-bus-collapsed-bar
       data-sheet-drag-handle
       aria-label="展开叮叮车"
-      class="relative flex h-full w-full items-center gap-2.5 px-4 text-left"
+      class="relative flex h-full w-full touch-none items-center gap-2.5 px-4 text-left"
       @pointerdown="emit('sheet-drag-start', $event)"
       @click="emit('sheet-raise')"
     >

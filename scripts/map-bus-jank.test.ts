@@ -42,7 +42,8 @@ test('T-031 B2：当前站圆点与导轨同心，左缘不再被裁', () => {
 test('T-031 B3：过渡期摘掉站列 mask，站列容器自带 containment', () => {
   // 高度过渡 320ms 里面板面积每帧都在变，底部渐隐 mask 会逼着整块面板重建合成层。
   assert.match(pageSource, /:data-sheet-transition="sheetTransitioning \? 'on' : 'off'"/, '面板根节点要暴露过渡态')
-  assert.match(pageSource, /map-workspace\[data-sheet-transition='on'\] \[data-bus-stops-fade\][\s\S]{0,160}mask-image: none/, '过渡期必须摘掉站列 mask')
+  assert.match(pageSource, /map-workspace\[data-sheet-transition='on'\] \[data-bus-stops-fade\][\s\S]{0,200}mask-image: none !important/, '过渡期必须摘掉站列 mask，且要 !important 才压得过组件内联 style')
+  assert.match(componentSource, /data-bus-collapsed-bar[\s\S]{0,240}touch-none/, '折叠条要声明 touch-action: none，否则竖向拖动会被原生滚动抢走')
   assert.match(componentSource, /auto-rows-\[minmax\(32px,1fr\)\] pl-2 \[contain:layout\]/, '站列容器要带 layout containment')
   // 回归（2026-11-16 用户截图）：paint containment 把内容裁到 padding box，车辆圆点
   // 中心在 left-[4px]（相对内层 12px 起 → 绝对 16px），14px 宽就会左溢 3px 被平切。
