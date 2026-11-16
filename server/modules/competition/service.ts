@@ -2890,9 +2890,15 @@ export function renderCompetitionEmailTemplate(template: string, variables: Reco
  * 正文转邮件 HTML。`[[图片:id]]` 换成 cid 内嵌图（发信时作为附件带上），
  * 其余文字照旧转义、换行转 <br>。
  */
+/** 把「收到」链接渲染成按钮；邮件客户端只认绝对地址，所以这里必须给完整 URL。 */
+function receiptButtonHtml(url: string): string {
+  return `<a href="${url}" style="display:inline-block;padding:10px 22px;border-radius:999px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;">我已收到</a>`
+}
+
 export function competitionEmailBodyToHtml(
   body: string,
-  images: CompetitionEmailImageBinary[] = []
+  images: CompetitionEmailImageBinary[] = [],
+  receiptUrl = ''
 ): string {
   const byId = new Map(images.map(image => [image.id, image]))
   const escape = (text: string): string => text
@@ -2915,7 +2921,9 @@ export function competitionEmailBodyToHtml(
   }
   parts.push(escape(body.slice(cursor)))
 
-  return `<p style="margin:0 0 4px;line-height:1.8;">${parts.join('').split('\n').join('<br>')}</p>`
+  let html = `<p style="margin:0 0 4px;line-height:1.8;">${parts.join('').split('\n').join('<br>')}</p>`
+  if (receiptUrl) html = html.replace(receiptUrl, receiptButtonHtml(receiptUrl))
+  return html
 }
 
 export function buildEmailVariables(
