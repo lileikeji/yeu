@@ -67,6 +67,7 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { verifyPassword } from '../server/utils/password'
 import { runMigrations } from '../server/database/migrate'
 import { competitionJudges, contents } from '../server/database/schema'
+import { competitionSingerSchema } from '../shared/schemas/server'
 
 function scoresForAll(value: number): Record<string, number> {
   return Object.fromEntries(DEFAULT_COMPETITION_DIMENSIONS.map(dimension => [dimension.key, value]))
@@ -1600,6 +1601,34 @@ test('数据库：三要素查询只在发信后开放，回执点一次就记�
   assert.equal(typeof receipt.confirmedAt, 'number')
   const again = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: '12345678' })
   assert.equal(typeof again.receipt.confirmedAt, 'number')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：后台保存选手时 qq 可空可填，不会被 strict 校验挡下', () => {
+  for (const qq of [null, '', '3130617182']) {
+    const parsed = competitionSingerSchema.safeParse({ name: '甲一', song: '晴天', qq })
+    assert.equal(parsed.success, true)
+  }
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+  const event = ensureCompetitionEvent(client, musicId)
+  const singer = createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  const updated = updateSinger(client, event.id, singer.id, { name: '甲一', song: '晴天', qq: '3130617182' })
+  assert.equal(updated.qq, '3130617182')
+  // 只传姓名时不把 QQ 清掉
+  const keep = updateSinger(client, event.id, singer.id, { name: '甲一', song: '红豆' })
+  assert.equal(keep.qq, '3130617182')
 
   closeDatabase(':memory:')
 })
