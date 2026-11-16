@@ -122,6 +122,7 @@ test('两个更新提示不会同时出现，横幅让位安全区与底栏', ()
   const prompt = fileContents.get('app/components/PwaUpdatePrompt.vue') ?? ''
   expect(banner).toContain('!$pwa?.needRefresh')
   expect(prompt).toContain('$pwa?.needRefresh')
-  expect(banner).toContain('bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)]')
+  expect(banner).toContain('bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)')
+  expect(banner).toContain('env(safe-area-inset-bottom)')
   expect(banner).not.toContain('bottom-20')
 })

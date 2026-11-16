@@ -7,6 +7,8 @@ const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
 // 选点后收起底部列表的行为搬进了 useMapPoi（selectPoi），断言跟着实现走。
 const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8')
 const detailsSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+// T-033：搜索行与胶囊都在 ShellDock 里，dock 相关断言改读它。
+const shellDockSource = readFileSync(resolve('app/components/ShellDock.vue'), 'utf8')
 const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const e2eFixtureSource = readFileSync(resolve('scripts/prepare-e2e-database.ts'), 'utf8')
 // 展开/收起过渡期不暂停绘制、只冻结纹理上传；纹理降本都在这个 composable 里。
@@ -68,7 +70,7 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   assert.match(detailsSource, /max-h-\[min\(56dvh,30rem\)\]/)
   assert.match(detailsSource, /md:hidden/)
   assert.match(detailsSource, /hidden md:absolute/)
-  assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+env\(safe-area-inset-bottom\)\+0\.5rem\)\]/)
+  assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+var\(--mobile-dock-inset\)\+var\(--mobile-dock-extra,0rem\)\+env\(safe-area-inset-bottom\)\+0\.5rem\)\]/)
   assert.match(pageSource, /min-h-0 overflow-hidden bg-\[var\(--surface\)\]/)
   assert.doesNotMatch(pageSource, /min-h-\[34rem\]/)
   assert.match(layoutSource, /v-if="!isMapPage && !isSearchPage"/)
@@ -152,7 +154,8 @@ test('mobile sheet drops the empty desktop search strip and its border', () => {
 test('mobile sheet sections scroller hides the scrollbar', () => {
   assert.match(
     pageSource,
-    /class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"/
+    // T-033：滚动容器多挂了底部隐化类，断言只钉滚动相关那串 class。
+    /class="[^"]*scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"/
   )
 })
 
@@ -175,12 +178,12 @@ test('mobile sheet is registered as a glass refraction target', () => {
   assert.match(pageSource, /push\(mobileSheetElement\.value,/)
 })
 
-test('sheet fallback keeps a 90% veil with blur(16px) when WebGL is unavailable', () => {
+test('sheet fallback uses the same 66% veil as the refracting state when WebGL is unavailable', () => {
   const rule = pageSource.match(/\.map-workspace \.map-glass-sheet \{([^}]*)\}/)
   assert.ok(rule, '应存在 .map-glass-sheet 基础规则')
   const body = rule[1] ?? ''
-  assert.match(body, /var\(--surface\) 90%/, '回落态白纱应为 90%')
-  assert.match(body, /blur\(16px\)/, '回落态 blur 应为 16px')
+  assert.match(body, /var\(--surface\) 66%/, '回落态应与折射态同一条 66% 白纱（T-033 R7 F-44）')
+  assert.match(body, /blur\(2px\) saturate\(1\.05\)/, '回落态 blur 应与折射态一致，不再发雾')
 })
 
 test('sheet refracting state drops the veil to <=82% and blur to <=2px', () => {
@@ -283,7 +286,9 @@ test('mobile dock search expands the sheet from the committed query and renders 
   // 若按原始 input 抬成半屏，dock 里的输入框会被 v-show 隐藏、组词直接断掉。
   assert.match(pageSource, /function onMobileDockSearchInput\(value: string\): void \{\s*onSearchQueryInput\(value\)\s*\}/)
   assert.match(pageSource, /watch\(searchQuery, \(query\) => \{[\s\S]{0,260}?resolveDockSearchMobileSheetState/)
-  assert.match(pageSource, /@input="onMobileDockSearchInput\(/)
+  assert.match(shellDockSource, /@input="onSearchInput"/)
+  // T-033：输入口搬进 ShellDock，页面靠共享 state 收口到同一个 onMobileDockSearchInput。
+  assert.match(pageSource, /watch\(shellDockSearch,/)
   assert.match(pageSource, /aria-label="地图搜索结果"/)
   assert.match(pageSource, /正在搜索地图里的地点…/)
   assert.match(pageSource, /找到 \{\{ nativeSearchResults\.length \}\} 个地点/)
@@ -319,12 +324,13 @@ test('search results block sits next to the toggle button instead of inside it',
 })
 
 test('mobile dock search input stays visible while searching', () => {
-  // F23：抬到半屏后 dock 整块被 v-show 关掉，用户正在输入的搜索框会消失。
-  assert.match(pageSource, /v-show="mobileSheetState === 'collapsed' \|\| mapSheetSearching"/)
-  // 搜索把面板抬到半屏后，dock 要让开面板高度，否则搜索框被面板压在下面看不见。
-  // F26：bottom 只能由一个分支给，静态类里不许再留 bottom-0 与 arbitrary 抢胜负。
-  assert.match(pageSource, /:class="mobileSheetState === 'collapsed' \? 'bottom-0' : 'bottom-\[var\(--map-mobile-dock\)\]'"/)
-  assert.doesNotMatch(pageSource, /class="pointer-events-none absolute inset-x-0 bottom-0 z-30 md:hidden"/)
+  // T-033：搜索行搬进全局 ShellDock 的合成块，不再随面板态 v-show 整块关掉；
+  // 面板 expanded 时只淡出并让出指针（C2），输入框本身仍在 DOM 里。
+  assert.match(shellDockSource, /class="shell-dock-search"/)
+  assert.match(shellDockSource, /shell-dock--sheet-/)
+  assert.doesNotMatch(shellDockSource, /v-show="mobileSheetState/)
+  // 旧的在页内 dock 让位规则随合成块退场。
+  assert.doesNotMatch(pageSource, /bottom-\[var\(--map-mobile-dock\)\]/)
 })
 
 test('native search widgets are hidden so only the custom clear button shows', () => {
@@ -364,7 +370,10 @@ test('clearing the search folds the mobile sheet so the dock stays reachable', (
   // F32：面板停在半屏、查询又被清空时，dock 的 v-show 两个条件都不成立，整条 dock 会连输入框一起消失。
   assert.match(pageSource, /function onClearSearch\(\): void \{[\s\S]{0,220}?mobileSheetState\.value = 'collapsed'/)
   assert.equal((pageSource.match(/@click="clearSearchQuery"/g) || []).length, 0)
-  assert.equal((pageSource.match(/@click="onClearSearch"/g) || []).length, 2)
+  assert.equal((pageSource.match(/@click="onClearSearch"/g) || []).length, 1)
+  // 合成块里的 × 走 ShellDock 的 clearSearch，页面 watch 到空串后收口到同一条 onClearSearch。
+  assert.match(shellDockSource, /@click="clearSearch"/)
+  assert.match(pageSource, /watch\(shellDockSearch, \(value\) => \{[\s\S]{0,160}?onMobileDockSearchInput\(value\)/)
 })
 
 test('mobile bus pill is gone: no dock offset rules left to collide with the search dock', () => {
@@ -381,4 +390,13 @@ test('大面板关掉 rim 亮边：28px 圆角处不再出现一道白线', () =
   assert.match(glassSource, /float rim = \(1\.0 - smoothstep\(0\.0, 2\.0 \* uDpr, -d\)\) \* clamp\(vParams\.w, 0\.0, 2\.0\)/)
   assert.match(glassSource, /rim: clamp\(target\.rim \?\? 1, 0, 2\)/)
   assert.match(glassSource, /mount\.params\[base \+ 3\] = quad\.rim/)
+})
+
+test('F-39 深色面板上沿用浅色 hairline：那 1px 不再用 --line 画（T-033 R5）', () => {
+  const hairlineSites = pageSource.match(/border-t border-\[var\(--sheet-hairline\)\]/g) ?? []
+  assert.equal(hairlineSites.length, 2, '面板上沿应在折叠/展开两处都用 --sheet-hairline')
+  assert.doesNotMatch(pageSource, /border-t border-\[var\(--line\)\]/, '还有地方用 --line 画面板上沿，深色下就是黑边')
+  const mainCss = readFileSync(resolve('app/assets/css/main.css'), 'utf8')
+  assert.match(mainCss, /--sheet-hairline: rgb\(0 0 0 \/ 8%\);/)
+  assert.match(mainCss, /html\.dark \{[\s\S]{0,600}?--sheet-hairline: rgb\(255 255 255 \/ 14%\);/)
 })
