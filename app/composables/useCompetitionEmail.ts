@@ -25,6 +25,11 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
 
   const emailRound = ref<CompetitionRoundKey>('prelim')
   const emailScope = ref<EmailScope>('all')
+  /** 发送前二次确认：列出这次到底发给谁。 */
+  const sendConfirmOpen = ref(false)
+  const sendConfirmNames = ref<string[]>([])
+  const sendConfirmWithoutEmail = ref(0)
+  const sendConfirmAlreadySent = ref(0)
   const emailSavingTemplate = ref(false)
   const emailSending = ref(false)
   const emailTesting = ref(false)
@@ -203,6 +208,25 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
     }
   }
 
+  /** 点「一键发送」先弹名单，确认后才真正发。 */
+  function openSendConfirm(): void {
+    if (emailSending.value) return
+    const count = emailCountWithEmail(emailScope.value)
+    if (count <= 0) {
+      toast.add({ title: '当前范围没有可发送的选手邮箱', color: 'warning' })
+      return
+    }
+    const names = emailPool(emailScope.value)
+      .filter(entry => singers.value.find(s => s.id === entry.singer.id)?.email)
+      .map(entry => singers.value.find(s => s.id === entry.singer.id)?.name ?? '—')
+    const alreadyIds = emailSentIds.value
+    sendConfirmNames.value = names
+    sendConfirmAlreadySent.value = emailPool(emailScope.value)
+      .filter(entry => alreadyIds.has(entry.singer.id)).length
+    sendConfirmWithoutEmail.value = emailCountWithoutEmail(emailScope.value)
+    sendConfirmOpen.value = true
+  }
+
   async function sendEmails(): Promise<void> {
     if (emailSending.value) return
     const count = emailCountWithEmail(emailScope.value)
@@ -210,15 +234,7 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
       toast.add({ title: '当前范围没有可发送的选手邮箱', color: 'warning' })
       return
     }
-    const roundTitle = emailRoundView.value?.title ?? ''
-    const already = emailAlreadySentCount.value
-    const withoutEmail = emailCountWithoutEmail(emailScope.value)
-    const summary = [
-      `将向 ${count} 位选手发送「${roundTitle}」结果邮件。`,
-      already > 0 ? `其中 ${already} 位已发送过，会被自动跳过。` : '',
-      withoutEmail > 0 ? `另有 ${withoutEmail} 位未填邮箱，将跳过。` : ''
-    ].filter(Boolean).join('\n')
-    if (!window.confirm(`${summary}\n\n确定发送？`)) return
+    sendConfirmOpen.value = false
 
     emailSending.value = true
     try {
@@ -270,6 +286,11 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
     removeEmailImage,
     saveEmailTemplate,
     sendEmailTest,
-    sendEmails
+    sendEmails,
+    openSendConfirm,
+    sendConfirmOpen,
+    sendConfirmNames,
+    sendConfirmAlreadySent,
+    sendConfirmWithoutEmail
   }
 }
