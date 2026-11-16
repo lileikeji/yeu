@@ -96,13 +96,20 @@ async function submit() {
         <label class="mt-4 block text-sm font-medium" for="contact">QQ 或邮箱</label>
         <UInput id="contact" v-model="contact" class="mt-1 w-full" size="lg" placeholder="QQ 号或 QQ 邮箱" />
 
-        <UButton
-          class="mt-4 w-full"
-          size="lg"
-          :loading="loading"
-          label="下一步"
+        <button
+          type="button"
+          :disabled="loading"
+          class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-base font-bold text-white shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           @click="lookup"
-        />
+        >
+          <UIcon
+            v-if="loading"
+            name="i-lucide-loader-circle"
+            class="size-4 animate-spin"
+            aria-hidden="true"
+          />
+          {{ loading ? '查一下…' : '下一步' }}
+        </button>
 
         <p v-if="error" class="mt-3 text-sm text-[var(--color-red-600)]">{{ error }}</p>
       </div>
@@ -123,7 +130,20 @@ async function submit() {
             placeholder="写具体歌名，如 晴天"
             @keyup.enter="submit"
           />
-          <UButton class="mt-4 w-full" size="lg" :loading="saving" label="提交曲目" @click="submit" />
+          <button
+            type="button"
+            :disabled="saving"
+            class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-base font-bold text-white shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            @click="submit"
+          >
+            <UIcon
+              v-if="saving"
+              name="i-lucide-loader-circle"
+              class="size-4 animate-spin"
+              aria-hidden="true"
+            />
+            {{ saving ? '提交中…' : '提交曲目' }}
+          </button>
         </template>
       </div>
 
