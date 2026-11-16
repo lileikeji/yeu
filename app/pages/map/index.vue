@@ -782,6 +782,14 @@ onBeforeUnmount(() => {
 // ── P-002/impl/04：抽屉首屏 = 收藏 / 最近去过 / 分类；98 个地点列表降级为「全部地点」二级视图 ──
 type MapSheetView = 'sections' | 'all' | 'bus' | 'transit'
 const mapSheetView = ref<MapSheetView>('sections')
+// 校外公交面板一收成折叠就退回地点视图：它在折叠态高度为 0，第 8 格入口也跟着消失，
+// 视图若留在 transit，用户只能刷新页面才回得来（选地点、按返回、把面板拖到底都会走到这里）。
+// 叮叮车不在此列：它折叠后是一条 84px 的常驻条，本身就是拖拽把手。
+watch(mobileSheetState, (state) => {
+  if (state !== 'collapsed') return
+  if (mapSheetView.value !== 'transit') return
+  mapSheetView.value = 'sections'
+})
 // T-029：校外公交面板里的「时刻表」抽屉，展开时也是返回栈的一层。
 const transitDrawerOpen = ref(false)
 // 返回栈是否已经在浏览器历史里压过一层（popstate 与桌面 Esc 共用 handleSheetBack）。

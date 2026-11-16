@@ -152,3 +152,10 @@ test('修正 04：时刻表抽屉带过渡、表头吸附，下一班不再被�
   assert.match(componentSource, /drawer\.scrollTop \+= offset - \(visibleTop \+ room \/ 2\)/)
   assert.match(componentSource, /\{\{ drawerOpen \? '收起 ⌄' : '时刻表 ›' \}\}/)
 })
+
+test('修正 07：校外公交一折叠就退回地点视图，面板消失后不会卡在 transit 上', () => {
+  assert.match(
+    pageSource,
+    /watch\(mobileSheetState, \(state\) => \{\r?\n {2}if \(state !== 'collapsed'\) return\r?\n {2}if \(mapSheetView\.value !== 'transit'\) return\r?\n {2}mapSheetView\.value = 'sections'\r?\n\}\)/
+  )
+})
