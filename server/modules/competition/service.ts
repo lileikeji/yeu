@@ -1529,68 +1529,6 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
-export function generateNextRound(
-  client: DatabaseClient,
-  currentRound: RoundRow
-): { round: RoundRow, advanced: number } {
-  const nextRound = nextRoundOf(client, currentRound)
-  if (!nextRound) validationError('决赛没有下一轮', 'round')
-  if (currentRound.status !== 'closed') {
-    conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分，再生成下一轮名单')
-  }
-  if (currentRound.advanceCount === null) {
-    validationError('请先设置本轮晋级人数', 'advanceCount')
-  }
-  if (countRoundScores(client, nextRound.id) > 0) {
-    conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已有评分，不能重新生成名单')
-  }
-  if (countEntries(client, nextRound.id) > 0) {
-    conflictError('NEXT_ROUND_ALREADY_GENERATED', '下一轮名单已生成；如需重做，请先清空下一轮名单')
-  }
-
-  const singers = listSingers(client, currentRound.eventId)
-  const singersById = new Map(singers.map(singer => [singer.id, singer]))
-  const ranking = buildRoundRanking(
-    currentRound,
-    listRoundEntryRows(client, currentRound.id),
-    singersById,
-    listRoundScores(client, currentRound.id),
-    { trimExtremes: trimExtremesFor(client, currentRound) }
-  )
-  const qualified = ranking
-    .filter(row => row.scoreCount > 0)
-    .slice(0, currentRound.advanceCount)
-
-  if (qualified.length === 0) {
-    validationError('本轮没有有效成绩（全部弃权），无法生成下一轮名单', 'round')
-  }
-
-  const shuffled = shuffle(qualified)
-  const now = Date.now()
-  client.db.transaction((transaction) => {
-    shuffled.forEach((row, index) => {
-      transaction.insert(competitionRoundEntries).values({
-        id: randomUUID(),
-        roundId: nextRound.id,
-        singerId: row.singer.id,
-        sortOrder: index + 1,
-        advancedFromRank: row.rank,
-        createdAt: now
-      }).run()
-    })
-    transaction.update(competitionRounds).set({
-      status: 'draft',
-      updatedAt: now
-    }).where(eq(competitionRounds.id, nextRound.id)).run()
-  })
-
-  return {
-    round: client.db.select().from(competitionRounds)
-      .where(eq(competitionRounds.id, nextRound.id)).get()!,
-    advanced: qualified.length
-  }
-}
-
 export function redrawRound(client: DatabaseClient, round: RoundRow): void {
   if (round.key === 'prelim') validationError('初赛按导入顺序出场，不能重新抽签', 'round')
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能重新抽签')
@@ -3748,6 +3686,59 @@ export function confirmReceiptByToken(client: DatabaseClient, token: string): Co
     roundKey: row.roundKey,
     roundTitle: round.title,
     confirmedAt: Date.now()
+  }
+}
+
+export interface CompetitionSongFormState {
+  singerName: string
+  song: string
+  roundKey: CompetitionRoundKey
+  roundTitle: string
+}
+
+/** 晋级选手用邮件里的链接填复赛曲目：token 直接定位到人，不用再填三要素。 */
+function singerByReceiptToken(client: DatabaseClient, token: string) {
+  const row = client.db.select().from(competitionEmailReceipts)
+    .where(eq(competitionEmailReceipts.token, token))
+    .get()
+  if (!row) validationError('这个链接无效，请用邮件里的按钮重新打开', 'token')
+  const singer = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, row.singerId))
+    .get()
+  if (!singer) validationError('这个链接无效，请用邮件里的按钮重新打开', 'token')
+  const round = client.db.select().from(competitionRounds)
+    .where(and(eq(competitionRounds.eventId, row.eventId), eq(competitionRounds.key, row.roundKey)))
+    .get()
+  if (!round) validationError('这个链接无效，请用邮件里的按钮重新打开', 'token')
+  return { row, singer, round }
+}
+
+export function getSongFormState(client: DatabaseClient, token: string): CompetitionSongFormState {
+  const { singer, round } = singerByReceiptToken(client, token)
+  return {
+    singerName: singer.name,
+    song: singer.song ?? '',
+    roundKey: round.key as CompetitionRoundKey,
+    roundTitle: round.title
+  }
+}
+
+export function updateSongByToken(client: DatabaseClient, token: string, song: string): CompetitionSongFormState {
+  const { singer, round } = singerByReceiptToken(client, token)
+  const value = String(song ?? '').trim()
+  if (!value) validationError('曲目必填，请填具体歌名', 'song')
+  if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
+    validationError('曲目要填具体歌名，不能填「待定」', 'song')
+  }
+  if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
+  client.db.update(competitionSingers)
+    .set({ song: value, updatedAt: Date.now() })
+    .where(eq(competitionSingers.id, singer.id)).run()
+  return {
+    singerName: singer.name,
+    song: value,
+    roundKey: round.key as CompetitionRoundKey,
+    roundTitle: round.title
   }
 }
 

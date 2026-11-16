@@ -1475,6 +1475,11 @@ export const competitionPreRegisterSchema = z.object({
 }).strict()
 
 /** 结果查询三要素：姓名 + 学号 + QQ，缺一不可。 */
+export const competitionSongUpdateSchema = z.object({
+  token: z.string().trim().min(8).max(120),
+  song: z.string().trim().min(1).max(100)
+}).strict()
+
 export const competitionResultLookupSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(20),

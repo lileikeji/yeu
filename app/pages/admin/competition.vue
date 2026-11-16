@@ -42,9 +42,9 @@ const {
   SCHEDULE_KEY_OPTIONS, addScheduleRow, removeScheduleRow, restoreDefaultFormFields, formatDateTime,
   weightPercent, rosterEntries, rosterQuery, rosterVisible, missingJudgeCount,
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
-  wrongStatus, advanceHint, canGenerate, canRedraw, canClearRoster, rankClass,
+  wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
-  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, generateNextRound, redrawRound, clearRoster,
+  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -979,16 +979,6 @@ onBeforeUnmount(stopLiveRefresh)
                 color="warning"
                 :loading="savingRoundKey === activeRound.key"
                 @click="setRoundStatus(activeRound, 'closed')"
-              />
-              <UButton
-                v-if="activeRound.key !== 'final'"
-                icon="i-lucide-shuffle"
-                label="生成下一轮名单并抽签"
-                color="neutral"
-                variant="soft"
-                :disabled="!canGenerate(activeRound)"
-                :loading="generatingRoundKey === activeRound.key"
-                @click="generateNextRound(activeRound)"
               />
               <UButton
                 v-if="activeRound.key !== 'prelim'"
