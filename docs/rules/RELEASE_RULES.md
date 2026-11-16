@@ -112,8 +112,9 @@
 线上 `current` 指向的 release 记录的 commit 不在 master 里时，用 master 构建并切换会把该分支上的功能整体顶回去：11-10 主题配色被隔壁会话的脏树产物覆盖（palette CSS 直接消失），11-15 线上跑着叫号台/十分制/去掉最高最低分那条线，若照旧部署 master 会一次性回退 10 个提交。
 落地做法：部署前 `cat /www/wwwroot/yeu/current/.output/release.json` 取 commit，`git merge-base --is-ancestor <commit> master` 不成立就先把 master 合进该分支，用合并后的提交构建。
 
-### 10. 本机构建不可用，制品只能从 CI 出（2026-11-11 起）
-`npx nuxt build` 稳定失败 `[nitro] ERROR Error: remove D:\DevTemp\esbuild-<hex>: Access is denied.`，最小复现为 esbuild 用 stdin 传 2.5MB 源码时删不掉临时文件；换 Node 22/26、esbuild 0.18–0.28 都复现，属环境级限制。改为：推 `deploy/theme-on-competition` 触发 `build-artifact.yml`，`gh run download -n output` 取制品，本地补 `release.json`（`platform/arch/node/abi` 必须改成服务器实际值）。
+### 10. 本机构建一度不可用（2026-11-11 起，2026-11-16 已修复）
+`npx nuxt build` 曾稳定失败 `[nitro] ERROR Error: remove D:\DevTemp\esbuild-<hex>: Access is denied.`，最小复现为 esbuild 用 stdin 传 2.5MB 源码时删不掉临时文件；换 Node 22/26、esbuild 0.18–0.28 都复现，当时判定为环境级限制，改为推 `deploy/theme-on-competition` 触发 `build-artifact.yml` + `gh run download -n output` 出制品。
+2026-11-16 定位到根因是 esbuild `transform` 输入超 1 MiB 时落临时文件、收尾删除失败，`patches/esbuild@0.28.2.patch` 已修复（细节见文末「本机构建报 esbuild 临时目录删除失败」），本机 `pnpm install` 后 `ALLOW_LOW_SPEC_BUILD=1 pnpm build` 可正常产出 `.output/server/index.mjs`。制品仍统一走 CI：生产是 Linux + node 22 目标，本机 win32 产物不能直接上线，且 CI 顺带跑完测试与 e2e。
 
 ### 11. 检索哈希按行尾算，CRLF 工作树会假报「未 bump」（2026-11-11 / 2026-11-13）
 `release-tools.mjs checkRetrieval` 用文件字节算 hash：`core.autocrlf=true` 的工作树算出 `d7978e91…`，LF 工作树算出 `8c3787f2…`，与线上一致的是后者。命令必须在 LF 工作树（或 Linux CI）里跑，否则会被「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」拦下，且改的是假问题。
