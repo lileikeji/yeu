@@ -1705,6 +1705,12 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
   assert.equal(saved.song, '后来')
   assert.equal(listSingers(client, event.id).find(item => item.id === singer.id)?.song, '后来')
 
+  // 复赛填的新歌只落在复赛那一轮，初赛那场的曲目记录保持原样。
+  const semiRows = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
+  assert.equal(semiRows[0]?.song, '后来')
+  const prelimRows = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  assert.equal(prelimRows[0]?.song ?? null, null)
+
   // 第三要素可以用邮箱，也能对上。
   assert.equal(getSongEditor(client, musicId, { ...lookup, contact: 'a@example.com' }).song, '后来')
   // 待定/空串挡掉。

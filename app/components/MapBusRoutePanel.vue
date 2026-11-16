@@ -456,7 +456,10 @@ function markerBarTop(ratio: number): string {
             aria-hidden="true"
             class="grid size-[34px] shrink-0 place-items-center rounded-[12px] bg-[var(--surface)] text-[var(--bus-accent)]"
           >
-            <UIcon name="i-lucide-bus-front" class="size-[18px]" />
+            <UIcon
+              name="i-lucide-bus-front"
+              class="size-[18px]"
+            />
           </span>
           <div class="min-w-0 flex-1">
             <p class="truncate text-[13px] font-bold leading-4 text-[var(--ink)]">

@@ -174,7 +174,6 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     return `将从${previous.title}取前 ${previous.advanceCount} 名，并随机抽签决定出场顺序`
   }
 
-
   function canRedraw(round: CompetitionRoundView): boolean {
     return round.key !== 'prelim'
       && round.status !== 'closed'

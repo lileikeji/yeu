@@ -52,15 +52,15 @@ const userDossier = ref<{
   summary: Record<string, number | string>
   riskScore?: number
   riskLevel?: string
-  riskFactors?: Array<{ code: string; points: number; message: string }>
+  riskFactors?: Array<{ code: string, points: number, message: string }>
   confidence?: string
   evidenceEvents?: number
-  suggestedActions?: Array<{ kind: string; label: string; href: string; reason: string; priority: string }>
-  relationship?: { visitorIds?: string[]; ips?: string[]; rooms?: string[]; activeSessions?: number }
-  evidenceLedger?: Array<{ code: string; kind: string; strength: string; weight: number; message: string }>
-  playbook?: Array<{ step: number; code: string; status: string; title: string; detail: string; href: string }>
+  suggestedActions?: Array<{ kind: string, label: string, href: string, reason: string, priority: string }>
+  relationship?: { visitorIds?: string[], ips?: string[], rooms?: string[], activeSessions?: number }
+  evidenceLedger?: Array<{ code: string, kind: string, strength: string, weight: number, message: string }>
+  playbook?: Array<{ step: number, code: string, status: string, title: string, detail: string, href: string }>
   investigationSummary?: Record<string, number>
-  ipFootprint?: Array<{ ip: string; count: number; lastAt: string | null }>
+  ipFootprint?: Array<{ ip: string, count: number, lastAt: string | null }>
   linkedVisitors: Array<Record<string, any>>
   bans: Array<Record<string, any>>
   mutes: Array<Record<string, any>>
@@ -187,7 +187,7 @@ async function loadUsers(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const payload = await adminFetch<{ items: AppUser[]; total: number }>('/api/admin/users', {
+    const payload = await adminFetch<{ items: AppUser[], total: number }>('/api/admin/users', {
       query: {
         page: page.value,
         pageSize,
@@ -413,32 +413,56 @@ onMounted(async () => {
         <span>创建账号</span>
         <span class="flex items-center gap-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
           注册暂未开放，由管理员创建
-          <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 transition-transform group-open:rotate-180"
+          />
         </span>
       </summary>
       <div class="border-t border-zinc-100 dark:border-zinc-800 px-4 pb-4">
-      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <UFormField label="登录名">
-          <UInput v-model="form.username" class="w-full" />
-        </UFormField>
-        <UFormField label="密码（≥8）">
-          <UInput v-model="form.password" type="password" class="w-full" />
-        </UFormField>
-        <UFormField label="显示名">
-          <UInput v-model="form.displayName" class="w-full" />
-        </UFormField>
-        <UFormField label="专业">
-          <UInput v-model="form.major" class="w-full" />
-        </UFormField>
-        <UFormField label="宿舍楼">
-          <UInput v-model="form.dormBuilding" class="w-full" />
-        </UFormField>
-        <div class="flex items-end">
-          <UButton color="primary" icon="i-lucide-user-plus" :loading="creating" @click="createUser">
-            创建
-          </UButton>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <UFormField label="登录名">
+            <UInput
+              v-model="form.username"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="密码（≥8）">
+            <UInput
+              v-model="form.password"
+              type="password"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="显示名">
+            <UInput
+              v-model="form.displayName"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="专业">
+            <UInput
+              v-model="form.major"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="宿舍楼">
+            <UInput
+              v-model="form.dormBuilding"
+              class="w-full"
+            />
+          </UFormField>
+          <div class="flex items-end">
+            <UButton
+              color="primary"
+              icon="i-lucide-user-plus"
+              :loading="creating"
+              @click="createUser"
+            >
+              创建
+            </UButton>
+          </div>
         </div>
-      </div>
       </div>
     </details>
 
@@ -478,7 +502,12 @@ onMounted(async () => {
         />
       </UFormField>
       <div class="flex items-end">
-        <UButton color="primary" icon="i-lucide-search" :loading="loading" @click="applySearch">
+        <UButton
+          color="primary"
+          icon="i-lucide-search"
+          :loading="loading"
+          @click="applySearch"
+        >
           筛选
         </UButton>
       </div>
@@ -490,7 +519,10 @@ onMounted(async () => {
 
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div class="min-w-0 space-y-4">
-        <div class="grid gap-2 md:hidden" aria-label="账号列表">
+        <div
+          class="grid gap-2 md:hidden"
+          aria-label="账号列表"
+        >
           <article
             v-for="row in items"
             :key="'mobile-' + row.id"
@@ -498,42 +530,117 @@ onMounted(async () => {
             :class="selectedUser?.id === row.id ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/40' : ''"
           >
             <div class="flex min-w-0 items-start justify-between gap-3">
-              <button type="button" class="min-w-0 text-left" @click="openUserDetail(row)">
-                <p class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ row.displayName }}</p>
-                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{{ row.username }}</p>
+              <button
+                type="button"
+                class="min-w-0 text-left"
+                @click="openUserDetail(row)"
+              >
+                <p class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {{ row.displayName }}
+                </p>
+                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                  {{ row.username }}
+                </p>
               </button>
-              <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px]" :class="statusClass(row.status)">
+              <span
+                class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+                :class="statusClass(row.status)"
+              >
                 {{ statusLabel(row.status) }}
               </span>
             </div>
             <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
-              <p class="truncate">{{ row.major || '未填专业' }}</p>
-              <p class="truncate">{{ row.dormBuilding || '未填宿舍' }}</p>
+              <p class="truncate">
+                {{ row.major || '未填专业' }}
+              </p>
+              <p class="truncate">
+                {{ row.dormBuilding || '未填宿舍' }}
+              </p>
             </div>
             <p class="mt-2 text-[11px] text-zinc-400 dark:text-zinc-500">
               最近登录 {{ formatTime(row.lastLoginAt) }} · 编号 {{ shortAdminId(row.id, 8) }}
             </p>
             <div class="mt-3 flex flex-wrap gap-1.5">
-              <UButton size="xs" color="neutral" variant="outline" @click="openUserDetail(row)">详情</UButton>
-              <UButton size="xs" color="neutral" variant="outline" @click="startEdit(row)">编辑</UButton>
-              <UButton size="xs" color="neutral" variant="ghost" :to="`/admin/chat?userId=${encodeURIComponent(row.id)}`">群聊</UButton>
-              <UButton v-if="row.status !== 'active'" size="xs" color="success" variant="soft" @click="quickStatus(row, 'active')">恢复</UButton>
-              <UButton v-if="row.status !== 'disabled'" size="xs" color="warning" variant="soft" @click="quickStatus(row, 'disabled')">停用</UButton>
-              <UButton v-if="row.status !== 'banned'" size="xs" color="error" variant="soft" @click="quickStatus(row, 'banned')">封禁</UButton>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="outline"
+                @click="openUserDetail(row)"
+              >
+                详情
+              </UButton>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="outline"
+                @click="startEdit(row)"
+              >
+                编辑
+              </UButton>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :to="`/admin/chat?userId=${encodeURIComponent(row.id)}`"
+              >
+                群聊
+              </UButton>
+              <UButton
+                v-if="row.status !== 'active'"
+                size="xs"
+                color="success"
+                variant="soft"
+                @click="quickStatus(row, 'active')"
+              >
+                恢复
+              </UButton>
+              <UButton
+                v-if="row.status !== 'disabled'"
+                size="xs"
+                color="warning"
+                variant="soft"
+                @click="quickStatus(row, 'disabled')"
+              >
+                停用
+              </UButton>
+              <UButton
+                v-if="row.status !== 'banned'"
+                size="xs"
+                color="error"
+                variant="soft"
+                @click="quickStatus(row, 'banned')"
+              >
+                封禁
+              </UButton>
             </div>
           </article>
-          <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">暂无账号</p>
+          <p
+            v-if="!items.length && !loading"
+            class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500"
+          >
+            暂无账号
+          </p>
         </div>
 
         <div class="hidden overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 md:block">
           <table class="min-w-full text-left text-sm">
             <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400">
               <tr>
-                <th class="px-3 py-3 font-medium">账号</th>
-                <th class="px-3 py-3 font-medium">专业 / 宿舍</th>
-                <th class="px-3 py-3 font-medium">状态</th>
-                <th class="px-3 py-3 font-medium">最近登录 / 创建</th>
-                <th class="px-3 py-3 font-medium">操作</th>
+                <th class="px-3 py-3 font-medium">
+                  账号
+                </th>
+                <th class="px-3 py-3 font-medium">
+                  专业 / 宿舍
+                </th>
+                <th class="px-3 py-3 font-medium">
+                  状态
+                </th>
+                <th class="px-3 py-3 font-medium">
+                  最近登录 / 创建
+                </th>
+                <th class="px-3 py-3 font-medium">
+                  操作
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -681,13 +788,22 @@ onMounted(async () => {
           </h2>
           <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <UFormField label="显示名">
-              <UInput v-model="editForm.displayName" class="w-full" />
+              <UInput
+                v-model="editForm.displayName"
+                class="w-full"
+              />
             </UFormField>
             <UFormField label="专业">
-              <UInput v-model="editForm.major" class="w-full" />
+              <UInput
+                v-model="editForm.major"
+                class="w-full"
+              />
             </UFormField>
             <UFormField label="宿舍楼">
-              <UInput v-model="editForm.dormBuilding" class="w-full" />
+              <UInput
+                v-model="editForm.dormBuilding"
+                class="w-full"
+              />
             </UFormField>
             <UFormField label="状态">
               <USelect
@@ -709,10 +825,18 @@ onMounted(async () => {
               />
             </UFormField>
             <div class="flex items-end gap-2">
-              <UButton color="primary" :loading="saving" @click="saveEdit">
+              <UButton
+                color="primary"
+                :loading="saving"
+                @click="saveEdit"
+              >
                 保存
               </UButton>
-              <UButton color="neutral" variant="outline" @click="() => { editId = null }">
+              <UButton
+                color="neutral"
+                variant="outline"
+                @click="() => { editId = null }"
+              >
                 取消
               </UButton>
             </div>
@@ -746,7 +870,9 @@ onMounted(async () => {
 
         <dl class="mt-3 grid gap-2">
           <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">状态</dt>
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              状态
+            </dt>
             <dd>
               <span
                 class="rounded-full px-2 py-0.5 text-xs"
@@ -757,24 +883,44 @@ onMounted(async () => {
             </dd>
           </div>
           <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">专业</dt>
-            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedUser.major || '—' }}</dd>
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              专业
+            </dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+              {{ selectedUser.major || '—' }}
+            </dd>
           </div>
           <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">宿舍楼</dt>
-            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedUser.dormBuilding || '—' }}</dd>
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              宿舍楼
+            </dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+              {{ selectedUser.dormBuilding || '—' }}
+            </dd>
           </div>
           <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">最近登录</dt>
-            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ formatTime(selectedUser.lastLoginAt) }}</dd>
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              最近登录
+            </dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+              {{ formatTime(selectedUser.lastLoginAt) }}
+            </dd>
           </div>
           <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">创建时间</dt>
-            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ formatTime(selectedUser.createdAt) }}</dd>
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              创建时间
+            </dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+              {{ formatTime(selectedUser.createdAt) }}
+            </dd>
           </div>
           <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">账号编号</dt>
-            <dd class="text-xs text-zinc-700 dark:text-zinc-200">{{ shortAdminId(selectedUser.id, 12) }}</dd>
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              账号编号
+            </dt>
+            <dd class="text-xs text-zinc-700 dark:text-zinc-200">
+              {{ shortAdminId(selectedUser.id, 12) }}
+            </dd>
           </div>
         </dl>
 
@@ -860,35 +1006,62 @@ onMounted(async () => {
           {{ dossierError }}
         </div>
 
-        <div v-if="dossierLoading && !userDossier" class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+        <div
+          v-if="dossierLoading && !userDossier"
+          class="mt-3 text-xs text-zinc-500 dark:text-zinc-400"
+        >
           账号详细情况加载中…
         </div>
 
         <template v-if="userDossier">
           <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">关联访客</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.linkedVisitorCount ?? 0 }}</p>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                关联访客
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">
+                {{ userDossier.summary.linkedVisitorCount ?? 0 }}
+              </p>
             </div>
             <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">生效封禁</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums text-red-700 dark:text-red-300">{{ userDossier.summary.activeBanCount ?? 0 }}</p>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                生效封禁
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-red-700 dark:text-red-300">
+                {{ userDossier.summary.activeBanCount ?? 0 }}
+              </p>
             </div>
             <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">生效禁言</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums text-amber-700 dark:text-amber-300">{{ userDossier.summary.activeMuteCount ?? 0 }}</p>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                生效禁言
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                {{ userDossier.summary.activeMuteCount ?? 0 }}
+              </p>
             </div>
             <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">消息总数</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageTotal ?? 0 }}</p>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                消息总数
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">
+                {{ userDossier.summary.messageTotal ?? 0 }}
+              </p>
             </div>
             <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">已删消息</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageDeleted ?? 0 }}</p>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                已删消息
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">
+                {{ userDossier.summary.messageDeleted ?? 0 }}
+              </p>
             </div>
             <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
-              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">当前在线</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.activeSessions ?? 0 }}</p>
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                当前在线
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">
+                {{ userDossier.summary.activeSessions ?? 0 }}
+              </p>
             </div>
           </div>
 
@@ -915,7 +1088,10 @@ onMounted(async () => {
                   关联 IP {{ userDossier.relationship.ips.length }}
                 </span>
               </div>
-              <div v-if="userDossier.suggestedActions?.length" class="flex flex-wrap gap-1.5">
+              <div
+                v-if="userDossier.suggestedActions?.length"
+                class="flex flex-wrap gap-1.5"
+              >
                 <NuxtLink
                   v-for="(action, idx) in userDossier.suggestedActions"
                   :key="'usa-' + action.kind + '-' + idx"
@@ -953,7 +1129,9 @@ onMounted(async () => {
               </li>
             </ul>
             <div v-if="userDossier.ipFootprint?.length">
-              <p class="text-[11px] font-medium text-violet-900 dark:text-violet-300">常用网络</p>
+              <p class="text-[11px] font-medium text-violet-900 dark:text-violet-300">
+                常用网络
+              </p>
               <ul class="mt-1 max-h-28 space-y-1 overflow-y-auto">
                 <li
                   v-for="row in userDossier.ipFootprint"
@@ -980,13 +1158,19 @@ onMounted(async () => {
           >
             <section class="rounded-xl border border-rose-100 dark:border-rose-900 bg-rose-50/40 dark:bg-rose-950/40 p-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xs font-semibold text-rose-950">判断依据</h3>
+                <h3 class="text-xs font-semibold text-rose-950">
+                  判断依据
+                </h3>
                 <span class="text-[10px] text-rose-700 dark:text-rose-300">
                   重要依据 {{ userDossier.investigationSummary?.strongEvidenceCount ?? 0 }} / {{ userDossier.investigationSummary?.evidenceCount ?? 0 }}
                 </span>
               </div>
               <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
-                <li v-for="item in userDossier.evidenceLedger" :key="'ue-' + item.code" class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 text-[11px]">
+                <li
+                  v-for="item in userDossier.evidenceLedger"
+                  :key="'ue-' + item.code"
+                  class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 text-[11px]"
+                >
                   <div class="flex items-center justify-between gap-2">
                     <span class="truncate font-medium text-zinc-800 dark:text-zinc-100">{{ item.message }}</span>
                     <span class="shrink-0 text-[10px] text-rose-800">
@@ -998,12 +1182,21 @@ onMounted(async () => {
             </section>
             <section class="rounded-xl border border-emerald-100 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/40 p-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xs font-semibold text-emerald-950 dark:text-emerald-300">处理建议</h3>
+                <h3 class="text-xs font-semibold text-emerald-950 dark:text-emerald-300">
+                  处理建议
+                </h3>
                 <span class="text-[10px] text-emerald-700 dark:text-emerald-300">建议 {{ userDossier.investigationSummary?.recommendedSteps ?? 0 }} 步</span>
               </div>
               <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
-                <li v-for="step in userDossier.playbook" :key="'upb-' + step.code" class="text-[11px]">
-                  <NuxtLink :to="step.href" class="block rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                <li
+                  v-for="step in userDossier.playbook"
+                  :key="'upb-' + step.code"
+                  class="text-[11px]"
+                >
+                  <NuxtLink
+                    :to="step.href"
+                    class="block rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                  >
                     <div class="flex items-center justify-between gap-2">
                       <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
                       <span class="shrink-0 text-[10px] text-emerald-800 dark:text-emerald-300">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
@@ -1017,18 +1210,30 @@ onMounted(async () => {
 
           <div class="mt-4 space-y-3">
             <section class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 p-3">
-              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">群成员身份（{{ userDossier.memberships.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                群成员身份（{{ userDossier.memberships.length }}）
+              </h3>
               <ul class="mt-2 max-h-28 space-y-1 overflow-y-auto text-xs text-zinc-600 dark:text-zinc-300">
-                <li v-for="m in userDossier.memberships" :key="m.roomId">
+                <li
+                  v-for="m in userDossier.memberships"
+                  :key="m.roomId"
+                >
                   {{ m.title }}
                   <span class="text-zinc-400 dark:text-zinc-500">· {{ m.kind }} · {{ formatAdminRelativeTime(m.joinedAt) }}</span>
                 </li>
-                <li v-if="!userDossier.memberships.length" class="text-zinc-400 dark:text-zinc-500">未加入群聊</li>
+                <li
+                  v-if="!userDossier.memberships.length"
+                  class="text-zinc-400 dark:text-zinc-500"
+                >
+                  未加入群聊
+                </li>
               </ul>
             </section>
 
             <section class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 p-3">
-              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">关联访客（{{ userDossier.linkedVisitors.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                关联访客（{{ userDossier.linkedVisitors.length }}）
+              </h3>
               <ul class="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="v in userDossier.linkedVisitors"
@@ -1042,14 +1247,23 @@ onMounted(async () => {
                     {{ shortAdminId(v.id, 10) }}
                   </NuxtLink>
                   <span class="text-zinc-500 dark:text-zinc-400"> · {{ v.lastCity || v.lastRegion || '未知地点' }} · {{ v.lastIp || '无 IP' }}</span>
-                  <p class="text-zinc-400 dark:text-zinc-500">末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · {{ v.eventCount }} 次操作</p>
+                  <p class="text-zinc-400 dark:text-zinc-500">
+                    末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · {{ v.eventCount }} 次操作
+                  </p>
                 </li>
-                <li v-if="!userDossier.linkedVisitors.length" class="text-zinc-400 dark:text-zinc-500">无关联访客</li>
+                <li
+                  v-if="!userDossier.linkedVisitors.length"
+                  class="text-zinc-400 dark:text-zinc-500"
+                >
+                  无关联访客
+                </li>
               </ul>
             </section>
 
             <section class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 p-3">
-              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">封禁记录（{{ userDossier.bans.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                封禁记录（{{ userDossier.bans.length }}）
+              </h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="b in userDossier.bans"
@@ -1058,14 +1272,23 @@ onMounted(async () => {
                 >
                   <span :class="b.isActive ? 'text-red-700 dark:text-red-300' : 'text-zinc-500 dark:text-zinc-400'">{{ b.isActive ? '生效' : '失效' }}</span>
                   · {{ visitorBanReasonLabel(b.reason) }}
-                  <p class="text-zinc-400 dark:text-zinc-500">{{ formatTime(b.createdAt) }}</p>
+                  <p class="text-zinc-400 dark:text-zinc-500">
+                    {{ formatTime(b.createdAt) }}
+                  </p>
                 </li>
-                <li v-if="!userDossier.bans.length" class="text-zinc-400 dark:text-zinc-500">无账号级封禁</li>
+                <li
+                  v-if="!userDossier.bans.length"
+                  class="text-zinc-400 dark:text-zinc-500"
+                >
+                  无账号级封禁
+                </li>
               </ul>
             </section>
 
             <section class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 p-3">
-              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">禁言记录（{{ userDossier.mutes.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                禁言记录（{{ userDossier.mutes.length }}）
+              </h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="m in userDossier.mutes"
@@ -1074,14 +1297,23 @@ onMounted(async () => {
                 >
                   <span :class="m.isActive ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400'">{{ m.isActive ? '生效' : '失效' }}</span>
                   · {{ m.roomTitle || '全站' }} · {{ m.reason || '—' }}
-                  <p class="text-zinc-400 dark:text-zinc-500">{{ formatTime(m.createdAt) }}</p>
+                  <p class="text-zinc-400 dark:text-zinc-500">
+                    {{ formatTime(m.createdAt) }}
+                  </p>
                 </li>
-                <li v-if="!userDossier.mutes.length" class="text-zinc-400 dark:text-zinc-500">无禁言记录</li>
+                <li
+                  v-if="!userDossier.mutes.length"
+                  class="text-zinc-400 dark:text-zinc-500"
+                >
+                  无禁言记录
+                </li>
               </ul>
             </section>
 
             <section class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 p-3">
-              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">最近消息（{{ userDossier.recentMessages.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                最近消息（{{ userDossier.recentMessages.length }}）
+              </h3>
               <ul class="mt-2 max-h-36 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="msg in userDossier.recentMessages"
@@ -1090,16 +1322,28 @@ onMounted(async () => {
                 >
                   <p class="text-zinc-500 dark:text-zinc-400">
                     {{ msg.roomTitle }} · {{ formatAdminRelativeTime(msg.createdAt) }}
-                    <span v-if="msg.deletedAt" class="text-red-600 dark:text-red-400"> · 已删</span>
+                    <span
+                      v-if="msg.deletedAt"
+                      class="text-red-600 dark:text-red-400"
+                    > · 已删</span>
                   </p>
-                  <p class="mt-0.5 line-clamp-2 text-zinc-800 dark:text-zinc-100">{{ msg.body }}</p>
+                  <p class="mt-0.5 line-clamp-2 text-zinc-800 dark:text-zinc-100">
+                    {{ msg.body }}
+                  </p>
                 </li>
-                <li v-if="!userDossier.recentMessages.length" class="text-zinc-400 dark:text-zinc-500">暂无消息</li>
+                <li
+                  v-if="!userDossier.recentMessages.length"
+                  class="text-zinc-400 dark:text-zinc-500"
+                >
+                  暂无消息
+                </li>
               </ul>
             </section>
 
             <section class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 p-3">
-              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">相关操作记录（{{ userDossier.auditItems.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                相关操作记录（{{ userDossier.auditItems.length }}）
+              </h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="a in userDossier.auditItems"
@@ -1109,7 +1353,12 @@ onMounted(async () => {
                   {{ adminLabel(adminAuditActionLabels, a.action, a.action) }}
                   <span class="text-zinc-400 dark:text-zinc-500"> · {{ formatAdminRelativeTime(a.createdAt) }}</span>
                 </li>
-                <li v-if="!userDossier.auditItems.length" class="text-zinc-400 dark:text-zinc-500">暂无操作记录</li>
+                <li
+                  v-if="!userDossier.auditItems.length"
+                  class="text-zinc-400 dark:text-zinc-500"
+                >
+                  暂无操作记录
+                </li>
               </ul>
             </section>
           </div>

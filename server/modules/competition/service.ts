@@ -446,6 +446,13 @@ export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge 
   }
 }
 
+/** 条目上的曲目优先：晋级后填的新歌只影响那一轮，初赛记录保持原样。 */
+export function entrySingerPublic(entry: EntryRow, singer: SingerRow): CompetitionSingerPublic {
+  const base = serializeSingerPublic(singer)
+  const song = (entry.song ?? '').trim()
+  return song ? { ...base, song } : base
+}
+
 export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
   return {
     id: row.id,
@@ -927,12 +934,13 @@ function buildRoundRanking(
         || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
       .map(row => ({
         id: row.entry.id,
-        singer: serializeSingerPublic(row.singer),
+        singer: entrySingerPublic(row.entry, row.singer),
         sortOrder: row.entry.sortOrder,
         contestDay: row.entry.contestDay ?? null,
         checkedInAt: row.entry.checkedInAt ?? null,
         advanced: row.entry.advanced ?? null,
         advancedFromRank: row.entry.advancedFromRank,
+        song: row.entry.song ?? null,
         average: row.average,
         scoreCount: row.scoreCount,
         rank: liveRank.get(row.entry.id) ?? null,
@@ -951,12 +959,13 @@ function buildRoundRanking(
     }
     result.push({
       id: row.entry.id,
-      singer: serializeSingerPublic(row.singer),
+      singer: entrySingerPublic(row.entry, row.singer),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
+      song: row.entry.song ?? null,
       average: row.average,
       scoreCount: row.scoreCount,
       rank: lastRank,
@@ -969,12 +978,13 @@ function buildRoundRanking(
   for (const row of unscored) {
     result.push({
       id: row.entry.id,
-      singer: serializeSingerPublic(row.singer),
+      singer: entrySingerPublic(row.entry, row.singer),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
+      song: row.entry.song ?? null,
       average: null,
       scoreCount: 0,
       rank: null,
@@ -1334,7 +1344,7 @@ export function buildCurrentSinger(
 
   return {
     entryId: entry.id,
-    singer: serializeSingerPublic(singer),
+    singer: entrySingerPublic(entry, singer),
     index: index + 1,
     total: dayEntries.length,
     judgeTotal: judgedTotal,
@@ -1522,7 +1532,7 @@ export function getCallBoard(client: DatabaseClient, contentId: string): Competi
     rows.push({
       position: seat?.position ?? index + 1,
       name: singer.name,
-      song: singer.song ?? '',
+      song: (entry.song ?? '').trim() || singer.song || '',
       className: singer.className ?? '',
       state: seat?.state ?? 'idle',
       ahead: seat?.ahead ?? null
@@ -2448,7 +2458,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .map(({ entry, singer }, index) => ({
-      ...serializeSingerPublic(singer),
+      ...entrySingerPublic(entry, singer),
       // 分天评比时给评委展示当天顺位（1 起），避免第二天从昨日总数之后接续显示。
       sortOrder: scopedByDay ? index + 1 : entry.sortOrder,
       advancedFromRank: entry.advancedFromRank,
@@ -3012,12 +3022,11 @@ export function buildEmailVariables(
   singer: CompetitionSinger,
   context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string, songUrl?: string } = {}
 ): Record<string, string> {
-  void entry
   return {
     姓名: singer.name,
     班级: singer.className || '—',
     学号: singer.studentNo || '—',
-    歌曲: singer.song || '—',
+    歌曲: (entry.song ?? '').trim() || singer.song || '—',
     轮次: round.title,
     届次: context.edition || '新声歌手大赛',
     收到按钮: context.receiptUrl || '',
@@ -3934,9 +3943,20 @@ function songStage(client: DatabaseClient, eventId: string, singerId: string) {
     if (!entry) continue
     const confirmed = current.rosterConfirmedAt !== null && entry.advanced === 1
     const next = rounds[index + 1] ?? null
+    // 填的新歌属于「下一轮」那场；晋级后下一轮已经有条目（确认晋级时建好的）
+    const targetEntry = next
+      ? client.db.select().from(competitionRoundEntries)
+          .where(and(
+            eq(competitionRoundEntries.roundId, next.id),
+            eq(competitionRoundEntries.singerId, singerId)
+          ))
+          .get()
+      : entry
     return {
       editable: confirmed,
       stageTitle: next ? next.title : current.title,
+      targetEntryId: targetEntry?.id ?? null,
+      targetSong: (targetEntry?.song ?? '').trim(),
       reason: confirmed
         ? ''
         : current.rosterConfirmedAt === null
@@ -3956,7 +3976,7 @@ export function getSongEditor(
   const stage = songStage(client, eventRow.id, singer.id)
   return {
     singerName: singer.name,
-    song: singer.song ?? '',
+    song: stage.targetSong || singer.song || '',
     stageTitle: stage.stageTitle,
     editable: stage.editable,
     reason: stage.reason
@@ -3983,6 +4003,12 @@ export function submitSongByThreeFactors(
   client.db.update(competitionSingers)
     .set({ song: value, updatedAt: Date.now() })
     .where(eq(competitionSingers.id, singer.id)).run()
+  // 同时写进这一轮的条目：初赛那场的曲目记录不会被复赛改歌冲掉
+  if (stage.targetEntryId) {
+    client.db.update(competitionRoundEntries)
+      .set({ song: value })
+      .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
+  }
   return {
     singerName: singer.name,
     song: value,

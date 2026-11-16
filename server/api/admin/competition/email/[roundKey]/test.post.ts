@@ -58,6 +58,7 @@ export default defineEventHandler(async (event) => {
     checkedInAt: null,
     advanced: null,
     advancedFromRank: null,
+    song: null,
     average: 88.88,
     scoreCount: 5,
     rank: 3,

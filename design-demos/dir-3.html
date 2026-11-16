@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向 3 · 田中一光几何平面构成 | 迎新指南 2026</title>
+<style>
+  :root {
+    --paper: #EFECE4;
+    --paper-card: #F8F6F0;
+    --ink: #161614;
+    --ink-muted: #4D4B45;
+    --vermilion: #B83118;
+    --pine: #165E4B;
+    --ochre: #D69B1E;
+    --rule: #C6C0B4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+  img { display: block; max-width: 100%; }
+  .shell { width: min(100% - 36px, 1200px); margin-inline: auto; }
+  .serif { font-family: "Songti SC", "STSong", "Noto Serif SC", Georgia, serif; }
+
+  /* 顶部极简报头导航 */
+  .masthead {
+    border-bottom: 1.5px solid var(--ink);
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .mast-inner {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .mast-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .mast-brand img { width: 26px; height: 26px; object-fit: contain; }
+  .mast-nav { display: flex; gap: 4px; }
+  .mast-nav a {
+    min-height: 44px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .mast-nav a.on { color: var(--vermilion); border-bottom: 2.5px solid var(--vermilion); }
+  .mast-note {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--vermilion);
+    border: 1.5px solid var(--vermilion);
+    padding: 3px 9px;
+    white-space: nowrap;
+  }
+
+  /* 第 1 屏：田中一光几何构成海报首屏 */
+  .poster-hero {
+    padding: 30px 0 26px;
+    border-bottom: 2px solid var(--ink);
+    display: grid;
+    grid-template-columns: 420px 132px 1fr;
+    gap: 32px;
+    align-items: stretch;
+  }
+
+  /* 几何阵（转译自学校指南针/书脊/山湖/朝阳） */
+  .geo-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .geo-grid {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    background: var(--paper-card);
+  }
+  .g1 { background: var(--vermilion); display: grid; place-items: center; }
+  .g1 span { width: 46%; height: 46%; border-radius: 50%; background: var(--paper); }
+  .g2 { background: var(--ink); border-radius: 0 100% 0 0; position: relative; }
+  .g2::after { content: ""; position: absolute; left: 0; bottom: 0; width: 46%; height: 46%; background: var(--paper); border-radius: 0 100% 0 0; }
+  .g3 { background: var(--pine); border-radius: 0 0 0 100%; position: relative; }
+  .g3::after { content: ""; position: absolute; right: 0; top: 0; width: 46%; height: 46%; background: #2D6F8E; border-radius: 0 0 0 100%; }
+  .g4 { background: var(--ochre); position: relative; }
+  .g4::after { content: ""; position: absolute; right: 0; bottom: 0; width: 68%; height: 68%; background: var(--ink); border-radius: 100% 0 0 0; }
+  .geo-curtain {
+    height: 28px;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 14px;
+  }
+  .geo-curtain span { background: var(--ink); display: block; }
+
+  /* 竖排大标题柱 */
+  .poster-title-col {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 0;
+  }
+  .vert-h1 {
+    writing-mode: vertical-rl;
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: 0.1em;
+    color: var(--ink);
+  }
+  .vert-sub {
+    writing-mode: vertical-rl;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--ink-muted);
+    padding-top: 8px;
+  }
+
+  /* 右侧信息分栏 */
+  .poster-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  .info-block {
+    border-top: 1px solid var(--rule);
+    padding-top: 12px;
+  }
+  .info-block:first-child { border-top: 0; padding-top: 0; }
+  .red-label {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--vermilion);
+    margin-bottom: 6px;
+  }
+  .date-items { display: grid; gap: 6px; font-size: 14px; }
+  .date-items div { display: flex; justify-content: space-between; gap: 12px; }
+  .date-items strong { font-weight: 800; }
+
+  .poster-search {
+    display: flex;
+    border: 2px solid var(--ink);
+    background: var(--paper-card);
+  }
+  .poster-search input {
+    flex: 1;
+    min-width: 0;
+    min-height: 46px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    padding: 0 12px;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .poster-search button {
+    min-height: 46px;
+    padding: 0 20px;
+    background: var(--vermilion);
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .poster-foot-row {
+    border-top: 1.5px solid var(--ink);
+    padding-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .red-seal {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--vermilion);
+    display: inline-block;
+  }
+
+  /* 四联常用查询矩阵 */
+  .quad-band {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .quad-cell {
+    padding: 20px 18px;
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 126px;
+    transition: background .15s;
+  }
+  .quad-cell:last-child { border-right: 0; }
+  .quad-cell:hover { background: var(--paper-card); }
+  .quad-mark {
+    width: 28px;
+    height: 6px;
+    margin-bottom: 12px;
+  }
+  .quad-cell h2 { font-size: 17px; font-weight: 900; }
+  .quad-cell p { font-size: 13px; color: var(--ink-muted); margin-top: 4px; }
+
+  /* 中部双栏：动态 + 阶段进度 */
+  .split-matrix {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .col-left {
+    padding: 28px 28px 28px 0;
+    border-right: 1px solid var(--rule);
+  }
+  .col-right {
+    padding: 28px 0 28px 28px;
+  }
+  .col-h {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .col-h h2 { font-size: 20px; font-weight: 900; }
+  .col-h span { font-size: 13px; font-weight: 700; color: var(--vermilion); }
+
+  .bulletin-list { list-style: none; }
+  .bulletin-list li {
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 0;
+  }
+  .bulletin-list li:last-child { border-bottom: 0; }
+  .b-row { display: grid; grid-template-columns: 54px 1fr; gap: 12px; align-items: start; }
+  .b-tag {
+    border: 1px solid var(--ink);
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 2px 0;
+  }
+  .b-tag.em { background: var(--vermilion); border-color: var(--vermilion); color: #fff; }
+  .b-title { font-size: 15px; font-weight: 800; }
+  .b-meta { font-size: 13px; color: var(--ink-muted); margin-top: 2px; }
+
+  /* 阶段按钮 + 清单 */
+  .stage-bar {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1.5px solid var(--ink);
+  }
+  .stage-bar button {
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 800;
+    border-right: 1px solid var(--ink);
+    background: var(--paper-card);
+  }
+  .stage-bar button:last-child { border-right: 0; }
+  .stage-bar button.on { background: var(--ink); color: var(--paper); }
+
+  .stage-ul {
+    list-style: none;
+    margin-top: 14px;
+    display: grid;
+    gap: 8px;
+  }
+  .stage-ul li {
+    padding: 10px 12px;
+    background: var(--paper-card);
+    border: 1px solid var(--rule);
+    font-size: 14px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .stage-ul li::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    background: var(--pine);
+    flex-shrink: 0;
+  }
+  .checklist-box {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--paper-card);
+    border: 1.5px solid var(--ink);
+  }
+  .chk-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .chk-bar { height: 8px; background: #DED9CE; margin-top: 8px; }
+  .chk-fill { height: 100%; background: var(--vermilion); width: 35%; }
+
+  /* 校内热线墨带 */
+  .ink-hotline {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 26px 0;
+  }
+  .hotline-grid {
+    display: grid;
+    grid-template-columns: 240px repeat(4, 1fr);
+    gap: 14px;
+    align-items: stretch;
+  }
+  .hl-lead h2 { font-size: 20px; font-weight: 900; color: #FFFFFF; }
+  .hl-lead p { font-size: 13px; color: #F5C3B8; margin-top: 4px; }
+  .hl-cell {
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    padding: 12px 14px;
+    min-height: 70px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .hl-cell strong { font-size: 15px; color: #FFFFFF; }
+  .hl-cell span { font-size: 12px; color: #D7D3C8; }
+
+  /* 服务索引 */
+  .svc-band { padding: 30px 0; border-bottom: 1.5px solid var(--ink); }
+  .svc-table {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border-top: 1.5px solid var(--ink);
+    border-left: 1px solid var(--rule);
+  }
+  .svc-td {
+    padding: 15px 14px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-card);
+    min-height: 92px;
+  }
+  .svc-td:hover { background: #FFFFFF; }
+  .svc-td h3 { font-size: 15px; font-weight: 800; }
+  .svc-td p { font-size: 12px; color: var(--ink-muted); margin-top: 4px; }
+
+  /* 底栏 */
+  .poster-footer {
+    padding: 26px 0 40px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .pf-links { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pf-links a {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--ink);
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .mobile-bar { display: none; }
+
+  @media (max-width: 980px) {
+    .mast-nav { display: none; }
+    .poster-hero { grid-template-columns: 1fr; gap: 20px; }
+    .geo-stage { max-width: 340px; }
+    .poster-title-col {
+      border-left: 0;
+      border-right: 0;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+      padding: 12px 0;
+      justify-content: flex-start;
+    }
+    .vert-h1, .vert-sub { writing-mode: horizontal-tb; letter-spacing: 0.02em; }
+    .vert-h1 { font-size: 34px; }
+    .quad-band { grid-template-columns: repeat(2, 1fr); }
+    .quad-cell:nth-child(2n) { border-right: 0; }
+    .quad-cell { border-bottom: 1px solid var(--rule); }
+    .split-matrix { grid-template-columns: 1fr; }
+    .col-left { padding: 24px 0; border-right: 0; border-bottom: 1.5px solid var(--ink); }
+    .col-right { padding: 24px 0; }
+    .hotline-grid { grid-template-columns: 1fr 1fr; }
+    .hl-lead { grid-column: 1 / -1; }
+    .svc-table { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    body { padding-bottom: 72px; }
+    .mast-note { display: none; }
+    .poster-hero {
+      padding: 18px 0 22px;
+      grid-template-columns: 96px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+    .geo-stage { max-width: 96px; gap: 6px; }
+    .geo-curtain { height: 10px; gap: 4px; grid-template-columns: repeat(6, 1fr); }
+    .geo-curtain span:nth-child(n+7) { display: none; }
+    .poster-title-col {
+      border: 0;
+      padding: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .vert-h1 { font-size: 32px; }
+    .vert-sub { padding-top: 0; font-size: 13px; }
+    .poster-info { grid-column: 1 / -1; }
+    .poster-search { flex-direction: column; }
+    .poster-search button { width: 100%; }
+    .hotline-grid { grid-template-columns: 1fr; }
+    .mobile-bar {
+      position: fixed;
+      inset: auto 0 0 0;
+      height: 64px;
+      background: var(--paper);
+      border-top: 1.5px solid var(--ink);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      z-index: 40;
+    }
+    .mobile-bar a { display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+    .mobile-bar a.on { color: var(--vermilion); }
+  }
+</style>
+</head>
+<body>
+<!--
+Design decisions (Dir-3 田中一光东方几何平面构成):
+- 配色：和纸暖白 #EFECE4 + 印刷墨黑 #161614 + 朱红 #B83118 + 松青 #165E4B + 麦黄 #D69B1E
+- 主角：左 2x2 几何构成阵（由校徽指南针/书脊/湖山/朝阳转译）+ 竖排粗宋体报头「迎新指南」
+- 移动端断点自动切换为横排大字与紧凑几何块，保持可读性与操作热区
+-->
+<header class="masthead">
+  <div class="shell mast-inner">
+    <a href="#top" class="mast-brand">
+      <img src="../public/images/brand/system-logo-mark-light.png" alt="迎新指南">
+      <span>迎新指南</span>
+    </a>
+    <nav class="mast-nav" aria-label="主导航">
+      <a href="#top" class="on">首页</a>
+      <a href="#quad">查询</a>
+      <a href="#stages">办事</a>
+      <a href="#services">生活</a>
+      <a href="#bulletin">热点</a>
+      <a href="#stages">我的</a>
+    </nav>
+    <span class="mast-note">学生整理 / 非学校官网</span>
+  </div>
+</header>
+
+<main id="top">
+  <section class="shell poster-hero">
+    <div class="geo-stage" aria-hidden="true">
+      <div class="geo-grid">
+        <div class="g1"><span></span></div>
+        <div class="g2"></div>
+        <div class="g3"></div>
+        <div class="g4"></div>
+      </div>
+      <div class="geo-curtain">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div class="poster-title-col">
+      <h1 class="serif vert-h1">迎新指南</h1>
+      <p class="vert-sub">二〇二六级新生</p>
+    </div>
+
+    <div class="poster-info">
+      <div class="info-block">
+        <span class="red-label">重要时间</span>
+        <div class="date-items">
+          <div><span>9月5–6日</span><strong>注册报到（看录取通知书）</strong></div>
+          <div><span>9月7–9日</span><strong>入学教育（看学院通知）</strong></div>
+          <div><span>9月10日</span><strong>开始上课（看教务系统）</strong></div>
+        </div>
+      </div>
+
+      <div class="info-block">
+        <span class="red-label">AI 智能检索</span>
+        <form class="poster-search" id="pSearch">
+          <input type="text" id="pInput" placeholder="搜索校园信息，或输入你的问题" aria-label="搜索校园信息">
+          <button type="submit">检索</button>
+        </form>
+        <p id="pOut" style="font-size:13px;color:var(--pine);margin-top:6px;min-height:20px;"></p>
+      </div>
+
+      <div class="info-block">
+        <span class="red-label">入学序言</span>
+        <p style="font-size:14px;color:var(--ink-muted);">把仰恩报到流程、宿舍实拍、校园地图、一卡通网络与急救电话，按入学当天的先后次序编成一帖。</p>
+      </div>
+
+      <div class="poster-foot-row">
+        <span>泉州洛江 ｜ 2026级入学帖</span>
+        <span class="red-seal"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="shell quad-band" id="quad" aria-label="常用查询">
+    <a href="#stages" class="quad-cell">
+      <div class="quad-mark" style="background:var(--pine);"></div>
+      <div>
+        <h2>报到安排</h2>
+        <p>入学前先看时间、地点与携带材料</p>
+      </div>
+    </a>
+    <a href="#services" class="quad-cell">
+      <div class="quad-mark" style="background:#2D6F8E;"></div>
+      <div>
+        <h2>校园地图</h2>
+        <p>查找宿舍片区、教学楼与医务所</p>
+      </div>
+    </a>
+    <a href="#bulletin" class="quad-cell">
+      <div class="quad-mark" style="background:var(--ochre);"></div>
+      <div>
+        <h2>一卡通与网络</h2>
+        <p>统一认证、宿舍宽带与校园卡办理</p>
+      </div>
+    </a>
+    <a href="#services" class="quad-cell">
+      <div class="quad-mark" style="background:var(--vermilion);"></div>
+      <div>
+        <h2>快递与外卖</h2>
+        <p>校内取件站点与外卖送达说明</p>
+      </div>
+    </a>
+  </section>
+
+  <section class="shell split-matrix">
+    <div class="col-left" id="bulletin">
+      <div class="col-h">
+        <h2>最近在发</h2>
+        <span>通知与活动并刊</span>
+      </div>
+      <ul class="bulletin-list">
+        <li>
+          <a href="#stages" class="b-row">
+            <span class="b-tag em">置顶</span>
+            <div>
+              <div class="b-title">2026级新生报到及泉州站接站安排说明</div>
+              <div class="b-meta">招生迎新公开整理 ｜ 附到校公交线路</div>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#services" class="b-row">
+            <span class="b-tag">网络</span>
+            <div>
+              <div class="b-title">仰恩大学校园网使用指南（2025版）</div>
+              <div class="b-meta">认证登录、计费规则与常见连网排查</div>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#hotlines" class="b-row">
+            <span class="b-tag">宿舍</span>
+            <div>
+              <div class="b-title">学生宿舍空调使用规定与水电报修</div>
+              <div class="b-meta">报修直拨总务/校园 110：0595-22076110</div>
+            </div>
+          </a>
+        </li>
+        <li>
+          <a href="#services" class="b-row">
+            <span class="b-tag">活动</span>
+            <div>
+              <div class="b-title">百团纳新与新生志愿引导安排</div>
+              <div class="b-meta">9月6日至9月8日 ｜ 学生活动中心广场</div>
+            </div>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="col-right" id="stages">
+      <div class="col-h">
+        <h2>按入学阶段查看</h2>
+        <span>三步指引</span>
+      </div>
+      <div class="stage-bar" role="tablist">
+        <button type="button" class="on" data-s="0">到校前</button>
+        <button type="button" data-s="1">报到当天</button>
+        <button type="button" data-s="2">入学第一周</button>
+      </div>
+      <ul class="stage-ul" id="pStageList">
+        <li>确认报到时间和要带的材料</li>
+        <li>查专业对应的住宿片区</li>
+        <li>收藏校园地图认方向</li>
+      </ul>
+
+      <div class="checklist-box">
+        <div class="chk-head">
+          <strong style="font-size:15px;">新生准备清单</strong>
+          <strong style="font-size:18px;color:var(--vermilion);">已完成 35%</strong>
+        </div>
+        <div class="chk-bar"><div class="chk-fill"></div></div>
+        <p style="font-size:13px;color:var(--ink-muted);margin-top:8px;">下一项：查清宿舍片区与校内公交站点（进度保存在本机）</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="ink-hotline" id="hotlines">
+    <div class="shell hotline-grid">
+      <div class="hl-lead">
+        <h2>校内求助与常用电话</h2>
+        <p>紧急先拨校园 110 ｜ 医务室 24 小时值班</p>
+      </div>
+      <a href="tel:059522076110" class="hl-cell"><strong>拨打校园 110</strong><span>0595-22076110 ｜ 报修/求助</span></a>
+      <a href="tel:059522099033" class="hl-cell"><strong>心理健康中心</strong><span>0595-22099033 ｜ 咨询支持</span></a>
+      <a href="tel:059522082006" class="hl-cell"><strong>教务部</strong><span>0595-22082006 ｜ 学籍课表</span></a>
+      <a href="tel:059522099018" class="hl-cell"><strong>学生资助中心</strong><span>0595-22099018 ｜ 贷款助学</span></a>
+    </div>
+  </section>
+
+  <section class="shell svc-band" id="services">
+    <div class="col-h">
+      <h2>服务导航</h2>
+      <span>10 项全校园生活索引</span>
+    </div>
+    <div class="svc-table">
+      <a href="#stages" class="svc-td"><h3>新生清单</h3><p>到校前与第一周事项</p></a>
+      <a href="#hotlines" class="svc-td"><h3>安全医疗与心理</h3><p>保存校园 110 与医务所</p></a>
+      <a href="#services" class="svc-td"><h3>学生手册与资助</h3><p>校内规则与奖助学金</p></a>
+      <a href="#services" class="svc-td"><h3>学生社团</h3><p>社团方向与学期招新</p></a>
+      <a href="#services" class="svc-td"><h3>校内部门</h3><p>招生、教务与学生事务</p></a>
+      <a href="#services" class="svc-td"><h3>吃喝玩乐</h3><p>学生街、马甲与泉州攻略</p></a>
+      <a href="#services" class="svc-td"><h3>到校与离校交通</h3><p>泉州站、东站与机场公交</p></a>
+      <a href="#services" class="svc-td"><h3>全景云游校园</h3><p>大门、教学楼与校史馆</p></a>
+      <a href="#services" class="svc-td"><h3>宿舍实拍</h3><p>普通型与舒适型宿舍实景</p></a>
+      <a href="https://dz.lileikeji.top/uploads/releases/download.php" target="_blank" rel="noopener noreferrer" class="svc-td"><h3>WeLearn 学习工具</h3><p>第三方工具下载入口</p></a>
+    </div>
+  </section>
+</main>
+
+<footer class="shell poster-footer">
+  <div>
+    <p style="font-size:15px;font-weight:800;">学生整理 / 非学校官网 ｜ 重要事项，再到学校原文确认一次</p>
+    <p style="font-size:13px;color:var(--ink-muted);margin-top:4px;">报到、缴费、住宿和资助等要求，最终看录取通知书和学校通知（最近核对：2026年7月23日）。</p>
+  </div>
+  <div class="pf-links">
+    <a href="https://www.yeu.edu.cn/" target="_blank" rel="noopener noreferrer">学校官网</a>
+    <a href="https://zhaosheng.yeu.edu.cn/" target="_blank" rel="noopener noreferrer">招生官网</a>
+    <a href="https://xsb.yeu.edu.cn/xszz/list.htm" target="_blank" rel="noopener noreferrer">学生资助</a>
+    <a href="#top">看信息从哪来</a>
+    <a href="#hotlines">反馈纠错</a>
+  </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="移动端主导航">
+  <a href="#top" class="on">首页</a>
+  <a href="#quad">查询</a>
+  <a href="#stages">办事</a>
+  <a href="#services">生活</a>
+  <a href="#hotlines">我的</a>
+</nav>
+
+<script>
+  const pStages = [
+    ['确认报到时间和要带的材料', '查专业对应的住宿片区', '收藏校园地图认方向'],
+    ['按现场指引完成报到', '到宿舍确认入住', '核对一卡通和网络'],
+    ['确认课表和教学楼', '办理一卡通和网络', '保存安全和办事入口']
+  ];
+  document.querySelectorAll('.stage-bar button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.stage-bar button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      document.getElementById('pStageList').innerHTML = pStages[Number(b.dataset.s)].map(t => `<li>${t}</li>`).join('');
+    });
+  });
+  document.getElementById('pSearch').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = document.getElementById('pInput').value.trim();
+    document.getElementById('pOut').textContent = v ? `原型演示：即将为您检索「${v}」` : '请输入想查询的校园信息或问题';
+  });
+</script>
+</body>
+</html>

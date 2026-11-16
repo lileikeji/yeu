@@ -555,6 +555,8 @@ export interface CompetitionRoundEntry {
   contestDay: number | null
   /** 现场签到时间；null = 还没到场（评委看不到、不占排队位置）。 */
   checkedInAt: number | null
+  /** 这一轮实际演唱的曲目；空 = 用选手库里登记的 song */
+  song: string | null
   /** 1 = 已确认晋级下一轮，0 = 未晋级，null = 还没确认。 */
   advanced: number | null
   advancedFromRank: number | null

@@ -1283,6 +1283,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   contestDay: integer('contest_day'),
   /** 现场签到时间；空 = 还没到场，评委看不到、不占排队位置。 */
   checkedInAt: integer('checked_in_at'),
+  // 这一轮实际要唱的歌：晋级后选手自己填，空 = 沿用选手库里的 song
+  song: text('song'),
   /** 1 = 已确认晋级下一轮，0 = 未晋级，空 = 还没确认（按排名自动判定）。 */
   advanced: integer('advanced'),
   createdAt: timestamp('created_at')

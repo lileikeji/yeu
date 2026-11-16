@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>首页 | 迎新指南 — 线上极简升级版</title>
+  <style>
+    :root {
+      --page-bg: #f7f8f6;
+      --surface: #ffffff;
+      --line: #e6e9e5;
+      --line-strong: #d5dbd3;
+      --ink: #090d0b;
+      --ink-2: #37413c;
+      --ink-3: #57625c;
+      --green: #176f46;
+      --green-hover: #125837;
+      --green-soft: #eef6f1;
+      --green-line: #d4e6dc;
+      --amber-bg: #fdf8ee;
+      --amber-line: #f1e2c2;
+      --amber-ink: #854d0e;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--page-bg);
+      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; color: inherit; }
+    button { border: none; background: transparent; cursor: pointer; }
+
+    .page-shell {
+      width: min(100% - 2.5rem, 1180px);
+      margin-inline: auto;
+    }
+
+    /* 1. 顶栏：完全还原线上纯净白底导航 */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .header-row {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      flex-shrink: 0;
+    }
+    .brand img { width: 34px; height: 34px; object-fit: contain; }
+    .brand-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand-sub { font-size: 12px; color: var(--ink-3); }
+
+    .main-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-item {
+      min-height: 44px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-2);
+      position: relative;
+      transition: color .18s;
+    }
+    .nav-item:hover { color: var(--green); }
+    .nav-item.active {
+      color: var(--green);
+      font-weight: 700;
+    }
+    .nav-item.active::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 4px;
+      height: 2px;
+      background: var(--green);
+      border-radius: 2px;
+    }
+
+    .header-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mode-toggle {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 8px;
+      background: #f2f4f2;
+      border: 1px solid var(--line);
+    }
+    .mode-toggle button {
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ink-3);
+      transition: background .16s, color .16s;
+    }
+    .mode-toggle button.active {
+      background: #ffffff;
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .tool-btn {
+      min-height: 44px;
+      padding: 0 10px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--ink-2);
+      transition: background .16s, color .16s;
+    }
+    .tool-btn:hover { background: #f3f5f3; color: var(--green); }
+    .tool-btn.green { color: var(--green); font-weight: 600; }
+
+    /* 2. 重要时间细通知栏 */
+    .notice-strip {
+      background: var(--amber-bg);
+      border-bottom: 1px solid var(--amber-line);
+    }
+    .notice-row {
+      min-height: 44px;
+      padding: 6px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--amber-ink);
+    }
+    .notice-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .notice-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      padding-right: 14px;
+      border-right: 1px solid #ead5ac;
+      white-space: nowrap;
+    }
+    .notice-text { color: #925614; }
+    .notice-more {
+      min-height: 36px;
+      padding: 0 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* 3. 居中极简 Hero：保持线上纯净呼吸感 */
+    .hero-block {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 52px 0 46px;
+      text-align: center;
+    }
+    .hero-block h1 {
+      margin: 0 0 24px;
+      font-size: 36px;
+      line-height: 1.2;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .search-row {
+      max-width: 720px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+    .search-field {
+      min-height: 48px;
+      padding: 0 16px;
+      border-radius: 8px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .search-field:focus-within {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(23, 111, 70, 0.1);
+    }
+    .search-field svg { color: var(--ink-3); flex-shrink: 0; }
+    .search-field input {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 15px;
+    }
+    .search-field input::placeholder { color: #78827c; }
+    .search-shortcut-key {
+      font-size: 12px;
+      color: var(--ink-3);
+      padding: 2px 7px;
+      border-radius: 5px;
+      border: 1px solid var(--line);
+      background: var(--page-bg);
+    }
+    .search-btn {
+      min-height: 48px;
+      padding: 0 22px;
+      border-radius: 8px;
+      background: var(--green);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      transition: background .18s;
+    }
+    .search-btn:hover { background: var(--green-hover); }
+
+    .search-suggestions {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .suggest-link {
+      min-height: 36px;
+      padding: 0 4px;
+      color: var(--ink-2);
+      transition: color .16s;
+    }
+    .suggest-link:hover { color: var(--green); text-decoration: underline; text-underline-offset: 4px; }
+
+    /* 4. 通用区块间距 */
+    .page-section {
+      padding: 34px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .section-action {
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .section-action:hover { background: var(--green-soft); }
+
+    /* 5. 常用查询 4 卡片：保持线上纯净留白，但优化比例与微说明 */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .quick-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 24px 20px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: border-color .2s, box-shadow .2s, transform .2s;
+    }
+    .quick-card:hover {
+      border-color: rgba(23, 111, 70, 0.35);
+      box-shadow: 0 10px 24px -10px rgba(23, 111, 70, 0.1);
+      transform: translateY(-2px);
+    }
+    .q-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
+    }
+    .tone-green { background: #eef7f2; color: #176f46; }
+    .tone-blue { background: #eff6ff; color: #1d4ed8; }
+    .tone-violet { background: #f5f3ff; color: #6d28d9; }
+    .tone-amber { background: #fff8eb; color: #b45309; }
+    .quick-card h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .quick-card p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--ink-3);
+      line-height: 1.45;
+    }
+
+    /* 可选展开的轻量实景预览抽屉（默认收起，不破坏极简留白） */
+    .peek-drawer {
+      display: none;
+      margin-top: 14px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .peek-drawer.open { display: grid; }
+    .peek-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+    .peek-item:hover { border-color: var(--green); background: var(--green-soft); }
+    .peek-item img {
+      width: 76px;
+      height: 54px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .peek-item strong { display: block; font-size: 14px; }
+    .peek-item span { display: block; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+    /* 6. 按入学阶段查看 + 新生准备清单（严格等高对齐） */
+    .stage-split {
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .white-box {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .underline-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 8px;
+    }
+    .u-tab {
+      min-height: 44px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-3);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .18s, border-color .18s;
+    }
+    .u-tab:hover { color: var(--ink); }
+    .u-tab.active {
+      color: var(--green);
+      font-weight: 700;
+      border-bottom-color: var(--green);
+    }
+    .stage-items { flex: 1; }
+    .stage-row {
+      min-height: 50px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f2ef;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      color: var(--ink-2);
+    }
+    .stage-row:last-child { border-bottom: none; }
+    .stage-row svg { color: var(--green); flex-shrink: 0; }
+    .stage-more {
+      margin-top: 10px;
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--green);
+      align-self: flex-start;
+    }
+
+    /* 右侧准备清单卡 */
+    .checklist-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .checklist-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .checklist-stat {
+      font-size: 14px;
+      color: var(--ink-3);
+    }
+    .checklist-stat strong {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--green);
+      margin-left: 4px;
+    }
+    .bar-bg {
+      height: 7px;
+      border-radius: 999px;
+      background: #eaeeeb;
+      overflow: hidden;
+      margin: 14px 0;
+    }
+    .bar-fg {
+      height: 100%;
+      width: 0%;
+      background: var(--green);
+      border-radius: 999px;
+      transition: width .25s ease;
+    }
+    .mini-checks {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .mini-check-btn {
+      min-height: 42px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      border: 1px solid #eef0ed;
+      background: #fafbfa;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      font-size: 14px;
+      color: var(--ink-2);
+      transition: border-color .15s, background .15s;
+    }
+    .mini-check-btn:hover { border-color: var(--green-line); background: var(--green-soft); }
+    .mini-check-btn.done { color: var(--ink-3); text-decoration: line-through; }
+    .box-mark {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid #b5beb8;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .mini-check-btn.done .box-mark { background: var(--green); border-color: var(--green); }
+
+    .checklist-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #f0f2ef;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .btn-ghost-green {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 7px;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      transition: background .16s;
+    }
+    .btn-ghost-green:hover { background: var(--green-soft); }
+
+    /* 7. 校内求助与常用电话（1:1 保持线上浅绿条质感） */
+    .help-band {
+      background: var(--green-soft);
+      border-bottom: 1px solid var(--green-line);
+      padding: 28px 0;
+    }
+    .help-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .help-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--green);
+      color: #fff;
+      display: grid;
+      place-items: center;
+    }
+    .help-header h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    .help-lead { margin: 0 0 14px; font-size: 14px; color: var(--ink-2); }
+    .help-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .help-card {
+      min-height: 52px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--green-line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 14px;
+      transition: border-color .16s;
+    }
+    .help-card:hover { border-color: var(--green); }
+    .help-card strong {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+    .help-card strong svg { color: var(--green); }
+    .help-card span { font-size: 13px; color: var(--ink-3); }
+    .help-note { margin: 12px 0 0; font-size: 13px; color: var(--ink-3); }
+
+    /* 8. 服务导航 5x2 发丝线整卡（线上经典设计） */
+    .service-grid-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      overflow: hidden;
+    }
+    .service-cell {
+      min-height: 108px;
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+      border-right: 1px solid #eef0ed;
+      border-bottom: 1px solid #eef0ed;
+      transition: background .16s;
+    }
+    .service-cell:nth-child(5n) { border-right: none; }
+    .service-cell:nth-child(n+6) { border-bottom: none; }
+    .service-cell svg { color: var(--green); }
+    .service-cell span { font-size: 14px; font-weight: 600; color: var(--ink); }
+    .service-cell:hover { background: #f8faf8; }
+    .service-cell:hover span { color: var(--green); }
+
+    /* 9. 底部声明与页脚 */
+    .trust-block {
+      padding: 38px 0 28px;
+      text-align: center;
+    }
+    .trust-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+    }
+    .trust-tag svg { color: var(--green); }
+    .trust-block h2 { margin: 14px 0 6px; font-size: 20px; font-weight: 700; }
+    .trust-block p { margin: 4px 0; font-size: 14px; color: var(--ink-3); }
+    .trust-links {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 18px;
+    }
+    .trust-links a {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--ink-2);
+    }
+    .trust-links a:hover { color: var(--green); }
+
+    .view-counter {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fafbfa;
+      padding: 10px 0;
+      text-align: center;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .site-footer {
+      background: var(--surface);
+      padding: 20px 0 28px;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .footer-links { display: flex; gap: 16px; flex-wrap: wrap; }
+    .footer-links a:hover { color: var(--green); }
+
+    [hidden] { display: none !important; }
+
+    /* 服务导航补充：桌面隐藏移动副标题与箭头，移动端切为单列清晰列表 */
+    .svc-icon-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      flex-shrink: 0;
+    }
+    .svc-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+    }
+    .svc-meta strong {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .svc-sub,
+    .svc-arrow {
+      display: none;
+    }
+
+    /* 移动端顶栏第二层切换条 & 固定底栏 Tab Bar */
+    .mobile-mode-bar {
+      display: none;
+      border-top: 1px solid #eef0ed;
+      background: rgba(248, 250, 248, 0.96);
+      padding: 8px 0;
+    }
+    .mobile-mode-track {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      padding: 3px;
+      border-radius: 10px;
+      background: #eaeeea;
+      border: 1px solid var(--line);
+      gap: 4px;
+    }
+    .mobile-mode-track button {
+      min-height: 34px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .16s, color .16s, box-shadow .16s;
+    }
+    .mobile-mode-track button.active {
+      background: var(--surface);
+      color: var(--green);
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(9, 13, 11, 0.08);
+    }
+
+    .mobile-tabbar {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 45;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid var(--line);
+      padding: 4px 6px max(4px, env(safe-area-inset-bottom));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 2px;
+    }
+    .tab-link {
+      min-height: 46px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: var(--ink-3);
+      font-size: 12px;
+      font-weight: 500;
+      transition: color .16s, background .16s;
+    }
+    .tab-link.active {
+      color: var(--green);
+      font-weight: 700;
+      background: rgba(23, 111, 70, 0.06);
+    }
+
+    /* 10. 简洁模式（同步桌面窄栏与移动端原生体验） */
+    .compact-view {
+      padding: 18px 0 32px;
+    }
+    .compact-shell {
+      width: min(100% - 1.75rem, 560px);
+      margin-inline: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .mp-banner {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .mp-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .mp-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--green-soft);
+      border: 1px solid var(--green-line);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .mp-logo img { width: 22px; height: 22px; object-fit: contain; }
+    .mp-text strong { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+    .mp-text span { display: block; font-size: 12px; color: var(--ink-3); }
+    .mp-open-btn {
+      min-height: 34px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: var(--green);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .compact-hero-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .compact-hero-media {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #e9eee9;
+      overflow: hidden;
+    }
+    .compact-hero-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .compact-hero-foot {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-top: 1px solid #eef0ed;
+    }
+    .compact-hero-copy { min-width: 0; }
+    .compact-hero-copy strong {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .compact-hero-copy span {
+      display: block;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .carousel-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .carousel-dot {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+    .carousel-dot::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #cbd3cd;
+      transition: width .16s, background .16s;
+    }
+    .carousel-dot.active::before {
+      width: 16px;
+      background: var(--green);
+    }
+
+    .compact-notice-bar {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .compact-badge {
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .compact-notice-text {
+      flex: 1;
+      min-width: 0;
+      color: var(--ink-2);
+      font-weight: 500;
+    }
+
+    .compact-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .compact-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+    .compact-card-head h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .compact-card-head span {
+      font-size: 12px;
+      color: var(--ink-3);
+    }
+
+    .compact-app-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px 4px;
+    }
+    .compact-app-item {
+      min-height: 58px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+      padding: 4px 2px;
+      border-radius: 8px;
+    }
+    .compact-app-item:hover { background: #f6f8f6; }
+    .compact-app-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+    }
+    .compact-app-item > span:last-child {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-2);
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    .compact-rail {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .compact-rail::-webkit-scrollbar { display: none; }
+    .compact-rail-card {
+      flex: 0 0 162px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fafbfa;
+    }
+    .compact-rail-card img {
+      width: 100%;
+      height: 94px;
+      object-fit: cover;
+      display: block;
+    }
+    .compact-rail-body {
+      padding: 9px 10px 10px;
+    }
+    .compact-rail-body strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .compact-rail-body span {
+      display: block;
+      font-size: 12px;
+      color: var(--ink-3);
+      margin-top: 2px;
+    }
+
+    .compact-step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .compact-step-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8faf8;
+      border: 1px solid #eef1ed;
+    }
+    .compact-step-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .compact-step-item > div > strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .compact-step-item > div > span {
+      display: block;
+      font-size: 12px;
+      color: var(--ink-3);
+    }
+
+    .compact-dorm-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .compact-dorm-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .compact-dorm-card img {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      display: block;
+    }
+    .compact-dorm-body {
+      padding: 9px 10px 10px;
+    }
+    .compact-dorm-body strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .compact-dorm-body span {
+      display: block;
+      font-size: 12px;
+      color: var(--ink-3);
+      margin-top: 2px;
+    }
+
+    @media (max-width: 960px) {
+      .main-nav, .brand-sub { display: none; }
+      .quick-grid, .help-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .peek-drawer.open { grid-template-columns: 1fr; }
+      .stage-split { grid-template-columns: 1fr; }
+      .service-grid-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .service-cell:nth-child(5n) { border-right: 1px solid #eef0ed; }
+      .service-cell:nth-child(2n) { border-right: none; }
+      .service-cell:nth-child(n+6) { border-bottom: 1px solid #eef0ed; }
+      .service-cell:nth-last-child(-n+2) { border-bottom: none; }
+    }
+    @media (max-width: 768px) {
+      body { padding-bottom: 68px; }
+      .header-row { height: 56px; }
+      .brand img { width: 28px; height: 28px; }
+      .brand-title { font-size: 15px; }
+      .mode-toggle, .search-shortcut-key, .tool-btn span { display: none; }
+      .mobile-mode-bar { display: block; }
+      .mobile-tabbar { display: grid; }
+      .tool-btn { min-width: 40px; min-height: 40px; padding: 0; justify-content: center; }
+      .header-tools { gap: 2px; }
+
+      .notice-row { flex-direction: column; align-items: stretch; gap: 2px; padding: 9px 0 10px; }
+      .notice-main { width: 100%; flex-wrap: wrap; gap: 4px 8px; }
+      .notice-label { border-right: none; padding-right: 0; font-size: 13px; }
+      .notice-text { flex-basis: 100%; font-size: 14px; line-height: 1.45; }
+      .notice-more { position: absolute; right: 14px; top: 6px; min-height: 32px; font-size: 13px; }
+      .notice-strip { position: relative; }
+
+      .hero-block { padding: 24px 0 20px; }
+      .hero-block h1 { font-size: 25px; margin-bottom: 14px; }
+      .search-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 0; }
+      .search-field { min-height: 44px; padding: 0 10px 0 13px; gap: 8px; }
+      .search-field input { font-size: 15px; }
+      .search-btn { min-height: 44px; padding: 0 14px; font-size: 14px; gap: 5px; }
+      .search-suggestions {
+        margin-top: 12px;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .search-suggestions::-webkit-scrollbar { display: none; }
+      .search-suggestions > span { white-space: nowrap; flex-shrink: 0; font-size: 13px; }
+      .suggest-link {
+        min-height: 32px;
+        padding: 0 11px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        font-size: 13px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .page-section { padding: 26px 0; }
+      .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .quick-card { padding: 16px 12px 15px; justify-content: flex-start; height: 100%; }
+      .q-icon-box { width: 40px; height: 40px; margin-bottom: 10px; }
+      .quick-card h3 { font-size: 15px; }
+      .quick-card p { font-size: 13px; line-height: 1.45; }
+
+      .service-grid-card { grid-template-columns: 1fr; border-radius: 12px; }
+      .service-cell {
+        min-height: 60px;
+        padding: 12px 14px;
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+        gap: 12px;
+        border-right: none !important;
+        border-bottom: 1px solid #eef0ed !important;
+      }
+      .service-cell:last-child { border-bottom: none !important; }
+      .svc-icon-wrap {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: var(--green-soft);
+      }
+      .svc-meta { align-items: flex-start; gap: 1px; flex: 1; }
+      .svc-meta strong { font-size: 15px; }
+      .svc-sub {
+        display: block;
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--ink-3);
+        line-height: 1.35;
+      }
+      .svc-arrow {
+        display: inline-flex;
+        color: #8c9790;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+
+      .help-cards { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .page-shell { width: min(100% - 1.75rem, 1180px); }
+      .compact-shell { width: 100%; padding-inline: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="page-shell header-row">
+      <a href="#top" class="brand">
+        <img src="../public/images/brand/system-logo-mark-light.png" alt="迎新指南" />
+        <span class="brand-title">迎新指南</span>
+        <span class="brand-sub">学生整理 · 非官方</span>
+      </a>
+
+      <nav class="main-nav" aria-label="主导航">
+        <a href="#top" class="nav-item active">首页</a>
+        <a href="#quick" class="nav-item">地图</a>
+        <a href="#stages" class="nav-item">办事</a>
+        <a href="#services" class="nav-item">生活</a>
+        <a href="#stages" class="nav-item">热点</a>
+        <a href="#stages" class="nav-item">我的</a>
+      </nav>
+
+      <div class="header-tools">
+        <div class="mode-toggle" aria-label="布局切换">
+          <button type="button" class="active" data-mode="full">完整</button>
+          <button type="button" data-mode="compact">简洁</button>
+        </div>
+        <a href="#top" class="tool-btn green" aria-label="登录"><i data-icon="user"></i><span>登录</span></a>
+        <button type="button" class="tool-btn" aria-label="切换明暗"><i data-icon="sun"></i></button>
+        <a href="#stages" class="tool-btn" aria-label="公告"><i data-icon="bell"></i><span>公告</span></a>
+        <a href="#help" class="tool-btn green" aria-label="联系我们"><i data-icon="phone"></i><span>联系我们</span></a>
+      </div>
+    </div>
+    <div class="mobile-mode-bar" aria-label="移动端浏览模式切换">
+      <div class="page-shell">
+        <div class="mobile-mode-track">
+          <button type="button" class="active" data-mode="full">完整模式</button>
+          <button type="button" data-mode="compact">简洁模式</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="fullView">
+
+  <div class="notice-strip">
+    <div class="page-shell notice-row">
+      <div class="notice-main">
+        <span class="notice-label"><i data-icon="volume"></i> 2026级新生重要时间</span>
+        <span class="notice-text">9月5–6日报到 · 7–9日入学教育 · 10日起上课</span>
+      </div>
+      <a href="#stages" class="notice-more">查看 <i data-icon="chevron-right"></i></a>
+    </div>
+  </div>
+
+  <main id="top">
+    <section class="hero-block">
+      <div class="page-shell">
+        <h1>2026级新生入学指南</h1>
+        <form class="search-row" onsubmit="event.preventDefault(); document.getElementById('sTip').textContent='已定位：「' + (document.getElementById('sq').value || '报到安排') + '」'">
+          <label class="search-field" for="sq">
+            <i data-icon="search"></i>
+            <input id="sq" type="search" placeholder="搜索校园信息，或直接提问" />
+            <span class="search-shortcut-key">/</span>
+          </label>
+          <button type="submit" class="search-btn">
+            <i data-icon="sparkles"></i>
+            <span>AI 搜索</span>
+          </button>
+        </form>
+        <div class="search-suggestions">
+          <span id="sTip">常搜：</span>
+          <button type="button" class="suggest-link" data-fill="报到要带什么材料">报到材料</button>
+          <button type="button" class="suggest-link" data-fill="各学院专业对应宿舍片区">专业对应宿舍</button>
+          <button type="button" class="suggest-link" data-fill="泉州站到学校怎么坐车">泉州站到校</button>
+          <button type="button" class="suggest-link" data-fill="校园网宽带与一卡通">校园网办理</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-section" id="quick">
+      <div class="page-shell">
+        <div class="section-title-row">
+          <h2 class="section-title">常用查询</h2>
+          <button type="button" class="section-action" id="peekBtn">
+            <i data-icon="image"></i>
+            <span>展开校园实景与宿舍实拍</span>
+          </button>
+        </div>
+
+        <div class="quick-grid">
+          <a href="#stages" class="quick-card">
+            <div class="q-icon-box tone-green"><i data-icon="calendar-check"></i></div>
+            <h3>报到安排</h3>
+            <p>9月5–6日流程与材料</p>
+          </a>
+          <a href="#services" class="quick-card">
+            <div class="q-icon-box tone-blue"><i data-icon="map-pin"></i></div>
+            <h3>校园地图</h3>
+            <p>宿舍楼栋与教学点定位</p>
+          </a>
+          <a href="#services" class="quick-card">
+            <div class="q-icon-box tone-violet"><i data-icon="wifi"></i></div>
+            <h3>网络与校园卡</h3>
+            <p>一卡通充值与宽带排查</p>
+          </a>
+          <a href="#services" class="quick-card">
+            <div class="q-icon-box tone-amber"><i data-icon="package"></i></div>
+            <h3>快递与外卖</h3>
+            <p>寄件站点与外卖边界</p>
+          </a>
+        </div>
+
+        <!-- 默认折叠的轻量实拍抽屉：不破坏线上极简感，点开即可看图 -->
+        <div class="peek-drawer" id="peekDrawer">
+          <a href="#services" class="peek-item">
+            <img src="../public/images/intro/yeu-campus-hero.webp" alt="湖山校区全景" />
+            <div><strong>仰恩湖山校区全景</strong><span>720° 航拍与校园主干道</span></div>
+          </a>
+          <a href="#services" class="peek-item">
+            <img src="../public/images/panorama/comfort-dorm-poster.jpg" alt="宿舍实拍" />
+            <div><strong>普通型与舒适型宿舍实拍</strong><span>室内实录视频与床桌对比</span></div>
+          </a>
+          <a href="#services" class="peek-item">
+            <img src="../public/images/posters/freshman-guide-campus-map.png" alt="手绘校园地图" />
+            <div><strong>手绘校园导览地图</strong><span>新区、旧区与校门公交站</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-section" id="stages">
+      <div class="page-shell">
+        <div class="section-title-row">
+          <h2 class="section-title">按入学阶段查看</h2>
+        </div>
+
+        <div class="stage-split">
+          <div class="white-box">
+            <div>
+              <div class="underline-tabs" role="tablist">
+                <button type="button" class="u-tab active" data-stage="before">到校前</button>
+                <button type="button" class="u-tab" data-stage="arrival">报到当天</button>
+                <button type="button" class="u-tab" data-stage="week1">入学第一周</button>
+              </div>
+              <div class="stage-items" id="stageList"></div>
+            </div>
+            <a href="#services" class="stage-more" id="stageCta">
+              <span>查看报到准备</span>
+              <i data-icon="arrow-right"></i>
+            </a>
+          </div>
+
+          <div class="white-box">
+            <div>
+              <div class="checklist-head">
+                <div class="checklist-title">
+                  <div class="q-icon-box tone-green" style="width:36px;height:36px;margin:0;"><i data-icon="list-checks"></i></div>
+                  <span>新生准备清单</span>
+                </div>
+                <div class="checklist-stat">已完成 <strong id="pctVal">25%</strong></div>
+              </div>
+
+              <div class="bar-bg"><div class="bar-fg" id="barFg" style="width: 25%;"></div></div>
+
+              <div class="mini-checks">
+                <button type="button" class="mini-check-btn done">
+                  <span class="box-mark">✓</span>
+                  <span>保存录取通知书与官方通知</span>
+                </button>
+                <button type="button" class="mini-check-btn">
+                  <span class="box-mark"></span>
+                  <span>查专业对应的住宿片区</span>
+                </button>
+                <button type="button" class="mini-check-btn">
+                  <span class="box-mark"></span>
+                  <span>备齐身份证复印件与团档材料</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="checklist-foot">
+              <span id="nextHint">下一项：查专业对应的住宿片区</span>
+              <a href="#services" class="btn-ghost-green">打开清单</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="help-band" id="help">
+      <div class="page-shell">
+        <div class="help-header">
+          <div class="help-badge"><i data-icon="phone"></i></div>
+          <h2>校内求助与常用电话</h2>
+        </div>
+        <p class="help-lead">紧急先拨校园 110</p>
+
+        <div class="help-cards">
+          <a href="tel:110" class="help-card">
+            <strong><i data-icon="shield"></i> 拨打校园 110</strong>
+            <span>报修 / 求助</span>
+          </a>
+          <a href="#services" class="help-card">
+            <strong><i data-icon="heart-handshake"></i> 心理健康中心</strong>
+            <span>咨询 / 适应支持</span>
+          </a>
+          <a href="#services" class="help-card">
+            <strong><i data-icon="graduation-cap"></i> 教务部</strong>
+            <span>学籍 / 课表</span>
+          </a>
+          <a href="#services" class="help-card">
+            <strong><i data-icon="banknote"></i> 学生资助中心</strong>
+            <span>贷款 / 助学金</span>
+          </a>
+        </div>
+
+        <p class="help-note">医务室 24 小时值班 · 地图搜「医务所」</p>
+      </div>
+    </section>
+
+    <section class="page-section" id="services">
+      <div class="page-shell">
+        <div class="section-title-row">
+          <h2 class="section-title">服务导航</h2>
+        </div>
+
+        <div class="service-grid-card">
+          <a href="#stages" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="list-checks"></i></span>
+            <span class="svc-meta"><strong>新生清单</strong><small class="svc-sub">分阶段入学事项自查</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#help" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="shield-plus"></i></span>
+            <span class="svc-meta"><strong>安全、医疗与心理支持</strong><small class="svc-sub">紧急求助与校医心理电话</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#services" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="book-open"></i></span>
+            <span class="svc-meta"><strong>学生手册与资助</strong><small class="svc-sub">奖助学金、贷款与制度</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#services" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="users"></i></span>
+            <span class="svc-meta"><strong>学生社团</strong><small class="svc-sub">招新时间与组织列表</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#services" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="building"></i></span>
+            <span class="svc-meta"><strong>校内部门</strong><small class="svc-sub">教务、学工与后勤窗口</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#services" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="compass"></i></span>
+            <span class="svc-meta"><strong>吃喝玩乐</strong><small class="svc-sub">校园食堂与泉州周边推荐</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#services" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="bus"></i></span>
+            <span class="svc-meta"><strong>到校与离校交通</strong><small class="svc-sub">动车站公交专线指南</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#quick" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="camera"></i></span>
+            <span class="svc-meta"><strong>全景云游校园</strong><small class="svc-sub">720° 航拍实景线上导览</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#quick" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="bed"></i></span>
+            <span class="svc-meta"><strong>宿舍实拍</strong><small class="svc-sub">普通间与空调套间对比</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+          <a href="#services" class="service-cell">
+            <span class="svc-icon-wrap"><i data-icon="download"></i></span>
+            <span class="svc-meta"><strong>WeLearn 学习工具</strong><small class="svc-sub">课表与常用学习安装包</small></span>
+            <span class="svc-arrow"><i data-icon="chevron-right"></i></span>
+          </a>
+        </div>
+
+        <div class="trust-block">
+          <span class="trust-tag"><i data-icon="heart-handshake"></i> 学生整理 · 非学校官网</span>
+          <h2>重要事项，再到学校原文确认一次</h2>
+          <p>报到、缴费、住宿和资助等要求，最终看录取通知书和学校通知。</p>
+          <p>学校、招生和学生资助入口最近查看：2026年7月23日</p>
+          <div class="trust-links">
+            <a href="#top">学校官网</a>
+            <a href="#top">招生官网</a>
+            <a href="#top">学生资助</a>
+            <a href="#top">看信息从哪来</a>
+            <a href="#top">反馈纠错</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  </div><!-- /#fullView -->
+
+  <section id="compactView" class="compact-view" aria-label="简洁模式首页" hidden>
+    <div class="compact-shell">
+      <div class="mp-banner">
+        <div class="mp-brand">
+          <div class="mp-logo">
+            <img src="../public/images/brand/system-logo-mark.png" alt="迎新小程序标志" />
+          </div>
+          <div class="mp-text">
+            <strong>迎新指南小程序</strong>
+            <span>轻量口袋指引，随时查校园信息</span>
+          </div>
+        </div>
+        <a href="#compact-services" class="mp-open-btn">打开</a>
+      </div>
+
+      <div class="compact-hero-card">
+        <div class="compact-hero-media">
+          <img id="compactSlideImg" src="../public/images/intro/yeu-campus-hero.webp" alt="仰恩湖山校区全景" />
+        </div>
+        <div class="compact-hero-foot">
+          <div class="compact-hero-copy">
+            <strong id="compactSlideTitle">2026 级仰恩迎新全景导览</strong>
+            <span id="compactSlideSub">报到路线、宿舍片区与重要时间一屏直查</span>
+          </div>
+          <div class="carousel-dots" aria-label="焦点图切换">
+            <button type="button" class="carousel-dot active" data-slide="0" aria-label="第一张焦点图"></button>
+            <button type="button" class="carousel-dot" data-slide="1" aria-label="第二张焦点图"></button>
+            <button type="button" class="carousel-dot" data-slide="2" aria-label="第三张焦点图"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="compact-notice-bar">
+        <span class="compact-badge">最新</span>
+        <span class="compact-notice-text">9月5–6日报到 · 10日起正式上课</span>
+        <button type="button" data-jump="full" style="color: var(--green); font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;">
+          <span>日程</span><i data-icon="chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="compact-card">
+        <div class="compact-card-head">
+          <h2>高频工具</h2>
+          <span>一点直达</span>
+        </div>
+        <div class="compact-app-grid">
+          <a href="#compact-steps" class="compact-app-item">
+            <span class="compact-app-icon tone-green"><i data-icon="calendar-check"></i></span>
+            <span>报到日程</span>
+          </a>
+          <a href="#compact-services" class="compact-app-item">
+            <span class="compact-app-icon tone-blue"><i data-icon="map"></i></span>
+            <span>校园地图</span>
+          </a>
+          <a href="#compact-steps" class="compact-app-item">
+            <span class="compact-app-icon tone-violet"><i data-icon="wifi"></i></span>
+            <span>校园网络</span>
+          </a>
+          <a href="#compact-steps" class="compact-app-item">
+            <span class="compact-app-icon tone-amber"><i data-icon="list-checks"></i></span>
+            <span>新生清单</span>
+          </a>
+          <a href="#compact-services" class="compact-app-item">
+            <span class="compact-app-icon tone-green"><i data-icon="bus"></i></span>
+            <span>到校交通</span>
+          </a>
+          <a href="#compact-services" class="compact-app-item">
+            <span class="compact-app-icon tone-amber"><i data-icon="package"></i></span>
+            <span>快递外卖</span>
+          </a>
+          <a href="#compact-steps" class="compact-app-item">
+            <span class="compact-app-icon tone-blue"><i data-icon="credit-card"></i></span>
+            <span>一卡通</span>
+          </a>
+          <a href="#compact-services" class="compact-app-item">
+            <span class="compact-app-icon tone-violet"><i data-icon="users"></i></span>
+            <span>学生社团</span>
+          </a>
+          <a href="#compact-dorms" class="compact-app-item">
+            <span class="compact-app-icon tone-green"><i data-icon="bed"></i></span>
+            <span>宿舍实拍</span>
+          </a>
+          <button type="button" class="compact-app-item" data-jump="full">
+            <span class="compact-app-icon tone-blue"><i data-icon="shield-plus"></i></span>
+            <span>更多服务</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="compact-card" id="compact-services">
+        <div class="compact-card-head">
+          <h2>校园服务</h2>
+          <span>左右滑看更多</span>
+        </div>
+        <div class="compact-rail">
+          <a href="#compact-dorms" class="compact-rail-card">
+            <img src="../public/images/intro/yeu-campus-hero.webp" alt="湖山校区航拍" />
+            <div class="compact-rail-body">
+              <strong>校园实景导览</strong>
+              <span>教学区与生活区航拍</span>
+            </div>
+          </a>
+          <a href="#compact-dorms" class="compact-rail-card">
+            <img src="../public/images/nearby/city-food.webp" alt="泉州周边美食" />
+            <div class="compact-rail-body">
+              <strong>食堂与周边美食</strong>
+              <span>校内餐厅及市井风味</span>
+            </div>
+          </a>
+          <a href="#compact-dorms" class="compact-rail-card">
+            <img src="../public/images/nearby/qingyuan.webp" alt="周末漫步去处" />
+            <div class="compact-rail-body">
+              <strong>清源山周末漫游</strong>
+              <span>周末出行路线与公交</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="compact-card" id="compact-steps">
+        <div class="compact-card-head">
+          <h2>入学办理指引</h2>
+          <span>三步完成入校</span>
+        </div>
+        <div class="compact-step-list">
+          <div class="compact-step-item">
+            <span class="compact-step-icon"><i data-icon="list-checks"></i></span>
+            <div>
+              <strong>报到前核验</strong>
+              <span>确认报到材料清单、车票与宿舍片区</span>
+            </div>
+          </div>
+          <div class="compact-step-item">
+            <span class="compact-step-icon"><i data-icon="calendar-check"></i></span>
+            <div>
+              <strong>到校当日注册</strong>
+              <span>完成院系核验、领校园卡及宿舍开通网络</span>
+            </div>
+          </div>
+          <div class="compact-step-item">
+            <span class="compact-step-icon"><i data-icon="graduation-cap"></i></span>
+            <div>
+              <strong>开学与军训适应</strong>
+              <span>参与入学教育、核对课表及常用求助电话</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compact-card" id="compact-dorms">
+        <div class="compact-card-head">
+          <h2>宿舍实拍</h2>
+          <span>房型参考对比</span>
+        </div>
+        <div class="compact-dorm-grid">
+          <div class="compact-dorm-card">
+            <img src="../public/images/panorama/ordinary-dorm-poster.jpg" alt="普通型宿舍实拍" />
+            <div class="compact-dorm-body">
+              <strong>普通四/六人间</strong>
+              <span>采光通风，性价比高</span>
+            </div>
+          </div>
+          <div class="compact-dorm-card">
+            <img src="../public/images/panorama/comfort-dorm-poster.jpg" alt="舒适型宿舍实拍" />
+            <div class="compact-dorm-body">
+              <strong>舒适空调套间</strong>
+              <span>上床下桌，独立卫浴</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="view-counter">46 人看过 · 240 次浏览</div>
+
+  <footer class="site-footer">
+    <div class="page-shell footer-row">
+      <div>本网站为个人整理，非学校官方发布；重要事项以学校最新通知为准。</div>
+      <div class="footer-links">
+        <a href="#top">关于本站</a>
+        <a href="#top">反馈纠错</a>
+        <a href="#help" style="color: var(--green); font-weight: 600;">联系我们</a>
+        <a href="#top">隐私说明</a>
+        <a href="#top">信息来源</a>
+      </div>
+    </div>
+  </footer>
+
+  <nav class="mobile-tabbar" aria-label="手机端底部导航">
+    <button type="button" class="tab-link active" data-tab="top"><i data-icon="home"></i><span>首页</span></button>
+    <button type="button" class="tab-link" data-tab="quick"><i data-icon="map"></i><span>地图</span></button>
+    <button type="button" class="tab-link" data-tab="stages"><i data-icon="grid"></i><span>办事</span></button>
+    <button type="button" class="tab-link" data-tab="services"><i data-icon="compass"></i><span>生活</span></button>
+    <button type="button" class="tab-link" data-tab="help"><i data-icon="user"></i><span>我的</span></button>
+  </nav>
+
+  <script>
+    const ICONS = {
+      'home': '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+      'map': '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+      'grid': '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+      'credit-card': '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+      'user': '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+      'bell': '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+      'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/>',
+      'volume': '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+      'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+      'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+      'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+      'sparkles': '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+      'image': '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+      'calendar-check': '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>',
+      'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+      'wifi': '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
+      'package': '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+      'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+      'list-checks': '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+      'shield': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+      'shield-plus': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/><path d="M12 9v6"/>',
+      'heart-handshake': '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"/>',
+      'graduation-cap': '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+      'banknote': '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+      'book-open': '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+      'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+      'building': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+      'compass': '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+      'bus': '<path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+      'camera': '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+      'bed': '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
+      'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'
+    };
+
+    function mountIcons() {
+      document.querySelectorAll('[data-icon]').forEach(el => {
+        const k = el.getAttribute('data-icon');
+        if (!ICONS[k]) return;
+        let size = 16;
+        if (el.closest('.svc-arrow')) size = 16;
+        else if (el.closest('.service-cell, .q-icon-box')) size = 21;
+        else if (el.closest('.tab-link, .compact-app-icon')) size = 19;
+        el.outerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
+      });
+    }
+
+    const fullView = document.getElementById('fullView');
+    const compactView = document.getElementById('compactView');
+
+    function setMode(mode) {
+      const isCompact = mode === 'compact';
+      fullView.hidden = isCompact;
+      compactView.hidden = !isCompact;
+      document.querySelectorAll('[data-mode]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    document.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    });
+    document.querySelectorAll('[data-jump="full"]').forEach(btn => {
+      btn.addEventListener('click', () => setMode('full'));
+    });
+
+    const SLIDES = [
+      {
+        src: '../public/images/intro/yeu-campus-hero.webp',
+        alt: '仰恩湖山校区全景',
+        title: '2026 级仰恩迎新全景导览',
+        sub: '报到路线、宿舍片区与重要时间一屏直查'
+      },
+      {
+        src: '../public/images/posters/freshman-guide-campus-map.png',
+        alt: '手绘校园导览图',
+        title: '新生校园导览地图',
+        sub: '快速定位宿舍楼栋、食堂及报到注册点'
+      },
+      {
+        src: '../public/images/nearby/citywalk.webp',
+        alt: '泉州城市探索与生活出行',
+        title: '校外出行与周边生活',
+        sub: '动车站接驳专线与周末泉州漫步攻略'
+      }
+    ];
+
+    document.querySelectorAll('.carousel-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        const s = SLIDES[Number(dot.dataset.slide)] || SLIDES[0];
+        document.getElementById('compactSlideImg').src = s.src;
+        document.getElementById('compactSlideImg').alt = s.alt;
+        document.getElementById('compactSlideTitle').textContent = s.title;
+        document.getElementById('compactSlideSub').textContent = s.sub;
+        document.querySelectorAll('.carousel-dot').forEach(d => d.classList.remove('active'));
+        dot.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.tab-link').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (fullView.hidden) {
+          setMode('full');
+        }
+        const target = document.getElementById(tab.dataset.tab);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    const STAGES = {
+      before: {
+        items: ['确认报到时间和要带的材料', '查专业对应的住宿片区', '收藏校园地图认方向'],
+        cta: '查看报到准备'
+      },
+      arrival: {
+        items: ['按现场指引完成院系核验与注册', '前往宿舍楼办理入住与领校园卡', '测试宿舍校园网连接与电费充值'],
+        cta: '查看报到当天流程'
+      },
+      week1: {
+        items: ['9月7–9日参加新生入学教育', '登录教务系统核对 9月10日课表', '存下校园 110 与医务室 24h 电话'],
+        cta: '查看入学第一周事项'
+      }
+    };
+
+    function renderStage(key) {
+      const s = STAGES[key];
+      document.getElementById('stageList').innerHTML = s.items.map(item => `
+        <div class="stage-row">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS['check-circle']}</svg>
+          <span>${item}</span>
+        </div>
+      `).join('');
+      document.querySelector('#stageCta span').textContent = s.cta;
+    }
+
+    document.querySelectorAll('.u-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.u-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderStage(btn.dataset.stage);
+      });
+    });
+
+    document.querySelectorAll('.suggest-link').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('sq');
+        input.value = btn.dataset.fill;
+        input.focus();
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && document.activeElement !== document.getElementById('sq')) {
+        e.preventDefault();
+        document.getElementById('sq').focus();
+      }
+    });
+
+    const peekBtn = document.getElementById('peekBtn');
+    const peekDrawer = document.getElementById('peekDrawer');
+    peekBtn.addEventListener('click', () => {
+      const open = peekDrawer.classList.toggle('open');
+      peekBtn.querySelector('span').textContent = open ? '收起校园实景与宿舍实拍' : '展开校园实景与宿舍实拍';
+    });
+
+    document.querySelectorAll('.mini-check-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('done');
+        btn.querySelector('.box-mark').textContent = btn.classList.contains('done') ? '✓' : '';
+        const all = [...document.querySelectorAll('.mini-check-btn')];
+        const done = all.filter(b => b.classList.contains('done'));
+        const todo = all.find(b => !b.classList.contains('done'));
+        const pct = Math.round((done.length / all.length) * 100);
+        document.getElementById('pctVal').textContent = pct + '%';
+        document.getElementById('barFg').style.width = pct + '%';
+        document.getElementById('nextHint').textContent = todo
+          ? '下一项：' + todo.textContent.replace('✓', '').trim()
+          : '当前高频准备项已全部勾选';
+      });
+    });
+
+    renderStage('before');
+    mountIcons();
+    if (new URLSearchParams(window.location.search).get('mode') === 'compact') {
+      setMode('compact');
+    }
+  </script>
+</body>
+</html>

@@ -85,7 +85,6 @@ function vehiclesOf(direction: ApiBusLineDirection): ApiBusLiveDirection['vehicl
   return [...list].sort((a, b) => (a.distanceToNext ?? 99999) - (b.distanceToNext ?? 99999))
 }
 
-
 /** 简略图：站点、在途车辆与「我」都投影到同一条沿线里程轴上（0→100%）。 */
 interface Schematic {
   total: number
@@ -405,7 +404,10 @@ const snapshotText = computed(() => {
             </span>
           </div>
           <p class="mt-1 flex items-center gap-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-            <UIcon name="i-lucide-navigation" class="size-3 shrink-0 text-sky-500" />
+            <UIcon
+              name="i-lucide-navigation"
+              class="size-3 shrink-0 text-sky-500"
+            />
             <span class="truncate">{{ meStopText(direction) }}</span>
           </p>
         </div>
