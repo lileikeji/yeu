@@ -3712,8 +3712,20 @@ export function listReceipts(client: DatabaseClient, eventId: string, roundKey: 
   const receipts = client.db.select().from(competitionEmailReceipts)
     .where(and(eq(competitionEmailReceipts.eventId, eventId), eq(competitionEmailReceipts.roundKey, roundKey)))
     .all()
+  // 只统计真正发过邮件的选手：测试邮件也会建 token，不排除就会让「回执 5 / 31」这种分母虚高
+  const sentSingerIds = new Set(
+    client.db.select({ singerId: competitionEmailSends.singerId })
+      .from(competitionEmailSends)
+      .where(and(
+        eq(competitionEmailSends.eventId, eventId),
+        eq(competitionEmailSends.roundKey, roundKey),
+        eq(competitionEmailSends.status, 'sent')
+      ))
+      .all()
+      .map(row => row.singerId)
+  )
   const singers = new Map(listSingers(client, eventId).map(singer => [singer.id, singer]))
-  return receipts.map(row => ({
+  return receipts.filter(row => sentSingerIds.has(row.singerId)).map(row => ({
     singerId: row.singerId,
     name: singers.get(row.singerId)?.name ?? '已删除选手',
     email: singers.get(row.singerId)?.email ?? null,

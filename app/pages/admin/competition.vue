@@ -1773,6 +1773,12 @@ onBeforeUnmount(stopLiveRefresh)
                       :class="receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'"
                     >
                       {{ receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ? '已收到' : '未确认' }}
+                      <span
+                        v-if="receipts.find(item => item.singerId === row.singer.id)?.confirmedAt"
+                        class="ml-1 text-[11px] text-zinc-400"
+                      >
+                        {{ formatDateTime(receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ?? null) }}
+                      </span>
                     </span>
                     <span
                       v-else
