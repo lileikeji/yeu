@@ -1371,7 +1371,8 @@ export const updateCompetitionSchema = z.object({
   edition: z.string().trim().max(40).optional(),
   schedule: z.array(competitionScheduleItemSchema).min(1).max(12).optional(),
   formFields: z.array(competitionFormFieldSchema).min(1).max(7).optional(),
-  trimExtremes: z.boolean().optional()
+  trimExtremes: z.boolean().optional(),
+  qqGroupUrl: z.string().trim().max(400).optional()
 }).strict()
 
 export const updateCompetitionRoundSchema = z.object({
