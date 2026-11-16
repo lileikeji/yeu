@@ -1377,7 +1377,8 @@ export const updateCompetitionSchema = z.object({
 export const updateCompetitionRoundSchema = z.object({
   status: z.enum(['draft', 'open', 'closed']).optional(),
   judgeCount: z.number().int().min(1).max(20).optional(),
-  advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional()
+  advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional(),
+  scorePrecision: z.enum(['integer', 'decimal']).optional()
 }).strict()
 
 export const moveCompetitionEntrySchema = z.object({
@@ -1434,6 +1435,16 @@ export const setCompetitionEntryCheckInSchema = z.object({
   checkedIn: z.boolean()
 }).strict()
 
+/** 后台替评委改分/补录：与评委提交同一套分数形状，只是不锁轮次状态。 */
+export const adminCompetitionScoreSchema = z.object({
+  singerId: z.string().min(1).max(64),
+  judgeId: z.string().min(1).max(64),
+  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
+  comment: z.string().trim().max(500).optional()
+}).strict()
+
+export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing'])
+
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
 // 带 preRegistrationId = 从预报名确认生成。
 const COMPETITION_STUDENT_NO_PATTERN = /^[0-9A-Za-z-]{4,20}$/
@@ -1446,6 +1457,7 @@ export const competitionRegistrationSchema = z.object({
   studentNo: z.string().trim().regex(COMPETITION_STUDENT_NO_PATTERN, '学号格式不正确'),
   phone: z.string().trim().regex(COMPETITION_PHONE_PATTERN, '手机号格式不正确'),
   email: z.string().trim().max(120).regex(COMPETITION_EMAIL_PATTERN, '邮箱格式不正确'),
+  qq: z.string().trim().regex(/^[0-9]{5,12}$/, 'QQ 填数字，5-12 位'),
   song: z.string().trim().max(80).optional(),
   preRegistrationId: z.string().trim().min(1).max(64).optional()
 }).strict()
@@ -1457,8 +1469,19 @@ export const competitionPreRegisterSchema = z.object({
   studentNo: z.string().trim().max(20).optional(),
   phone: z.string().trim().max(20).optional(),
   email: z.string().trim().max(120).optional(),
+  qq: z.string().trim().regex(/^[0-9]{5,12}$/, 'QQ 填数字，5-12 位').optional(),
   song: z.string().trim().max(80).optional(),
   preferredDay: z.number().int().min(1).max(2).optional()
+}).strict()
+
+/** 结果查询三要素：姓名 + 学号 + QQ，缺一不可。 */
+export const competitionResultLookupSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  studentNo: z.string().trim().min(1).max(20),
+  /** 第三要素：QQ 号或邮箱，二选一。 */
+  contact: z.string().trim().min(4).max(120),
+  /** 兼容旧客户端只传 qq 的写法。 */
+  qq: z.string().trim().max(120).optional()
 }).strict()
 
 export const competitionLookupSchema = z.object({
@@ -1475,6 +1498,8 @@ export const competitionSingerSchema = z.object({
   studentNo: z.string().trim().max(20).nullable().optional(),
   phone: z.string().trim().max(20).nullable().optional(),
   email: z.string().trim().max(120).nullable().optional(),
+  /** 留空可以，服务端会尝试从 QQ 邮箱推出来；填了就必须是 5-12 位数字。 */
+  qq: z.string().trim().max(20).nullable().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional()
 }).strict()
 

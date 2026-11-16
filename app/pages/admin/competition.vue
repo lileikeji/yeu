@@ -9,6 +9,7 @@ useSeoMeta({
 })
 
 const toast = useToast()
+const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
@@ -54,6 +55,32 @@ const {
   removeSinger, detailSinger, detailScore, scoreFor, scoreTotalFor, openScoreFor,
   closeDetail, closeEditSinger
 } = useCompetitionSingers({ load, toast })
+
+/** 从「评分明细」弹窗跳去改分：两者都读同一份 payload，这里只做一次空值收口。 */
+function editDetailScore(): void {
+  const round = activeRound.value
+  const singer = detailSinger.value
+  const score = detailScore.value
+  if (!round || !singer || !score) return
+  openScoreEditor(round, singer, score.judgeId, score.judgeName)
+}
+
+const {
+  scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
+  savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
+  saveScoreEdit, exportingKind, exportRound
+} = useCompetitionScores({
+  dimensions: computed(() => settings.value?.dimensions ?? []),
+  load,
+  toast
+})
+
+const {
+  advanceBusyKey, advanceRows, advanceConfirmed, advanceCount, receipts, receiptConfirmedCount,
+  toggleAdvance, confirmAdvance, reopenAdvance,
+  reminderSubject, reminderBody, reminderSaving, reminderSending, saveReminderTemplate, sendReminders,
+  editionLabel, editionCreating, createEdition
+} = useCompetitionAdvance({ payload, activeRound, load, toast })
 
 const {
   emailRound, emailScope, emailSavingTemplate, emailSending, emailTesting, emailTestAddress, emailBodyRef,
@@ -278,6 +305,40 @@ onBeforeUnmount(stopLiveRefresh)
             </UFormField>
             <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:pt-7">
               届次留空时，预报名页只显示「赛前预报名」。
+            </p>
+          </div>
+
+          <div class="mt-3 rounded-md border border-dashed border-zinc-200 p-2.5 dark:border-zinc-800">
+            <div class="flex flex-wrap items-end gap-2">
+              <UFormField
+                label="换一届"
+                class="min-w-40 flex-1"
+              >
+                <UInput
+                  v-model="editionLabel"
+                  class="w-full"
+                  maxlength="40"
+                  placeholder="如 2027 第七届"
+                />
+              </UFormField>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="outline"
+                :loading="editionCreating"
+                @click="createEdition"
+              >
+                新建这一届
+              </UButton>
+            </div>
+            <p class="mt-1 text-[11px] leading-4 text-zinc-400">
+              新建后当前这一届的选手、评分、名单全部留档，新一届从空白开始；赛程、表单、维度沿用这一届的设置。
+            </p>
+            <p
+              v-if="payload.editions.length > 0"
+              class="mt-1 text-[11px] leading-4 text-zinc-400"
+            >
+              历届：{{ payload.editions.map(item => `${item.label || '未命名'}（${item.singerCount} 人${item.isCurrent ? '，当前' : ''}）`).join(' · ') }}
             </p>
           </div>
 
@@ -570,6 +631,13 @@ onBeforeUnmount(stopLiveRefresh)
                   placeholder="用于接收结果邮件"
                 />
               </UFormField>
+              <UFormField label="QQ（可选）">
+                <UInput
+                  v-model="newSinger.qq"
+                  class="w-full"
+                  placeholder="查结果用"
+                />
+              </UFormField>
               <UFormField label="参赛歌曲（可待定）">
                 <UInput
                   v-model="newSinger.song"
@@ -737,13 +805,52 @@ onBeforeUnmount(stopLiveRefresh)
 
         <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
           <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              预报名名单
-            </h3>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                预报名名单
+              </h3>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="outline"
+                :loading="reminderSending"
+                @click="sendReminders"
+              >
+                一键提醒没到场的
+              </UButton>
+            </div>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               预报名 {{ payload.preRegistrations.length }} 人，已到现场
-              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人。
+              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人。提醒只发给没签到的，已签到的跳过。
             </p>
+            <details class="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+              <summary class="cursor-pointer select-none">
+                提醒邮件模板
+              </summary>
+              <div class="mt-2 space-y-2">
+                <input
+                  v-model="reminderSubject"
+                  class="w-full rounded-md border border-zinc-200 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  placeholder="主题"
+                >
+                <textarea
+                  v-model="reminderBody"
+                  rows="4"
+                  class="w-full rounded-md border border-zinc-200 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  placeholder="正文"
+                />
+                <div class="flex items-center gap-2">
+                  <UButton
+                    size="xs"
+                    :loading="reminderSaving"
+                    @click="saveReminderTemplate"
+                  >
+                    保存模板
+                  </UButton>
+                  <span class="text-[11px] text-zinc-400">{{ reminderPlaceholderHint }}</span>
+                </div>
+              </div>
+            </details>
           </div>
           <div
             v-if="payload.preRegistrations.length === 0"
@@ -1126,6 +1233,23 @@ onBeforeUnmount(stopLiveRefresh)
                 :placeholder="activeRound.key === 'semi' ? '待定' : '30'"
                 @update:model-value="value => activeRound && (activeRound.advanceCount = String(value).trim() === '' ? null : Number(value))"
               />
+            </UFormField>
+            <UFormField
+              label="打分精度"
+              class="w-36"
+            >
+              <select
+                :value="activeRound.scorePrecision"
+                class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                @change="activeRound.scorePrecision = ($event.target as HTMLSelectElement).value as 'integer' | 'decimal'"
+              >
+                <option value="integer">
+                  整数（0-10）
+                </option>
+                <option value="decimal">
+                  小数（拖滑块，0.1 步长）
+                </option>
+              </select>
             </UFormField>
             <UButton
               icon="i-lucide-save"
@@ -1523,12 +1647,168 @@ onBeforeUnmount(stopLiveRefresh)
 
         <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
           <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                晋级名单
+              </h3>
+              <div class="flex items-center gap-2">
+                <span
+                  v-if="advanceConfirmed"
+                  class="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                >
+                  已确认 · 回执 {{ receiptConfirmedCount }} / {{ receipts.length }}
+                </span>
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
+                  variant="outline"
+                  :loading="advanceBusyKey.endsWith(':reopen')"
+                  @click="reopenAdvance"
+                >
+                  重新打开
+                </UButton>
+                <UButton
+                  v-else-if="advanceRows.length > 0"
+                  size="xs"
+                  :loading="advanceBusyKey.endsWith(':confirm')"
+                  @click="confirmAdvance"
+                >
+                  确认名单（{{ advanceCount }} 人）
+                </UButton>
+              </div>
+            </div>
+            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              本轮结束后在这一页勾出晋级的人；确认之后才能发通知邮件，改名单要先重新打开。
+            </p>
+          </div>
+
+          <div
+            v-if="advanceRows.length === 0"
+            class="px-4 py-8 text-center text-sm text-zinc-400"
+          >
+            <p>{{ activeRound.status === 'closed' ? '这一轮没有可晋级的选手。' : '本轮还没结束，评完再回来确认晋级名单。' }}</p>
+            <UButton
+              v-if="activeRound.status !== 'closed'"
+              class="mt-3"
+              size="xs"
+              color="warning"
+              :loading="savingRoundKey === activeRound.key"
+              @click="setRoundStatus(activeRound, 'closed')"
+            >
+              结束本轮评分
+            </UButton>
+          </div>
+
+          <div
+            v-else
+            class="overflow-x-auto"
+          >
+            <table class="w-full min-w-[720px] text-sm">
+              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <tr>
+                  <th class="w-16 px-4 py-2 font-medium">
+                    晋级
+                  </th>
+                  <th class="w-20 px-3 py-2 font-medium">
+                    排名
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    选手
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    歌曲
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    平均分
+                  </th>
+                  <th class="px-4 py-2 font-medium">
+                    回执
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                <tr
+                  v-for="row in advanceRows"
+                  :key="row.entryId"
+                >
+                  <td class="px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      class="size-4 accent-emerald-600"
+                      :checked="row.advanced"
+                      :disabled="Boolean(advanceConfirmed)"
+                      @change="toggleAdvance(row.entryId, ($event.target as HTMLInputElement).checked)"
+                    >
+                  </td>
+                  <td class="px-3 py-2.5 tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {{ row.rank ?? '—' }}
+                  </td>
+                  <td class="px-3 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
+                    {{ row.singer.name }}
+                  </td>
+                  <td class="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">
+                    {{ row.singer.song }}
+                  </td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">
+                    {{ row.average === null ? '—' : row.average.toFixed(2) }}
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <span
+                      v-if="advanceConfirmed && row.advanced"
+                      class="text-xs"
+                      :class="receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'"
+                    >
+                      {{ receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ? '已收到' : '未确认' }}
+                    </span>
+                    <span
+                      v-else
+                      class="text-xs text-zinc-300 dark:text-zinc-600"
+                    >—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               成绩与排名
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               实时按平均分排序，同分按出场顺序；还没分数的排在最后。
             </p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-download"
+                label="成绩明细 CSV"
+                :loading="exportingKind === 'detail'"
+                @click="exportRound(activeRound, 'detail')"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-download"
+                label="排名汇总 CSV"
+                :loading="exportingKind === 'summary'"
+                @click="exportRound(activeRound, 'summary')"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-trophy"
+                label="晋级名单 CSV"
+                :loading="exportingKind === 'advancing'"
+                @click="exportRound(activeRound, 'advancing')"
+              />
+            </div>
             <label
               v-if="settings"
               class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
@@ -1700,18 +1980,29 @@ onBeforeUnmount(stopLiveRefresh)
                     :key="judge.id"
                     class="px-3 py-2 text-center"
                   >
-                    <button
-                      v-if="scoreFor(activeRound, entry.singer.id, judge.id)"
-                      type="button"
-                      class="rounded-md px-2 py-1 text-sm font-semibold tabular-nums text-green-800 underline decoration-green-300 underline-offset-2 hover:bg-green-50 dark:text-green-300 dark:decoration-green-800 dark:hover:bg-green-950"
-                      @click="openScoreFor(activeRound, entry.singer, judge.id)"
-                    >
-                      {{ scoreTotalFor(activeRound, entry.singer.id, judge.id) }}
-                    </button>
-                    <span
-                      v-else
-                      class="text-xs text-zinc-300 dark:text-zinc-600"
-                    >—</span>
+                    <div class="flex items-center justify-center gap-1">
+                      <button
+                        v-if="scoreFor(activeRound, entry.singer.id, judge.id)"
+                        type="button"
+                        class="rounded-md px-2 py-1 text-sm font-semibold tabular-nums text-green-800 underline decoration-green-300 underline-offset-2 hover:bg-green-50 dark:text-green-300 dark:decoration-green-800 dark:hover:bg-green-950"
+                        @click="openScoreFor(activeRound, entry.singer, judge.id)"
+                      >
+                        {{ scoreTotalFor(activeRound, entry.singer.id, judge.id) }}
+                      </button>
+                      <span
+                        v-else
+                        class="text-xs text-zinc-300 dark:text-zinc-600"
+                      >—</span>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        :icon="scoreFor(activeRound, entry.singer.id, judge.id) ? 'i-lucide-pencil' : 'i-lucide-plus'"
+                        :aria-label="`${scoreFor(activeRound, entry.singer.id, judge.id) ? '修改' : '补录'}${entry.singer.name}·${judge.displayName}的评分`"
+                        :title="scoreFor(activeRound, entry.singer.id, judge.id) ? '修改这位评委的评分' : '补录这位评委的评分'"
+                        @click="openScoreEditor(activeRound, entry.singer, judge.id, judge.displayName)"
+                      />
+                    </div>
                   </td>
                   <td class="px-4 py-2 text-right font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {{ activeRound.entries.find(item => item.singer.id === entry.singer.id)?.average?.toFixed(2) ?? '—' }}
@@ -2334,6 +2625,12 @@ onBeforeUnmount(stopLiveRefresh)
               class="w-full"
             />
           </UFormField>
+          <UFormField label="QQ">
+            <UInput
+              v-model="editSingerForm.qq"
+              class="w-full"
+            />
+          </UFormField>
           <UFormField label="选手库序号">
             <UInput
               v-model="editSingerForm.sortOrder"
@@ -2432,12 +2729,103 @@ onBeforeUnmount(stopLiveRefresh)
         </div>
       </template>
       <template #footer>
-        <div class="flex w-full justify-end">
+        <div class="flex w-full items-center justify-between gap-2">
+          <UButton
+            v-if="detailScore && detailSinger"
+            label="修正这份评分"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-pencil"
+            @click="editDetailScore"
+          />
           <UButton
             label="关闭"
             color="neutral"
             variant="soft"
             @click="closeDetail"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="scoreEditorOpen"
+      :title="scoreEditorSinger ? `修改评分 · ${scoreEditorSinger.name} · ${scoreEditorJudgeName}` : '修改评分'"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-lg' }"
+      @update:open="value => { if (!value) closeScoreEditor() }"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <p class="rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            这里改的是评委本人那一份评分，保存后平均分、名次、晋级标记立刻按同一套规则重算。
+            进行中也能改，用于现场救场（漏打维度、手机没电、算错）。
+          </p>
+
+          <div class="space-y-2">
+            <div
+              v-for="dimension in (settings?.dimensions ?? [])"
+              :key="dimension.key"
+              class="flex items-center justify-between gap-3"
+            >
+              <label
+                :for="`score-dim-${dimension.key}`"
+                class="text-sm text-zinc-700 dark:text-zinc-200"
+              >
+                {{ dimension.label }}
+                <span class="text-xs text-zinc-400">（权重 {{ dimension.weight }}）</span>
+              </label>
+              <input
+                :id="`score-dim-${dimension.key}`"
+                v-model="scoreDraft[dimension.key]"
+                type="number"
+                min="0"
+                :max="dimensionScoreMax"
+                step="0.5"
+                class="w-24 rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/60">
+            <span class="text-zinc-600 dark:text-zinc-300">按权重折算总分</span>
+            <span class="font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+              {{ scoreDraftTotal.toFixed(2) }}
+              <span class="text-xs font-normal text-zinc-400">/ {{ maxTotal }}</span>
+            </span>
+          </div>
+
+          <div>
+            <label
+              for="score-comment-edit"
+              class="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+            >
+              评委备注
+            </label>
+            <textarea
+              id="score-comment-edit"
+              v-model="scoreCommentDraft"
+              rows="3"
+              maxlength="500"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              placeholder="可留空"
+            />
+          </div>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            label="取消"
+            color="neutral"
+            variant="soft"
+            @click="closeScoreEditor"
+          />
+          <UButton
+            label="保存评分"
+            icon="i-lucide-check"
+            :loading="savingScore"
+            :disabled="!scoreDraftComplete"
+            @click="saveScoreEdit"
           />
         </div>
       </template>

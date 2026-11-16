@@ -112,8 +112,9 @@
 线上 `current` 指向的 release 记录的 commit 不在 master 里时，用 master 构建并切换会把该分支上的功能整体顶回去：11-10 主题配色被隔壁会话的脏树产物覆盖（palette CSS 直接消失），11-15 线上跑着叫号台/十分制/去掉最高最低分那条线，若照旧部署 master 会一次性回退 10 个提交。
 落地做法：部署前 `cat /www/wwwroot/yeu/current/.output/release.json` 取 commit，`git merge-base --is-ancestor <commit> master` 不成立就先把 master 合进该分支，用合并后的提交构建。
 
-### 10. 本机构建不可用，制品只能从 CI 出（2026-11-11 起）
-`npx nuxt build` 稳定失败 `[nitro] ERROR Error: remove D:\DevTemp\esbuild-<hex>: Access is denied.`，最小复现为 esbuild 用 stdin 传 2.5MB 源码时删不掉临时文件；换 Node 22/26、esbuild 0.18–0.28 都复现，属环境级限制。改为：推 `deploy/theme-on-competition` 触发 `build-artifact.yml`，`gh run download -n output` 取制品，本地补 `release.json`（`platform/arch/node/abi` 必须改成服务器实际值）。
+### 10. 本机构建一度不可用（2026-11-11 起，2026-11-16 已修复）
+`npx nuxt build` 曾稳定失败 `[nitro] ERROR Error: remove D:\DevTemp\esbuild-<hex>: Access is denied.`，最小复现为 esbuild 用 stdin 传 2.5MB 源码时删不掉临时文件；换 Node 22/26、esbuild 0.18–0.28 都复现，当时判定为环境级限制，改为推 `deploy/theme-on-competition` 触发 `build-artifact.yml` + `gh run download -n output` 出制品。
+2026-11-16 定位到根因是 esbuild `transform` 输入超 1 MiB 时落临时文件、收尾删除失败，`patches/esbuild@0.28.2.patch` 已修复（细节见文末「本机构建报 esbuild 临时目录删除失败」），本机 `pnpm install` 后 `ALLOW_LOW_SPEC_BUILD=1 pnpm build` 可正常产出 `.output/server/index.mjs`。制品仍统一走 CI：生产是 Linux + node 22 目标，本机 win32 产物不能直接上线，且 CI 顺带跑完测试与 e2e。
 
 ### 11. 检索哈希按行尾算，CRLF 工作树会假报「未 bump」（2026-11-11 / 2026-11-13）
 `release-tools.mjs checkRetrieval` 用文件字节算 hash：`core.autocrlf=true` 的工作树算出 `d7978e91…`，LF 工作树算出 `8c3787f2…`，与线上一致的是后者。命令必须在 LF 工作树（或 Linux CI）里跑，否则会被「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」拦下，且改的是假问题。
@@ -125,3 +126,43 @@
 - 动生产库前先做表级 dump 到 `/data/yeu/shared/backups/<主题>-<时间>/`。
 - ssh 传 SQL 用 `bash -s` 或先 `scp` 脚本，不用双引号包 SQL（双引号会把标识符当列名）。
 - AI 改动走 `ai/<模型>-<主题>` 分支，推 `github` / `origin` / `organization` / `yuex` 四个远端；master 由人合并。
+
+## 本机构建报 esbuild 临时目录删除失败
+
+2026-11-16 本机所有 `pnpm build` / `npx nuxt build` 都在 `Bundling Nitro server` 之后报
+`[nitro] ERROR Error: remove <TMP>\esbuild-<hash>: Access is denied.`，`.output/server/index.mjs` 不生成。
+已排除：TEMP 换盘（D:/E:/用户目录）、node 24/26、esbuild 0.28.1/0.28.2、`nitro.minify=false`、
+换工作树、DSH 之外的计划任务；独立调用 esbuild（含 1.2MB 输出）正常，同尺寸文件创建后立即删除也正常。
+表现为每次构建在临时目录留下一个 ~1.1MB 的 Nitro 包文件，删除被系统拒绝，构建即中止。
+
+**根因（2026-11-16 定位）**：esbuild 的 `transform` 在**输入超过 1 MiB（1,048,576 字节）**时，会先把输入
+落成 `<TEMP>/esbuild-<hash>` 临时文件，收尾删除在 Windows 上失败并回传成 transform 错误。
+实测 980KB/1020KB 正常、1024KB 起必失败；同样体积改用 `build({ stdin, write: false })` 正常。
+Nitro 打服务端包时正好有一次 1.1MB 的 `transform`，所以每次构建都卡在同一处。
+
+**修法**：`patches/esbuild@0.28.2.patch`（`pnpm-workspace.yaml` 的 `patchedDependencies` 已登记）把
+`transform` 包一层：原生调用失败且输入 >1 MiB 时，退回 `build({ stdin, bundle: false, write: false })`。
+`pnpm install` 后确认 `node_modules/.pnpm/nitropack@*/node_modules/esbuild` 指向带 `patch_hash` 的目录
+（个别 peer 变体可能仍指旧的 `esbuild@0.28.2`，用 `pnpm install --force` 重链即可）。
+验证方式：`ALLOW_LOW_SPEC_BUILD=1 pnpm build` 应输出 `Build complete` 且生成 `.output/server/index.mjs`。
+
+参考绕行（2026-11-16 早上的应急做法）：临时分支 + GitHub Actions 出制品。
+
+```
+git worktree add /e/yeu-ci-art <要发的提交> --detach
+# 写入 .github/workflows/build-artifact.yml：
+#   workflow_dispatch；ubuntu-latest；env ALLOW_LOW_SPEC_BUILD: "1"
+#   pnpm install --frozen-lockfile → ALLOW_LOW_SPEC_BUILD=1 pnpm build
+#   actions/upload-artifact 上传 .output
+git push github ci/build-artifact
+gh workflow run build-artifact.yml --ref ci/build-artifact
+gh run download <run-id> -n yeu-output -D .output   # 产物根就是 .output
+node scripts/release-tools.mjs create .output <release> <commit>   # 在 ci 工作树里跑，否则 retrieval 版本取错
+tar -czhf release.tar.gz --exclude='*.node' --exclude='sqlite-vec-windows-x64' .output
+scp release.tar.gz root@…:/root/yeu-deploy/ && BACKUP_FRESH=1 bash /data/yeu-build/deploy-incoming.sh /root/yeu-deploy/release.tar.gz
+```
+
+两个必踩的坑：① CI 的 `pnpm install` 会跑 `nuxt prepare`，4 核 runner 被 Nuxt 的低配守卫拦下，
+`ALLOW_LOW_SPEC_BUILD=1` 要挂在 job 级 `env`（只挂 build 步骤不够）；② 线上 `current` 的 retrieval 版本
+可能已被别的会话推进，`checkRetrieval` 会拦「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」，
+必须在要发的提交里把版本改成一个新的字符串再构建。
