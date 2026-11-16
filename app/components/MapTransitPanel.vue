@@ -579,9 +579,15 @@ function alignNextChip(): void {
   const chipRect = chip.getBoundingClientRect()
   const drawerRect = drawer.getBoundingClientRect()
   const height = drawerRect.height || drawer.clientHeight
+  // 表头 sticky 在滚动容器内部，命中区要从表头下沿开始算，否则第一行会被压在表头底下。
+  const header = drawer.firstElementChild
+  const headerHeight = header instanceof HTMLElement ? header.getBoundingClientRect().height : 0
+  const visibleTop = headerHeight + 8
+  const visibleBottom = height - 8
   const offset = chipRect.top - drawerRect.top
-  if (offset >= 8 && offset + chipRect.height <= height - 8) return
-  drawer.scrollTop += offset - Math.max(12, (height - chipRect.height) / 2)
+  if (offset >= visibleTop + 8 && offset + chipRect.height <= visibleBottom - 8) return
+  const room = Math.max(0, visibleBottom - visibleTop - chipRect.height)
+  drawer.scrollTop += offset - (visibleTop + room / 2)
 }
 
 /**
@@ -796,29 +802,13 @@ const snapshotText = computed(() => {
       </p>
     </div>
 
-    <footer
-      v-show="!drawerOpen"
-      class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800"
-    >
-      <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">下一班 {{ sheetNextChipTime || '—' }}</span>
-      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">· 今日 {{ sheetTodayCount }} 班</span>
-      <button
-        type="button"
-        class="ml-auto flex min-h-9 items-center rounded-md px-1.5 text-[11px] font-medium text-blue-600 active:bg-blue-50 dark:text-blue-400 dark:active:bg-blue-950/40"
-        :aria-expanded="drawerOpen === true"
-        aria-label="打开今日时刻表"
-        @click="emit('update:drawerOpen', !drawerOpen)"
-      >
-        时刻表 ›
-      </button>
-    </footer>
-
     <div
-      v-if="drawerOpen"
-      class="scrollbar-none mb-0.5 max-h-[268px] shrink-0 overflow-y-auto overscroll-contain border-t border-zinc-100 bg-white/85 px-3 pb-2 backdrop-blur-[3px] dark:border-zinc-800 dark:bg-zinc-950/85"
+      :inert="!drawerOpen"
+      class="scrollbar-none shrink-0 overflow-y-auto overscroll-contain rounded-t-[16px] border-t border-zinc-100 bg-white/90 px-3 pb-2 backdrop-blur-[3px] transition-[max-height,opacity] duration-200 ease-out dark:border-zinc-800 dark:bg-zinc-950/90"
+      :class="drawerOpen ? 'max-h-[268px] opacity-100' : 'pointer-events-none max-h-0 border-t-0 !p-0 opacity-0'"
       aria-label="今日时刻表"
     >
-      <div class="mt-2 flex items-baseline gap-1">
+      <div class="sticky top-0 z-10 -mx-3 flex items-baseline gap-1 border-b border-zinc-100/70 bg-white/95 px-3 pt-2 pb-1 backdrop-blur-[3px] dark:border-zinc-800/70 dark:bg-zinc-950/95">
         <span class="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">今日时刻</span>
         <button
           type="button"
@@ -877,6 +867,26 @@ const snapshotText = computed(() => {
         下一班 {{ sheetNextChipTime || '—' }} · 今日 {{ sheetTodayCount }} 班 · 灰色为已过
       </p>
     </div>
+
+    <footer
+      class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800"
+    >
+      <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+        {{ drawerOpen ? `今日 ${sheetTodayCount} 班` : `下一班 ${sheetNextChipTime || '—'}` }}
+      </span>
+      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+        {{ drawerOpen ? `首班 ${sheetFirstLast.first} · 末班 ${sheetFirstLast.last}` : `· 今日 ${sheetTodayCount} 班` }}
+      </span>
+      <button
+        type="button"
+        class="ml-auto flex min-h-9 items-center rounded-md px-1.5 text-[11px] font-medium text-blue-600 active:bg-blue-50 dark:text-blue-400 dark:active:bg-blue-950/40"
+        :aria-expanded="drawerOpen === true"
+        :aria-label="drawerOpen ? '收起今日时刻表' : '打开今日时刻表'"
+        @click="emit('update:drawerOpen', !drawerOpen)"
+      >
+        {{ drawerOpen ? '收起 ⌄' : '时刻表 ›' }}
+      </button>
+    </footer>
   </section>
 
   <!-- 收起态：地图左下角浮钮 -->
