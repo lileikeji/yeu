@@ -5,6 +5,7 @@ import test from 'node:test'
 import { resolveSheetBackAction, resolveSheetHistorySync } from '../app/utils/map-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+const presentationSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 const componentSource = readFileSync(resolve('app/components/MapTransitPanel.vue'), 'utf8')
 const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
 const sheetSource = componentSource.slice(0, componentSource.indexOf('v-else-if="!open"'))
@@ -20,14 +21,14 @@ test('T-029 入口：第 3 行两格各占一半，叮叮车与校外公交并�
   assert.equal(pageSource.match(/class="map-sheet-transport /g)?.length, 2, '两个交通格都要挂 map-sheet-transport')
 })
 
-test('T-030 线路分段：role=tablist 单选，滚动体只画所选那条线', () => {
-  assert.match(sheetSource, /role="tablist"/)
-  assert.match(sheetSource, /aria-label="选择线路"/)
-  assert.match(sheetSource, /role="tab"/)
-  assert.match(sheetSource, /:aria-selected="sheetLine === name"/)
-  assert.match(sheetSource, /@click="selectSheetLine\(name\)"/)
-  assert.match(sheetSource, /sheetActiveGroup = computed\(/)
-  assert.doesNotMatch(sheetSource, /sheetLineGroups/, 'K2 / K6 不能再上下堆两段')
+test('T-032 线路双卡：两卡并排、无 tablist、选中卡走线色内联样式', () => {
+  assert.match(sheetSource, /grid shrink-0 grid-cols-2 gap-2/)
+  assert.match(sheetSource, /v-for="card in sheetLineCards"/)
+  assert.match(sheetSource, /const sheetLineCards = computed/)
+  assert.match(sheetSource, /backgroundColor: lineColor\(card\.name\) \+ '14'/)
+  assert.match(sheetSource, /@click="selectSheetLine\(card\.name\)"/)
+  assert.doesNotMatch(sheetSource, /role="tablist"/, '段式 tab 已换成双卡')
+  assert.doesNotMatch(sheetSource, /role="tab"/)
   assert.doesNotMatch(sheetSource, /v-for="group in /)
 })
 
@@ -45,7 +46,8 @@ test('T-029 面板内线路视图：头部返回、折叠中间站、可滚动',
   assert.match(pageSource, /@update:drawer-open="handleTransitDrawerChange\(\$event\)"/)
   assert.match(sheetSource, /aria-label="返回我的地图"/)
   assert.match(sheetSource, /中间 \{\{ row\.count \}\} 站（点开）/)
-  assert.match(sheetSource, /toggleSheetStops\(direction\)/)
+  assert.match(sheetSource, /toggleSheetStops\(sheetActiveDirection\)/)
+  assert.match(sheetSource, /展开中间 /)
   assert.match(sheetSource, /scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain/)
   assert.match(sheetSource, /aria-label="线路与站点"/)
 })
@@ -98,7 +100,10 @@ test('桌面浮层行为不变：overlay 分支与既有限高原样', () => {
 })
 
 test('修正 01 F1：抽屉打开自动抬到 548，抽屉 268 封顶不再溢出', () => {
-  assert.match(pageSource, /mapSheetView === 'transit' && mobileSheetState === 'expanded' \? 'max-md:!h-\[548px\]' : ''/)
+  // 修正 02：transit 视图改走自己的高度助手（半屏 400 / 展开 548），不再和列表视图共用 326。
+  assert.match(pageSource, /mapSheetView === 'transit'\s*\?\s*resolveTransitSheetHeightClass\(mobileSheetState\)/)
+  assert.match(presentationSource, /half: 'max-md:!h-\[400px\]'/)
+  assert.match(presentationSource, /expanded: 'max-md:!h-\[548px\]'/)
   assert.match(pageSource, /function handleTransitDrawerChange\(open: boolean\): void \{/)
   assert.match(pageSource, /if \(!transitDrawerRaised\.value && mobileSheetState\.value === 'half'\) \{/)
   assert.match(pageSource, /@update:drawer-open="handleTransitDrawerChange\(\$event\)"/)
@@ -106,11 +111,26 @@ test('修正 01 F1：抽屉打开自动抬到 548，抽屉 268 封顶不再溢�
   assert.match(componentSource, /const drawer = document\.querySelector<HTMLElement>/)
 })
 
-test('修正 01 F2：抽屉打开时线路体与方向按钮都还在', () => {
+test('修正 01/02 F2：抽屉打开时线路体与方向切换都还在', () => {
   assert.doesNotMatch(componentSource, /v-show="!drawerOpen" class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2"/)
-  assert.match(componentSource, /v-for="direction in sheetActiveGroup\.directions"/)
-  assert.match(componentSource, /@click="toggleDirection\(direction\)"/)
-  assert.match(componentSource, /<footer v-show="!drawerOpen"/)
+  assert.match(componentSource, /v-for="segment in sheetDirectionSegments"/)
+  assert.match(componentSource, /@click="toggleDirection\(segment\.direction\)"/)
+  assert.match(componentSource, /<footer[^>]*v-show="!drawerOpen"/)
+})
+
+test('T-032 在途车大卡、站列徽标与头部更新秒数', () => {
+  assert.match(sheetSource, /const sheetFreshness = computed/)
+  assert.match(sheetSource, /更新 \$\{seconds\} 秒前/)
+  assert.match(sheetSource, /const sheetLeadVehicle = computed/)
+  assert.match(sheetSource, /h-\[56px\] items-center gap-2 rounded-\[14px\] border px-2\.5/)
+  assert.match(sheetSource, /text-\[26px\] font-extrabold/)
+  assert.match(sheetSource, /预计 \{\{ sheetLeadVehicle\.etaMinutes \}\} 分钟后到/)
+  assert.match(sheetSource, /v-for="vehicle in sheetOtherVehicles"/)
+  assert.match(sheetSource, /<ol[^>]*v-if="sheetActiveDirection"[^>]*aria-label="站点"/)
+  assert.match(sheetSource, /sheetStartBadge/)
+  assert.match(sheetSource, /v-if="rowIsStart\(sheetActiveDirection, row\.stop\.seq\)"/)
+  assert.match(sheetSource, /v-if="rowIsStart\(sheetActiveDirection, row\.stop\.seq\)"/)
+  assert.match(sheetSource, />末站</)
 })
 
 test('修正 01 F3：抽屉头带来收起按钮，底栏让位抽屉', () => {

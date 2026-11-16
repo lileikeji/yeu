@@ -39,6 +39,8 @@ import {
   resolveDockSearchMobileSheetState,
   resolveMobileSheetAnchors,
   resolveMobileSheetHeightClass,
+  resolveTransitSheetAnchors,
+  resolveTransitSheetHeightClass,
   resolveMobileSheetStateFromHeight,
   toggleMapDisplayOption,
   withMapLabelSize,
@@ -585,7 +587,9 @@ function mobileSheetAnchors() {
   const containerHeight = sheet?.parentElement?.getBoundingClientRect().height ?? 0
   const viewportHeight = typeof window === 'undefined' ? containerHeight : window.innerHeight
   const anchors = resolveMobileSheetAnchors(containerHeight, viewportHeight)
-  return mapSheetView.value === 'bus' ? resolveBusSheetAnchors(anchors) : anchors
+  if (mapSheetView.value === 'bus') return resolveBusSheetAnchors(anchors)
+  if (mapSheetView.value === 'transit') return resolveTransitSheetAnchors(anchors)
+  return anchors
 }
 
 function finishMobileSheetDrag(pointerId?: number): void {
@@ -1013,11 +1017,14 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[cubic-bezier(0.24,1,0.32,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       :class="[
-        mapSheetView === 'bus' ? resolveBusSheetHeightClass(mobileSheetState) : mobileSheetHeightClass,
-        mapSheetView === 'transit' && mobileSheetState === 'expanded' ? 'max-md:!h-[548px]' : '',
+        mapSheetView === 'bus'
+          ? resolveBusSheetHeightClass(mobileSheetState)
+          : mapSheetView === 'transit'
+            ? resolveTransitSheetHeightClass(mobileSheetState)
+            : mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
-        mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
+        mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
         // 挂载前一律按折叠渲染，避免手机上首帧先弹出一块面板再收回。
         mapSheetView !== 'bus' && (!sheetHydrated || mobileSheetState === 'collapsed') ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
