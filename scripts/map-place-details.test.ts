@@ -114,7 +114,7 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
 test('mobile sheet half height is pinned by the max-md breakpoint', () => {
   assert.match(
     pageSource,
-    /sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
+    /mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
     '半屏高度必须挂在水合完成 + half 的守卫上，无条件挂 max-md 会把 expanded 也压成 326'
   )
   assert.equal((pageSource.match(/max-md:!h-\[326px\]/g) || []).length, 1, '半屏高度类只应出现一次')
@@ -123,7 +123,7 @@ test('mobile sheet half height is pinned by the max-md breakpoint', () => {
 test('mobile sheet collapsed state collapses via the max-md breakpoint', () => {
   assert.match(
     pageSource,
-    /!sheetHydrated \|\| mobileSheetState === 'collapsed'\s*\?\s*'max-md:!h-0 max-md:border-t-0 max-md:shadow-none'\s*:\s*''/,
+    /mapSheetView !== 'bus' && \(!sheetHydrated \|\| mobileSheetState === 'collapsed'\)\s*\?\s*'max-md:!h-0 max-md:border-t-0 max-md:shadow-none'\s*:\s*''/,
     '折叠态收起与边框阴影应挂在「未水合或 collapsed」守卫上'
   )
   assert.equal((pageSource.match(/max-md:!h-0/g) || []).length, 1, '折叠高度类只应出现一次')
@@ -232,7 +232,7 @@ test('sheet stays collapsed before hydration so mobile first paint never flashes
   assert.match(pageSource, /const sheetHydrated = ref\(false\)/)
   assert.match(pageSource, /sheetHydrated\.value = true/)
   assert.ok(pageSource.includes('sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
-  assert.ok(pageSource.includes('!sheetHydrated || mobileSheetState === \'collapsed\' ? \'max-md:!h-0 max-md:border-t-0 max-md:shadow-none\' : \'\''))
+  assert.ok(pageSource.includes('mapSheetView !== \'bus\' && (!sheetHydrated || mobileSheetState === \'collapsed\') ? \'max-md:!h-0 max-md:border-t-0 max-md:shadow-none\' : \'\''))
 })
 
 test('map chrome backdrop follows the palette instead of a fixed green grey', () => {
@@ -367,8 +367,18 @@ test('clearing the search folds the mobile sheet so the dock stays reachable', (
   assert.equal((pageSource.match(/@click="onClearSearch"/g) || []).length, 2)
 })
 
-test('bus chip clears the floating mobile search dock', () => {
-  // F30：搜索胶囊浮在面板上沿时与校车胶囊同基线，右半截被搜索框压住。
-  assert.match(pageSource, /:data-mobile-dock="mobileSheetState === 'collapsed' \? 'bottom' : mapSheetSearching \? 'floating' : 'hidden'"/)
-  assert.match(pageSource, /\[data-mobile-dock='floating'\] \.map-bus-dock \{[\s\S]{0,120}?\+ 86px\)/)
+test('mobile bus pill is gone: no dock offset rules left to collide with the search dock', () => {
+  // 手机浮标删除后，T-026 的 data-mobile-dock 让位机制整体退场；搜索胶囊位置只看 data-sheet-state。
+  assert.doesNotMatch(pageSource, /map-bus-dock/)
+  assert.doesNotMatch(pageSource, /data-mobile-dock/)
+  assert.match(pageSource, /\.map-workspace\[data-sheet-state='expanded'\] \.map-mobile-dock \{[\s\S]{0,80}?display: none/)
+})
+
+test('大面板关掉 rim 亮边：28px 圆角处不再出现一道白线', () => {
+  // 着色器那段 2px 亮边在小胶囊上是水切面，铺到 390×326 的面板上就只剩一条白线。
+  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.043, 2\.2, 0\.18, 0\)/)
+  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1\): void => \{/)
+  assert.match(glassSource, /float rim = \(1\.0 - smoothstep\(0\.0, 2\.0 \* uDpr, -d\)\) \* clamp\(vParams\.w, 0\.0, 2\.0\)/)
+  assert.match(glassSource, /rim: clamp\(target\.rim \?\? 1, 0, 2\)/)
+  assert.match(glassSource, /mount\.params\[base \+ 3\] = quad\.rim/)
 })

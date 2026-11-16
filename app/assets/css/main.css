@@ -71,6 +71,12 @@
   --line: rgb(0 0 0 / 8%);
   --accent-warm: #c2410c;
   --accent-blue: #1d4ed8;
+  /* 叮叮车（校车实时）唯一暖橙来源：四套 palette 共用，暗色见 html.dark。
+     浅色 #c2410c 压白面板 4.83:1 起，暗色 #fb923c 压深面板 7.6:1 起且橙底一律用深字。 */
+  --bus-accent: #c2410c;
+  --bus-accent-ink: #ffffff;
+  --bus-accent-soft: color-mix(in srgb, var(--bus-accent) 12%, var(--surface));
+  --bus-accent-line: color-mix(in srgb, var(--bus-accent) 30%, var(--surface));
   --header-height: 4.0625rem;
   --mobile-nav-height: 4.5625rem;
 
@@ -109,6 +115,9 @@ html.dark {
   --surface-sunken: #0f0f0f;
   --accent-warm: #ff7a45;
   --accent-blue: #6b9bff;
+  /* 暗色暖橙：#c2410c 压深面板只有 3.3:1，换亮橙；白字压亮橙仅 2.26:1，故橙底用深字。 */
+  --bus-accent: #fb923c;
+  --bus-accent-ink: #1c1917;
   color-scheme: dark;
 }
 
