@@ -114,3 +114,32 @@
 - 动生产库前先做表级 dump 到 `/data/yeu/shared/backups/<主题>-<时间>/`。
 - ssh 传 SQL 用 `bash -s` 或先 `scp` 脚本，不用双引号包 SQL（双引号会把标识符当列名）。
 - AI 改动走 `ai/<模型>-<主题>` 分支，推 `github` / `origin` / `organization` / `yuex` 四个远端；master 由人合并。
+
+## 本机构建全挂时用 CI 出制品
+
+2026-11-16 早上本机所有 `pnpm build` / `npx nuxt build` 都在 `Bundling Nitro server` 之后报
+`[nitro] ERROR Error: remove <TMP>\esbuild-<hash>: Access is denied.`，`.output/server/index.mjs` 不生成。
+已排除：TEMP 换盘（D:/E:/用户目录）、node 24/26、esbuild 0.28.1/0.28.2、`nitro.minify=false`、
+换工作树、DSH 之外的计划任务；独立调用 esbuild（含 1.2MB 输出）正常，同尺寸文件创建后立即删除也正常。
+表现为每次构建在临时目录留下一个 ~1.1MB 的 Nitro 包文件，删除被系统拒绝，构建即中止。
+
+绕行方案（已验证可发版）：仓库里带一个只做构建的临时分支，用 GitHub Actions 出制品。
+
+```
+git worktree add /e/yeu-ci-art <要发的提交> --detach
+# 写入 .github/workflows/build-artifact.yml：
+#   workflow_dispatch；ubuntu-latest；env ALLOW_LOW_SPEC_BUILD: "1"
+#   pnpm install --frozen-lockfile → ALLOW_LOW_SPEC_BUILD=1 pnpm build
+#   actions/upload-artifact 上传 .output
+git push github ci/build-artifact
+gh workflow run build-artifact.yml --ref ci/build-artifact
+gh run download <run-id> -n yeu-output -D .output   # 产物根就是 .output
+node scripts/release-tools.mjs create .output <release> <commit>   # 在 ci 工作树里跑，否则 retrieval 版本取错
+tar -czhf release.tar.gz --exclude='*.node' --exclude='sqlite-vec-windows-x64' .output
+scp release.tar.gz root@…:/root/yeu-deploy/ && BACKUP_FRESH=1 bash /data/yeu-build/deploy-incoming.sh /root/yeu-deploy/release.tar.gz
+```
+
+两个必踩的坑：① CI 的 `pnpm install` 会跑 `nuxt prepare`，4 核 runner 被 Nuxt 的低配守卫拦下，
+`ALLOW_LOW_SPEC_BUILD=1` 要挂在 job 级 `env`（只挂 build 步骤不够）；② 线上 `current` 的 retrieval 版本
+可能已被别的会话推进，`checkRetrieval` 会拦「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」，
+必须在要发的提交里把版本改成一个新的字符串再构建。
