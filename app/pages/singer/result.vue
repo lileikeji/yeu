@@ -193,13 +193,6 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
           >
             {{ receipting ? '提交中…' : '我收到了' }}
           </button>
-          <NuxtLink
-            v-if="result.roundKey !== 'prelim'"
-            :to="`/singer/song?token=${result.receiptToken}`"
-            class="mt-3 block w-full rounded-xl border border-[var(--color-green-700)] px-4 py-3 text-center text-base font-bold text-[var(--color-green-700)]"
-          >
-            填这一轮的参赛曲目
-          </NuxtLink>
           <p
             v-if="receiptError"
             class="mt-2 text-sm text-red-600"

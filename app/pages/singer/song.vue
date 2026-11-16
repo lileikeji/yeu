@@ -1,48 +1,57 @@
 <script setup lang="ts">
-interface SongFormState {
+interface SongState {
   singerName: string
   song: string
-  roundKey: string
-  roundTitle: string
+  stageTitle: string
+  editable: boolean
+  reason: string
 }
 
 definePageMeta({ layout: false })
 
-const route = useRoute()
 const toast = useToast()
-const token = String(route.query.token ?? '').trim()
 
-const state = ref<SongFormState | null>(null)
+const name = ref('')
+const studentNo = ref('')
+const contact = ref('')
 const song = ref('')
-const loading = ref(true)
+const state = ref<SongState | null>(null)
+const loading = ref(false)
 const saving = ref(false)
-const done = ref(false)
 const error = ref('')
 
-onMounted(async () => {
-  if (!token) {
-    error.value = '请用邮件里的按钮打开这个页面。'
-    loading.value = false
-    return
-  }
+useSeoMeta({ title: '填写参赛曲目', robots: 'noindex, nofollow' })
+
+function messageOf(caught: unknown): string {
+  const data = (caught as { data?: { data?: { message?: string }, message?: string } })?.data
+  return data?.data?.message ?? data?.message ?? '出错了，稍后再试。'
+}
+
+async function lookup() {
+  if (loading.value) return
+  error.value = ''
+  state.value = null
+  loading.value = true
   try {
-    const data = await $fetch<SongFormState>('/api/public/competition/result/song', { query: { token } })
+    const data = await $fetch<SongState>('/api/public/competition/song/lookup', {
+      method: 'POST',
+      body: {
+        name: name.value.trim(),
+        studentNo: studentNo.value.trim(),
+        contact: contact.value.trim()
+      }
+    })
     state.value = data
     song.value = data.song ?? ''
   } catch (caught) {
-    error.value = catchMessage(caught)
+    error.value = messageOf(caught)
   } finally {
     loading.value = false
   }
-})
-
-function catchMessage(caught: unknown): string {
-  const data = (caught as { data?: { data?: { message?: string }, message?: string } })?.data
-  return data?.data?.message ?? data?.message ?? '打不开这个链接，请用邮件里的按钮重试。'
 }
 
 async function submit() {
-  if (saving.value) return
+  if (saving.value || !state.value) return
   const value = song.value.trim()
   if (!value) {
     toast.add({ title: '先填一下歌名', color: 'warning' })
@@ -50,21 +59,24 @@ async function submit() {
   }
   saving.value = true
   try {
-    const data = await $fetch<SongFormState>('/api/public/competition/result/song', {
+    const data = await $fetch<SongState>('/api/public/competition/song/submit', {
       method: 'POST',
-      body: { token, song: value }
+      body: {
+        name: name.value.trim(),
+        studentNo: studentNo.value.trim(),
+        contact: contact.value.trim(),
+        song: value
+      }
     })
     state.value = data
     song.value = data.song
-    done.value = true
+    toast.add({ title: `记下了：《${data.song}》`, color: 'success' })
   } catch (caught) {
-    toast.add({ title: catchMessage(caught), color: 'error' })
+    toast.add({ title: messageOf(caught), color: 'error' })
   } finally {
     saving.value = false
   }
 }
-
-useSeoMeta({ title: '填写参赛曲目', robots: 'noindex' })
 </script>
 
 <template>
@@ -72,33 +84,47 @@ useSeoMeta({ title: '填写参赛曲目', robots: 'noindex' })
     <div class="mx-auto w-full max-w-md px-4 py-8">
       <p class="text-center text-xs tracking-[0.2em] text-[var(--accent-warm)]">仰恩大学音乐协会 · 新声歌手大赛</p>
       <h1 class="mt-2 text-center text-2xl font-black">填写参赛曲目</h1>
+      <p class="mt-2 text-center text-sm text-[var(--muted-ink)]">晋级了才需要填，填完想改再填一次。</p>
 
-      <div v-if="loading" class="mt-8 rounded-2xl bg-white/80 p-6 text-center text-sm text-[var(--muted-ink)]">加载中…</div>
+      <div class="mt-6 rounded-2xl bg-[var(--surface)] p-5 shadow-sm">
+        <label class="block text-sm font-medium" for="name">姓名</label>
+        <UInput id="name" v-model="name" class="mt-1 w-full" size="lg" placeholder="你的姓名" />
 
-      <div v-else-if="error" class="mt-8 rounded-2xl bg-white/80 p-6 text-center text-sm text-[var(--color-red-600)]">{{ error }}</div>
+        <label class="mt-4 block text-sm font-medium" for="studentNo">学号</label>
+        <UInput id="studentNo" v-model="studentNo" class="mt-1 w-full" size="lg" placeholder="录取通知书 / 学生证上的学号" />
 
-      <div v-else-if="done" class="mt-8 rounded-2xl bg-white/90 p-6 text-center">
-        <p class="text-lg font-semibold text-[var(--color-green-700)]">记下了</p>
-        <p class="mt-2 text-sm text-[var(--ink)]">{{ state?.singerName }}，你报的是《{{ state?.song }}》。</p>
-        <p class="mt-1 text-xs text-[var(--muted-ink)]">要改就重新填一次。</p>
-        <UButton class="mt-5" color="neutral" variant="soft" label="再改一次" @click="done = false" />
+        <label class="mt-4 block text-sm font-medium" for="contact">QQ 或邮箱</label>
+        <UInput id="contact" v-model="contact" class="mt-1 w-full" size="lg" placeholder="QQ 号或 QQ 邮箱" />
+
+        <UButton
+          class="mt-4 w-full"
+          size="lg"
+          :loading="loading"
+          label="下一步"
+          @click="lookup"
+        />
+
+        <p v-if="error" class="mt-3 text-sm text-[var(--color-red-600)]">{{ error }}</p>
       </div>
 
-      <div v-else class="mt-6 rounded-2xl bg-white/90 p-5 shadow-sm">
-        <p class="text-sm text-[var(--ink)]">
-          {{ state?.singerName }}，{{ state?.roundTitle }}要换一首新歌。填歌名就行，伴奏自己准备。
+      <div v-if="state" class="mt-4 rounded-2xl bg-[var(--surface)] p-5 shadow-sm">
+        <p class="text-sm">
+          {{ state.singerName }}<span v-if="state.stageTitle">，{{ state.stageTitle }}</span>
         </p>
-        <label class="mt-4 block text-sm font-medium text-[var(--ink)]" for="song">参赛曲目</label>
-        <UInput
-          id="song"
-          v-model="song"
-          class="mt-2 w-full"
-          size="lg"
-          maxlength="100"
-          placeholder="写具体歌名，如 晴天"
-          @keyup.enter="submit"
-        />
-        <UButton class="mt-4 w-full" size="lg" :loading="saving" label="提交" @click="submit" />
+        <p v-if="!state.editable" class="mt-2 text-sm text-[var(--muted-ink)]">{{ state.reason }}</p>
+        <template v-else>
+          <label class="mt-4 block text-sm font-medium" for="song">新曲目</label>
+          <UInput
+            id="song"
+            v-model="song"
+            class="mt-1 w-full"
+            size="lg"
+            maxlength="100"
+            placeholder="写具体歌名，如 晴天"
+            @keyup.enter="submit"
+          />
+          <UButton class="mt-4 w-full" size="lg" :loading="saving" label="提交曲目" @click="submit" />
+        </template>
       </div>
 
       <p class="mt-8 text-center text-xs text-[var(--muted-ink)]">主办：仰恩大学音乐协会</p>

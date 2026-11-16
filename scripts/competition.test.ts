@@ -48,9 +48,8 @@ import {
   buildEmailSendPlan,
   buildReminderPlan,
   listSingers,
-  ensureReceiptToken,
-  getSongFormState,
-  updateSongByToken,
+  getSongEditor,
+  submitSongByThreeFactors,
   confirmReceiptByToken,
   createNextEdition,
   listEditions,
@@ -1651,7 +1650,7 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   assert.doesNotMatch(plain, /我已收到/)
 })
 
-test('数据库：晋级选手用邮件链接填复赛曲目，写回选手库', async () => {
+test('数据库：独立填歌页用三要素定位，晋级确认后才让改曲目', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
 
@@ -1666,24 +1665,50 @@ test('数据库：晋级选手用邮件链接填复赛曲目，写回选手库',
   }).run()
 
   const event = ensureCompetitionEvent(client, musicId)
-  const singer = createSinger(client, event.id, { name: '甲一', song: '晴天', email: 'a@example.com' })
-  const token = ensureReceiptToken(client, event.id, 'prelim', singer.id)
+  const singer = createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000000',
+    qq: '3651784006',
+    email: 'a@example.com'
+  })
+  checkInEntries(client, musicId)
+  const lookup = { name: '甲一', studentNo: '123456789012', contact: '3651784006' }
 
-  const initial = getSongFormState(client, token)
-  assert.equal(initial.singerName, '甲一')
-  assert.equal(initial.song, '晴天')
+  // 还没确认晋级：能查到人，但不让改。
+  const before = getSongEditor(client, musicId, lookup)
+  assert.equal(before.singerName, '甲一')
+  assert.equal(before.editable, false)
+  assert.throws(() => submitSongByThreeFactors(client, musicId, lookup, '后来'), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'COMPETITION_SONG_LOCKED')
 
-  const updated = updateSongByToken(client, token, '  后来  ')
-  assert.equal(updated.song, '后来')
-  const stored = listSingers(client, event.id).find(item => item.id === singer.id)
-  assert.equal(stored?.song, '后来')
+  // 评分结束 → 确认晋级 → 才可以填。
+  const prelimRound = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelimRound, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, prelimRound, 1)
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelimRound.id }, singer.id, {
+    scores: scoresForAll(8)
+  })
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
 
-  assert.throws(() => updateSongByToken(client, token, '  '), (error: unknown) =>
+  const after = getSongEditor(client, musicId, lookup)
+  assert.equal(after.editable, true)
+  assert.equal(after.stageTitle, '复赛')
+
+  const saved = submitSongByThreeFactors(client, musicId, lookup, '  后来  ')
+  assert.equal(saved.song, '后来')
+  assert.equal(listSingers(client, event.id).find(item => item.id === singer.id)?.song, '后来')
+
+  // 第三要素可以用邮箱，也能对上。
+  assert.equal(getSongEditor(client, musicId, { ...lookup, contact: 'a@example.com' }).song, '后来')
+  // 待定/空串挡掉。
+  assert.throws(() => submitSongByThreeFactors(client, musicId, lookup, '待定'), (error: unknown) =>
     (error as { data?: { field?: string } }).data?.field === 'song')
-  assert.throws(() => updateSongByToken(client, token, '待定'), (error: unknown) =>
-    (error as { data?: { field?: string } }).data?.field === 'song')
-  assert.throws(() => getSongFormState(client, 'not-a-real-token'), (error: unknown) =>
-    (error as { data?: { field?: string } }).data?.field === 'token')
+  assert.throws(() => submitSongByThreeFactors(client, musicId, { ...lookup, contact: '9999' }, '后来'), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
 
   closeDatabase(':memory:')
 })
