@@ -18,6 +18,11 @@ import {
   contents
 } from '../../database/schema'
 import { hashPasswordWithMinLength } from '../../utils/password'
+import { storeUploadedAudio } from '../../utils/uploaded-audio'
+import { createZip } from '../../utils/zip-archive'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { uploadDirectory } from '../../utils/uploaded-images'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -55,6 +60,7 @@ import type {
   CompetitionResultLookup,
   CompetitionRound,
   CompetitionRoundEntry,
+  CompetitionEntryAccompaniment,
   CompetitionRoundKey,
   CompetitionRoundStatus,
   CompetitionRoundView,
@@ -941,6 +947,7 @@ function buildRoundRanking(
         advanced: row.entry.advanced ?? null,
         advancedFromRank: row.entry.advancedFromRank,
         song: row.entry.song ?? null,
+        accompaniment: serializeAccompaniment(row.entry),
         average: row.average,
         scoreCount: row.scoreCount,
         rank: liveRank.get(row.entry.id) ?? null,
@@ -966,6 +973,7 @@ function buildRoundRanking(
       advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
+      accompaniment: serializeAccompaniment(row.entry),
       average: row.average,
       scoreCount: row.scoreCount,
       rank: lastRank,
@@ -985,6 +993,7 @@ function buildRoundRanking(
       advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
+      accompaniment: serializeAccompaniment(row.entry),
       average: null,
       scoreCount: 0,
       rank: null,
@@ -3905,6 +3914,7 @@ export function confirmReceiptByToken(client: DatabaseClient, token: string): Co
 export interface CompetitionSongFormState {
   singerName: string
   song: string
+  accompaniment: CompetitionEntryAccompaniment | null
   stageTitle: string
   editable: boolean
   reason: string
@@ -3985,6 +3995,7 @@ function songStage(client: DatabaseClient, eventId: string, singerId: string) {
       stageTitle: next ? next.title : current.title,
       targetEntryId: targetEntry?.id ?? null,
       targetSong: (targetEntry?.song ?? '').trim(),
+      targetAccompaniment: targetEntry ? serializeAccompaniment(targetEntry) : null,
       reason: confirmed
         ? ''
         : current.rosterConfirmedAt === null
@@ -4005,6 +4016,7 @@ export function getSongEditor(
   return {
     singerName: singer.name,
     song: stage.targetSong || singer.song || '',
+    accompaniment: stage.targetAccompaniment ?? null,
     stageTitle: stage.stageTitle,
     editable: stage.editable,
     reason: stage.reason
@@ -4040,10 +4052,121 @@ export function submitSongByThreeFactors(
   return {
     singerName: singer.name,
     song: value,
+    accompaniment: stage.targetAccompaniment ?? null,
     stageTitle: stage.stageTitle,
     editable: true,
     reason: ''
   }
+}
+
+function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | null {
+  const source = (row ?? {}) as {
+    accompanimentUrl?: string | null
+    accompanimentName?: string | null
+    accompanimentSize?: number | null
+  }
+  const url = String(source.accompanimentUrl ?? '').trim()
+  if (!url) return null
+  return {
+    name: String(source.accompanimentName ?? '').trim() || url.split('/').at(-1) || '伴奏',
+    url,
+    size: source.accompanimentSize ?? null
+  }
+}
+
+/** 存伴奏：原样落盘到共享上传目录，走 /uploads/ 的 CDN 缓存；重传就换新文件名。 */
+export async function setEntryAccompaniment(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  file: { filename: string, data: Uint8Array }
+): Promise<CompetitionEntryAccompaniment> {
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
+  if (!entry) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
+  }
+  const stored = await storeUploadedAudio(file.data)
+  const name = (file.filename || '').trim().slice(0, 120) || stored.filename
+  client.db.update(competitionRoundEntries)
+    .set({
+      accompanimentUrl: stored.url,
+      accompanimentName: name,
+      accompanimentSize: stored.size
+    })
+    .where(eq(competitionRoundEntries.id, entryId))
+    .run()
+  return { name, url: stored.url, size: stored.size }
+}
+
+/** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */
+export async function submitAccompanimentByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  file: { filename: string, data: Uint8Array }
+): Promise<CompetitionSongFormState> {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  if (!stage.editable || !stage.targetEntryId) {
+    conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能传伴奏')
+  }
+  const rounds = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventRow.id)).all()
+  const round = rounds.find(item => item.id === client.db.select({ roundId: competitionRoundEntries.roundId })
+    .from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.id, stage.targetEntryId!))
+    .get()?.roundId)
+  if (!round) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
+  }
+  await setEntryAccompaniment(client, round, stage.targetEntryId, file)
+  return getSongEditor(client, contentId, input)
+}
+
+/** 后台导出伴奏：按出场顺序，一人一个文件夹（含曲目.txt）。 */
+export async function buildAccompanimentArchive(
+  client: DatabaseClient,
+  round: RoundRow
+): Promise<{ filename: string, data: Buffer }> {
+  const entries = [...listRoundEntryRows(client, round.id)].sort((left, right) => left.sortOrder - right.sortOrder)
+  const singers = listSingers(client, round.eventId)
+  const singerById = new Map(singers.map(singer => [singer.id, singer]))
+  const directory = uploadDirectory()
+  const files: { name: string, data: Uint8Array }[] = []
+  let index = 0
+  for (const entry of entries) {
+    index += 1
+    const singer = singerById.get(entry.singerId)
+    if (!singer) continue
+    const folder = `${String(index).padStart(2, '0')}-${sanitizePathPart(singer.name)}`
+    const song = ((entry.song ?? '').trim() || (singer.song ?? '').trim() || '未选曲')
+    files.push({
+      name: `${folder}/曲目.txt`,
+      data: new TextEncoder().encode(`${singer.name}\n${song}\n${singer.className ?? ''}\n`)
+    })
+    const url = (entry.accompanimentUrl ?? '').trim()
+    if (!url) continue
+    const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
+    try {
+      const data = await readFile(join(directory, url.split('/').at(-1) ?? ''))
+      files.push({ name: `${folder}/伴奏-${sanitizePathPart(song)}.${extension}`, data })
+    } catch {
+      files.push({
+        name: `${folder}/伴奏缺失.txt`,
+        data: new TextEncoder().encode('文件读取失败，让选手重新上传一次。\n')
+      })
+    }
+  }
+  return {
+    filename: `competition-${round.key}-accompaniment-${Math.floor(Date.now() / 1000)}.zip`,
+    data: createZip(files)
+  }
+}
+
+function sanitizePathPart(value: string): string {
+  const cleaned = (value || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '').slice(0, 40)
+  return cleaned || '未命名'
 }
 
 export interface CompetitionReminderRecipient {

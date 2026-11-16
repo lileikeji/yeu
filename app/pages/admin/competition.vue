@@ -80,7 +80,7 @@ function editDetailScore(): void {
 const {
   scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
   savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
-  saveScoreEdit, exportingKind, exportRound
+  saveScoreEdit, exportingKind, exportRound, exportAccompaniment
 } = useCompetitionScores({
   dimensions: computed(() => settings.value?.dimensions ?? []),
   load,
@@ -1699,6 +1699,17 @@ onBeforeUnmount(stopLiveRefresh)
                   @click="exportRound(activeRound, 'confirmed-plain')"
                 >
                   名单（不带成绩）
+                </UButton>
+
+                <UButton
+                  v-if="activeRound?.key === 'semi'"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-folder-down"
+                  :loading="exportingKind === 'accompaniment'"
+                  @click="activeRound && exportAccompaniment(activeRound)"
+                >
+                  导出伴奏（每人一个文件夹）
                 </UButton>
                 <UButton
                   v-if="advanceConfirmed"
