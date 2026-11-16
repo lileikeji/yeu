@@ -63,6 +63,7 @@ export async function storeUploadedAudio(data: Uint8Array): Promise<{
   const directory = uploadDirectory()
   await mkdir(directory, { recursive: true })
   const filename = `${randomUUID()}.${type}`
-  await writeFile(resolve(directory, filename), data)
+  // 0644：nginx 以 www 身份读文件，0640 会 403
+  await writeFile(resolve(directory, filename), data, { mode: 0o644 })
   return { filename, url: `/uploads/${filename}`, size: data.length, contentType: AUDIO_TYPES[type] }
 }
