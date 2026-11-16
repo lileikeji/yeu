@@ -1537,7 +1537,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         v-if="mapSheetView === 'transit'"
         class="flex min-h-0 flex-1 flex-col md:hidden"
       >
-        <MapTransitPanel
+        <LazyMapTransitPanel
           variant="sheet"
           :open="false"
           :directions="transitDirections"
@@ -2283,7 +2283,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         :route-name="transitVehicleFocus.routeName ?? ''"
       />
     </div>
-    <MapTransitPanel
+    <LazyMapTransitPanel
       v-if="transitLinesOpen && panelIsDesktop"
       v-model:open="transitPanelOpen"
       :directions="transitDirections"
