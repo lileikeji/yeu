@@ -9,6 +9,17 @@ useSeoMeta({
 })
 
 const toast = useToast()
+
+/** 复赛填曲目是独立页，选手需要这个地址；后台一键复制发群。 */
+async function copySongLink(): Promise<void> {
+  const url = `${window.location.origin}/singer/song`
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.add({ title: '选歌链接已复制', description: url, color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败，手动复制这个地址', description: url, color: 'warning' })
+  }
+}
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
@@ -1649,6 +1660,15 @@ onBeforeUnmount(stopLiveRefresh)
                 >
                   已确认 · 回执 {{ receiptConfirmedCount }} / {{ receipts.length }}
                 </span>
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-link"
+                  label="选歌链接"
+                  @click="copySongLink"
+                />
                 <UButton
                   v-if="advanceConfirmed"
                   size="xs"

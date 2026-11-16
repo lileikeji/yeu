@@ -97,13 +97,14 @@ export default defineEventHandler(async (event) => {
     const variables = buildEmailVariables(round, recipient.entry, recipient.singer, {
       edition: competition.edition,
       receiptUrl,
-      qqGroupUrl: competition.qqGroupUrl
+      qqGroupUrl: competition.qqGroupUrl,
+      songUrl: `${siteUrl}/singer/song`
     })
     const subject = renderCompetitionEmailTemplate(plan.template.subject, variables)
     const body = renderCompetitionEmailTemplate(plan.template.body, variables)
     const images = loadEmailImagesForBody(client, competition.id, body)
     const attachments = emailImageAttachments(body, images)
-    const html = competitionEmailBodyToHtml(body, images, receiptUrl, competition.qqGroupUrl)
+    const html = competitionEmailBodyToHtml(body, images, receiptUrl, competition.qqGroupUrl, `${siteUrl}/singer/song`)
     let lastError = ''
     let delivered = false
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {

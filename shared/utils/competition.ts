@@ -25,7 +25,8 @@ export const COMPETITION_EMAIL_MERGE_FIELDS: Array<{ key: string, desc: string }
   { key: '{{名次}}', desc: '本轮排名' },
   { key: '{{结果}}', desc: '晋级 / 未能晋级 / 弃权' },
   { key: '{{收到按钮}}', desc: '确认收到的按钮' },
-  { key: '{{加群按钮}}', desc: '加入 QQ 群的按钮' }
+  { key: '{{加群按钮}}', desc: '加入 QQ 群的按钮' },
+  { key: '{{填歌按钮}}', desc: '填写下一轮参赛曲目的按钮' }
 ]
 
 export function roundCompetitionScore(value: number): number {
