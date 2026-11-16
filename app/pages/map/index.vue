@@ -28,6 +28,8 @@ import {
   resolveMapViewModeSwitchDecision,
   resolveAutoSelectSearchDecision,
   resolveAutoSelectSearchApply,
+  resolveBusSheetAnchors,
+  resolveBusSheetHeightClass,
   resolveSearchQueryChangeReset,
   resolveInitialMapViewMode,
   resolveInitialSelectedMapPoiId,
@@ -171,13 +173,14 @@ let glassLowFpsSamples = 0
 function resolveGlassTargets(): GlassTarget[] {
   if (!glassEnabled.value || glassStrengthScale.value <= 0) return []
   const targets: GlassTarget[] = []
-  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number): void => {
-    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost })
+  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1): void => {
+    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost, rim })
   }
   push(glassChipsElement.value, 0.5, 2, 0.25)
   // T-023：底部面板重新进 target。radius 0.043 → min(390,326)×0.043×2 ≈ 28px，对齐 rounded-t-[28px]；
   // frost 压到 0.18（chips 是 0.25），别把底图糊平。
-  push(mobileSheetElement.value, 0.043, 2.2, 0.18)
+  // rim 传 0：面板顶部的 28px 圆角够长，着色器那段 2px 亮边在那里就是一条白线。
+  push(mobileSheetElement.value, 0.043, 2.2, 0.18, 0)
   push(glassLocateElement.value, 0.35, 1.4, 0)
   push(glassSearchElement.value, 0.5, 1.8, 0.3)
   return targets
@@ -569,11 +572,17 @@ function autoSelectSearchResult(): void {
   selectArea(apply.targetArea)
 }
 
+function openBusSheet(): void {
+  mapSheetView.value = 'bus'
+  mobileSheetState.value = 'half'
+}
+
 function mobileSheetAnchors() {
   const sheet = mobileSheetElement.value
   const containerHeight = sheet?.parentElement?.getBoundingClientRect().height ?? 0
   const viewportHeight = typeof window === 'undefined' ? containerHeight : window.innerHeight
-  return resolveMobileSheetAnchors(containerHeight, viewportHeight)
+  const anchors = resolveMobileSheetAnchors(containerHeight, viewportHeight)
+  return mapSheetView.value === 'bus' ? resolveBusSheetAnchors(anchors) : anchors
 }
 
 function finishMobileSheetDrag(pointerId?: number): void {
@@ -719,6 +728,9 @@ const {
   notify: notice => toast.add(notice)
 })
 
+// 折叠态地图上的校车 ETA 胶囊：位置来自 provider.projectToScreen 投影 seam。
+const busEtaPills = useMapBusEta({ buses: busVehicles, routes: busRoutes, provider: mapProvider, activeRouteId: busSelectedRouteId })
+
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
   sheetHydrated.value = true
@@ -757,7 +769,7 @@ onBeforeUnmount(() => {
 })
 
 // ── P-002/impl/04：抽屉首屏 = 收藏 / 最近去过 / 分类；98 个地点列表降级为「全部地点」二级视图 ──
-type MapSheetView = 'sections' | 'all'
+type MapSheetView = 'sections' | 'all' | 'bus'
 const mapSheetView = ref<MapSheetView>('sections')
 const {
   favorites,
@@ -809,6 +821,15 @@ function backToMapSections(): void {
   mobileSheetState.value = 'half'
 }
 
+// 手机上点「清空搜索」时顺手把面板收回折叠：面板停在半屏、查询又空了时，
+// dock 的 v-show 条件两个都不成立，输入框会连同整条 dock 一起消失，用户得先收面板才能再搜。
+// 桌面侧栏没有三态，直接交给 clearSearchQuery。
+function onClearSearch(): void {
+  clearSearchQuery()
+  if (panelIsDesktop.value || mobileSheetState.value === 'collapsed') return
+  mobileSheetState.value = 'collapsed'
+}
+
 function focusMapSheetSection(section: 'favorites' | 'recent' | 'category'): void {
   mapSheetView.value = 'sections'
   if (mobileSheetState.value === 'collapsed') {
@@ -853,12 +874,12 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[cubic-bezier(0.24,1,0.32,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       :class="[
-        mobileSheetHeightClass,
+        mapSheetView === 'bus' ? resolveBusSheetHeightClass(mobileSheetState) : mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
-        sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
+        mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
         // 挂载前一律按折叠渲染，避免手机上首帧先弹出一块面板再收回。
-        !sheetHydrated || mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
+        mapSheetView !== 'bus' && (!sheetHydrated || mobileSheetState === 'collapsed') ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
         // 08-WebGL全屏折射 里「楼在玻璃里折」的观感就没了。ready=false 才回落到 blur。
         mapGlassActive ? 'map-glass-refracting' : 'map-glass-surface',
@@ -881,82 +902,215 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       @pointercancel="finishMobileSheetDrag($event.pointerId)"
       @lostpointercapture="finishMobileSheetDrag()"
     >
-      <div
-        data-sheet-drag-zone
-        class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 px-3 md:hidden"
-        :class="mobileSheetState === 'half' ? '!h-10' : ''"
-        @pointerdown="handleMobileSheetPointerDown"
-      >
-        <button
-          type="button"
-          data-sheet-drag-handle
-          class="absolute left-1/2 top-1 flex h-5 w-16 -translate-x-1/2 touch-none items-center justify-center rounded-md text-zinc-400 dark:text-zinc-500 active:bg-zinc-100 dark:active:bg-zinc-800 active:text-zinc-700 dark:active:text-zinc-200"
-          aria-label="上下拖动地点面板"
+      <template v-if="mapSheetView !== 'bus'">
+        <div
+          data-sheet-drag-zone
+          class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 px-3 md:hidden"
+          :class="mobileSheetState === 'half' ? '!h-10' : ''"
           @pointerdown="handleMobileSheetPointerDown"
         >
-          <span
-            aria-hidden="true"
-            class="block h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700"
-          />
-        </button>
-        <div class="flex min-w-0 flex-1 items-center gap-1 pt-3">
-          <p class="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
-            我的地图
-          </p>
-          <!-- CR-12：桌面端的显示设置入口在右侧工具条（hidden md:flex），手机这里补一个图标按钮，开的是同一个面板。 -->
           <button
             type="button"
-            class="flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 dark:text-zinc-400"
-            aria-label="打开地图显示设置"
-            @click="toggleDisplaySettings"
+            data-sheet-drag-handle
+            class="absolute left-1/2 top-1 flex h-5 w-16 -translate-x-1/2 touch-none items-center justify-center rounded-md text-zinc-400 dark:text-zinc-500 active:bg-zinc-100 dark:active:bg-zinc-800 active:text-zinc-700 dark:active:text-zinc-200"
+            aria-label="上下拖动地点面板"
+            @pointerdown="handleMobileSheetPointerDown"
           >
-            <UIcon
-              name="i-lucide-sliders-horizontal"
-              class="size-4"
+            <span
+              aria-hidden="true"
+              class="block h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700"
             />
           </button>
-        </div>
-        <!-- 三态入口收成一个文字按钮：mockup（18-地图页-真折射手机.png）里只有「收起 / 展开」；
+          <div class="flex min-w-0 flex-1 items-center gap-1 pt-3">
+            <p class="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
+              我的地图
+            </p>
+            <!-- CR-12：桌面端的显示设置入口在右侧工具条（hidden md:flex），手机这里补一个图标按钮，开的是同一个面板。 -->
+            <button
+              type="button"
+              class="flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 dark:text-zinc-400"
+              aria-label="打开地图显示设置"
+              @click="toggleDisplaySettings"
+            >
+              <UIcon
+                name="i-lucide-sliders-horizontal"
+                class="size-4"
+              />
+            </button>
+          </div>
+          <!-- 三态入口收成一个文字按钮：mockup（18-地图页-真折射手机.png）里只有「收起 / 展开」；
              三个 chevron 图标在 390px 宽下把标题挤掉，用户也分不清 minus 是三态里的哪个。 -->
-        <button
-          type="button"
-          class="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-green-700 active:bg-green-50 dark:text-green-400 dark:active:bg-green-950"
-          :aria-label="mobileSheetState === 'collapsed' ? '展开地点面板' : '收起地点面板'"
-          :aria-pressed="mobileSheetState !== 'collapsed'"
-          @click="() => { mobileSheetState = mobileSheetState === 'collapsed' ? 'half' : 'collapsed' }"
-        >
-          {{ mobileSheetState === 'collapsed' ? '展开' : '收起' }}
-        </button>
-      </div>
+          <button
+            type="button"
+            class="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-green-700 active:bg-green-50 dark:text-green-400 dark:active:bg-green-950"
+            :aria-label="mobileSheetState === 'collapsed' ? '展开地点面板' : '收起地点面板'"
+            :aria-pressed="mobileSheetState !== 'collapsed'"
+            @click="() => { mobileSheetState = mobileSheetState === 'collapsed' ? 'half' : 'collapsed' }"
+          >
+            {{ mobileSheetState === 'collapsed' ? '展开' : '收起' }}
+          </button>
+        </div>
 
-      <!-- F23：搜索结果块移出「展开/收起」按钮，与头部行同级——按钮里不能再套按钮。 -->
-      <div
-        v-show="mapSheetSearching && (nativeSearchLoading || nativeSearchResults.length > 0)"
-        class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 md:hidden"
-        aria-label="地图搜索结果"
-      >
-        <p
-          v-if="nativeSearchLoading"
-          class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
-          role="status"
+        <!-- F23：搜索结果块移出「展开/收起」按钮，与头部行同级——按钮里不能再套按钮。 -->
+        <div
+          v-show="mapSheetSearching && (nativeSearchLoading || nativeSearchResults.length > 0)"
+          class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 md:hidden"
+          aria-label="地图搜索结果"
         >
-          正在搜索地图里的地点…
-        </p>
-        <template v-else-if="nativeSearchResults.length">
           <p
+            v-if="nativeSearchLoading"
             class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
             role="status"
           >
-            找到 {{ nativeSearchResults.length }} 个地点
+            正在搜索地图里的地点…
           </p>
-          <ul class="mt-1 space-y-0.5">
+          <template v-else-if="nativeSearchResults.length">
+            <p
+              class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+              role="status"
+            >
+              找到 {{ nativeSearchResults.length }} 个地点
+            </p>
+            <ul class="mt-1 space-y-0.5">
+              <li
+                v-for="place in nativeSearchResults"
+                :key="place.id"
+              >
+                <button
+                  type="button"
+                  class="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] text-zinc-900 dark:text-zinc-100"
+                  @click="selectPoi(place)"
+                >
+                  <UIcon
+                    name="i-lucide-map-pin"
+                    class="size-3.5 shrink-0 text-green-700 dark:text-green-400"
+                  />
+                  <span class="min-w-0 truncate">{{ place.name }}</span>
+                </button>
+              </li>
+            </ul>
+          </template>
+        </div>
+        <div
+          v-if="mobileSheetState === 'collapsed'"
+          class="grid min-h-0 flex-1 place-items-center px-3 text-[11px] text-zinc-400 dark:text-zinc-500 md:hidden"
+          aria-hidden="true"
+        >
+          上滑展开 · 收藏 / 最近 / 分类
+        </div>
+
+        <div
+          class="hidden shrink-0 border-b border-[var(--line)] px-3 py-2 md:block md:px-5 md:py-4"
+        >
+          <!-- 桌面端的搜索框与分类栏留在侧栏里（现状不变）；移动端这两块搬到顶部浮层，见下方 md:hidden 的浮层。 -->
+          <div class="hidden md:block">
+            <div class="hidden items-start justify-between gap-3 md:flex">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-green-700 dark:text-green-400">
+                  校园地图
+                </p>
+                <h1 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
+                  校园与周边
+                </h1>
+              </div>
+              <div class="flex items-center gap-1">
+                <UBadge
+                  color="warning"
+                  variant="soft"
+                  size="sm"
+                >
+                  {{ mapDataLabel }}
+                </UBadge>
+                <UTooltip text="收起地点栏">
+                  <UButton
+                    icon="i-lucide-panel-left-close"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    class="justify-center hidden size-11 md:inline-flex"
+                    aria-label="收起地点栏"
+                    @click="() => { sidebarCollapsed = true }"
+                  />
+                </UTooltip>
+              </div>
+            </div>
+
+            <UInput
+              :model-value="searchQuery"
+              size="md"
+              class="min-h-10 w-full md:mt-3 md:min-h-11"
+              :ui="{ base: 'min-h-10 md:min-h-11' }"
+              icon="i-lucide-search"
+              placeholder="搜索地点或附近商家"
+              aria-label="搜索地图地点"
+              @update:model-value="onSearchQueryInput"
+              @compositionstart="onSearchCompositionStart"
+              @compositionend="onSearchCompositionEnd"
+            >
+              <!-- 清空按钮不能按需挂载：第一个字出现时插槽一变，UInput 会把内部 input 重建，
+               手机端焦点和值一起丢，表现就是「打一个字母就被清空」。这里常驻、只切可见性。 -->
+              <template #trailing>
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :class="searchQuery ? '' : 'pointer-events-none opacity-0'"
+                  :aria-hidden="searchQuery ? undefined : 'true'"
+                  :tabindex="searchQuery ? undefined : -1"
+                  aria-label="清空搜索"
+                  @click="onClearSearch"
+                />
+              </template>
+            </UInput>
+
+            <div
+              class="mt-2 grid grid-cols-4 gap-1 md:mt-3 md:flex md:overflow-x-auto md:pb-1"
+              :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : ''"
+              aria-label="地点分类"
+            >
+              <UButton
+                v-for="category in categories"
+                :key="category.id"
+                :icon="category.icon"
+                :label="category.label"
+                :color="activeCategory === category.id ? 'primary' : 'neutral'"
+                :variant="activeCategory === category.id ? 'soft' : 'ghost'"
+                size="xs"
+                class="min-h-9 min-w-0 justify-center px-1 text-[11px] md:min-h-11 md:shrink-0 md:px-2.5 md:text-xs"
+                :aria-pressed="activeCategory === category.id"
+                @click="setCategory(category.id)"
+              />
+            </div>
+          </div>
+
+          <p
+            v-if="mapFallbackMessage"
+            class="map-sheet-hint mt-2 text-xs leading-5 text-blue-800"
+            role="status"
+          >
+            {{ mapFallbackMessage }}
+          </p>
+          <p
+            v-if="nativeSearchLoading"
+            class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+            role="status"
+          >
+            正在搜索地图里的地点…
+          </p>
+          <ul
+            v-else-if="searchQuery.trim() && nativeSearchResults.length"
+            class="mt-2 max-h-48 space-y-0.5 overflow-y-auto"
+            role="status"
+            aria-label="地图搜索找到的附近地点，点击查看"
+          >
             <li
               v-for="place in nativeSearchResults"
               :key="place.id"
             >
               <button
                 type="button"
-                class="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] text-zinc-900 dark:text-zinc-100"
+                class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-green-50 dark:hover:bg-green-950/60 hover:text-green-800 dark:hover:text-green-200"
                 @click="selectPoi(place)"
               >
                 <UIcon
@@ -967,381 +1121,277 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               </button>
             </li>
           </ul>
-        </template>
-      </div>
-      <div
-        v-if="mobileSheetState === 'collapsed'"
-        class="grid min-h-0 flex-1 place-items-center px-3 text-[11px] text-zinc-400 dark:text-zinc-500 md:hidden"
-        aria-hidden="true"
-      >
-        上滑展开 · 收藏 / 最近 / 分类
-      </div>
-
-      <div
-        class="hidden shrink-0 border-b border-[var(--line)] px-3 py-2 md:block md:px-5 md:py-4"
-      >
-        <!-- 桌面端的搜索框与分类栏留在侧栏里（现状不变）；移动端这两块搬到顶部浮层，见下方 md:hidden 的浮层。 -->
-        <div class="hidden md:block">
-          <div class="hidden items-start justify-between gap-3 md:flex">
-            <div class="min-w-0">
-              <p class="text-xs font-semibold text-green-700 dark:text-green-400">
-                校园地图
-              </p>
-              <h1 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
-                校园与周边
-              </h1>
-            </div>
-            <div class="flex items-center gap-1">
-              <UBadge
-                color="warning"
-                variant="soft"
-                size="sm"
-              >
-                {{ mapDataLabel }}
-              </UBadge>
-              <UTooltip text="收起地点栏">
-                <UButton
-                  icon="i-lucide-panel-left-close"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  class="justify-center hidden size-11 md:inline-flex"
-                  aria-label="收起地点栏"
-                  @click="() => { sidebarCollapsed = true }"
-                />
-              </UTooltip>
-            </div>
-          </div>
-
-          <UInput
-            :model-value="searchQuery"
-            size="md"
-            class="min-h-10 w-full md:mt-3 md:min-h-11"
-            :ui="{ base: 'min-h-10 md:min-h-11' }"
-            icon="i-lucide-search"
-            placeholder="搜索地点或附近商家"
-            aria-label="搜索地图地点"
-            @update:model-value="onSearchQueryInput"
-            @compositionstart="onSearchCompositionStart"
-            @compositionend="onSearchCompositionEnd"
-          >
-            <!-- 清空按钮不能按需挂载：第一个字出现时插槽一变，UInput 会把内部 input 重建，
-               手机端焦点和值一起丢，表现就是「打一个字母就被清空」。这里常驻、只切可见性。 -->
-            <template #trailing>
-              <UButton
-                icon="i-lucide-x"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                :class="searchQuery ? '' : 'pointer-events-none opacity-0'"
-                :aria-hidden="searchQuery ? undefined : 'true'"
-                :tabindex="searchQuery ? undefined : -1"
-                aria-label="清空搜索"
-                @click="clearSearchQuery"
-              />
-            </template>
-          </UInput>
-
-          <div
-            class="mt-2 grid grid-cols-4 gap-1 md:mt-3 md:flex md:overflow-x-auto md:pb-1"
-            :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : ''"
-            aria-label="地点分类"
-          >
-            <UButton
-              v-for="category in categories"
-              :key="category.id"
-              :icon="category.icon"
-              :label="category.label"
-              :color="activeCategory === category.id ? 'primary' : 'neutral'"
-              :variant="activeCategory === category.id ? 'soft' : 'ghost'"
-              size="xs"
-              class="min-h-9 min-w-0 justify-center px-1 text-[11px] md:min-h-11 md:shrink-0 md:px-2.5 md:text-xs"
-              :aria-pressed="activeCategory === category.id"
-              @click="setCategory(category.id)"
-            />
-          </div>
         </div>
-
-        <p
-          v-if="mapFallbackMessage"
-          class="map-sheet-hint mt-2 text-xs leading-5 text-blue-800"
-          role="status"
-        >
-          {{ mapFallbackMessage }}
-        </p>
-        <p
-          v-if="nativeSearchLoading"
-          class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
-          role="status"
-        >
-          正在搜索地图里的地点…
-        </p>
-        <ul
-          v-else-if="searchQuery.trim() && nativeSearchResults.length"
-          class="mt-2 max-h-48 space-y-0.5 overflow-y-auto"
-          role="status"
-          aria-label="地图搜索找到的附近地点，点击查看"
-        >
-          <li
-            v-for="place in nativeSearchResults"
-            :key="place.id"
-          >
-            <button
-              type="button"
-              class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-green-50 dark:hover:bg-green-950/60 hover:text-green-800 dark:hover:text-green-200"
-              @click="selectPoi(place)"
-            >
-              <UIcon
-                name="i-lucide-map-pin"
-                class="size-3.5 shrink-0 text-green-700 dark:text-green-400"
-              />
-              <span class="min-w-0 truncate">{{ place.name }}</span>
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <div
-        v-if="mapSheetShowsSections"
-        class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"
-        aria-label="收藏、最近去过与分类"
-      >
-        <section
-          id="map-sheet-category"
-          class="mt-0.5"
-          aria-labelledby="map-sheet-category-title"
-        >
-          <div class="mt-0.5 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
-              aria-label="打开收藏列表"
-              @click="focusMapSheetSection('favorites')"
-            >
-              <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
-                <UIcon
-                  name="i-lucide-star"
-                  class="size-3.5"
-                />
-                收藏
-              </span>
-              <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ favorites.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
-            </button>
-            <button
-              type="button"
-              class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
-              aria-label="打开最近去过列表"
-              @click="focusMapSheetSection('recent')"
-            >
-              <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
-                <UIcon
-                  name="i-lucide-history"
-                  class="size-3.5"
-                />
-                最近
-              </span>
-              <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ recent.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
-            </button>
-          </div>
-          <div class="map-sheet-categories mt-0.5 grid grid-cols-3 gap-1 pb-2">
-            <button
-              v-for="entry in mapSheetCategoryEntries"
-              :key="entry.id"
-              type="button"
-              class="flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-1 text-center text-[12.5px] font-medium text-zinc-800 active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)] dark:text-zinc-100"
-              :aria-label="'筛选分类 ' + entry.label"
-              @click="openMapSheetCategory(entry.id)"
-            >
-              <UIcon
-                :name="entry.icon"
-                class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
-              />
-              {{ entry.label }}
-            </button>
-          </div>
-        </section>
-        <section
-          id="map-sheet-favorites"
-          aria-labelledby="map-sheet-favorites-title"
-        >
-          <div class="flex items-center justify-between">
-            <h2
-              id="map-sheet-favorites-title"
-              class="text-[13px] font-medium text-zinc-500 dark:text-zinc-400"
-            >
-              收藏
-            </h2>
-            <span class="text-[11px] text-zinc-400 dark:text-zinc-500">{{ favorites.length }} 个</span>
-          </div>
-          <p
-            v-if="favoritePois.length === 0"
-            class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
-          >
-            还没有收藏 · 在地点详情点 ★ 收藏
-          </p>
-          <ul
-            v-else
-            class="mt-2 grid grid-cols-2 gap-1.5"
-          >
-            <li
-              v-for="poi in favoritePois"
-              :key="poi.id"
-            >
-              <button
-                type="button"
-                class="flex min-h-11 w-full items-center gap-2 rounded-md border border-[var(--line)] px-2 text-left active:bg-zinc-50 dark:active:bg-zinc-800"
-                :aria-label="'打开收藏地点 ' + poi.name"
-                @click="selectPoi(poi)"
-              >
-                <UIcon
-                  :name="categoryIcon(poi.category)"
-                  class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
-                />
-                <span class="min-w-0 truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
-              </button>
-            </li>
-          </ul>
-        </section>
-
-        <section
-          id="map-sheet-recent"
-          class="mt-4"
-          aria-labelledby="map-sheet-recent-title"
-        >
-          <div class="flex items-center justify-between">
-            <h2
-              id="map-sheet-recent-title"
-              class="text-[13px] font-medium text-zinc-500 dark:text-zinc-400"
-            >
-              最近去过
-            </h2>
-            <button
-              v-if="recentPois.length > 0"
-              type="button"
-              class="rounded-md px-1.5 py-1 text-[11px] text-zinc-400 active:bg-zinc-100 dark:text-zinc-500 dark:active:bg-zinc-800"
-              aria-label="清空最近去过"
-              @click="clearRecent"
-            >
-              清空
-            </button>
-          </div>
-          <p
-            v-if="recentPois.length === 0"
-            class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
-          >
-            还没有记录 · 打开任意地点就会出现在这里
-          </p>
-          <ul
-            v-else
-            class="mt-2 space-y-1"
-          >
-            <li
-              v-for="poi in recentPois"
-              :key="poi.id"
-            >
-              <button
-                type="button"
-                class="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left active:bg-zinc-50 dark:active:bg-zinc-800"
-                :aria-label="'打开最近地点 ' + poi.name"
-                @click="selectPoi(poi)"
-              >
-                <UIcon
-                  :name="categoryIcon(poi.category)"
-                  class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
-                />
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
-                  <span class="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{{ categoryLabel(poi.category) }}</span>
-                </span>
-              </button>
-            </li>
-          </ul>
-        </section>
-      </div>
-
-      <div
-        class="hidden items-center justify-between border-b border-[var(--line)] px-3 py-1 text-xs text-zinc-500 dark:text-zinc-400 md:flex md:px-5 md:py-2"
-      >
-        <span>{{ filteredPois.length }} 个地点</span>
-        <button
-          class="min-h-9 min-w-11 px-2 font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 md:min-h-11"
-          type="button"
-          @click="fitToVisiblePois"
-        >
-          查看全部
-        </button>
-      </div>
-
-      <div
-        v-show="mapSheetShowsFullList && mapSheetView === 'all' && !mapSheetSearching"
-        class="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-3 py-1 md:hidden"
-      >
-        <button
-          type="button"
-          class="inline-flex min-h-11 items-center gap-1 rounded-md pr-2 text-[13px] font-medium text-green-700 active:bg-green-50 dark:text-green-400 dark:active:bg-green-950"
-          aria-label="返回收藏、最近去过与分类"
-          @click="backToMapSections"
-        >
-          <UIcon
-            name="i-lucide-chevron-left"
-            class="size-4"
-          />
-          返回
-        </button>
-        <span class="text-[13px] text-zinc-500 dark:text-zinc-400">{{ filteredPois.length }} 个地点</span>
-      </div>
-
-      <div
-        v-show="mapSheetShowsFullList"
-        class="map-place-list min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"
-        :class="mobileSheetState === 'collapsed' ? 'hidden md:block' : 'block'"
-        aria-label="地点列表"
-        @wheel.stop
-        @touchmove.stop
-      >
-        <button
-          v-for="poi in filteredPois"
-          :key="poi.id"
-          :ref="poiRowRef(poi.id)"
-          type="button"
-          class="flex w-full items-center gap-2.5 border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
-          :class="selectedPoiId === poi.id ? 'bg-green-50 dark:bg-green-950' : 'bg-[var(--surface)] dark:bg-zinc-900'"
-          @click="selectPoi(poi)"
-        >
-          <span
-            class="grid size-8 shrink-0 place-items-center rounded-md md:size-9"
-            :class="selectedPoiId === poi.id ? 'bg-green-700 text-[var(--surface)]' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'"
-          >
-            <UIcon
-              :name="categoryIcon(poi.category)"
-              class="size-4"
-            />
-          </span>
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
-            <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{ categoryLabel(poi.category) }} · {{ poiStatusText(poi) }}</span>
-          </span>
-          <UIcon
-            name="i-lucide-chevron-right"
-            class="size-4 shrink-0 text-zinc-400 dark:text-zinc-500"
-          />
-        </button>
 
         <div
-          v-if="filteredPois.length === 0"
-          class="grid min-h-32 place-items-center p-6 text-center"
+          v-if="mapSheetShowsSections"
+          class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"
+          aria-label="收藏、最近去过与分类"
         >
-          <div>
-            <UIcon
-              name="i-lucide-map-pin-off"
-              class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
-            />
-            <p class="mt-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-              没有匹配的地点
+          <section
+            id="map-sheet-category"
+            class="mt-0.5"
+            aria-labelledby="map-sheet-category-title"
+          >
+            <div class="mt-0.5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
+                aria-label="打开收藏列表"
+                @click="focusMapSheetSection('favorites')"
+              >
+                <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                  <UIcon
+                    name="i-lucide-star"
+                    class="size-3.5"
+                  />
+                  收藏
+                </span>
+                <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ favorites.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
+              </button>
+              <button
+                type="button"
+                class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
+                aria-label="打开最近去过列表"
+                @click="focusMapSheetSection('recent')"
+              >
+                <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                  <UIcon
+                    name="i-lucide-history"
+                    class="size-3.5"
+                  />
+                  最近
+                </span>
+                <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ recent.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
+              </button>
+            </div>
+            <div class="map-sheet-categories mt-0.5 grid grid-cols-3 gap-1 pb-2">
+              <button
+                v-for="entry in mapSheetCategoryEntries"
+                :key="entry.id"
+                type="button"
+                class="flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-1 text-center text-[12.5px] font-medium text-zinc-800 active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)] dark:text-zinc-100"
+                :aria-label="'筛选分类 ' + entry.label"
+                @click="openMapSheetCategory(entry.id)"
+              >
+                <UIcon
+                  :name="entry.icon"
+                  class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
+                />
+                {{ entry.label }}
+              </button>
+              <button
+                type="button"
+                class="flex min-h-9 items-center justify-center gap-1 rounded-[10px] border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-2 text-[12px] font-medium text-[var(--bus-accent)]"
+                aria-label="打开叮叮车"
+                @click="openBusSheet"
+              >
+                <UIcon
+                  name="i-lucide-bus-front"
+                  class="size-4 shrink-0"
+                />
+                叮叮车
+              </button>
+            </div>
+          </section>
+          <section
+            id="map-sheet-favorites"
+            aria-labelledby="map-sheet-favorites-title"
+          >
+            <div class="flex items-center justify-between">
+              <h2
+                id="map-sheet-favorites-title"
+                class="text-[13px] font-medium text-zinc-500 dark:text-zinc-400"
+              >
+                收藏
+              </h2>
+              <span class="text-[11px] text-zinc-400 dark:text-zinc-500">{{ favorites.length }} 个</span>
+            </div>
+            <p
+              v-if="favoritePois.length === 0"
+              class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
+            >
+              还没有收藏 · 在地点详情点 ★ 收藏
             </p>
+            <ul
+              v-else
+              class="mt-2 grid grid-cols-2 gap-1.5"
+            >
+              <li
+                v-for="poi in favoritePois"
+                :key="poi.id"
+              >
+                <button
+                  type="button"
+                  class="flex min-h-11 w-full items-center gap-2 rounded-md border border-[var(--line)] px-2 text-left active:bg-zinc-50 dark:active:bg-zinc-800"
+                  :aria-label="'打开收藏地点 ' + poi.name"
+                  @click="selectPoi(poi)"
+                >
+                  <UIcon
+                    :name="categoryIcon(poi.category)"
+                    class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
+                  />
+                  <span class="min-w-0 truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
+          <section
+            id="map-sheet-recent"
+            class="mt-4"
+            aria-labelledby="map-sheet-recent-title"
+          >
+            <div class="flex items-center justify-between">
+              <h2
+                id="map-sheet-recent-title"
+                class="text-[13px] font-medium text-zinc-500 dark:text-zinc-400"
+              >
+                最近去过
+              </h2>
+              <button
+                v-if="recentPois.length > 0"
+                type="button"
+                class="rounded-md px-1.5 py-1 text-[11px] text-zinc-400 active:bg-zinc-100 dark:text-zinc-500 dark:active:bg-zinc-800"
+                aria-label="清空最近去过"
+                @click="clearRecent"
+              >
+                清空
+              </button>
+            </div>
+            <p
+              v-if="recentPois.length === 0"
+              class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
+            >
+              还没有记录 · 打开任意地点就会出现在这里
+            </p>
+            <ul
+              v-else
+              class="mt-2 space-y-1"
+            >
+              <li
+                v-for="poi in recentPois"
+                :key="poi.id"
+              >
+                <button
+                  type="button"
+                  class="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left active:bg-zinc-50 dark:active:bg-zinc-800"
+                  :aria-label="'打开最近地点 ' + poi.name"
+                  @click="selectPoi(poi)"
+                >
+                  <UIcon
+                    :name="categoryIcon(poi.category)"
+                    class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
+                  />
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
+                    <span class="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{{ categoryLabel(poi.category) }}</span>
+                  </span>
+                </button>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <div
+          class="hidden items-center justify-between border-b border-[var(--line)] px-3 py-1 text-xs text-zinc-500 dark:text-zinc-400 md:flex md:px-5 md:py-2"
+        >
+          <span>{{ filteredPois.length }} 个地点</span>
+          <button
+            class="min-h-9 min-w-11 px-2 font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 md:min-h-11"
+            type="button"
+            @click="fitToVisiblePois"
+          >
+            查看全部
+          </button>
+        </div>
+
+        <div
+          v-show="mapSheetShowsFullList && mapSheetView === 'all' && !mapSheetSearching"
+          class="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-3 py-1 md:hidden"
+        >
+          <button
+            type="button"
+            class="inline-flex min-h-11 items-center gap-1 rounded-md pr-2 text-[13px] font-medium text-green-700 active:bg-green-50 dark:text-green-400 dark:active:bg-green-950"
+            aria-label="返回收藏、最近去过与分类"
+            @click="backToMapSections"
+          >
+            <UIcon
+              name="i-lucide-chevron-left"
+              class="size-4"
+            />
+            返回
+          </button>
+          <span class="text-[13px] text-zinc-500 dark:text-zinc-400">{{ filteredPois.length }} 个地点</span>
+        </div>
+
+        <div
+          v-show="mapSheetShowsFullList"
+          class="map-place-list min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"
+          :class="mobileSheetState === 'collapsed' ? 'hidden md:block' : 'block'"
+          aria-label="地点列表"
+          @wheel.stop
+          @touchmove.stop
+        >
+          <button
+            v-for="poi in filteredPois"
+            :key="poi.id"
+            :ref="poiRowRef(poi.id)"
+            type="button"
+            class="flex w-full items-center gap-2.5 border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
+            :class="selectedPoiId === poi.id ? 'bg-green-50 dark:bg-green-950' : 'bg-[var(--surface)] dark:bg-zinc-900'"
+            @click="selectPoi(poi)"
+          >
+            <span
+              class="grid size-8 shrink-0 place-items-center rounded-md md:size-9"
+              :class="selectedPoiId === poi.id ? 'bg-green-700 text-[var(--surface)]' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'"
+            >
+              <UIcon
+                :name="categoryIcon(poi.category)"
+                class="size-4"
+              />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
+              <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{ categoryLabel(poi.category) }} · {{ poiStatusText(poi) }}</span>
+            </span>
+            <UIcon
+              name="i-lucide-chevron-right"
+              class="size-4 shrink-0 text-zinc-400 dark:text-zinc-500"
+            />
+          </button>
+
+          <div
+            v-if="filteredPois.length === 0"
+            class="grid min-h-32 place-items-center p-6 text-center"
+          >
+            <div>
+              <UIcon
+                name="i-lucide-map-pin-off"
+                class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
+              />
+              <p class="mt-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                没有匹配的地点
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </template>
+      <MapBusRoutePanel
+        v-if="mapSheetView === 'bus'"
+        variant="sheet"
+        :state="mobileSheetState"
+        :open="false"
+        :routes="busRoutes"
+        :buses="busVehicles"
+        :fetched-at="busFetchedAt"
+        class="md:hidden"
+        @sheet-raise="mobileSheetState = 'half'"
+        @sheet-expand="mobileSheetState = 'expanded'"
+        @sheet-collapse="mobileSheetState = 'half'"
+        @sheet-back="mapSheetView = 'sections'"
+        @sheet-drag-start="handleMobileSheetPointerDown($event)"
+      />
     </aside>
 
     <section
@@ -1364,6 +1414,20 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         class="pointer-events-none absolute inset-0 z-[18] md:hidden"
         aria-hidden="true"
       />
+      <!-- 校车 ETA 胶囊：只在折叠态浮在地图上方；位置由投影 seam 给出，半屏/展开不显示。 -->
+      <div
+        v-if="mobileSheetState === 'collapsed'"
+        class="pointer-events-none absolute inset-0 z-[19] md:hidden"
+        data-bus-eta-layer
+      >
+        <MapBusEtaPill
+          v-for="pill in busEtaPills"
+          :key="pill.id"
+          :label="pill.label"
+          :eta-minutes="pill.etaMinutes"
+          :style="{ transform: pill.transform }"
+        />
+      </div>
 
       <!-- 移动端浮层（<768px）：搜索胶囊 / 分类 chips / 底图来源条 / 右侧定位与列表。
            桌面端整块 md:hidden，侧栏保持原样。 -->
@@ -1465,7 +1529,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               size="xs"
               class="shrink-0 rounded-full"
               aria-label="清空搜索"
-              @click="clearSearchQuery"
+              @click="onClearSearch"
             />
             <button
               type="button"
@@ -2353,17 +2417,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     background: transparent;
   }
 
-  /* 校车胶囊（MapBusRoutePanel 折叠触发器）跟着同一条基线走 */
-  .map-workspace .map-bus-dock {
-    bottom: var(--map-mobile-dock, 10.25rem);
-  }
-
   /* impl/05：折叠态面板收起，底栏搜索块占住底部，校车浮标上移让位 */
   .map-workspace[data-sheet-state='collapsed'] .map-mobile-dock {
-    bottom: calc(var(--map-mobile-dock, 0px) + 87px);
-  }
-
-  .map-workspace[data-sheet-state='collapsed'] .map-bus-dock {
     bottom: calc(var(--map-mobile-dock, 0px) + 87px);
   }
 
@@ -2377,8 +2432,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   }
 
   /* 面板展开（上沿已顶到搜索胶囊）时，浮动带没有空间，整条收起，避免穿模 */
-  .map-workspace[data-sheet-state='expanded'] .map-mobile-dock,
-  .map-workspace[data-sheet-state='expanded'] .map-bus-dock {
+  .map-workspace[data-sheet-state='expanded'] .map-mobile-dock {
     display: none;
   }
 
