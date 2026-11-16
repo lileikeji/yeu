@@ -115,15 +115,26 @@
 - ssh 传 SQL 用 `bash -s` 或先 `scp` 脚本，不用双引号包 SQL（双引号会把标识符当列名）。
 - AI 改动走 `ai/<模型>-<主题>` 分支，推 `github` / `origin` / `organization` / `yuex` 四个远端；master 由人合并。
 
-## 本机构建全挂时用 CI 出制品
+## 本机构建报 esbuild 临时目录删除失败
 
-2026-11-16 早上本机所有 `pnpm build` / `npx nuxt build` 都在 `Bundling Nitro server` 之后报
+2026-11-16 本机所有 `pnpm build` / `npx nuxt build` 都在 `Bundling Nitro server` 之后报
 `[nitro] ERROR Error: remove <TMP>\esbuild-<hash>: Access is denied.`，`.output/server/index.mjs` 不生成。
 已排除：TEMP 换盘（D:/E:/用户目录）、node 24/26、esbuild 0.28.1/0.28.2、`nitro.minify=false`、
 换工作树、DSH 之外的计划任务；独立调用 esbuild（含 1.2MB 输出）正常，同尺寸文件创建后立即删除也正常。
 表现为每次构建在临时目录留下一个 ~1.1MB 的 Nitro 包文件，删除被系统拒绝，构建即中止。
 
-绕行方案（已验证可发版）：仓库里带一个只做构建的临时分支，用 GitHub Actions 出制品。
+**根因（2026-11-16 定位）**：esbuild 的 `transform` 在**输入超过 1 MiB（1,048,576 字节）**时，会先把输入
+落成 `<TEMP>/esbuild-<hash>` 临时文件，收尾删除在 Windows 上失败并回传成 transform 错误。
+实测 980KB/1020KB 正常、1024KB 起必失败；同样体积改用 `build({ stdin, write: false })` 正常。
+Nitro 打服务端包时正好有一次 1.1MB 的 `transform`，所以每次构建都卡在同一处。
+
+**修法**：`patches/esbuild@0.28.2.patch`（`pnpm-workspace.yaml` 的 `patchedDependencies` 已登记）把
+`transform` 包一层：原生调用失败且输入 >1 MiB 时，退回 `build({ stdin, bundle: false, write: false })`。
+`pnpm install` 后确认 `node_modules/.pnpm/nitropack@*/node_modules/esbuild` 指向带 `patch_hash` 的目录
+（个别 peer 变体可能仍指旧的 `esbuild@0.28.2`，用 `pnpm install --force` 重链即可）。
+验证方式：`ALLOW_LOW_SPEC_BUILD=1 pnpm build` 应输出 `Build complete` 且生成 `.output/server/index.mjs`。
+
+参考绕行（2026-11-16 早上的应急做法）：临时分支 + GitHub Actions 出制品。
 
 ```
 git worktree add /e/yeu-ci-art <要发的提交> --detach
