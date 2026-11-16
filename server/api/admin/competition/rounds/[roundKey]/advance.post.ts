@@ -1,6 +1,6 @@
 import {
+  confirmAdvanceRoster,
   ensureCompetitionEvent,
-  generateNextRound,
   getAdminCompetitionPayload,
   getRoundByKey
 } from '../../../../../modules/competition/service'
@@ -11,6 +11,7 @@ import {
 } from '../../../../../utils/competition-admin'
 import { useAdminRequest } from '../../../../../utils/http'
 
+/** 兼容旧按钮：POST /advance 等同于「确认晋级名单」——只有确认过的名单才会生成下一轮。 */
 export default defineEventHandler((event) => {
   const { client, session } = useAdminRequest(event)
   const contentId = resolveCompetitionContentId(client, session)
@@ -18,7 +19,7 @@ export default defineEventHandler((event) => {
 
   const competition = ensureCompetitionEvent(client, contentId)
   const round = getRoundByKey(client, competition.id, roundKey)
-  const result = generateNextRound(client, round)
+  const result = confirmAdvanceRoster(client, round)
 
   writeAudit(client, event, {
     actorAdminId: session.admin.id,

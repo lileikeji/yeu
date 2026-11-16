@@ -16,7 +16,7 @@ import {
   createSinger,
   ensureCompetitionEvent,
   findMusicAssociationContent,
-  generateNextRound,
+  confirmAdvanceRoster,
   getAdminCompetitionPayload,
   getCallBoard,
   getEmailTemplate,
@@ -48,6 +48,9 @@ import {
   buildEmailSendPlan,
   buildReminderPlan,
   listSingers,
+  ensureReceiptToken,
+  getSongFormState,
+  updateSongByToken,
   confirmReceiptByToken,
   createNextEdition,
   listEditions,
@@ -414,7 +417,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   )
 
   // 生成复赛：取前 2 名，随机抽签。
-  const advanced = generateNextRound(client, getRoundByKey(client, event.id, 'prelim'))
+  const advanced = confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
   checkInEntries(client, musicId)
   assert.equal(advanced.advanced, 2)
   payload = getAdminCompetitionPayload(client, musicId)
@@ -457,7 +460,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(semiView.entries[1]!.singer.id, singerA.id)
   assert.equal(semiView.entries[1]!.qualified, false)
 
-  const finalAdvanced = generateNextRound(client, getRoundByKey(client, event.id, 'semi'))
+  const finalAdvanced = confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'semi'))
   checkInEntries(client, musicId)
   assert.equal(finalAdvanced.advanced, 1)
   payload = getAdminCompetitionPayload(client, musicId)
@@ -1646,6 +1649,43 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   // 没有回执链接时保持纯文本，不留空按钮
   const plain = competitionEmailBodyToHtml('正文', [], '')
   assert.doesNotMatch(plain, /我已收到/)
+})
+
+test('数据库：晋级选手用邮件链接填复赛曲目，写回选手库', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singer = createSinger(client, event.id, { name: '甲一', song: '晴天', email: 'a@example.com' })
+  const token = ensureReceiptToken(client, event.id, 'prelim', singer.id)
+
+  const initial = getSongFormState(client, token)
+  assert.equal(initial.singerName, '甲一')
+  assert.equal(initial.song, '晴天')
+
+  const updated = updateSongByToken(client, token, '  后来  ')
+  assert.equal(updated.song, '后来')
+  const stored = listSingers(client, event.id).find(item => item.id === singer.id)
+  assert.equal(stored?.song, '后来')
+
+  assert.throws(() => updateSongByToken(client, token, '  '), (error: unknown) =>
+    (error as { data?: { field?: string } }).data?.field === 'song')
+  assert.throws(() => updateSongByToken(client, token, '待定'), (error: unknown) =>
+    (error as { data?: { field?: string } }).data?.field === 'song')
+  assert.throws(() => getSongFormState(client, 'not-a-real-token'), (error: unknown) =>
+    (error as { data?: { field?: string } }).data?.field === 'token')
+
+  closeDatabase(':memory:')
 })
 
 test('数据库：一键提醒只发没签到的预报名，签到的跳过', () => {
