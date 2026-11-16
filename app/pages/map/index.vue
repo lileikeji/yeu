@@ -936,9 +936,20 @@ function handleSheetPopState(): void {
 }
 
 function handleSheetKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return
+  // 别的控件（手动起点弹层、显示设置、输入法组词）先吃掉 Esc 时不再连带收面板。
+  if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return
+  if (manualStartOpen.value || displaySettingsOpen.value) return
   handleSheetBack()
 }
+
+// 离开地图页时把守卫层标记作废：SPA 删不掉已压入的历史条目，但可以让它退化成一条普通记录，
+// 下次回到地图不会被当成「面板已经压过一层」，否则每来一次都会再压一条同 URL 的记录。
+onBeforeRouteLeave(() => {
+  if (!sheetHistoryPushed) return
+  sheetHistoryPushed = false
+  suppressNextPop = false
+  if (typeof window !== 'undefined') window.history.replaceState({ ...window.history.state, mapSheet: 'consumed' }, '')
+})
 
 /** 点地图空白只关抽屉：面板与地图是兄弟节点，点面板不会走到这里。 */
 const transitDrawerRaised = ref(false)
@@ -1556,7 +1567,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           @change-line="changeTransitLine"
         />
       </div>
-      <MapBusRoutePanel
+      <LazyMapBusRoutePanel
         v-if="mapSheetView === 'bus'"
         variant="sheet"
         :state="mobileSheetState"
@@ -2210,7 +2221,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     </section>
 
     <!-- 掌上公交式校车面板：线路总览 + 车辆进度 + 预计距离 -->
-    <MapBusRoutePanel
+    <LazyMapBusRoutePanel
       v-model:open="busPanelOpen"
       :routes="busRoutes"
       :buses="busVehicles"
