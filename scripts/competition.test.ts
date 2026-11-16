@@ -1713,6 +1713,55 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
   closeDatabase(':memory:')
 })
 
+test('数据库：确认晋级之后才能导出这份名单，导出带联系方式和名次', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const first = createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000001',
+    qq: '3651784006',
+    email: 'a@example.com'
+  })
+  createSinger(client, event.id, { name: '乙二', song: '后来', studentNo: '123456789013', email: 'b@example.com' })
+  checkInEntries(client, musicId)
+
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, prelim, 1)
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, first.id, {
+    scores: scoresForAll(8)
+  })
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+
+  assert.throws(() => buildCompetitionExport(client, getRoundByKey(client, event.id, 'prelim'), 'confirmed'), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'ROSTER_NOT_CONFIRMED')
+
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const exported = buildCompetitionExport(client, getRoundByKey(client, event.id, 'prelim'), 'confirmed')
+  assert.match(exported.csv, /甲一/)
+  assert.doesNotMatch(exported.csv, /乙二/)
+  assert.match(exported.csv, /123456789012/)
+  assert.match(exported.csv, /3651784006/)
+  assert.match(exported.filename, /晋级/)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：一键提醒只发没签到的预报名，签到的跳过', () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

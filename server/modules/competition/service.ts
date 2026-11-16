@@ -981,7 +981,7 @@ function buildRoundRanking(
 
 // -- 导出（后台名单） ----------------------------------------------------------
 
-export type CompetitionExportKind = 'detail' | 'summary' | 'advancing'
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed'
 
 function csvCell(value: unknown): string {
   const text = String(value ?? '')
@@ -1068,6 +1068,55 @@ export function buildCompetitionExport(
         ])
       }
     }
+  } else if (kind === 'confirmed') {
+    const contactRows = client.db.select().from(competitionSingers)
+      .where(eq(competitionSingers.eventId, round.eventId))
+      .all()
+    const contactById = new Map(contactRows.map(row => [row.id, row]))
+    // 确认后的晋级名单：以人工勾选的结果为准（advanced === 1），不再按名次截取。
+    if (round.rosterConfirmedAt === null) {
+      conflictError('ROSTER_NOT_CONFIRMED', '先确认晋级名单，再导出确认后的名单')
+    }
+    const confirmedRows = ranking
+      .filter(row => entryBySinger.get(row.singer.id)?.advanced === 1)
+      .sort((left, right) =>
+        ((left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
+        || (left.sortOrder - right.sortOrder)
+      )
+    label = '确认后的晋级名单'
+    rows.push([
+      '晋级序',
+      '选手',
+      '班级',
+      '学号',
+      'QQ',
+      '邮箱',
+      '电话',
+      '歌曲',
+      '参赛天',
+      '出场顺序',
+      '评分人数',
+      '平均分',
+      '名次'
+    ])
+    confirmedRows.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      rows.push([
+        index + 1,
+        row.singer.name,
+        row.singer.className ?? '',
+        contactById.get(row.singer.id)?.studentNo ?? '',
+        contactById.get(row.singer.id)?.qq ?? '',
+        contactById.get(row.singer.id)?.email ?? '',
+        contactById.get(row.singer.id)?.phone ?? '',
+        row.singer.song,
+        dayLabelOf(entry?.contestDay ?? null),
+        (entry && daySequence.get(entry.id)) || '',
+        row.scoreCount,
+        row.average === null ? '' : row.average.toFixed(2),
+        row.rank ?? ''
+      ])
+    })
   } else {
     const ordered = [...ranking].sort((left, right) =>
       ((left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
