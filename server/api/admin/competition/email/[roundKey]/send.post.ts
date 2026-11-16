@@ -19,7 +19,7 @@ import {
   resolveCompetitionContentId
 } from '../../../../../utils/competition-admin'
 import { useAdminRequest } from '../../../../../utils/http'
-import { mailerConfigFromEnv, sendMailMessage } from '../../../../../utils/mailer'
+import { mailerConfigFromEnv, resetMailTransport, sendMailMessage, verifyMailTransport } from '../../../../../utils/mailer'
 import { parseBody } from '../../../../../utils/validation'
 
 // QQ 邮箱对「短时间大量登录/发信」很敏感：连发过快会回 535 login frequency limited，
@@ -68,6 +68,22 @@ export default defineEventHandler(async (event) => {
   let sent = 0
   let failed = 0
 
+  // 开批前先探一次 SMTP：登不上就直接报错，不要逐封试到限流
+  try {
+    await verifyMailTransport(mailerConfig)
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    resetMailTransport(mailerConfig)
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'SMTP login failed',
+      data: {
+        code: 'EMAIL_LOGIN_FAILED',
+        message: `邮箱登录失败：${detail.slice(0, 120)}`
+      }
+    })
+  }
+
   let authFailures = 0
   let aborted = 0
   for (const recipient of plan.recipients) {
@@ -103,7 +119,9 @@ export default defineEventHandler(async (event) => {
         break
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error)
-        const transient = /535|Login fail|ETIMEDOUT|ECONNRESET|ESOCKET|try again|busy/i.test(lastError)
+        // 坏连接留在池里会让后面每一封都失败，这里直接弃掉，下次重连
+        resetMailTransport(mailerConfig)
+        const transient = /535|Login fail|ETIMEDOUT|ECONNRESET|ECONNABORTED|EPIPE|ESOCKET|socket hang up|try again|busy/i.test(lastError)
         const delay = RETRY_DELAYS_MS[attempt]
         if (!transient || delay === undefined) break
         await sleep(delay)

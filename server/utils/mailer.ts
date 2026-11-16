@@ -90,10 +90,36 @@ function getTransporter(config: MailerConfig): ReturnType<typeof nodemailer.crea
     pool: true,
     maxConnections: 1,
     maxMessages: 200,
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
     auth: { user: config.user, pass: config.pass }
   })
   transporterCache.set(key, created)
   return created
+}
+
+/**
+ * 丢掉缓存的连接池，下次发送重新建连登录。
+ *
+ * 连接池里的长连接会被服务端悄悄关掉，此时再 write 就是 `EPIPE`；
+ * 而且坏连接会一直留在池里，后面每一封都跟着失败。发送失败后必须调这个。
+ */
+export function resetMailTransport(config: MailerConfig): void {
+  const key = `${config.user}@${config.host}:${config.port}`
+  const cached = transporterCache.get(key)
+  if (!cached) return
+  try {
+    cached.close()
+  } catch {
+    // 关闭失败无所谓，丢掉引用即可
+  }
+  transporterCache.delete(key)
+}
+
+/** 开批之前先探一次连接，登录不通就别开始发。 */
+export async function verifyMailTransport(config: MailerConfig): Promise<void> {
+  await getTransporter(config).verify()
 }
 
 export async function sendMailMessage(
