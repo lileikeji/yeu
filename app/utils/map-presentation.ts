@@ -195,6 +195,37 @@ export type MobileSheetState = 'collapsed' | 'half' | 'expanded'
 export type MobileSheetAnchors = Record<MobileSheetState, number>
 
 /**
+ * 手机面板「返回一层」的动作。顺序写死在这一处：
+ * 抽屉 → 视图 → 三态 → 交给浏览器。popstate 与桌面 Esc 共用这条判定。
+ */
+export type MapSheetBackAction = 'close-drawer' | 'to-sections' | 'collapse' | 'leave'
+
+// T-029：手机面板只可能有这四个视图，收窄成联合后新增视图时编译期就会提醒补判定。
+export type MapSheetBackView = 'sections' | 'all' | 'bus' | 'transit'
+
+export type MapSheetHistorySync = 'push' | 'drop' | 'none'
+
+/**
+ * 守卫历史层：手机端任一非 collapsed 态都要有且仅有一层，收起到 collapsed 时撤掉。
+ * drop 由页面调 history.back() 消费，否则会出现「第一次返回空转、第二次才离开」。
+ */
+export function resolveSheetHistorySync(input: { hasLayer: boolean, pushed: boolean }): MapSheetHistorySync {
+  if (input.hasLayer) return input.pushed ? 'none' : 'push'
+  return input.pushed ? 'drop' : 'none'
+}
+
+export function resolveSheetBackAction(input: {
+  view: MapSheetBackView
+  drawerOpen: boolean
+  sheetState: MobileSheetState
+}): MapSheetBackAction {
+  if (input.drawerOpen) return 'close-drawer'
+  if (input.view !== 'sections') return 'to-sections'
+  if (input.sheetState !== 'collapsed') return 'collapse'
+  return 'leave'
+}
+
+/**
  * Keep the draggable sheet aligned with the CSS height classes used by the
  * mobile map. The container height is preferred over the viewport so nested
  * layouts and safe-area insets do not let the sheet run past the map.
@@ -234,7 +265,7 @@ export function resolveBusSheetHeightClass(state: MobileSheetState): string {
   return ({
     collapsed: 'max-md:!h-[84px]',
     half: 'max-md:!h-[326px]',
-    expanded: 'max-md:!h-[548px]'
+    expanded: 'max-md:!h-[min(548px,calc(100%_-_0.75rem))]'
   } as const)[state]
 }
 
@@ -244,6 +275,22 @@ export function resolveBusSheetHeightClass(state: MobileSheetState): string {
  */
 export function resolveBusSheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
   return { collapsed: 84, half: 326, expanded: Math.min(548, fallback.expanded) }
+}
+
+/**
+ * 校外公交视图的半屏要比 326 高：头部 + 两张线路卡 + 方向条 + 在途车卡已经吃掉 156px，
+ * 326 只剩 113px 站列，看不清样张里的「车卡 + 三站」。展开态仍与叮叮车同为 548 上限。
+ */
+export function resolveTransitSheetHeightClass(state: MobileSheetState): string {
+  return ({
+    collapsed: 'max-md:!h-0',
+    half: 'max-md:!h-[400px]',
+    expanded: 'max-md:!h-[min(548px,calc(100%_-_0.75rem))]'
+  } as const)[state]
+}
+
+export function resolveTransitSheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
+  return { collapsed: 0, half: 400, expanded: Math.min(548, fallback.expanded) }
 }
 
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {

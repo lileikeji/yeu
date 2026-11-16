@@ -27,9 +27,9 @@ test('叮叮车是面板第三视图：枚举含 bus、初值 sections、地图�
 
 test('折叠态 84px 是叮叮车专属，和地点列表的 h-0 互斥', () => {
   assert.match(presentationSource, /collapsed: 'max-md:!h-\[84px\]'/)
-  assert.match(pageSource, /mapSheetView === 'bus' \? resolveBusSheetHeightClass\(mobileSheetState\) : mobileSheetHeightClass/)
+  assert.match(pageSource, /mapSheetView === 'bus'\s*\? resolveBusSheetHeightClass\(mobileSheetState\)\s*: mapSheetView === 'transit'/)
   assert.match(pageSource, /mapSheetView !== 'bus' && \(!sheetHydrated \|\| mobileSheetState === 'collapsed'\) \? 'max-md:!h-0/)
-  assert.match(pageSource, /mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging/)
+  assert.match(pageSource, /mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging/)
   assert.match(componentSource, /data-bus-collapsed-bar/)
   assert.match(componentSource, /aria-label="展开叮叮车"/)
   assert.match(componentSource, /emit\('sheet-raise'\)/)
@@ -49,9 +49,9 @@ test('折叠条结构：4px 把手 + 30px 图标 + 两行文案 + 4 分钟胶囊
 
 test('半屏沿用 326、展开上限 548，拖拽锚点同步收口', () => {
   assert.match(presentationSource, /half: 'max-md:!h-\[326px\]'/)
-  assert.match(presentationSource, /expanded: 'max-md:!h-\[548px\]'/)
+  assert.match(presentationSource, /expanded: 'max-md:!h-\[min\(548px,calc\(100%_-_0\.75rem\)\)\]'/)
   assert.match(presentationSource, /expanded: Math\.min\(548, fallback\.expanded\)/)
-  assert.match(pageSource, /mapSheetView\.value === 'bus' \? resolveBusSheetAnchors\(anchors\) : anchors/)
+  assert.match(pageSource, /if \(mapSheetView\.value === 'bus'\) return resolveBusSheetAnchors\(anchors\)/)
   // 地点列表的半屏兜底仍在，没有被叮叮车的高度改写
   assert.match(pageSource, /max-md:!h-\[326px\]/)
 })

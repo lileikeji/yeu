@@ -114,7 +114,7 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
 test('mobile sheet half height is pinned by the max-md breakpoint', () => {
   assert.match(
     pageSource,
-    /mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
+    /mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
     '半屏高度必须挂在水合完成 + half 的守卫上，无条件挂 max-md 会把 expanded 也压成 326'
   )
   assert.equal((pageSource.match(/max-md:!h-\[326px\]/g) || []).length, 1, '半屏高度类只应出现一次')
@@ -231,7 +231,7 @@ test('sheet stays collapsed before hydration so mobile first paint never flashes
   // 用户手机反馈：地图还在转圈时面板已经展开，hydration 完才收起。
   assert.match(pageSource, /const sheetHydrated = ref\(false\)/)
   assert.match(pageSource, /sheetHydrated\.value = true/)
-  assert.ok(pageSource.includes('sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
+  assert.ok(pageSource.includes('mapSheetView !== \'bus\' && mapSheetView !== \'transit\' && sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
   assert.ok(pageSource.includes('mapSheetView !== \'bus\' && (!sheetHydrated || mobileSheetState === \'collapsed\') ? \'max-md:!h-0 max-md:border-t-0 max-md:shadow-none\' : \'\''))
 })
 
@@ -376,8 +376,8 @@ test('mobile bus pill is gone: no dock offset rules left to collide with the sea
 
 test('大面板关掉 rim 亮边：28px 圆角处不再出现一道白线', () => {
   // 着色器那段 2px 亮边在小胶囊上是水切面，铺到 390×326 的面板上就只剩一条白线。
-  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.043, 2\.2, 0\.18, 0\)/)
-  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1\): void => \{/)
+  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 2\.2, 0\.18, 0, 'top'\)/)
+  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all'\): void => \{/)
   assert.match(glassSource, /float rim = \(1\.0 - smoothstep\(0\.0, 2\.0 \* uDpr, -d\)\) \* clamp\(vParams\.w, 0\.0, 2\.0\)/)
   assert.match(glassSource, /rim: clamp\(target\.rim \?\? 1, 0, 2\)/)
   assert.match(glassSource, /mount\.params\[base \+ 3\] = quad\.rim/)
