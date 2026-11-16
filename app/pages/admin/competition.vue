@@ -1687,7 +1687,17 @@ onBeforeUnmount(stopLiveRefresh)
             v-if="advanceRows.length === 0"
             class="px-4 py-8 text-center text-sm text-zinc-400"
           >
-            本轮还没结束，评完再回来确认晋级名单。
+            <p>{{ activeRound.status === 'closed' ? '这一轮没有可晋级的选手。' : '本轮还没结束，评完再回来确认晋级名单。' }}</p>
+            <UButton
+              v-if="activeRound.status !== 'closed'"
+              class="mt-3"
+              size="xs"
+              color="warning"
+              :loading="savingRoundKey === activeRound.key"
+              @click="setRoundStatus(activeRound, 'closed')"
+            >
+              结束本轮评分
+            </UButton>
           </div>
 
           <div

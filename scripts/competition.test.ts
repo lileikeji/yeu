@@ -1638,6 +1638,11 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   const html = competitionEmailBodyToHtml(`请点这里确认：${url}\n音乐协会`, [], url)
   assert.match(html, new RegExp(`<a href="${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`))
   assert.match(html, /我已收到/)
+  // 按钮用 table + bgcolor，邮件客户端剥 <a> 样式时也能显示成一个方块，并且居中
+  assert.match(html, /<td align="center" bgcolor="#0f766e"/)
+  assert.match(html, /align="center"[^>]*style="margin:16px auto;"/)
+  // 链接只放在 href 里，正文不再外露 URL
+  assert.equal(html.split(url).length - 1, 1)
   // 没有回执链接时保持纯文本，不留空按钮
   const plain = competitionEmailBodyToHtml('正文', [], '')
   assert.doesNotMatch(plain, /我已收到/)
