@@ -238,15 +238,28 @@ function toggleDirection(direction: ApiBusLineDirection): void {
 // T-030：K2 / K6 不再上下堆两段。顶部分段单选，滚动体只画所选那条线。
 const sheetLine = ref<string>('')
 
+/** 地图上「只看这条」的方向 → 所属线路：面板挂载/换向时跟着它选线，别出现地图 K6、面板 K2。 */
+function lineOfDirection(id: string | undefined): string | undefined {
+  if (!id) return undefined
+  return props.directions.find(item => item.id === id)?.line
+}
+
 watch(lineNames, (names) => {
   if (!names.length) {
     sheetLine.value = ''
     return
   }
-  if (!names.includes(sheetLine.value)) sheetLine.value = names[0] ?? ''
+  const preferred = lineOfDirection(props.selectedDirection)
+  if (!names.includes(sheetLine.value)) sheetLine.value = (preferred && names.includes(preferred) ? preferred : names[0]) ?? ''
   const hit = props.directions.find(item => item.line === sheetLine.value && item.id === expandedId.value)
   if (!hit) expandedId.value = props.directions.find(item => item.line === sheetLine.value)?.id ?? ''
 }, { immediate: true })
+
+// 换方向（地图上选了另一个方向）时跟着换线；线路列表刷新不重置用户手选的线。
+watch(() => props.selectedDirection, (id) => {
+  const name = lineOfDirection(id)
+  if (name && lineNames.value.includes(name)) sheetLine.value = name
+})
 
 /** 标题只报当前线：「校外公交 · K2」。 */
 function resolveTransitSheetTitle(line: string): string {
@@ -601,7 +614,7 @@ function scrollNextChipIntoView(): void {
   })
 }
 
-watch([() => props.drawerOpen, () => sheetNextChipTime.value], async () => {
+watch([() => props.drawerOpen, () => sheetNextChipTime.value, () => sheetTimetable.value], async () => {
   if (!props.drawerOpen) return
   await nextTick()
   scrollNextChipIntoView()

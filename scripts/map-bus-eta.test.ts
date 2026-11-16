@@ -69,6 +69,8 @@ test('贴到右缘时胶囊翻到车点左侧，不被缩放/罗盘控件压住'
 
 test('页面按当前方向接线，胶囊用 transform 定位', () => {
   assert.ok(pillAt >= 0, '页面上找不到 <MapBusEtaPill>')
-  assert.match(pageSource, /useMapBusEta\(\{ buses: busVehicles, routes: busRoutes, provider: mapProvider, activeRouteId: busSelectedRouteId \}\)/)
-  assert.match(pillWindow, /:style="{ transform: pill\.transform }"/)
+  assert.match(pageSource, /useMapBusEta\(\{[\s\S]{0,200}?buses: busVehicles,[\s\S]{0,200}?routes: busRoutes,[\s\S]{0,200}?provider: mapProvider,[\s\S]{0,200}?activeRouteId: busSelectedRouteId[\s\S]{0,200}?\}\)/)
+  // T-031 B3：拖动 / 高度过渡期冻结 ETA，位移交给 rAF 定位器（见 map-bus-jank.test.ts B4）
+  assert.match(pageSource, /frozen: sheetInteractionActive/)
+  assert.match(pillWindow, /:style="busEtaPositionerActive \? undefined : \{ transform: pill\.transform \}"/)
 })

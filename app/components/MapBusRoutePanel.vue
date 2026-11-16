@@ -367,8 +367,10 @@ function markerBarTop(ratio: number): string {
       v-if="sheetState === 'collapsed'"
       type="button"
       data-bus-collapsed-bar
+      data-sheet-drag-handle
       aria-label="展开叮叮车"
-      class="relative flex h-full w-full items-center gap-2.5 px-4 text-left"
+      class="relative flex h-full w-full touch-none items-center gap-2.5 px-4 text-left"
+      @pointerdown="emit('sheet-drag-start', $event)"
       @click="emit('sheet-raise')"
     >
       <span
@@ -456,7 +458,10 @@ function markerBarTop(ratio: number): string {
             aria-hidden="true"
             class="grid size-[34px] shrink-0 place-items-center rounded-[12px] bg-[var(--surface)] text-[var(--bus-accent)]"
           >
-            <UIcon name="i-lucide-bus-front" class="size-[18px]" />
+            <UIcon
+              name="i-lucide-bus-front"
+              class="size-[18px]"
+            />
           </span>
           <div class="min-w-0 flex-1">
             <p class="truncate text-[13px] font-bold leading-4 text-[var(--ink)]">
@@ -498,12 +503,12 @@ function markerBarTop(ratio: number): string {
              白纱会把渐隐区糊成一块比面板更实的白。 -->
         <div
           data-bus-stops-fade
-          class="relative grid h-full auto-rows-[minmax(32px,1fr)]"
+          class="relative -ml-2 grid h-full auto-rows-[minmax(32px,1fr)] pl-2 [contain:layout]"
           style="-webkit-mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent)"
         >
           <span
             aria-hidden="true"
-            class="absolute bottom-3 left-[4px] top-3 w-px bg-[var(--bus-accent-line)]"
+            class="absolute bottom-3 left-[12px] top-3 w-px bg-[var(--bus-accent-line)]"
           />
           <div
             v-for="(stop, index) in sheetStops"
@@ -526,7 +531,7 @@ function markerBarTop(ratio: number): string {
             v-for="marker in busMarkers"
             :key="'dot-' + marker.busId"
             aria-hidden="true"
-            class="pointer-events-none absolute left-0 z-20 -translate-y-1/2"
+            class="pointer-events-none absolute left-[12px] z-20 -translate-x-1/2 -translate-y-1/2"
             :style="{ top: markerBarTop(marker.anchorRatio) }"
           >
             <span class="block size-3.5 rounded-full bg-[var(--bus-accent)] ring-2 ring-[var(--surface)]" />

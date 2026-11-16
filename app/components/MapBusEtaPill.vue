@@ -1,5 +1,7 @@
 <script setup lang="ts">
 defineProps<{
+  /** T-031 B4：与 BusEtaPill.id 对齐，逐帧定位器靠它把 DOM 节点映射回车点。 */
+  pillId: string
   label: string
   etaMinutes: number
 }>()
@@ -8,6 +10,7 @@ defineProps<{
 <template>
   <div
     data-bus-eta-pill
+    :data-bus-eta-id="pillId"
     class="pointer-events-none absolute left-0 top-0 flex h-7 items-center gap-1 rounded-full border border-[var(--bus-accent-line)] bg-[var(--surface)] px-2.5 text-[12px] font-medium whitespace-nowrap text-[var(--ink)] shadow-sm select-none"
   >
     <span class="text-[var(--bus-accent)]">{{ label }}</span>

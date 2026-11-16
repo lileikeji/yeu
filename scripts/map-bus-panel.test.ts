@@ -83,7 +83,7 @@ test('站行 32px：七站一屏不滚，56 不再当站行常量', () => {
 })
 
 test('面板内挂 sheet 变体，三态手势与「回到地点列表」闭环齐全', () => {
-  assert.equal(pageSource.match(/<MapBusRoutePanel\b/g)?.length, 2)
+  assert.equal(pageSource.match(/<LazyMapBusRoutePanel\b/g)?.length, 2)
   assert.match(pageSource, /variant="sheet"/)
   assert.match(pageSource, /:state="mobileSheetState"/)
   assert.match(pageSource, /@sheet-raise="mobileSheetState = 'half'"/)

@@ -97,7 +97,7 @@ test('F5 下一班同源：底栏与抽屉头都读 sheetNextChipTime，实时 n
 test('F4 抽屉一打开自动滚到下一班，三态拉出可辨差', () => {
   assert.match(script, /function setChipRef\(time: string, element: unknown\): void \{/)
   assert.match(script, /function scrollNextChipIntoView\(\): void \{/)
-  assert.match(script, /watch\(\[\(\) => props\.drawerOpen, \(\) => sheetNextChipTime\.value\]/)
+  assert.match(script, /watch\(\[\(\) => props\.drawerOpen, \(\) => sheetNextChipTime\.value, \(\) => sheetTimetable\.value\]/)
   assert.match(template, /:ref="\(element: unknown\) => setChipRef\(time, element\)"/)
   assert.match(template, /'font-semibold text-white'/)
   assert.match(template, /'bg-zinc-100\/70 text-zinc-400 line-through decoration-zinc-300 dark:bg-zinc-800\/50 dark:text-zinc-500 dark:decoration-zinc-600'/, '已过＝灰底 + 删除线，不再用 60% 透明糊成一片')
