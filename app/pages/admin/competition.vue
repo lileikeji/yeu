@@ -87,7 +87,8 @@ const {
   emailImageInput, emailImageUploading, emailImageDeletingId, emailImages, emailTemplate, emailStats,
   emailRoundView, emailCountWithEmail, emailCountWithoutEmail,
   emailAlreadySentCount, emailLatestRows, insertPlaceholder, insertBodyText,
-  pickEmailImage, uploadEmailImage, removeEmailImage, saveEmailTemplate, sendEmailTest, sendEmails
+  pickEmailImage, uploadEmailImage, removeEmailImage, saveEmailTemplate, sendEmailTest, sendEmails,
+  openSendConfirm, sendConfirmOpen, sendConfirmNames, sendConfirmAlreadySent, sendConfirmWithoutEmail
 } = useCompetitionEmail({ payload, singers, load, toast })
 
 const {
@@ -2224,7 +2225,7 @@ onBeforeUnmount(stopLiveRefresh)
                 label="一键发送结果邮件"
                 :loading="emailSending"
                 :disabled="emailRoundView?.status !== 'closed' || emailCountWithEmail(emailScope) <= 0"
-                @click="sendEmails"
+                @click="openSendConfirm"
               />
             </div>
           </div>
@@ -2546,6 +2547,57 @@ onBeforeUnmount(stopLiveRefresh)
         </div>
       </section>
     </template>
+
+    <UModal
+      v-model:open="sendConfirmOpen"
+      title="确认发送名单"
+      description="发出去就撤不回，先核对一遍这些人对不对。"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-lg' }"
+    >
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-sm text-zinc-600 dark:text-zinc-300">
+            共 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ sendConfirmNames.length }}</span> 位将收到「{{ emailRoundView?.title }}」通知：
+          </p>
+          <div class="max-h-64 overflow-y-auto rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
+            <span
+              v-for="(name, index) in sendConfirmNames"
+              :key="`${name}-${index}`"
+              class="mr-1.5 mb-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {{ index + 1 }}. {{ name }}
+            </span>
+          </div>
+          <p
+            v-if="sendConfirmAlreadySent > 0 || sendConfirmWithoutEmail > 0"
+            class="text-xs text-zinc-500 dark:text-zinc-400"
+          >
+            <template v-if="sendConfirmAlreadySent > 0">
+              {{ sendConfirmAlreadySent }} 位之前发过，会自动跳过；
+            </template>
+            <template v-if="sendConfirmWithoutEmail > 0">
+              {{ sendConfirmWithoutEmail }} 位没填邮箱，也会跳过。
+            </template>
+          </p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full items-center justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            label="再改改"
+            @click="sendConfirmOpen = false"
+          />
+          <UButton
+            icon="i-lucide-send"
+            label="确认发送"
+            :loading="emailSending"
+            @click="sendEmails"
+          />
+        </div>
+      </template>
+    </UModal>
 
     <UModal
       v-model:open="credentialsOpen"
