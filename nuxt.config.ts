@@ -163,6 +163,13 @@ export default defineNuxtConfig({
   vite: {
     define: {
       __GEO_CIPHER_KEY__: JSON.stringify(geoCipherKey)
+    },
+    // maplibre 6 的 worker 地址由 import.meta.url 推出来（dist/maplibre-gl-worker.mjs 同目录）。
+    // 预打包后 import.meta.url 指向 .cache/vite/client/deps，worker 脚本不在那儿，
+    // 手机上表现为黄色错误条 TypeError: e.endsWith is not a function，地图 worker 池起不来。
+    // 排除预打包，dev 直接吃 node_modules/maplibre-gl/dist/maplibre-gl.mjs，worker 路径成立。
+    optimizeDeps: {
+      exclude: ['maplibre-gl']
     }
   },
 
@@ -324,8 +331,10 @@ export default defineNuxtConfig({
       scope: '/',
       display: 'standalone',
       orientation: 'portrait-primary',
-      background_color: '#f7f8f6',
-      theme_color: '#176f46',
+      background_color: '#f4f4f5',
+      // PWA manifest 只能写静态值，无法跟随 [data-palette]：取 paper 的纸面色，
+      // 避免「选了奶油/莓红，桌面图标外框却还是品牌绿」。
+      theme_color: '#f4f4f5',
       categories: ['education', 'navigation', 'utilities'],
       icons: [
         {

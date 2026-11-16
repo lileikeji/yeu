@@ -4,7 +4,7 @@ import type {
   CompetitionJudgePayload,
   CompetitionRoundEntry
 } from '~~/shared/types'
-import { calculateCompetitionTotal, COMPETITION_MAX_DIMENSION_SCORE, roundCompetitionScore } from '~~/shared/utils/competition'
+import { calculateCompetitionTotal, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
 
 definePageMeta({ layout: false })
 
@@ -515,7 +515,7 @@ onBeforeUnmount(stopPolling)
       v-else-if="authState === 'error'"
       class="grid min-h-dvh place-items-center p-6"
     >
-      <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-[var(--surface)] p-6 text-center dark:border-zinc-800 dark:bg-zinc-900">
         <UIcon
           name="i-lucide-shield-alert"
           class="mx-auto size-7 text-orange-600 dark:text-orange-300"
@@ -544,9 +544,9 @@ onBeforeUnmount(stopPolling)
 
     <template v-else-if="payload && event && round">
       <div class="flex min-h-[100dvh] flex-col lg:block">
-        <header class="shrink-0 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+        <header class="shrink-0 border-b border-zinc-200 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
           <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
-            <span class="hidden size-10 shrink-0 place-items-center rounded-lg bg-green-700 text-white sm:grid">
+            <span class="hidden size-10 shrink-0 place-items-center rounded-lg bg-green-700 text-[var(--surface)] sm:grid">
               <UIcon
                 name="i-lucide-mic-vocal"
                 class="size-5"
@@ -595,7 +595,7 @@ onBeforeUnmount(stopPolling)
         <main
           class="mx-auto w-full max-w-6xl min-h-0 flex-1 space-y-2 overflow-y-auto px-2 py-2 sm:space-y-4 sm:px-6 sm:py-6 lg:flex-none lg:overflow-visible lg:pb-6"
         >
-          <div class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3">
+          <div class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-[var(--surface)] px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span class="flex min-w-0 items-center gap-1.5">
@@ -646,7 +646,7 @@ onBeforeUnmount(stopPolling)
           </div>
           <div
             v-else-if="roundClosed"
-            class="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
             role="status"
           >
             本轮评分已结束，成绩已锁定。
@@ -683,7 +683,7 @@ onBeforeUnmount(stopPolling)
           >
             <aside
               v-if="sequential && current"
-              class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+              class="rounded-xl border border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900"
             >
               <div class="flex items-center justify-between gap-2 px-3 pt-2 pb-1.5">
                 <h2 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
@@ -739,7 +739,7 @@ onBeforeUnmount(stopPolling)
 
             <aside
               v-else
-              class="hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:block"
+              class="hidden rounded-xl border border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900 lg:block"
             >
               <div class="border-b border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
                 <h2 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
@@ -749,7 +749,7 @@ onBeforeUnmount(stopPolling)
                   v-model="singerQuery"
                   type="search"
                   placeholder="搜名字或歌名"
-                  class="mt-2 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  class="mt-2 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                   aria-label="搜索选手"
                 >
               </div>
@@ -812,7 +812,7 @@ onBeforeUnmount(stopPolling)
                   class="absolute inset-0 bg-black/40"
                   @click="singerSheetOpen = false"
                 />
-                <div class="absolute inset-x-0 bottom-0 max-h-[72dvh] rounded-t-2xl border-t border-zinc-200 bg-white px-3 pt-3 pb-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="absolute inset-x-0 bottom-0 max-h-[72dvh] rounded-t-2xl border-t border-zinc-200 bg-[var(--surface)] px-3 pt-3 pb-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
                   <div class="flex items-center justify-between gap-2 pb-2">
                     <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                       选手名单（{{ singers.length }}）
@@ -830,7 +830,7 @@ onBeforeUnmount(stopPolling)
                     v-model="singerQuery"
                     type="search"
                     placeholder="搜名字或歌名"
-                    class="mb-2 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    class="mb-2 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-sm text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                     aria-label="搜索选手"
                   >
                   <div class="max-h-[60dvh] overflow-y-auto">
@@ -868,7 +868,7 @@ onBeforeUnmount(stopPolling)
 
             <article
               v-if="selectedSinger"
-              class="flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-5"
+              class="flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-[var(--surface)] p-2.5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-5"
             >
               <div class="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-100 pb-1.5 dark:border-zinc-800 sm:gap-3 sm:pb-4">
                 <div class="min-w-0">
@@ -910,7 +910,7 @@ onBeforeUnmount(stopPolling)
                       type="button"
                       class="rounded-md px-2 py-1 text-[11px] font-medium transition-colors touch-manipulation"
                       :class="scoreInputMode === 'tap'
-                        ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100'
+                        ? 'bg-[var(--surface)] text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'"
                       :aria-pressed="scoreInputMode === 'tap'"
                       @click="setScoreInputMode('tap')"
@@ -921,7 +921,7 @@ onBeforeUnmount(stopPolling)
                       type="button"
                       class="rounded-md px-2 py-1 text-[11px] font-medium transition-colors touch-manipulation"
                       :class="scoreInputMode === 'slider'
-                        ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100'
+                        ? 'bg-[var(--surface)] text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100'
                         : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'"
                       :aria-pressed="scoreInputMode === 'slider'"
                       @click="setScoreInputMode('slider')"
@@ -998,7 +998,7 @@ onBeforeUnmount(stopPolling)
                         enterkeyhint="next"
                         :readonly="decimalMode"
                         :data-score-input="dimension.key"
-                        class="w-12 rounded-md border border-zinc-300 bg-white px-1 py-0.5 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800 sm:w-14 sm:py-1"
+                        class="w-12 rounded-md border border-zinc-300 bg-[var(--surface)] px-1 py-0.5 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800 sm:w-14 sm:py-1"
                         :value="draftScores[dimension.key] ?? ''"
                         :disabled="!scoringOpen || currentSubmitted"
                         :aria-label="`${dimension.label}评分`"
@@ -1093,7 +1093,7 @@ onBeforeUnmount(stopPolling)
                   maxlength="500"
                   data-score-comment
                   enterkeyhint="done"
-                  class="mt-0 h-8 w-full resize-none rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 sm:mt-1.5 sm:h-auto sm:px-3 sm:py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+                  class="mt-0 h-8 w-full resize-none rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1 text-sm text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 sm:mt-1.5 sm:h-auto sm:px-3 sm:py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
                   :disabled="!scoringOpen || currentSubmitted"
                   placeholder="备注（可选）"
                   @keydown.enter.prevent
@@ -1166,7 +1166,7 @@ onBeforeUnmount(stopPolling)
 
           <section
             v-if="activeTab !== 'score'"
-            class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+            class="rounded-xl border border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900"
           >
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
               <div>
@@ -1293,16 +1293,8 @@ onBeforeUnmount(stopPolling)
   border-radius: 9999px;
   background: linear-gradient(
     to right,
-    #16a34a var(--slider-pct, 0%),
-    #e4e4e7 var(--slider-pct, 0%)
-  );
-}
-
-html.dark .judge-slider::-webkit-slider-runnable-track {
-  background: linear-gradient(
-    to right,
-    #22c55e var(--slider-pct, 0%),
-    #3f3f46 var(--slider-pct, 0%)
+    var(--color-green-600) var(--slider-pct, 0%),
+    var(--line) var(--slider-pct, 0%)
   );
 }
 
@@ -1313,8 +1305,8 @@ html.dark .judge-slider::-webkit-slider-runnable-track {
   height: 1.625rem;
   margin-top: -0.5rem;
   border-radius: 9999px;
-  background: #ffffff;
-  border: 3px solid #16a34a;
+  background: var(--surface);
+  border: 3px solid var(--color-green-600);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
@@ -1327,25 +1319,25 @@ html.dark .judge-slider::-webkit-slider-runnable-track {
 .judge-slider::-moz-range-track {
   height: 0.625rem;
   border-radius: 9999px;
-  background: #e4e4e7;
-}
-
-html.dark .judge-slider::-moz-range-track {
-  background: #3f3f46;
+  background: linear-gradient(
+    to right,
+    var(--color-green-600) var(--slider-pct, 0%),
+    var(--line) var(--slider-pct, 0%)
+  );
 }
 
 .judge-slider::-moz-range-progress {
   height: 0.625rem;
   border-radius: 9999px;
-  background: #16a34a;
+  background: var(--color-green-600);
 }
 
 .judge-slider::-moz-range-thumb {
   width: 1.625rem;
   height: 1.625rem;
   border-radius: 9999px;
-  background: #ffffff;
-  border: 3px solid #16a34a;
+  background: var(--surface);
+  border: 3px solid var(--color-green-600);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 </style>

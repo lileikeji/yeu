@@ -88,14 +88,7 @@ export { clusterGlyph }
  * 建筑类图标：不同类别给不同屋顶/立面，一眼能分出是教学楼、食堂还是校门。
  * 全部 32×32 内联 SVG，缩到 30px 还能认出轮廓。
  */
-export type BuildingKind =
-  | 'campus-building'
-  | 'dorm'
-  | 'food'
-  | 'service'
-  | 'express'
-  | 'gate'
-  | 'nearby'
+export type BuildingKind = 'campus-building' | 'dorm' | 'food' | 'service' | 'express' | 'gate' | 'nearby'
 
 interface BuildingOptions {
   color?: string
@@ -201,7 +194,7 @@ export function buildingSvg(kind: BuildingKind, options: BuildingOptions = {}): 
  */
 export function vehicleSvg(options: { color?: string, angleDeg?: number, size?: number } = {}): string {
   const size = options.size ?? 30
-  const color = options.color ?? '#ea580c'
+  const color = options.color ?? '#c2410c'
   const angle = typeof options.angleDeg === 'number' && Number.isFinite(options.angleDeg)
     ? ((options.angleDeg % 360) + 360) % 360
     : 0

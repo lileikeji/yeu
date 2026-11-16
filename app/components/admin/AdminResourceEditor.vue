@@ -293,7 +293,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     <ImagePreviewButton
                       :src="url"
                       :alt="`${field.label}第 ${index + 1} 张预览`"
-                      button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                      button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
                       image-class="size-full object-contain"
                     />
                     <div class="mt-2 flex items-center justify-between gap-2">
@@ -312,7 +312,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     </div>
                   </figure>
                 </div>
-                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
                   <UIcon
                     :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-images'"
                     class="size-4"
@@ -350,7 +350,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                   <img
                     :src="inputValue(field.key)"
                     :alt="`${field.label}预览`"
-                    class="size-28 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 object-contain"
+                    class="size-28 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 object-contain"
                   >
                   <div class="min-w-0 flex-1">
                     <p class="break-all text-xs leading-5 text-zinc-500 dark:text-zinc-400">
@@ -368,7 +368,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     />
                   </div>
                 </div>
-                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
                   <UIcon
                     :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
                     class="size-4"

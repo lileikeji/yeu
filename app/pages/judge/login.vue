@@ -102,7 +102,7 @@ onMounted(checkSession)
     <section class="flex items-center justify-center px-4 py-10 sm:px-8">
       <div class="w-full max-w-md">
         <div class="mb-8 flex items-center gap-3 lg:hidden">
-          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-white">
+          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-[var(--surface)]">
             <UIcon
               name="i-lucide-mic-vocal"
               class="size-5"
@@ -119,7 +119,7 @@ onMounted(checkSession)
           </div>
         </div>
 
-        <div class="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
+        <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
           <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">
             评委登录
           </h2>

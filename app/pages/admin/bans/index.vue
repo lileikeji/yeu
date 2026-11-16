@@ -323,7 +323,7 @@ onMounted(async () => {
     </div>
 
     <div class="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
           新建封禁
         </h2>
@@ -371,7 +371,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <div class="flex flex-wrap items-end gap-3">
           <UFormField
             label="状态"

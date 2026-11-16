@@ -13,7 +13,7 @@ const props = defineProps<{
 
 const content = computed(() => resolveErrorPageContent(props.error.statusCode))
 const recovering = ref(false)
-const { isDark: isSiteDark, palette } = useThemeMode()
+const { palette } = useThemeMode()
 const themeColor = computed(() => THEME_PALETTE_THEME_COLORS[palette.value])
 
 useHead({
@@ -53,7 +53,7 @@ function retryPage(): void {
 
 <template>
   <div class="min-h-dvh bg-[var(--page-bg)] text-zinc-950 dark:text-zinc-100">
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell flex h-16 items-center justify-between gap-3">
         <a
           href="/"
@@ -63,11 +63,19 @@ function retryPage(): void {
         >
           <span class="inline-flex items-center gap-2 text-base font-bold text-zinc-950 dark:text-zinc-100">
             <span class="grid size-9 place-items-center overflow-hidden rounded-md bg-transparent p-0">
+              <!-- 两枚 logo 由 CSS 切：SSR 不知道用户存的是暗色，条件 src 会造成 hydration mismatch -->
               <img
-                :src="isSiteDark ? '/images/brand/system-logo-mark.png' : '/images/brand/system-logo-mark-light.png'"
+                src="/images/brand/system-logo-mark-light.png"
                 alt=""
                 aria-hidden="true"
-                class="size-full object-contain"
+                class="size-full object-contain dark:hidden"
+                decoding="async"
+              >
+              <img
+                src="/images/brand/system-logo-mark.png"
+                alt=""
+                aria-hidden="true"
+                class="hidden size-full object-contain dark:block"
                 decoding="async"
               >
             </span>
@@ -123,7 +131,7 @@ function retryPage(): void {
           <button
             v-if="content.canRetry"
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-[var(--surface)] transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             :disabled="recovering"
             @click="retryPage"
           >
@@ -135,7 +143,7 @@ function retryPage(): void {
           </button>
           <button
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-800 dark:hover:text-green-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-800 dark:hover:text-green-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             :disabled="recovering"
             @click="recover('/')"
           >
@@ -156,7 +164,7 @@ function retryPage(): void {
               v-for="action in errorRecoveryActions"
               :key="action.to"
               type="button"
-              class="group flex min-h-20 items-center gap-3 rounded-md border border-[var(--line)] bg-white dark:bg-zinc-900 px-4 text-left transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="group flex min-h-20 items-center gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 px-4 text-left transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :disabled="recovering"
               @click="recover(action.to)"
             >

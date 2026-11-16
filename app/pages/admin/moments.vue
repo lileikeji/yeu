@@ -218,7 +218,7 @@ async function act(item: AdminMomentView, action: 'withdraw' | 'restore' | 'dele
       <div
         v-for="item in items"
         :key="item.id"
-        class="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+        class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3 dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">

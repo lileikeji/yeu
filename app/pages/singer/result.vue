@@ -76,9 +76,9 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
 </script>
 
 <template>
-  <div class="min-h-dvh bg-[#fdf6ef] px-4 py-8 text-[#33413a]">
+  <div class="singer-canvas min-h-dvh px-4 py-8 text-[var(--ink)]">
     <div class="mx-auto w-full max-w-lg">
-      <p class="text-center text-xs tracking-[0.2em] text-[#a0642a]">
+      <p class="text-center text-xs tracking-[0.2em] text-[var(--accent-warm)]">
         仰恩大学音乐协会 · 新声歌手大赛
       </p>
       <h1 class="mt-2 text-center text-2xl font-black">
@@ -87,23 +87,23 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
 
       <div
         v-if="tokenInUrl"
-        class="mt-6 rounded-2xl border border-[#f0dcc9] bg-white p-5 text-center"
+        class="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 text-center"
       >
         <template v-if="receiptDone">
-          <p class="text-lg font-bold text-emerald-700">
+          <p class="text-lg font-bold text-[var(--color-green-700)]">
             已经确认收到了
           </p>
-          <p class="mt-1 text-sm text-[#8b968c]">
+          <p class="mt-1 text-sm text-[var(--muted-ink)]">
             谢谢，工作人员已经看到你的确认。
           </p>
         </template>
         <template v-else>
-          <p class="text-sm text-[#5b6b62]">
+          <p class="text-sm text-[var(--muted-ink)]">
             点一下按钮，告诉工作人员你收到了通知。
           </p>
           <button
             type="button"
-            class="mt-4 w-full rounded-xl bg-[#e2725b] px-4 py-3 text-base font-bold text-white disabled:opacity-60"
+            class="mt-4 w-full rounded-xl bg-[var(--color-green-700)] px-4 py-3 text-base font-bold text-white disabled:opacity-60"
             :disabled="receipting"
             @click="confirmReceipt(tokenInUrl)"
           >
@@ -119,8 +119,8 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
       </div>
 
       <template v-else>
-        <div class="mt-6 rounded-2xl border border-[#f0dcc9] bg-white p-4">
-          <p class="text-sm text-[#5b6b62]">
+        <div class="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+          <p class="text-sm text-[var(--muted-ink)]">
             填姓名、学号和 QQ 或邮箱，三项都对了才能查到。
           </p>
           <div class="mt-3 space-y-3">
@@ -128,25 +128,25 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
               v-model="form.name"
               maxlength="40"
               placeholder="姓名"
-              class="w-full rounded-xl border border-[#e5d3c3] px-3 py-2.5 text-base outline-none focus:border-[#e2725b]"
+              class="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base outline-none focus:border-[var(--color-green-600)]"
             >
             <input
               v-model="form.studentNo"
               maxlength="30"
               inputmode="numeric"
               placeholder="学号"
-              class="w-full rounded-xl border border-[#e5d3c3] px-3 py-2.5 text-base outline-none focus:border-[#e2725b]"
+              class="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base outline-none focus:border-[var(--color-green-600)]"
             >
             <input
               v-model="form.contact"
               maxlength="120"
               placeholder="QQ 号或 QQ 邮箱"
-              class="w-full rounded-xl border border-[#e5d3c3] px-3 py-2.5 text-base outline-none focus:border-[#e2725b]"
+              class="w-full rounded-xl border border-[var(--line)] px-3 py-2.5 text-base outline-none focus:border-[var(--color-green-600)]"
             >
           </div>
           <button
             type="button"
-            class="mt-4 w-full rounded-xl bg-[#e2725b] px-4 py-3 text-base font-bold text-white disabled:opacity-60"
+            class="mt-4 w-full rounded-xl bg-[var(--color-green-700)] px-4 py-3 text-base font-bold text-white disabled:opacity-60"
             :disabled="loading"
             @click="lookup"
           >
@@ -162,15 +162,15 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
 
         <div
           v-if="result"
-          class="mt-4 rounded-2xl border border-[#f0dcc9] bg-white p-5"
+          class="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5"
         >
-          <p class="text-xs text-[#a0642a]">
+          <p class="text-xs text-[var(--accent-warm)]">
             {{ result.roundTitle }} · {{ result.singerName }}
           </p>
           <h2 class="mt-1 text-lg font-bold">
             {{ result.subject }}
           </h2>
-          <div class="mt-2 space-y-1.5 text-sm leading-6 text-[#4a5a51]">
+          <div class="mt-2 space-y-1.5 text-sm leading-6 text-[var(--ink)]">
             <p
               v-for="(line, index) in bodyLines"
               :key="index"
@@ -180,14 +180,14 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
           </div>
           <p
             v-if="receiptDone"
-            class="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+            class="mt-3 rounded-xl bg-[var(--surface-sunken)] px-3 py-2 text-sm text-[var(--color-green-700)]"
           >
             已经确认收到了
           </p>
           <button
             v-else
             type="button"
-            class="mt-3 w-full rounded-xl bg-[#e2725b] px-4 py-3 text-base font-bold text-white disabled:opacity-60"
+            class="mt-3 w-full rounded-xl bg-[var(--color-green-700)] px-4 py-3 text-base font-bold text-white disabled:opacity-60"
             :disabled="receipting"
             @click="confirmReceipt(result.receiptToken)"
           >
@@ -202,7 +202,7 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
         </div>
       </template>
 
-      <p class="mt-6 text-center text-xs text-[#a8b2ab]">
+      <p class="mt-6 text-center text-xs text-[var(--muted-ink)]">
         主办：仰恩大学音乐协会
       </p>
     </div>

@@ -519,7 +519,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
     >
       <button
         type="button"
-        class="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+        class="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-[color-mix(in_srgb,var(--surface)_15%,transparent)] text-white transition hover:bg-[color-mix(in_srgb,var(--surface)_25%,transparent)]"
         aria-label="关闭大图"
         @click.stop="closeLightbox"
       >

@@ -100,7 +100,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   'nearby': '#087f8c'
 }
 
-const CATEGORY_GLYPHS: Record<string, string> = {
+// 预留：分类图标字形表（当前未接入，保留数据避免丢失）。
+export const CATEGORY_GLYPHS: Record<string, string> = {
   'campus-building': '教',
   'dorm': '住',
   'food': '食',
@@ -116,7 +117,7 @@ interface AMapProviderOptions {
 }
 
 /** 校车线路强调色（橙/青循环），与设计规范的线状强调色一致。 */
-const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
+const BUS_ROUTE_COLORS = ['#c2410c', '#0f766e'] as const
 
 interface ConvertedPoi {
   poi: MapPoi
@@ -618,6 +619,26 @@ export class AMapProvider implements MapProvider {
   }
 
   /**
+   * 业务经纬度 → 容器像素坐标（左上角原点），供 DOM 覆盖层（灵感来自 ETA 胶囊）
+   * 贴着车上标点摆放。WGS84 走本地换算转 GCJ-02 再投影，不依赖网络转换接口；
+   * 地图未就绪或点不可渲染时返回 null，调用方跳过。
+   */
+  projectToScreen(point: GeoPoint): { x: number, y: number } | null {
+    const map = this.map
+    if (!map) return null
+    if (!this.isRenderablePoint(point)) return null
+    const position: AMapPosition = point.crs === 'GCJ-02'
+      ? [point.lng, point.lat]
+      : wgs84ToGcj02(point.lng, point.lat)
+    const projector = map as unknown as {
+      lngLatToContainer?: (input: AMapLngLat) => { getX(): number, getY(): number } | null
+    }
+    const pixel = projector.lngLatToContainer?.(position as unknown as AMapLngLat)
+    if (!pixel) return null
+    return { x: pixel.getX(), y: pixel.getY() }
+  }
+
+  /**
    * 车头朝向：优先用相邻两次位置的位移方向（真实行进方向），
    * 位置没动（在站里停着 / GPS 抖动 < 6 m）就沿用上次朝向；
    * 都没有时才退回接口给的 angle。跨 0°/360° 时取与上次最接近的等价角，避免瞬间翻转。
@@ -710,8 +731,8 @@ export class AMapProvider implements MapProvider {
           const line = new amapNow.Polyline({
             path,
             strokeColor: color,
-            strokeWeight: 5,
-            strokeOpacity: 0.75,
+            strokeWeight: 4,
+            strokeOpacity: 0.6,
             zIndex: 800
           })
           this.busRoutePolylines.push(line)
@@ -1756,7 +1777,6 @@ export class AMapProvider implements MapProvider {
     const record = this.markers.get(data[0]!.poiId)
     if (record) this.poiSelectHandler?.(record.poi)
   }
-
 
   /** 用屏幕像素距离命中自有楼栋标点（标点可能不可见或未渲染）。 */
   private ownPoiAtScreenPoint(map: AMapMap, position: AMapPosition, radiusPx: number): MapPoi | null {

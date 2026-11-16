@@ -213,7 +213,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-10">
         <template v-if="payload?.club">
           <p class="section-kicker">
@@ -260,7 +260,7 @@ onMounted(() => {
 
       <div
         v-else-if="notFound"
-        class="mx-auto max-w-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-6 py-10 text-center"
+        class="mx-auto max-w-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-6 py-10 text-center"
         role="alert"
       >
         <UIcon
@@ -297,7 +297,7 @@ onMounted(() => {
         class="mx-auto max-w-xl border-y border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-5 py-10 text-center"
         role="status"
       >
-        <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-white">
+        <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-[var(--surface)]">
           <UIcon
             name="i-lucide-check"
             class="size-5"
@@ -316,7 +316,7 @@ onMounted(() => {
         class="mx-auto max-w-xl border-y border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-5 py-10 text-center"
         role="status"
       >
-        <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-white">
+        <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-[var(--surface)]">
           <UIcon
             name="i-lucide-check"
             class="size-5"
@@ -352,7 +352,7 @@ onMounted(() => {
         <div
           v-for="field in fields"
           :key="field.key"
-          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
         >
           <label
             class="flex items-baseline gap-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"

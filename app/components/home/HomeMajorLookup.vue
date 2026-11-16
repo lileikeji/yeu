@@ -59,7 +59,7 @@ function admissionLabel(profile: MajorProfile): string {
           {{ currentCohortYear }} 年招生计划 · {{ majorProfiles.length }} 个本科专业 · {{ majorCollegeCount }} 个学院
         </p>
 
-        <dl class="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-white/15 dark:bg-zinc-900/15">
+        <dl class="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--surface)_15%,transparent)] dark:bg-zinc-900/15">
           <div class="bg-emerald-950 px-3 py-4">
             <dt class="text-xs text-emerald-200/70">
               普通本科
@@ -114,7 +114,7 @@ function admissionLabel(profile: MajorProfile): string {
         </div>
       </div>
 
-      <div class="min-w-0 rounded-lg border border-white/20 bg-white dark:bg-zinc-900 p-4 text-zinc-950 dark:text-zinc-100 shadow-2xl shadow-black/20 md:p-6">
+      <div class="min-w-0 rounded-lg border border-white/20 bg-[var(--surface)] dark:bg-zinc-900 p-4 text-zinc-950 dark:text-zinc-100 shadow-2xl shadow-black/20 md:p-6">
         <label
           for="major-search"
           class="text-sm font-semibold"
@@ -134,7 +134,7 @@ function admissionLabel(profile: MajorProfile): string {
 
           <div
             v-if="showOptions"
-            class="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 max-h-72 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl"
+            class="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 max-h-72 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-1.5 shadow-xl"
             role="listbox"
           >
             <button
