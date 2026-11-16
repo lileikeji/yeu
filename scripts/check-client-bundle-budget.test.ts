@@ -105,10 +105,32 @@ test('bundle budget accepts bounded initial assets and an isolated MapLibre dyna
     const report = analyzeClientBundle(value.manifest, value.directory, value.budget)
     assert.deepEqual(report.violations, [])
     assert.equal(report.entryJavaScriptBytes, 100)
-    assert.equal(report.routes['pages/map/index.vue']?.javaScriptBytes, 145)
+    assert.equal(report.routes['pages/map/index.vue']?.javaScriptBytes, 45)
+    assert.equal(report.routes['pages/map/index.vue']?.sharedBytes, 100)
+    assert.deepEqual(report.routes['pages/map/index.vue']?.files, ['map.js'])
     assert.equal(report.mapLibre.bytes, 200)
     assert.equal(report.mapLibre.isDynamicEntry, true)
     assert.equal(report.mapLibreCss.bytes, 60)
+  } finally {
+    rmSync(value.directory, { recursive: true, force: true })
+  }
+})
+
+test('route budget only charges the route itself, not the app entry it preloads', () => {
+  const value = fixture()
+  try {
+    // 模拟 rollup 把共享模块挪进 entry：这个 500 B 的 chunk 既在 entry 的预载里，
+    // 也在 procedures 路由的预载里，但它不是这条路由自己的代码，不该计入单页预算。
+    writeFileSync(join(value.directory, 'public', '_nuxt', 'shared.js'), Buffer.alloc(500))
+    const shared = { resourceType: 'script', file: 'shared.js' }
+    value.manifest.dependencies['node_modules/nuxt/entry.js']!.preload!.shared = { ...shared }
+    value.manifest.dependencies['pages/procedures/[slug].vue']!.preload!.shared = { ...shared }
+    const budget = { ...value.budget, entryJavaScriptBytes: 1000, entryCssBytes: 1000 }
+    const report = analyzeClientBundle(value.manifest, value.directory, budget)
+    assert.equal(report.routes['pages/procedures/[slug].vue']?.javaScriptBytes, 25)
+    assert.equal(report.routes['pages/procedures/[slug].vue']?.sharedBytes, 600)
+    assert.deepEqual(report.routes['pages/procedures/[slug].vue']?.files, ['procedure.js'])
+    assert.deepEqual(report.violations, [])
   } finally {
     rmSync(value.directory, { recursive: true, force: true })
   }

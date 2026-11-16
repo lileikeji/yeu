@@ -43,7 +43,7 @@ export type BundleBudgetReport = {
     dependencyKey: string
     file: string
   }
-  routes: Record<string, { javaScriptBytes: number, files: string[] }>
+  routes: Record<string, { javaScriptBytes: number, files: string[], sharedBytes: number }>
   violations: string[]
 }
 
@@ -57,22 +57,23 @@ export type BundleBudgetReport = {
 // （余量约 7.5 KB），再顶破就谈瘦包。
 export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
   entryJavaScriptBytes: 430 * 1024,
-  entryCssBytes: 352 * 1024,
+  // 2026-11-16 实测 357818 B（上一版 348761），按实测重标 356 KiB。
+  entryCssBytes: 356 * 1024,
   mapLibreBytes: 1150 * 1024,
   mapLibreCssBytes: 80 * 1024,
+  // 2026-11-16 起口径变更：单页预算只算「这条路由自己的 chunk」，app entry 与它带出来的
+  // 共享 chunk 不再重复计入（入口体积由 entryJavaScriptBytes 单独兜住）。改口径的原因：
+  // rollup 只要把共享模块从路由 chunk 挪进 entry，单页数字就凭空涨一截，改前
+  // pages/procedures/[slug].vue 因此从 400417 B 跳到 550508 B，而它自己的代码一个字没动。
+  // 下面每个数字都是改口径后在 9fe4b488 上实测的「自有字节 + 约 10% 余量」，写死 KiB 便于审。
   routeJavaScriptBytes: {
-    'pages/index.vue': 620 * 1024,
-    'pages/search.vue': 800 * 1024,
-    // 2026-11-16 实测 934753 B：叮叮车并入面板三态 + 折叠态 ETA 胶囊（约 +8 KB）后再顶破旧预算，
-    // 按合并后实测重标 920 KiB（余量约 7.3 KB）；再涨就谈瘦包（面板异步化 / 胶囊懒载）。
-    'pages/map/index.vue': 920 * 1024,
-    // 2026-11-16 实测 550751 B：master 合入的办事指南改动把该页初始依赖抬到 538 KiB 以上，
-    // 基线分支自身也红（550508 B / 470 KiB）。按实测重标 545 KiB（余量约 7.3 KB）。
-    'pages/procedures/[slug].vue': 545 * 1024,
-    // 2026-11-16 实测 686790 B：新增投影辅助进入 utils auto-import 共享 chunk，管理端初始依赖随之 +0.7 KB。
-    'pages/admin/[section].vue': 678 * 1024,
-    'pages/admin/procedures.vue': 720 * 1024,
-    'pages/admin/field-observations.vue': 650 * 1024
+    'pages/index.vue': 220 * 1024, // 实测 204274
+    'pages/search.vue': 405 * 1024, // 实测 376567
+    'pages/map/index.vue': 565 * 1024, // 实测 523782（maplibre 仍是动态分包，不计入）
+    'pages/procedures/[slug].vue': 160 * 1024, // 实测 147584
+    'pages/admin/[section].vue': 306 * 1024, // 实测 284314
+    'pages/admin/procedures.vue': 347 * 1024, // 实测 322004
+    'pages/admin/field-observations.vue': 228 * 1024 // 实测 211372
   }
 }
 
@@ -126,6 +127,13 @@ export function analyzeClientBundle(
     violations.push(overBudget('全局入口 CSS', entryCssBytes, budget.entryCssBytes))
   }
 
+  // app entry（Nuxt 的 entry chunk）是每个页面首屏都会加载的全局底座，它和它带出来的
+  // 共享 chunk 不该再算进单页预算——否则 rollup 只要把某个共享模块从路由 chunk 挪进
+  // entry，单页预算就会凭空涨一截（2026-11-16：新增一个用 UInput 的页面后，
+  // pages/procedures/[slug].vue 从 400417 B 跳到 550508 B，实际页面自身代码没变）。
+  // 入口自己的体积由 entryJavaScriptBytes / entryCssBytes 单独兜住。
+  const entryFiles = new Set(uniqueAssets(entryDependency, 'script').map(asset => asset.file!))
+
   const mapLibreMatches = Object.entries(manifest.dependencies).flatMap(([dependencyKey, dependency]) =>
     Object.values(dependency.preload ?? {})
       .filter(asset => asset.name === 'maplibre-gl' && asset.file)
@@ -169,8 +177,11 @@ export function analyzeClientBundle(
     }
     const scripts = uniqueAssets(routeDependency, 'script')
     const files = scripts.map(asset => asset.file!)
-    const javaScriptBytes = sumAssetBytes(assetDirectory, scripts, violations)
-    routes[route] = { javaScriptBytes, files }
+    const ownScripts = scripts.filter(asset => !entryFiles.has(asset.file!))
+    const sharedScripts = scripts.filter(asset => entryFiles.has(asset.file!))
+    const javaScriptBytes = sumAssetBytes(assetDirectory, ownScripts, violations)
+    const sharedBytes = sumAssetBytes(assetDirectory, sharedScripts, violations)
+    routes[route] = { javaScriptBytes, files: ownScripts.map(asset => asset.file!), sharedBytes }
     if (javaScriptBytes > maximum) {
       violations.push(overBudget(`${route} 初始 JavaScript`, javaScriptBytes, maximum))
     }
