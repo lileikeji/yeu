@@ -15,6 +15,7 @@ interface SingerDraft {
   studentNo: string
   phone: string
   email: string
+  qq: string
   sortOrder: string
 }
 
@@ -43,6 +44,7 @@ export function useCompetitionSingers(options: UseCompetitionSingersOptions) {
     studentNo: '',
     phone: '',
     email: '',
+    qq: '',
     sortOrder: ''
   })
 
@@ -57,6 +59,7 @@ export function useCompetitionSingers(options: UseCompetitionSingersOptions) {
     studentNo: '',
     phone: '',
     email: '',
+    qq: '',
     sortOrder: ''
   })
 
@@ -102,7 +105,8 @@ export function useCompetitionSingers(options: UseCompetitionSingersOptions) {
       remark: draft.remark.trim() || null,
       studentNo: draft.studentNo.trim() || null,
       phone: draft.phone.trim() || null,
-      email: draft.email.trim() || null
+      email: draft.email.trim() || null,
+      qq: draft.qq.trim() || null
     }
     if (draft.sortOrder.trim() !== '') body.sortOrder = Number(draft.sortOrder)
     return body
@@ -120,7 +124,7 @@ export function useCompetitionSingers(options: UseCompetitionSingersOptions) {
         method: 'POST',
         body: singerPayload(newSinger.value)
       })
-      newSinger.value = { name: '', song: '', className: '', remark: '', studentNo: '', phone: '', email: '', sortOrder: '' }
+      newSinger.value = { name: '', song: '', className: '', remark: '', studentNo: '', phone: '', email: '', qq: '', sortOrder: '' }
       await load()
       toast.add({ title: '已添加选手', color: 'success' })
     } catch (error) {
@@ -140,6 +144,7 @@ export function useCompetitionSingers(options: UseCompetitionSingersOptions) {
       studentNo: singer.studentNo ?? '',
       phone: singer.phone ?? '',
       email: singer.email ?? '',
+      qq: singer.qq ?? '',
       sortOrder: String(singer.sortOrder)
     }
     editSingerOpen.value = true

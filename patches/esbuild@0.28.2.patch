@@ -1,0 +1,131 @@
+diff --git a/lib/main.js b/lib/main.js
+index 61267444a8a1d6d3030b17d6ae55da5801ff4960..f31947cde111dc24ed56a08f19daf4189eb1fce7 100644
+--- a/lib/main.js
++++ b/lib/main.js
+@@ -2169,7 +2169,125 @@ var fsAsync = {
+ var version = "0.28.2";
+ var build = (options) => ensureServiceIsRunning().build(options);
+ var context = (buildOptions) => ensureServiceIsRunning().context(buildOptions);
+-var transform = (input, options) => ensureServiceIsRunning().transform(input, options);
++// Windows + esbuild 0.28.2 的已知问题：transform 的输入超过 1 MiB 时，esbuild 会先把输入落到
++// 临时目录的 esbuild-<hash> 文件，收尾删除被系统拒绝（remove ...: Access is denied），
++// 整个构建中止。build + stdin 走的是另一条路径，同样体积能正常清理，所以超限时改走这条路。
++async function transformLargeInputViaBuild(input, options) {
++  const {
++    loader,
++    sourcefile,
++    sourcemap,
++    sourceRoot,
++    sourcesContent,
++    minify,
++    minifyWhitespace,
++    minifyIdentifiers,
++    minifySyntax,
++    target,
++    format,
++    globalName,
++    define,
++    pure,
++    drop,
++    legalComments,
++    lineLimit,
++    charset,
++    treeShaking,
++    keepNames,
++    supported,
++    color,
++    logLevel,
++    logLimit,
++    tsconfigRaw,
++    jsx,
++    jsxFactory,
++    jsxFragment,
++    jsxImportSource,
++    jsxDev,
++    banner,
++    footer,
++    absWorkingDir,
++    mangleProps,
++    mangleCache,
++    platform,
++    conditions,
++    mainFields,
++    external,
++    alias,
++    nodePaths,
++    assetNames,
++    chunkNames,
++    entryNames
++  } = options || {};
++  const result = await ensureServiceIsRunning().build({
++    stdin: { contents: input, loader: loader || "js", sourcefile, resolveDir: absWorkingDir || process.cwd() },
++    bundle: false,
++    write: false,
++    sourcemap: false,
++    sourceRoot,
++    sourcesContent,
++    minify,
++    minifyWhitespace,
++    minifyIdentifiers,
++    minifySyntax,
++    target,
++    format,
++    globalName,
++    define,
++    pure,
++    drop,
++    legalComments,
++    lineLimit,
++    charset,
++    treeShaking,
++    keepNames,
++    supported,
++    color,
++    logLevel,
++    logLimit,
++    tsconfigRaw,
++    jsx,
++    jsxFactory,
++    jsxFragment,
++    jsxImportSource,
++    jsxDev,
++    banner,
++    footer,
++    absWorkingDir,
++    mangleProps,
++    mangleCache,
++    platform,
++    conditions,
++    mainFields,
++    external,
++    alias,
++    nodePaths,
++    assetNames,
++    chunkNames,
++    entryNames
++  })
++  const files = result.outputFiles || [];
++  const codeFile = files.find((file) => file.path.endsWith(".map") === false) || files[0];
++  return {
++    code: codeFile ? codeFile.text : "",
++    map: "",
++    warnings: result.warnings || [],
++    errors: result.errors || []
++  };
++}
++
++var transform = async (input, options) => {
++  try {
++    return await ensureServiceIsRunning().transform(input, options);
++  } catch (error) {
++    const message = String((error && error.message) || "");
++    const largeInput = typeof input === "string" ? input.length > 1024 * 1024 : input && input.length > 1024 * 1024;
++    if (!largeInput || !(message.startsWith("remove ") || message.includes(": Access is denied"))) {
++      throw error;
++    }
++    return await transformLargeInputViaBuild(input, options);
++  }
++};
+ var formatMessages = (messages, options) => ensureServiceIsRunning().formatMessages(messages, options);
+ var analyzeMetafile = (messages, options) => ensureServiceIsRunning().analyzeMetafile(messages, options);
+ var buildSync = (options) => {
