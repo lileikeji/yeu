@@ -99,9 +99,10 @@ test('F4 抽屉一打开自动滚到下一班，三态拉出可辨差', () => {
   assert.match(template, /:ref="\(element: unknown\) => setChipRef\(time, element\)"/)
   assert.match(template, /'font-semibold text-white'/)
   assert.match(template, /'bg-zinc-100\/70 text-zinc-400 line-through decoration-zinc-300 dark:bg-zinc-800\/50 dark:text-zinc-500 dark:decoration-zinc-600'/, '已过＝灰底 + 删除线，不再用 60% 透明糊成一片')
-  assert.match(template, /bg-white\/85 px-3 pb-2 backdrop-blur-\[3px\] dark:border-zinc-800 dark:bg-zinc-950\/85/, '抽屉自带实底，避免贴着玻璃面板读不清')
+  assert.match(template, /bg-white\/90 [^"]*dark:border-zinc-800 dark:bg-zinc-950\/90/, '抽屉自带实底，避免贴着玻璃面板读不清')
+  assert.match(template, /sticky top-0 z-10 -mx-3/, '表头吸附在抽屉顶，自动滚到下一班时不会被滚走')
   assert.match(template, /'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'/)
-  assert.match(template, /下一班 \{\{ sheetNextChipTime \|\| .—. \}\}<\/span>/)
+  assert.match(template, /下一班 \$\{sheetNextChipTime \|\| '—'\}/)
 })
 
 test('时钟 30s 刷一次，卸载清定时器', () => {
