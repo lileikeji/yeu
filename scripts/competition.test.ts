@@ -1613,3 +1613,53 @@ test('数据库：后台可改分与补录，平均分、名次与三种导出�
 
   closeDatabase(':memory:')
 })
+
+test('数据库：导出里的出场顺序按当天重排，第二天从 1 起算', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  for (const [name, song] of [['第一天甲', '晴天'], ['第一天乙', '后来'], ['第二天甲', '如愿'], ['第二天乙', '起风了']] as const) {
+    createSinger(client, event.id, { name, song })
+  }
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  checkInEntries(client, musicId, 'prelim')
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const byName = (name: string) => roster.find(entry => entry.singer.name === name)!
+
+  // 前两位排第一天、后两位排第二天；第二天的人 sort_order 是全局序号，直接拿去当「第几位」就错了。
+  setEntryDay(client, reload(), byName('第一天甲').id, 1)
+  setEntryDay(client, reload(), byName('第一天乙').id, 1)
+  setEntryDay(client, reload(), byName('第二天甲').id, 2)
+  setEntryDay(client, reload(), byName('第二天乙').id, 2)
+  assert.equal(byName('第二天甲').sortOrder, 3)
+  assert.equal(byName('第二天乙').sortOrder, 4)
+
+  const summary = buildCompetitionExport(client, reload(), 'summary')
+  const [header, ...lines] = summary.csv.split('\r\n')
+  const columns = header!.split(',')
+  const nameAt = columns.indexOf('选手')
+  const orderAt = columns.indexOf('出场顺序')
+  assert.equal(orderAt, columns.indexOf('参赛天') + 1)
+  const orderOf = new Map(lines.map((line) => {
+    const cells = line.split(',')
+    return [cells[nameAt]!, cells[orderAt]!] as const
+  }))
+  // 每天各自从 1 数起：第二天第一位是 1，不是第 3。
+  assert.equal(orderOf.get('第一天甲'), '1')
+  assert.equal(orderOf.get('第一天乙'), '2')
+  assert.equal(orderOf.get('第二天甲'), '1')
+  assert.equal(orderOf.get('第二天乙'), '2')
+
+  closeDatabase(':memory:')
+})
