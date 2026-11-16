@@ -235,12 +235,63 @@ function toggleDirection(direction: ApiBusLineDirection): void {
 }
 
 // ── T-029：手机面板内的校外公交视图（variant="sheet"）──
-const sheetTitle = computed(() => ['校外公交', ...lineNames.value].join(' · '))
+// T-030：K2 / K6 不再上下堆两段。顶部分段单选，滚动体只画所选那条线。
+const sheetLine = ref<string>('')
 
-const sheetLineGroups = computed(() => lineNames.value.map(name => ({
-  name,
-  directions: props.directions.filter(item => item.line === name)
-})))
+watch(lineNames, (names) => {
+  if (!names.length) {
+    sheetLine.value = ''
+    return
+  }
+  if (!names.includes(sheetLine.value)) sheetLine.value = names[0] ?? ''
+  const hit = props.directions.find(item => item.line === sheetLine.value && item.id === expandedId.value)
+  if (!hit) expandedId.value = props.directions.find(item => item.line === sheetLine.value)?.id ?? ''
+}, { immediate: true })
+
+/** 标题只报当前线：「校外公交 · K2」。 */
+function resolveTransitSheetTitle(line: string): string {
+  const name = line.trim()
+  return name ? `校外公交 · ${name}` : '校外公交'
+}
+
+const sheetTitle = computed(() => resolveTransitSheetTitle(sheetLine.value))
+
+/** 手上只有所选线一条；K6 不再同屏。 */
+const sheetActiveGroup = computed(() => {
+  const name = sheetLine.value || lineNames.value[0] || ''
+  return { name, directions: props.directions.filter(item => item.line === name) }
+})
+
+/** 只认「06:30」这种整点分钟串；脏数据直接丢。 */
+function normalizeDepartureTime(value: string): string | null {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null
+  if (hour > 23 || minute > 59) return null
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+/** 时刻表按上午（<12:00）/ 下午两段排；升序、去重。 */
+function groupDeparturesByHalfDay(times: string[]): { am: string[], pm: string[] } {
+  const normalized = Array.from(new Set(times
+    .map(item => normalizeDepartureTime(item))
+    .filter((item): item is string => item !== null))).sort()
+  const am: string[] = []
+  const pm: string[] = []
+  normalized.forEach((time) => {
+    if (Number(time.slice(0, 2)) < 12) am.push(time)
+    else pm.push(time)
+  })
+  return { am, pm }
+}
+
+/** 一格只有一种状态：下一班压过已过，未过的都是未来。 */
+function resolveDepartureChipState(time: string, options: { next: string, past: boolean }): 'past' | 'next' | 'future' {
+  if (options.next && time === options.next) return 'next'
+  return options.past ? 'past' : 'future'
+}
 
 /** 站列默认只展开起终点与最近两站，中间折叠成一行「⋯ 中间 N 站」；点开后在视图内展开。 */
 const sheetStopsExpanded = ref<Record<string, boolean>>({})
@@ -293,12 +344,11 @@ function toggleSheetStops(direction: ApiBusLineDirection): void {
   }
 }
 
-/** 底栏与抽屉都跟「当前方向」走：优先地图上只看的那条，否则第一个方向。 */
+/** 底栏与抽屉跟所选线走：优先地图上只看的方向，否则该线第一个方向。 */
 const sheetActiveDirection = computed<ApiBusLineDirection | null>(() => {
-  const list = lineDirections.value
+  const list = sheetActiveGroup.value.directions
   return list.find(item => item.id === props.selectedDirection) ?? list[0] ?? null
 })
-
 const sheetNextBus = computed(() => sheetActiveDirection.value ? nextDeparture(sheetActiveDirection.value) : '')
 
 const sheetTodayCount = computed(() => {
@@ -308,20 +358,133 @@ const sheetTodayCount = computed(() => {
   return departures ? departures.groups.reduce((total, group) => total + group.times.length, 0) : 0
 })
 
-const sheetDrawerGroups = computed(() => {
-  const direction = sheetActiveDirection.value
-  if (!direction) return []
-  return departuresOf(direction)?.groups ?? []
-})
-
-/** 已经开走的班次置灰；时刻表只覆盖当天，所以按「时 * 60 + 分」直接比。 */
-function isPastDeparture(time: string): boolean {
-  const [hour, minute] = time.split(':').map(Number)
-  if (hour === undefined || minute === undefined || !Number.isFinite(hour) || !Number.isFinite(minute)) return false
-  const now = new Date()
-  return hour * 60 + minute < now.getHours() * 60 + now.getMinutes()
+function selectSheetLine(name: string): void {
+  if (name === sheetLine.value) return
+  sheetLine.value = name
+  sheetStopsExpanded.value = {}
+  expandedId.value = props.directions.find(item => item.line === name)?.id ?? ''
+  emit('change-line', name)
 }
 
+/** 抽屉头右侧：「K2 回学校」。 */
+const sheetDirectionLabel = computed(() => {
+  const direction = sheetActiveDirection.value
+  if (!direction) return ''
+  return `${direction.line} ${direction.to}`
+})
+
+const sheetTimetable = computed(() => {
+  const direction = sheetActiveDirection.value
+  if (!direction) return { am: [] as string[], pm: [] as string[] }
+  const departures = departuresOf(direction)
+  if (!departures) return { am: [] as string[], pm: [] as string[] }
+  return groupDeparturesByHalfDay(departures.groups.flatMap(group => group.times))
+})
+
+const sheetTimetableSections = computed(() => [
+  { key: 'am', label: '上午', times: sheetTimetable.value.am },
+  { key: 'pm', label: '下午', times: sheetTimetable.value.pm }
+].filter(section => section.times.length > 0))
+
+/** 首末班：接口的 beginTime / endTime 可能缺失，缺失时退回当日时刻表的首条与末条。 */
+const sheetFirstLast = computed(() => {
+  const direction = sheetActiveDirection.value
+  const times = [...sheetTimetable.value.am, ...sheetTimetable.value.pm]
+  return {
+    first: direction?.beginTime || times[0] || '—',
+    last: direction?.endTime || times[times.length - 1] || '—'
+  }
+})
+
+const sheetClock = ref(Date.now())
+let sheetClockTimer: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  if (sheetClockTimer) return
+  sheetClockTimer = setInterval(() => {
+    sheetClock.value = Date.now()
+  }, 30_000)
+})
+
+onBeforeUnmount(() => {
+  if (!sheetClockTimer) return
+  clearInterval(sheetClockTimer)
+  sheetClockTimer = null
+})
+
+/** 当前时刻 HH:mm（30s 刷一次）；时刻表只覆盖当天，用串比较就够。 */
+const sheetNowHHmm = computed(() => {
+  const now = new Date(sheetClock.value)
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+})
+
+function isPastByClock(time: string): boolean {
+  const normalized = normalizeDepartureTime(time)
+  if (!normalized) return false
+  return normalized < sheetNowHHmm.value
+}
+/** 下一班＝底栏与抽屉头同一源：先取当日时刻表第一条未过的，都没有才退回实时 next；实时 next 已过则留空，任何位置都不给过去时刻。 */
+const sheetNextChipTime = computed(() => {
+  const times = [...sheetTimetable.value.am, ...sheetTimetable.value.pm]
+  const upcoming = times.find(time => !isPastByClock(time)) ?? ''
+  if (upcoming) return upcoming
+  const live = normalizeDepartureTime(sheetNextBus.value)
+  return live && !isPastByClock(live) ? live : ''
+})
+
+function chipStateOf(time: string): 'past' | 'next' | 'future' {
+  return resolveDepartureChipState(time, { next: sheetNextChipTime.value, past: isPastByClock(time) })
+}
+
+/** 下一班：线色实底 + 白字 + 2px 线色环，颜色只能走内联样式。 */
+const nextChipStyle = computed(() => {
+  const color = lineColor(sheetActiveGroup.value.name)
+  return {
+    backgroundColor: color,
+    color: '#ffffff',
+    boxShadow: `0 0 0 2px color-mix(in srgb, ${color} 30%, transparent)`
+  }
+})
+
+const chipElements = new Map<string, HTMLElement>()
+
+function setChipRef(time: string, element: unknown): void {
+  if (element instanceof HTMLElement) chipElements.set(time, element)
+  else chipElements.delete(time)
+}
+
+/** 把下一班对到抽屉中线上；面板高度还在过渡时会被带偏，所以可重复调用。 */
+function alignNextChip(): void {
+  const drawer = document.querySelector<HTMLElement>('[aria-label="今日时刻表"]')
+  const target = sheetNextChipTime.value
+  if (!drawer || !target) return
+  const chip = chipElements.get(target)
+  if (!chip) return
+  const chipRect = chip.getBoundingClientRect()
+  const drawerRect = drawer.getBoundingClientRect()
+  const height = drawerRect.height || drawer.clientHeight
+  const offset = chipRect.top - drawerRect.top
+  if (offset >= 8 && offset + chipRect.height <= height - 8) return
+  drawer.scrollTop += offset - Math.max(12, (height - chipRect.height) / 2)
+}
+
+/**
+ * 抽屉一打开就把下一班滚到可视区中线：面板从 half 抬到 expanded 要 320ms，
+ * 抽屉顶边一直在动，滚一次会被高度变化带偏，所以按过渡节奏补滚几次。
+ */
+function scrollNextChipIntoView(): void {
+  alignNextChip()
+  if (typeof window === 'undefined') return
+  ;[120, 260, 420].forEach((delay) => {
+    window.setTimeout(alignNextChip, delay)
+  })
+}
+
+watch([() => props.drawerOpen, () => sheetNextChipTime.value], async () => {
+  if (!props.drawerOpen) return
+  await nextTick()
+  scrollNextChipIntoView()
+}, { flush: 'post' })
 watch([() => props.variant, lineDirections], () => {
   if (props.variant !== 'sheet' || expandedId.value) return
   expandedId.value = lineDirections.value[0]?.id ?? ''
@@ -338,7 +501,8 @@ const snapshotText = computed(() => {
 </script>
 
 <template>
-  <!-- T-029：手机面板内的校外公交视图。头部固定、内容滚动、底栏 48px，点开时刻表抽屉最长 268px。 -->
+  <!-- T-029：手机面板内的校外公交视图。头部固定、内容滚动、底栏 48px，点开时刻表抽屉最长 268px。
+       T-030：顶部两段选线路，滚动体只画所选线；时刻表按上午/下午四列重排。 -->
   <section
     v-if="variant === 'sheet'"
     class="flex h-full min-h-0 flex-col"
@@ -362,21 +526,38 @@ const snapshotText = computed(() => {
       </span>
     </header>
 
-    <div class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2" aria-label="线路与站点">
-      <article
-        v-for="group in sheetLineGroups"
-        :key="group.name"
-        class="mb-2 rounded-[14px] border border-zinc-100 p-2 dark:border-zinc-800"
+    <div
+      class="mx-3 mb-2 grid shrink-0 grid-cols-2 gap-1 rounded-[12px] bg-zinc-100 p-0.5 dark:bg-zinc-800"
+      role="tablist"
+      aria-label="选择线路"
+    >
+      <button
+        v-for="name in lineNames"
+        :key="name"
+        type="button"
+        class="flex h-9 items-center justify-center gap-1.5 rounded-[10px] text-[13px] font-semibold"
+        :class="sheetLine === name ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-50' : 'text-zinc-500 dark:text-zinc-400'"
+        role="tab"
+        :aria-selected="sheetLine === name"
+        :aria-label="`选择 ${name}`"
+        @click="selectSheetLine(name)"
       >
+        <span class="size-1.5 shrink-0 rounded-full" :style="{ backgroundColor: lineColor(name) }" />
+        {{ name }}
+      </button>
+    </div>
+
+    <div class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2" aria-label="线路与站点">
+      <article class="mb-2 rounded-[14px] border border-zinc-100 p-2 dark:border-zinc-800">
         <div class="flex items-center gap-1.5">
-          <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: lineColor(group.name) }" />
-          <span class="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{{ group.name }}</span>
-          <span class="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">{{ group.directions.length }} 个方向</span>
+          <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: lineColor(sheetActiveGroup.name) }" />
+          <span class="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{{ sheetActiveGroup.name }}</span>
+          <span class="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">{{ sheetActiveGroup.directions.length }} 个方向</span>
         </div>
 
         <div class="mt-1 grid grid-cols-2 gap-1">
           <button
-            v-for="direction in group.directions"
+            v-for="direction in sheetActiveGroup.directions"
             :key="direction.id"
             type="button"
             class="flex min-h-9 flex-col items-start rounded-[10px] px-2 py-1 text-left"
@@ -393,7 +574,7 @@ const snapshotText = computed(() => {
           </button>
         </div>
 
-        <template v-for="direction in group.directions" :key="`stops-${direction.id}`">
+        <template v-for="direction in sheetActiveGroup.directions" :key="`stops-${direction.id}`">
           <ol v-if="expandedId === direction.id" class="mt-1" aria-label="站点">
             <li v-for="row in sheetStopRows(direction)" :key="row.key">
               <button
@@ -424,10 +605,13 @@ const snapshotText = computed(() => {
       <p v-if="!directions.length" class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
         公交线路加载中…
       </p>
+      <p v-else-if="!sheetActiveGroup.directions.length" class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+        这条线今天没有班次
+      </p>
     </div>
 
-    <footer class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800">
-      <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">下一班 {{ sheetNextBus || '—' }}</span>
+    <footer v-show="!drawerOpen" class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800">
+      <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">下一班 {{ sheetNextChipTime || '—' }}</span>
       <span class="text-[11px] text-zinc-500 dark:text-zinc-400">· 今日 {{ sheetTodayCount }} 班</span>
       <button
         type="button"
@@ -442,28 +626,53 @@ const snapshotText = computed(() => {
 
     <div
       v-if="drawerOpen"
-      class="scrollbar-none max-h-[268px] shrink-0 overflow-y-auto overscroll-contain border-t border-zinc-100 px-3 pb-2 dark:border-zinc-800"
+      class="scrollbar-none mb-0.5 max-h-[268px] shrink-0 overflow-y-auto overscroll-contain border-t border-zinc-100 px-3 pb-2 dark:border-zinc-800"
       aria-label="今日时刻表"
     >
-      <div v-for="group in sheetDrawerGroups" :key="group.group" class="mt-1.5">
-        <p class="text-[10px] text-zinc-400 dark:text-zinc-500">
-          {{ group.group }}
+      <div class="mt-2 flex items-baseline gap-1">
+        <span class="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">今日时刻</span>
+        <button
+          type="button"
+          class="ml-1 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 active:bg-zinc-100 dark:text-zinc-400 dark:active:bg-zinc-800"
+          aria-label="收起时刻表"
+          @click="emit('update:drawerOpen', false)"
+        >
+          收起
+        </button>
+        <span class="text-[12px] font-semibold" :style="{ color: lineColor(sheetActiveGroup.name) }">{{ sheetDirectionLabel }}</span>
+        <span class="ml-auto shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+          首班 {{ sheetFirstLast.first }} · 末班 {{ sheetFirstLast.last }}
+        </span>
+      </div>
+
+      <div v-for="section in sheetTimetableSections" :key="section.key" class="mt-1.5">
+        <p class="text-[11px] text-zinc-400 dark:text-zinc-500">
+          {{ section.label }}
         </p>
-        <p class="mt-1 flex flex-wrap gap-1">
+        <div class="mt-1 grid grid-cols-4 gap-1.5">
           <span
-            v-for="time in group.times"
+            v-for="time in section.times"
             :key="time"
-            class="rounded px-1 py-0.5 text-[10px] tabular-nums"
-            :class="time === sheetNextBus
-              ? 'bg-blue-600 font-semibold text-white'
-              : isPastDeparture(time) ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-600 dark:text-zinc-300'"
+            class="flex h-8 items-center justify-center rounded-[10px] text-[12px] tabular-nums"
+            :class="chipStateOf(time) === 'past'
+              ? 'bg-transparent text-zinc-300 opacity-60 dark:bg-zinc-800/40 dark:text-zinc-600'
+              : chipStateOf(time) === 'next'
+                ? 'font-semibold text-white'
+                : 'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'"
+            :ref="(element: unknown) => setChipRef(time, element)"
+            :style="chipStateOf(time) === 'next' ? nextChipStyle : undefined"
+            :aria-label="chipStateOf(time) === 'next' ? `下一班 ${time}` : undefined"
           >
             {{ time }}
           </span>
-        </p>
+        </div>
       </div>
-      <p v-if="!sheetDrawerGroups.length" class="py-3 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
+
+      <p v-if="!sheetTimetableSections.length" class="py-3 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
         时刻表加载中…
+      </p>
+      <p v-else class="pt-2 text-[10px] text-zinc-400 dark:text-zinc-500">
+        下一班 {{ sheetNextChipTime || '—' }} · 今日 {{ sheetTodayCount }} 班 · 灰色为已过
       </p>
     </div>
   </section>

@@ -176,14 +176,14 @@ let glassLowFpsSamples = 0
 function resolveGlassTargets(): GlassTarget[] {
   if (!glassEnabled.value || glassStrengthScale.value <= 0) return []
   const targets: GlassTarget[] = []
-  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1): void => {
-    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost, rim })
+  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' | 'top' = 'all'): void => {
+    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost, rim, bandEdges })
   }
   push(glassChipsElement.value, 0.5, 2, 0.25)
-  // T-023：底部面板重新进 target。radius 0.043 → min(390,326)×0.043×2 ≈ 28px，对齐 rounded-t-[28px]；
-  // frost 压到 0.18（chips 是 0.25），别把底图糊平。
-  // rim 传 0：面板顶部的 28px 圆角够长，着色器那段 2px 亮边在那里就是一条白线。
-  push(mobileSheetElement.value, 0.043, 2.2, 0.18, 0)
+  // T-030：面板左右那两条乳白竖带来自边缘 band（0.043 原先是圆角半径，被 band 一起吃了）。
+  // radius 收到 0.008，band 交给 bandEdges='top' 只由上边驱动：左右是屏幕边，没有水切面语义。
+  // 圆角的裁切在外壳 CSS，rim 仍为 0；顶边高光与折射保留。
+  push(mobileSheetElement.value, 0.008, 2.2, 0.18, 0, 'top')
   push(glassLocateElement.value, 0.35, 1.4, 0)
   push(glassSearchElement.value, 0.5, 1.8, 0.3)
   return targets
@@ -931,6 +931,31 @@ function handleSheetKeydown(event: KeyboardEvent): void {
 }
 
 /** 点地图空白只关抽屉：面板与地图是兄弟节点，点面板不会走到这里。 */
+const transitDrawerRaised = ref(false)
+
+function handleTransitDrawerChange(open: boolean): void {
+  transitDrawerOpen.value = open
+  if (open) {
+    if (!transitDrawerRaised.value && mobileSheetState.value === 'half') {
+      transitDrawerRaised.value = true
+      mobileSheetState.value = 'expanded'
+    }
+    return
+  }
+  if (transitDrawerRaised.value) {
+    transitDrawerRaised.value = false
+    mobileSheetState.value = 'half'
+  }
+}
+
+// 抽屉被返回键 / 点地图关掉时也要把面板放回半屏。
+watch(transitDrawerOpen, (open) => {
+  if (!open && transitDrawerRaised.value) {
+    transitDrawerRaised.value = false
+    mobileSheetState.value = 'half'
+  }
+})
+
 function handleMapSurfaceClick(): void {
   if (transitDrawerOpen.value) transitDrawerOpen.value = false
 }
@@ -989,6 +1014,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       :style="mobileSheetStyle"
       :class="[
         mapSheetView === 'bus' ? resolveBusSheetHeightClass(mobileSheetState) : mobileSheetHeightClass,
+        mapSheetView === 'transit' && mobileSheetState === 'expanded' ? 'max-md:!h-[548px]' : '',
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
         mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
@@ -1521,7 +1547,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           :location="transitMyLocation"
           :drawer-open="transitDrawerOpen"
           @back="handleSheetBack()"
-          @update:drawer-open="transitDrawerOpen = $event"
+          @update:drawer-open="handleTransitDrawerChange($event)"
           @focus-stop="focusTransitStop($event)"
           @focus-vehicle="focusTransitVehicleFromPanel($event)"
           @select-direction="changeTransitDirection($event)"
