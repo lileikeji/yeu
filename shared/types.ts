@@ -314,6 +314,8 @@ export interface CompetitionEvent {
   isCurrent: boolean
   /** 预报名未到场的一键提醒模板。 */
   reminderSubject: string
+  /** 邮件模板「加群按钮」跳转的 QQ 群链接，空 = 不显示按钮 */
+  qqGroupUrl: string
   reminderBody: string
   /** 赛程：每轮的日期/时间/地点。 */
   schedule: CompetitionScheduleItem[]

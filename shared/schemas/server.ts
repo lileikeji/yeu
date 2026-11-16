@@ -1371,7 +1371,8 @@ export const updateCompetitionSchema = z.object({
   edition: z.string().trim().max(40).optional(),
   schedule: z.array(competitionScheduleItemSchema).min(1).max(12).optional(),
   formFields: z.array(competitionFormFieldSchema).min(1).max(7).optional(),
-  trimExtremes: z.boolean().optional()
+  trimExtremes: z.boolean().optional(),
+  qqGroupUrl: z.string().trim().max(400).optional()
 }).strict()
 
 export const updateCompetitionRoundSchema = z.object({
@@ -1443,7 +1444,7 @@ export const adminCompetitionScoreSchema = z.object({
   comment: z.string().trim().max(500).optional()
 }).strict()
 
-export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing'])
+export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing', 'confirmed', 'confirmed-plain'])
 
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
 // 带 preRegistrationId = 从预报名确认生成。
@@ -1475,6 +1476,19 @@ export const competitionPreRegisterSchema = z.object({
 }).strict()
 
 /** 结果查询三要素：姓名 + 学号 + QQ，缺一不可。 */
+export const competitionSongLookupSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120)
+}).strict()
+
+export const competitionSongSubmitSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  song: z.string().trim().min(1).max(100)
+}).strict()
+
 export const competitionResultLookupSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(20),

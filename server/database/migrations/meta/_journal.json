@@ -449,6 +449,13 @@
       "when": 1794682000000,
       "tag": "0063_competition_edition_receipts",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1794814122313,
+      "tag": "0064_competition_qq_group",
+      "breakpoints": true
     }
   ]
 }

@@ -69,7 +69,8 @@ export default defineEventHandler(async (event) => {
     const receiptUrl = `${siteUrl}${receiptPath(token)}`
     const variables = buildEmailVariables(round, recipient.entry, recipient.singer, {
       edition: competition.edition,
-      receiptUrl
+      receiptUrl,
+      qqGroupUrl: competition.qqGroupUrl
     })
     const subject = renderCompetitionEmailTemplate(plan.template.subject, variables)
     const body = renderCompetitionEmailTemplate(plan.template.body, variables)
@@ -79,7 +80,7 @@ export default defineEventHandler(async (event) => {
         to: recipient.singer.email!,
         subject,
         text: body,
-        html: competitionEmailBodyToHtml(body, images, receiptUrl),
+        html: competitionEmailBodyToHtml(body, images, receiptUrl, competition.qqGroupUrl),
         attachments: emailImageAttachments(body, images)
       }, { fromName: '仰恩大学音乐协会' })
       recordEmailSend(client, competition.id, roundKey, recipient.singer.id, recipient.singer.email!, 'sent', null)

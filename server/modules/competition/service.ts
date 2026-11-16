@@ -406,6 +406,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     isCurrent: row.isCurrent !== 0,
     reminderSubject: row.reminderSubject || COMPETITION_REMINDER_DEFAULTS.subject,
     reminderBody: row.reminderBody || COMPETITION_REMINDER_DEFAULTS.body,
+    qqGroupUrl: row.qqGroupUrl ?? '',
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
     createdAt: Number(row.createdAt ?? 0),
@@ -588,6 +589,7 @@ export interface UpdateCompetitionInput {
   schedule?: unknown
   formFields?: unknown
   trimExtremes?: unknown
+  qqGroupUrl?: unknown
 }
 
 function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
@@ -662,10 +664,14 @@ export function updateCompetitionEvent(
   const trimExtremes = input.trimExtremes === undefined
     ? row.trimExtremes === 1
     : input.trimExtremes === true
+  const qqGroupUrl = input.qqGroupUrl === undefined
+    ? (row.qqGroupUrl ?? '')
+    : String(input.qqGroupUrl).trim().slice(0, 400)
   client.db.update(competitionEvents).set({
     title,
     registrationOpen,
     edition,
+    qqGroupUrl,
     trimExtremes: trimExtremes ? 1 : 0,
     scheduleJson: JSON.stringify(schedule),
     formFieldsJson: JSON.stringify(formFields),
@@ -981,7 +987,7 @@ function buildRoundRanking(
 
 // -- 导出（后台名单） ----------------------------------------------------------
 
-export type CompetitionExportKind = 'detail' | 'summary' | 'advancing'
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain'
 
 function csvCell(value: unknown): string {
   const text = String(value ?? '')
@@ -1068,6 +1074,100 @@ export function buildCompetitionExport(
         ])
       }
     }
+  } else if (kind === 'confirmed') {
+    const contactRows = client.db.select().from(competitionSingers)
+      .where(eq(competitionSingers.eventId, round.eventId))
+      .all()
+    const contactById = new Map(contactRows.map(row => [row.id, row]))
+    // 确认后的晋级名单：以人工勾选的结果为准（advanced === 1），不再按名次截取。
+    if (round.rosterConfirmedAt === null) {
+      conflictError('ROSTER_NOT_CONFIRMED', '先确认晋级名单，再导出确认后的名单')
+    }
+    const confirmedRows = ranking
+      .filter(row => entryBySinger.get(row.singer.id)?.advanced === 1)
+      .sort((left, right) =>
+        ((left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
+        || (left.sortOrder - right.sortOrder)
+      )
+    label = '确认后的晋级名单'
+    rows.push([
+      '晋级序',
+      '选手',
+      '班级',
+      '学号',
+      'QQ',
+      '邮箱',
+      '电话',
+      '歌曲',
+      '参赛天',
+      '出场顺序',
+      '评分人数',
+      '平均分',
+      '名次'
+    ])
+    confirmedRows.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      rows.push([
+        index + 1,
+        row.singer.name,
+        row.singer.className ?? '',
+        contactById.get(row.singer.id)?.studentNo ?? '',
+        contactById.get(row.singer.id)?.qq ?? '',
+        contactById.get(row.singer.id)?.email ?? '',
+        contactById.get(row.singer.id)?.phone ?? '',
+        row.singer.song,
+        dayLabelOf(entry?.contestDay ?? null),
+        (entry && daySequence.get(entry.id)) || '',
+        row.scoreCount,
+        row.average === null ? '' : row.average.toFixed(2),
+        row.rank ?? ''
+      ])
+    })
+  } else if (kind === 'confirmed-plain') {
+    const contactRows = client.db.select().from(competitionSingers)
+      .where(eq(competitionSingers.eventId, round.eventId))
+      .all()
+    const contactById = new Map(contactRows.map(row => [row.id, row]))
+    if (round.rosterConfirmedAt === null) {
+      conflictError('ROSTER_NOT_CONFIRMED', '先确认晋级名单，再导出确认后的名单')
+    }
+    // 不带成绩的名单：按姓名首字拼音排（同首字再按整个姓名，最后按出场顺序），方便现场点名。
+    const plainCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+    const plainRows = ranking
+      .filter(row => entryBySinger.get(row.singer.id)?.advanced === 1)
+      .sort((left, right) =>
+        plainCollator.compare(left.singer.name.slice(0, 1), right.singer.name.slice(0, 1))
+        || plainCollator.compare(left.singer.name, right.singer.name)
+        || (left.sortOrder - right.sortOrder)
+      )
+    label = '晋级名单（不带成绩）'
+    rows.push([
+      '序号',
+      '选手',
+      '班级',
+      '学号',
+      'QQ',
+      '邮箱',
+      '电话',
+      '歌曲',
+      '参赛天',
+      '出场顺序'
+    ])
+    plainRows.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      rows.push([
+        index + 1,
+        row.singer.name,
+        row.singer.className ?? '',
+        contactById.get(row.singer.id)?.studentNo ?? '',
+        contactById.get(row.singer.id)?.qq ?? '',
+        contactById.get(row.singer.id)?.email ?? '',
+        contactById.get(row.singer.id)?.phone ?? '',
+        row.singer.song,
+        dayLabelOf(entry?.contestDay ?? null),
+        (entry && daySequence.get(entry.id)) || ''
+      ])
+    })
   } else {
     const ordered = [...ranking].sort((left, right) =>
       ((left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
@@ -1527,68 +1627,6 @@ function shuffle<T>(items: T[]): T[] {
     copy[swapIndex] = current
   }
   return copy
-}
-
-export function generateNextRound(
-  client: DatabaseClient,
-  currentRound: RoundRow
-): { round: RoundRow, advanced: number } {
-  const nextRound = nextRoundOf(client, currentRound)
-  if (!nextRound) validationError('决赛没有下一轮', 'round')
-  if (currentRound.status !== 'closed') {
-    conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分，再生成下一轮名单')
-  }
-  if (currentRound.advanceCount === null) {
-    validationError('请先设置本轮晋级人数', 'advanceCount')
-  }
-  if (countRoundScores(client, nextRound.id) > 0) {
-    conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已有评分，不能重新生成名单')
-  }
-  if (countEntries(client, nextRound.id) > 0) {
-    conflictError('NEXT_ROUND_ALREADY_GENERATED', '下一轮名单已生成；如需重做，请先清空下一轮名单')
-  }
-
-  const singers = listSingers(client, currentRound.eventId)
-  const singersById = new Map(singers.map(singer => [singer.id, singer]))
-  const ranking = buildRoundRanking(
-    currentRound,
-    listRoundEntryRows(client, currentRound.id),
-    singersById,
-    listRoundScores(client, currentRound.id),
-    { trimExtremes: trimExtremesFor(client, currentRound) }
-  )
-  const qualified = ranking
-    .filter(row => row.scoreCount > 0)
-    .slice(0, currentRound.advanceCount)
-
-  if (qualified.length === 0) {
-    validationError('本轮没有有效成绩（全部弃权），无法生成下一轮名单', 'round')
-  }
-
-  const shuffled = shuffle(qualified)
-  const now = Date.now()
-  client.db.transaction((transaction) => {
-    shuffled.forEach((row, index) => {
-      transaction.insert(competitionRoundEntries).values({
-        id: randomUUID(),
-        roundId: nextRound.id,
-        singerId: row.singer.id,
-        sortOrder: index + 1,
-        advancedFromRank: row.rank,
-        createdAt: now
-      }).run()
-    })
-    transaction.update(competitionRounds).set({
-      status: 'draft',
-      updatedAt: now
-    }).where(eq(competitionRounds.id, nextRound.id)).run()
-  })
-
-  return {
-    round: client.db.select().from(competitionRounds)
-      .where(eq(competitionRounds.id, nextRound.id)).get()!,
-    advanced: qualified.length
-  }
 }
 
 export function redrawRound(client: DatabaseClient, round: RoundRow): void {
@@ -2782,6 +2820,10 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
       '',
       '{{收到按钮}}',
       '',
+      '群里会同步通知，点下面按钮加入 QQ 群：',
+      '',
+      '{{加群按钮}}',
+      '',
       '仰恩大学音乐协会'
     ].join('\n')
   },
@@ -2796,6 +2838,10 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
       '',
       '{{收到按钮}}',
       '',
+      '群里会同步通知，点下面按钮加入 QQ 群：',
+      '',
+      '{{加群按钮}}',
+      '',
       '仰恩大学音乐协会'
     ].join('\n')
   },
@@ -2809,6 +2855,10 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
       '请点下面的按钮确认你已经收到这条通知：',
       '',
       '{{收到按钮}}',
+      '',
+      '群里会同步通知，点下面按钮加入 QQ 群：',
+      '',
+      '{{加群按钮}}',
       '',
       '仰恩大学音乐协会'
     ].join('\n')
@@ -2891,6 +2941,11 @@ export function renderCompetitionEmailTemplate(template: string, variables: Reco
  * 其余文字照旧转义、换行转 <br>。
  */
 /** 把「收到」链接渲染成按钮；邮件客户端只认绝对地址，所以这里必须给完整 URL。 */
+function groupButtonHtml(url: string): string {
+  const href = url.replace(/"/g, '&quot;')
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto;"><tr><td align="center" bgcolor="#0f766e" style="border-radius:999px;"><a href="${href}" style="display:inline-block;padding:10px 22px;border-radius:999px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">点我加入 QQ 群</a></td></tr></table>`
+}
+
 function receiptButtonHtml(url: string): string {
   // 用 table 做按钮：QQ 邮箱、Gmail 会剥掉 <a> 上的背景与内边距，只有 table + bgcolor 能保住样式。
   // 只给按钮、不把链接文字露在外面；点不动时学生还能在「查询结果」页用姓名+学号+QQ 自助确认。
@@ -2905,7 +2960,8 @@ function receiptButtonHtml(url: string): string {
 export function competitionEmailBodyToHtml(
   body: string,
   images: CompetitionEmailImageBinary[] = [],
-  receiptUrl = ''
+  receiptUrl = '',
+  qqGroupUrl = ''
 ): string {
   const byId = new Map(images.map(image => [image.id, image]))
   const escape = (text: string): string => text
@@ -2930,6 +2986,12 @@ export function competitionEmailBodyToHtml(
 
   let html = `<p style="margin:0 0 4px;line-height:1.8;">${parts.join('').split('\n').join('<br>')}</p>`
   if (receiptUrl) html = html.replace(receiptUrl, receiptButtonHtml(receiptUrl))
+  if (qqGroupUrl) {
+    html = html.split('{{加群按钮}}').join(groupButtonHtml(qqGroupUrl))
+    html = html.replace(qqGroupUrl, groupButtonHtml(qqGroupUrl))
+  } else {
+    html = html.split('{{加群按钮}}').join('')
+  }
   return html
 }
 
@@ -2937,7 +2999,7 @@ export function buildEmailVariables(
   round: RoundRow,
   entry: CompetitionRoundEntry,
   singer: CompetitionSinger,
-  context: { edition?: string, receiptUrl?: string } = {}
+  context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string } = {}
 ): Record<string, string> {
   void entry
   return {
@@ -2947,7 +3009,8 @@ export function buildEmailVariables(
     歌曲: singer.song || '—',
     轮次: round.title,
     届次: context.edition || '新声歌手大赛',
-    收到按钮: context.receiptUrl || ''
+    收到按钮: context.receiptUrl || '',
+    加群按钮: context.qqGroupUrl || ''
   }
 }
 
@@ -3422,6 +3485,10 @@ export const COMPETITION_REMINDER_DEFAULTS = {
     '',
     '如果还想上台，请直接到现场找工作人员补登记；已经确定不参加的可以忽略这封邮件。',
     '',
+    '点下面按钮加入 QQ 群，后续通知都会发在群里：',
+    '',
+    '{{加群按钮}}',
+    '',
     '仰恩大学音乐协会'
   ].join('\n')
 }
@@ -3509,15 +3576,16 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
     { trimExtremes: trimExtremesFor(client, round) }
   ).filter(row => row.scoreCount > 0)
 
-  const confirmed = round.rosterConfirmedAt !== null
   const limit = round.advanceCount ?? ranking.length
+  // advanced 为空 = 还没人动过这一轮的勾选，默认按名次勾前 N 名；
+  // 一旦有人勾/取消，就以其存下来的值为准，未被碰过的仍按默认名次。
   return ranking.map((row, index) => ({
     entryId: row.id,
     singer: row.singer,
     average: row.average,
     scoreCount: row.scoreCount,
     rank: row.rank,
-    advanced: confirmed ? row.advanced === 1 : index < limit
+    advanced: row.advanced === null ? index < limit : row.advanced === 1
   }))
 }
 
@@ -3548,6 +3616,9 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   }
 
   const nextRound = nextRoundOf(client, round)
+  if (nextRound && countRoundScores(client, nextRound.id) > 0) {
+    conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已经开始评分了，名单不能再改')
+  }
   const now = Date.now()
   client.db.transaction((transaction) => {
     for (const row of rows) {
@@ -3557,8 +3628,27 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
     transaction.update(competitionRounds).set({ rosterConfirmedAt: now, updatedAt: now })
       .where(eq(competitionRounds.id, round.id)).run()
 
-    if (nextRound && countEntries(client, nextRound.id) === 0 && countRoundScores(client, nextRound.id) === 0) {
+    if (nextRound) {
+      // 下一轮名单必须与这次勾选完全一致：多的删掉、缺的补上、顺序按勾选名次重排。
+      const keepSingerIds = new Set(picked.map(row => row.singer.id))
+      const existing = transaction.select().from(competitionRoundEntries)
+        .where(eq(competitionRoundEntries.roundId, nextRound.id))
+        .all()
+      for (const entry of existing) {
+        if (!keepSingerIds.has(entry.singerId)) {
+          transaction.delete(competitionRoundEntries)
+            .where(eq(competitionRoundEntries.id, entry.id)).run()
+        }
+      }
+      const existingBySinger = new Map(existing.map(entry => [entry.singerId, entry]))
       picked.forEach((row, index) => {
+        const found = existingBySinger.get(row.singer.id)
+        if (found) {
+          transaction.update(competitionRoundEntries)
+            .set({ sortOrder: index + 1, advancedFromRank: row.rank ?? null })
+            .where(eq(competitionRoundEntries.id, found.id)).run()
+          return
+        }
         transaction.insert(competitionRoundEntries).values({
           id: randomUUID(),
           roundId: nextRound.id,
@@ -3748,6 +3838,133 @@ export function confirmReceiptByToken(client: DatabaseClient, token: string): Co
     roundKey: row.roundKey,
     roundTitle: round.title,
     confirmedAt: Date.now()
+  }
+}
+
+export interface CompetitionSongFormState {
+  singerName: string
+  song: string
+  stageTitle: string
+  editable: boolean
+  reason: string
+}
+
+/** 晋级选手填复赛/决赛曲目：姓名 + 学号 + QQ 或邮箱三要素定位，和邮箱完全分开。 */
+function singerByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+) {
+  const name = normalizeLookup(input.name)
+  const studentNo = normalizeLookup(input.studentNo)
+  const contact = normalizeLookup(input.contact)
+  if (!name || !studentNo || !contact) {
+    validationError('姓名、学号、QQ 或邮箱三项都要填', !name ? 'name' : !studentNo ? 'studentNo' : 'contact')
+  }
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const byEmail = contact.includes('@')
+  const preRows = client.db.select().from(competitionPreRegistrations)
+    .where(eq(competitionPreRegistrations.eventId, eventRow.id))
+    .all()
+  const preKey = (row: { name?: string | null, studentNo?: string | null }) =>
+    `${normalizeLookup(row.name ?? undefined)}|${normalizeLookup(row.studentNo ?? undefined)}`
+  const preQq = new Map(preRows.filter(row => row.qq).map(row => [preKey(row), normalizeLookup(row.qq ?? undefined)]))
+  const preEmail = new Map(preRows.filter(row => row.email).map(row => [preKey(row), normalizeLookup(row.email ?? undefined)]))
+
+  const singer = listSingers(client, eventRow.id).find((item) => {
+    const itemName = normalizeLookup(item.name ?? undefined)
+    const itemNo = normalizeLookup(item.studentNo ?? undefined)
+    if (itemName !== name || itemNo !== studentNo) return false
+    if (byEmail) {
+      const itemEmail = normalizeLookup(item.email ?? undefined)
+        || preEmail.get(`${itemName}|${itemNo}`)
+        || ''
+      return itemEmail === contact
+    }
+    const itemQq = normalizeLookup(item.qq ?? undefined)
+      || normalizeLookup(qqFromEmail(item.email))
+      || preQq.get(`${itemName}|${itemNo}`)
+      || ''
+    return itemQq === contact
+  })
+  if (!singer) {
+    conflictError('COMPETITION_LOOKUP_NOT_FOUND', '姓名、学号、QQ 或邮箱对不上，请核对后重试')
+  }
+  return { singer, eventRow }
+}
+
+/** 只有「上一轮已确认、本人被勾进下一轮」的选手才能改曲目。 */
+function songStage(client: DatabaseClient, eventId: string, singerId: string) {
+  const rounds = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventId))
+    .orderBy(asc(competitionRounds.position))
+    .all()
+  for (let index = 0; index < rounds.length; index += 1) {
+    const current = rounds[index]!
+    const entry = client.db.select().from(competitionRoundEntries)
+      .where(and(
+        eq(competitionRoundEntries.roundId, current.id),
+        eq(competitionRoundEntries.singerId, singerId)
+      ))
+      .get()
+    if (!entry) continue
+    const confirmed = current.rosterConfirmedAt !== null && entry.advanced === 1
+    const next = rounds[index + 1] ?? null
+    return {
+      editable: confirmed,
+      stageTitle: next ? next.title : current.title,
+      reason: confirmed
+        ? ''
+        : current.rosterConfirmedAt === null
+          ? '晋级名单还没确认，等组委会确认完再来填'
+          : '你这一轮没有晋级，不用填新曲目'
+    }
+  }
+  return { editable: false, stageTitle: '', reason: '没找到你的出场记录，先确认已经登台唱过' }
+}
+
+export function getSongEditor(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+): CompetitionSongFormState {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  return {
+    singerName: singer.name,
+    song: singer.song ?? '',
+    stageTitle: stage.stageTitle,
+    editable: stage.editable,
+    reason: stage.reason
+  }
+}
+
+export function submitSongByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  song: string
+): CompetitionSongFormState {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  if (!stage.editable) {
+    conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能改曲目')
+  }
+  const value = String(song ?? '').trim()
+  if (!value) validationError('曲目必填，请填具体歌名', 'song')
+  if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
+    validationError('曲目要填具体歌名，不能填「待定」', 'song')
+  }
+  if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
+  client.db.update(competitionSingers)
+    .set({ song: value, updatedAt: Date.now() })
+    .where(eq(competitionSingers.id, singer.id)).run()
+  return {
+    singerName: singer.name,
+    song: value,
+    stageTitle: stage.stageTitle,
+    editable: true,
+    reason: ''
   }
 }
 

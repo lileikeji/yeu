@@ -1,5 +1,6 @@
 import {
   buildReminderPlan,
+  competitionEmailBodyToHtml,
   getReminderTemplate,
   ensureCompetitionEvent,
   recordEmailSend,
@@ -49,7 +50,8 @@ export default defineEventHandler(async (event) => {
     const variables = {
       姓名: recipient.name,
       歌曲: recipient.song || '—',
-      届次: competition.edition || '新声歌手大赛'
+      届次: competition.edition || '新声歌手大赛',
+      加群按钮: competition.qqGroupUrl || ''
     }
     const subject = renderCompetitionEmailTemplate(template.subject, variables)
     const body = renderCompetitionEmailTemplate(template.body, variables)
@@ -58,7 +60,7 @@ export default defineEventHandler(async (event) => {
         to: recipient.email,
         subject,
         text: body,
-        html: body.replace(/\n/g, '<br>')
+        html: competitionEmailBodyToHtml(body, [], '', competition.qqGroupUrl)
       }, { fromName: '仰恩大学音乐协会' })
       recordEmailSend(client, competition.id, 'prelim', null, recipient.email, 'sent', null)
       sent += 1
