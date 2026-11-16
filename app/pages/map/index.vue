@@ -163,7 +163,6 @@ const glassLayerElement = ref<HTMLElement | null>(null)
 const glassSearchElement = ref<HTMLElement | null>(null)
 const glassChipsElement = ref<HTMLElement | null>(null)
 const glassSourceElement = ref<HTMLElement | null>(null)
-const glassLocateElement = ref<HTMLElement | null>(null)
 const glassEnabled = ref(true)
 /** 低帧降级档：1 → 0.4 → 0（0 = 停渲染，回退 CSS blur）。 */
 const glassStrengthScale = ref(1)
@@ -186,7 +185,6 @@ function resolveGlassTargets(): GlassTarget[] {
   // radius 收到 0.008，band 交给 bandEdges='top' 只由上边驱动：左右是屏幕边，没有水切面语义。
   // 圆角的裁切在外壳 CSS，rim 仍为 0；顶边高光与折射保留。
   push(mobileSheetElement.value, 0.008, 2.2, 0.18, 0, 'top')
-  push(glassLocateElement.value, 0.35, 1.4, 0)
   push(glassSearchElement.value, 0.5, 1.8, 0.3)
   return targets
 }
@@ -1645,26 +1643,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             aria-hidden="true"
           />
           {{ resolveMobileSourceSummary() }}
-        </div>
-      </div>
-
-      <!-- 移动端右侧竖排：定位（实心）+ 地点列表（玻璃）。
-           取代原来那排 7 个工具按钮：mockup 上只有这两个入口，其余按钮移动端整排收起。 -->
-      <div class="map-mobile-rail pointer-events-none absolute inset-y-0 right-3 z-20 flex flex-col justify-center gap-2 md:hidden">
-        <div
-          ref="glassLocateElement"
-          class="pointer-events-none"
-        >
-          <UButton
-            :icon="tracking ? 'i-lucide-locate-fixed' : 'i-lucide-locate'"
-            color="primary"
-            variant="solid"
-            :loading="locating"
-            class="pointer-events-auto size-12 justify-center rounded-[17px] shadow-lg"
-            :aria-label="tracking ? '停止实时定位' : '开启实时定位'"
-            :aria-pressed="tracking"
-            @click="tracking ? toggleTracking() : locateUser()"
-          />
         </div>
       </div>
 
