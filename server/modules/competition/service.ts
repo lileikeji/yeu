@@ -2892,7 +2892,15 @@ export function renderCompetitionEmailTemplate(template: string, variables: Reco
  */
 /** 把「收到」链接渲染成按钮；邮件客户端只认绝对地址，所以这里必须给完整 URL。 */
 function receiptButtonHtml(url: string): string {
-  return `<a href="${url}" style="display:inline-block;padding:10px 22px;border-radius:999px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;">我已收到</a>`
+  // 用 table 做按钮：QQ 邮箱、Gmail 会剥掉 <a> 上的背景与内边距，只有 table + bgcolor 能保住样式。
+  // 下面再给一行纯文字链接，客户端彻底不认样式时也能点。
+  return [
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;"><tr>',
+    '<td align="center" bgcolor="#0f766e" style="border-radius:999px;">',
+    `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:11px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">我已收到</a>`,
+    '</td></tr></table>',
+    `<p style="margin:0 0 8px;font-size:13px;color:#52525b;">按钮点不动就把这个链接复制到浏览器打开：<br><a href="${url}" target="_blank" rel="noopener" style="color:#0f766e;word-break:break-all;">${url}</a></p>`
+  ].join('')
 }
 
 export function competitionEmailBodyToHtml(
