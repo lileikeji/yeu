@@ -677,7 +677,10 @@ const snapshotText = computed(() => {
       </button>
     </div>
 
-    <div class="mx-3 mb-2 flex shrink-0 items-center gap-2">
+    <div
+      v-show="!drawerOpen"
+      class="mx-3 mb-2 flex shrink-0 items-center gap-2"
+    >
       <div
         class="grid h-9 w-[148px] shrink-0 grid-cols-2 rounded-[10px] bg-zinc-100 p-0.5 dark:bg-zinc-800"
         aria-label="选择方向"
@@ -698,6 +701,7 @@ const snapshotText = computed(() => {
     </div>
 
     <div
+      v-show="!drawerOpen"
       class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2"
       aria-label="线路与站点"
     >
@@ -804,27 +808,16 @@ const snapshotText = computed(() => {
 
     <div
       :inert="!drawerOpen"
-      class="scrollbar-none shrink-0 overflow-y-auto overscroll-contain rounded-t-[16px] border-t border-zinc-100 bg-white/90 px-3 pb-2 backdrop-blur-[3px] transition-[max-height,opacity] duration-200 ease-out dark:border-zinc-800 dark:bg-zinc-950/90"
-      :class="drawerOpen ? 'max-h-[268px] opacity-100' : 'pointer-events-none max-h-0 border-t-0 !p-0 opacity-0'"
+      class="scrollbar-none min-h-0 overflow-y-auto overscroll-contain border-t border-zinc-100 bg-white/90 px-3 pb-2 backdrop-blur-[3px] transition-[opacity] duration-200 ease-out dark:border-zinc-800 dark:bg-zinc-950/90"
+      :class="drawerOpen ? 'flex-1 opacity-100' : 'pointer-events-none max-h-0 flex-none border-t-0 !p-0 opacity-0'"
       aria-label="今日时刻表"
     >
-      <div class="sticky top-0 z-10 -mx-3 flex items-baseline gap-1 border-b border-zinc-100/70 bg-white/95 px-3 pt-2 pb-1 backdrop-blur-[3px] dark:border-zinc-800/70 dark:bg-zinc-950/95">
+      <div class="sticky top-0 z-10 -mx-3 flex items-baseline gap-1.5 border-b border-zinc-100/70 bg-white/95 px-3 pt-2 pb-1 backdrop-blur-[3px] dark:border-zinc-800/70 dark:bg-zinc-950/95">
         <span class="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">今日时刻</span>
-        <button
-          type="button"
-          class="ml-1 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 active:bg-zinc-100 dark:text-zinc-400 dark:active:bg-zinc-800"
-          aria-label="收起时刻表"
-          @click="emit('update:drawerOpen', false)"
-        >
-          收起
-        </button>
         <span
           class="text-[12px] font-semibold"
           :style="{ color: lineColor(sheetActiveGroup.name) }"
         >{{ sheetDirectionLabel }}</span>
-        <span class="ml-auto shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
-          首班 {{ sheetFirstLast.first }} · 末班 {{ sheetFirstLast.last }}
-        </span>
       </div>
 
       <div
