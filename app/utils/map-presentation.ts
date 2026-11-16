@@ -277,6 +277,22 @@ export function resolveBusSheetAnchors(fallback: MobileSheetAnchors): MobileShee
   return { collapsed: 84, half: 326, expanded: Math.min(548, fallback.expanded) }
 }
 
+/**
+ * 校外公交视图的半屏要比 326 高：头部 + 两张线路卡 + 方向条 + 在途车卡已经吃掉 156px，
+ * 326 只剩 113px 站列，看不清样张里的「车卡 + 三站」。展开态仍与叮叮车同为 548 上限。
+ */
+export function resolveTransitSheetHeightClass(state: MobileSheetState): string {
+  return ({
+    collapsed: 'max-md:!h-0',
+    half: 'max-md:!h-[400px]',
+    expanded: 'max-md:!h-[548px]'
+  } as const)[state]
+}
+
+export function resolveTransitSheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
+  return { collapsed: 0, half: 400, expanded: Math.min(548, fallback.expanded) }
+}
+
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   return ({
     // Fully hide the list sheet on mobile so the map and floating place card stay usable.

@@ -367,6 +367,122 @@ function selectSheetLine(name: string): void {
 }
 
 /** 抽屉头右侧：「K2 回学校」。 */
+function resolveLineEnds(list: Array<{ from: string, to: string }>): { school: string, city: string } {
+  const names: string[] = []
+  for (const item of list) {
+    if (!names.includes(item.from)) names.push(item.from)
+    if (!names.includes(item.to)) names.push(item.to)
+  }
+  const school = names.find(name => /仰恩大学|校区/.test(name)) ?? names[0] ?? ''
+  const city = names.find(name => name !== school) ?? names[1] ?? ''
+  return { school, city }
+}
+
+const sheetRouteEnds = computed(() => resolveLineEnds(sheetActiveGroup.value.directions))
+
+const sheetLineCards = computed(() => lineNames.value.map((name) => {
+  const list = props.directions.filter(item => item.line === name)
+  const ends = resolveLineEnds(list)
+  const home = list.find(item => sameStop(item.to, ends.school)) ?? list[0]
+  const fare = home?.totalPrice
+  const detail = [
+    home?.distanceKm ? `${home.distanceKm} km` : '',
+    fare === null || fare === undefined ? '' : `${fare} 元`,
+    home?.endTime ? `末班 ${home.endTime}` : ''
+  ].filter(Boolean).join(' · ')
+  return { name, title: `${name} · ${ends.city || '—'}`, detail, active: name === sheetLine.value }
+}))
+
+const sheetDirectionSegments = computed(() => {
+  const list = sheetActiveGroup.value.directions
+  const ends = resolveLineEnds(list)
+  return [...list]
+    .sort((a, b) => Number(sameStop(a.to, ends.school)) - Number(sameStop(b.to, ends.school)))
+    .map(direction => ({
+      id: direction.id,
+      label: sameStop(direction.to, ends.school) ? '回学校' : '去市区',
+      direction,
+      active: direction.id === sheetActiveDirection.value?.id
+    }))
+})
+
+const sheetStartBadge = computed(() => sameStop(sheetActiveDirection.value?.from ?? '', sheetRouteEnds.value.school) ? '学校端' : '市区端')
+
+const sheetDirectionWindow = computed(() => {
+  const direction = sheetActiveDirection.value
+  if (!direction) return ''
+  const label = sameStop(direction.from, sheetRouteEnds.value.school) ? '学校端' : '市区端'
+  return `${label} ${direction.startTime || '—'} 起 · ${direction.endTime || '—'} 末班`
+})
+
+const sheetActiveEndShort = computed(() => {
+  const name = sheetActiveDirection.value?.to ?? ''
+  return name.replace(/^仰恩大学/, '').replace(/^(福厦铁路|泉州)/, '') || name
+})
+
+const sheetVehicleCards = computed(() => {
+  const direction = sheetActiveDirection.value
+  if (!direction) return []
+  const alongs = stopAlongs(direction.stops.map(stop => ({ lng: stop.lng, lat: stop.lat })))
+  const total = alongs[alongs.length - 1] ?? 0
+  if (total <= 0) return []
+  const routeKm = direction.distanceKm ?? 0
+  return vehiclesOf(direction)
+    .map((vehicle) => {
+      const index = direction.stops.findIndex(stop => sameStop(stop.name, vehicle.nextStation))
+      const along = vehicleAlong(index >= 0 ? index : (vehicle.stationOrder || 1), vehicle.distanceToNext, alongs)
+      const remainKm = Math.max(0, ((total - along) / total) * routeKm)
+      return {
+        plate: vehicle.plate,
+        remainText: remainKm < 1 ? `${Math.round(remainKm * 1000)} m` : `${remainKm.toFixed(1)} km`,
+        etaMinutes: Math.max(0, Math.round(etaSeconds(along, total) / 60))
+      }
+    })
+    .sort((a, b) => a.etaMinutes - b.etaMinutes)
+})
+
+const sheetLeadVehicle = computed(() => sheetVehicleCards.value[0] ?? null)
+const sheetOtherVehicles = computed(() => sheetVehicleCards.value.slice(1))
+
+function rowIsStart(direction: { stops: Array<{ seq: number }> }, seq: number): boolean {
+  return direction.stops[0]?.seq === seq
+}
+
+function rowIsEnd(direction: { stops: Array<{ seq: number }> }, seq: number): boolean {
+  return direction.stops[direction.stops.length - 1]?.seq === seq
+}
+
+const sheetFreshness = computed(() => {
+  // 实时快照优先，但计划数据的 fetchedAt 可能更新（live 尚未返回时），取两者较新的一份，
+  // 否则头部会显示「更新 20435 分钟前」这种把面板当成坏数据的读数。
+  const candidates: Array<{ value: string, ms: number }> = []
+  for (const value of [props.live?.fetchedAt, props.fetchedAt]) {
+    if (!value) continue
+    const ms = new Date(value).getTime()
+    if (Number.isFinite(ms)) candidates.push({ value, ms })
+  }
+  const at = candidates.sort((a, b) => b.ms - a.ms)[0]?.value
+  if (!at) return ''
+  const ms = sheetClock.value - new Date(at).getTime()
+  if (!Number.isFinite(ms)) return ''
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  if (seconds < 60) return `更新 ${seconds} 秒前`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `更新 ${minutes} 分钟前`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `更新 ${hours} 小时前`
+  // 计划数据的 fetchedAt 是构建期快照，隔天再看会变成「更新 20443 分钟前」这种像坏数据的读数。
+  const date = new Date(at)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const clock = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  return `更新于 ${month}-${day} ${clock}`
+})
+
+watch(() => props.live?.fetchedAt, () => {
+  sheetClock.value = Date.now()
+})
+
 const sheetDirectionLabel = computed(() => {
   const direction = sheetActiveDirection.value
   if (!direction) return ''
@@ -515,102 +631,175 @@ const snapshotText = computed(() => {
         aria-label="返回我的地图"
         @click="emit('back')"
       >
-        <UIcon name="i-lucide-chevron-left" class="size-4 shrink-0" />
+        <UIcon
+          name="i-lucide-chevron-left"
+          class="size-4 shrink-0"
+        />
         我的地图
       </button>
       <h2 class="min-w-0 flex-1 truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
         {{ sheetTitle }}
       </h2>
-      <span v-if="snapshotText" class="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
-        快照 {{ snapshotText }}
+      <span
+        v-if="sheetFreshness"
+        class="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500"
+      >
+        {{ sheetFreshness }}
       </span>
     </header>
 
-    <div
-      class="mx-3 mb-2 grid shrink-0 grid-cols-2 gap-1 rounded-[12px] bg-zinc-100 p-0.5 dark:bg-zinc-800"
-      role="tablist"
-      aria-label="选择线路"
-    >
+    <div class="mx-3 mb-2 grid shrink-0 grid-cols-2 gap-2">
       <button
-        v-for="name in lineNames"
-        :key="name"
+        v-for="card in sheetLineCards"
+        :key="card.name"
         type="button"
-        class="flex h-9 items-center justify-center gap-1.5 rounded-[10px] text-[13px] font-semibold"
-        :class="sheetLine === name ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-50' : 'text-zinc-500 dark:text-zinc-400'"
-        role="tab"
-        :aria-selected="sheetLine === name"
-        :aria-label="`选择 ${name}`"
-        @click="selectSheetLine(name)"
+        class="h-[68px] rounded-[16px] border px-2.5 text-left"
+        :class="card.active ? 'bg-white dark:bg-zinc-900' : 'border-zinc-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/60'"
+        :style="card.active ? { borderColor: lineColor(card.name), backgroundColor: lineColor(card.name) + '14' } : undefined"
+        :aria-pressed="card.active"
+        :aria-label="`选择 ${card.name}`"
+        @click="selectSheetLine(card.name)"
       >
-        <span class="size-1.5 shrink-0 rounded-full" :style="{ backgroundColor: lineColor(name) }" />
-        {{ name }}
+        <span class="flex items-center gap-1.5">
+          <span
+            class="size-2 shrink-0 rounded-full"
+            :style="{ backgroundColor: lineColor(card.name) }"
+          />
+          <span class="truncate text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{{ card.title }}</span>
+        </span>
+        <span class="mt-1 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{{ card.detail }}</span>
       </button>
     </div>
 
-    <div class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2" aria-label="线路与站点">
-      <article class="mb-2 rounded-[14px] border border-zinc-100 p-2 dark:border-zinc-800">
-        <div class="flex items-center gap-1.5">
-          <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: lineColor(sheetActiveGroup.name) }" />
-          <span class="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{{ sheetActiveGroup.name }}</span>
-          <span class="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">{{ sheetActiveGroup.directions.length }} 个方向</span>
-        </div>
+    <div class="mx-3 mb-2 flex shrink-0 items-center gap-2">
+      <div
+        class="grid h-9 w-[148px] shrink-0 grid-cols-2 rounded-[10px] bg-zinc-100 p-0.5 dark:bg-zinc-800"
+        aria-label="选择方向"
+      >
+        <button
+          v-for="segment in sheetDirectionSegments"
+          :key="segment.id"
+          type="button"
+          class="rounded-[8px] text-[11px] font-medium"
+          :class="segment.active ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-500 dark:text-zinc-400'"
+          :aria-pressed="segment.active"
+          @click="toggleDirection(segment.direction)"
+        >
+          {{ segment.label }}
+        </button>
+      </div>
+      <span class="ml-auto min-w-0 truncate text-right text-[11px] text-zinc-500 dark:text-zinc-400">{{ sheetDirectionWindow }}</span>
+    </div>
 
-        <div class="mt-1 grid grid-cols-2 gap-1">
+    <div
+      class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2"
+      aria-label="线路与站点"
+    >
+      <div
+        v-if="sheetLeadVehicle"
+        class="mb-2 flex h-[56px] items-center gap-2 rounded-[14px] border px-2.5"
+        :style="{ borderColor: lineColor(sheetActiveGroup.name) + '4d', backgroundColor: lineColor(sheetActiveGroup.name) + '0f' }"
+      >
+        <UIcon
+          name="i-lucide-bus-front"
+          class="size-6 shrink-0"
+          :style="{ color: lineColor(sheetActiveGroup.name) }"
+        />
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">
+            {{ sheetLeadVehicle.plate }}
+          </p>
+          <p class="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+            距{{ sheetActiveEndShort }} {{ sheetLeadVehicle.remainText }}
+          </p>
+          <p class="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+            预计 {{ sheetLeadVehicle.etaMinutes }} 分钟后到{{ sheetActiveEndShort }}
+          </p>
+        </div>
+        <span
+          class="shrink-0 leading-none tabular-nums"
+          :style="{ color: lineColor(sheetActiveGroup.name) }"
+        >
+          <span class="text-[26px] font-extrabold">{{ sheetLeadVehicle.etaMinutes }}</span>
+          <span class="text-[12px] font-semibold">′</span>
+        </span>
+      </div>
+
+      <div
+        v-if="sheetOtherVehicles.length"
+        class="mb-2 flex flex-wrap gap-1"
+      >
+        <span
+          v-for="vehicle in sheetOtherVehicles"
+          :key="vehicle.plate"
+          class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+        >
+          {{ vehicle.plate }} · {{ vehicle.etaMinutes }}′
+        </span>
+      </div>
+
+      <ol
+        v-if="sheetActiveDirection"
+        class="py-0.5"
+        aria-label="站点"
+      >
+        <li
+          v-for="row in sheetStopRows(sheetActiveDirection)"
+          :key="row.key"
+        >
           <button
-            v-for="direction in sheetActiveGroup.directions"
-            :key="direction.id"
+            v-if="row.kind === 'stop'"
             type="button"
-            class="flex min-h-9 flex-col items-start rounded-[10px] px-2 py-1 text-left"
-            :class="expandedId === direction.id ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-zinc-50 dark:bg-zinc-900/60'"
-            :aria-expanded="expandedId === direction.id"
-            @click="toggleDirection(direction)"
+            class="flex min-h-8 w-full items-center gap-2 rounded-md px-1 py-1 text-left text-xs text-zinc-600 active:bg-green-50 dark:text-zinc-300 dark:active:bg-green-950/60"
+            @click="emit('focus-stop', { lng: row.stop.lng, lat: row.stop.lat })"
           >
-            <span class="w-full truncate text-[11px] font-medium text-zinc-800 dark:text-zinc-100">
-              {{ direction.from }} → {{ direction.to }}
-            </span>
-            <span class="w-full truncate text-[10px] text-zinc-500 dark:text-zinc-400">
-              末 {{ direction.endTime }} · {{ direction.distanceKm }} km · {{ priceText(direction) }}
-            </span>
+            <span class="w-4 shrink-0 text-right text-[10px] tabular-nums text-zinc-400">{{ row.stop.seq }}</span>
+            <span
+              class="size-2 shrink-0 rounded-full border"
+              :class="rowIsEnd(sheetActiveDirection, row.stop.seq) ? '' : 'border-zinc-300 bg-transparent dark:border-zinc-600'"
+              :style="rowIsEnd(sheetActiveDirection, row.stop.seq) ? { backgroundColor: lineColor(sheetActiveDirection.line), borderColor: lineColor(sheetActiveDirection.line) } : undefined"
+            />
+            <span class="truncate">{{ row.stop.name }}</span>
+            <span
+              v-if="rowIsStart(sheetActiveDirection, row.stop.seq)"
+              class="ml-auto shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500"
+            >{{ sheetStartBadge }}</span>
+            <span
+              v-else-if="rowIsEnd(sheetActiveDirection, row.stop.seq)"
+              class="ml-auto shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500"
+            >末站</span>
           </button>
-        </div>
+          <button
+            v-else
+            type="button"
+            class="flex min-h-8 w-full items-center gap-1 rounded-md px-1 text-left text-[11px] text-zinc-400 active:bg-zinc-100 dark:text-zinc-500 dark:active:bg-zinc-800"
+            :aria-label="`展开中间 ${row.count} 站`"
+            @click="toggleSheetStops(sheetActiveDirection)"
+          >
+            <span class="w-4 shrink-0 text-right">⋯</span>
+            <span>中间 {{ row.count }} 站（点开）</span>
+          </button>
+        </li>
+      </ol>
 
-        <template v-for="direction in sheetActiveGroup.directions" :key="`stops-${direction.id}`">
-          <ol v-if="expandedId === direction.id" class="mt-1" aria-label="站点">
-            <li v-for="row in sheetStopRows(direction)" :key="row.key">
-              <button
-                v-if="row.kind === 'stop'"
-                type="button"
-                class="flex min-h-8 w-full items-center gap-2 rounded-md px-1 py-1 text-left text-xs text-zinc-600 active:bg-green-50 dark:text-zinc-300 dark:active:bg-green-950/60"
-                @click="emit('focus-stop', { lng: row.stop.lng, lat: row.stop.lat })"
-              >
-                <span class="w-4 shrink-0 text-right text-[10px] tabular-nums text-zinc-400">{{ row.stop.seq }}</span>
-                <span class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600" />
-                <span class="truncate">{{ row.stop.name }}</span>
-              </button>
-              <button
-                v-else
-                type="button"
-                class="flex min-h-8 w-full items-center gap-1 rounded-md px-1 text-left text-[11px] text-zinc-400 active:bg-zinc-100 dark:text-zinc-500 dark:active:bg-zinc-800"
-                :aria-label="`展开中间 ${row.count} 站`"
-                @click="toggleSheetStops(direction)"
-              >
-                <span class="w-4 shrink-0 text-right">⋯</span>
-                <span>中间 {{ row.count }} 站（点开）</span>
-              </button>
-            </li>
-          </ol>
-        </template>
-      </article>
-
-      <p v-if="!directions.length" class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+      <p
+        v-if="!directions.length"
+        class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500"
+      >
         公交线路加载中…
       </p>
-      <p v-else-if="!sheetActiveGroup.directions.length" class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+      <p
+        v-else-if="!sheetActiveGroup.directions.length"
+        class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500"
+      >
         这条线今天没有班次
       </p>
     </div>
 
-    <footer v-show="!drawerOpen" class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800">
+    <footer
+      v-show="!drawerOpen"
+      class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800"
+    >
       <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">下一班 {{ sheetNextChipTime || '—' }}</span>
       <span class="text-[11px] text-zinc-500 dark:text-zinc-400">· 今日 {{ sheetTodayCount }} 班</span>
       <button
@@ -639,13 +828,20 @@ const snapshotText = computed(() => {
         >
           收起
         </button>
-        <span class="text-[12px] font-semibold" :style="{ color: lineColor(sheetActiveGroup.name) }">{{ sheetDirectionLabel }}</span>
+        <span
+          class="text-[12px] font-semibold"
+          :style="{ color: lineColor(sheetActiveGroup.name) }"
+        >{{ sheetDirectionLabel }}</span>
         <span class="ml-auto shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
           首班 {{ sheetFirstLast.first }} · 末班 {{ sheetFirstLast.last }}
         </span>
       </div>
 
-      <div v-for="section in sheetTimetableSections" :key="section.key" class="mt-1.5">
+      <div
+        v-for="section in sheetTimetableSections"
+        :key="section.key"
+        class="mt-1.5"
+      >
         <p class="text-[11px] text-zinc-400 dark:text-zinc-500">
           {{ section.label }}
         </p>
@@ -653,13 +849,13 @@ const snapshotText = computed(() => {
           <span
             v-for="time in section.times"
             :key="time"
+            :ref="(element: unknown) => setChipRef(time, element)"
             class="flex h-8 items-center justify-center rounded-[10px] text-[12px] tabular-nums"
             :class="chipStateOf(time) === 'past'
               ? 'bg-zinc-100/70 text-zinc-400 line-through decoration-zinc-300 dark:bg-zinc-800/50 dark:text-zinc-500 dark:decoration-zinc-600'
               : chipStateOf(time) === 'next'
                 ? 'font-semibold text-white'
                 : 'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'"
-            :ref="(element: unknown) => setChipRef(time, element)"
             :style="chipStateOf(time) === 'next' ? nextChipStyle : undefined"
             :aria-label="chipStateOf(time) === 'next' ? `下一班 ${time}` : undefined"
           >
@@ -668,10 +864,16 @@ const snapshotText = computed(() => {
         </div>
       </div>
 
-      <p v-if="!sheetTimetableSections.length" class="py-3 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
+      <p
+        v-if="!sheetTimetableSections.length"
+        class="py-3 text-center text-[11px] text-zinc-400 dark:text-zinc-500"
+      >
         时刻表加载中…
       </p>
-      <p v-else class="pt-2 text-[10px] text-zinc-400 dark:text-zinc-500">
+      <p
+        v-else
+        class="pt-2 text-[10px] text-zinc-400 dark:text-zinc-500"
+      >
         下一班 {{ sheetNextChipTime || '—' }} · 今日 {{ sheetTodayCount }} 班 · 灰色为已过
       </p>
     </div>
@@ -844,7 +1046,10 @@ const snapshotText = computed(() => {
             </span>
           </div>
           <p class="mt-1 flex items-center gap-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-            <UIcon name="i-lucide-navigation" class="size-3 shrink-0 text-sky-500" />
+            <UIcon
+              name="i-lucide-navigation"
+              class="size-3 shrink-0 text-sky-500"
+            />
             <span class="truncate">{{ meStopText(direction) }}</span>
           </p>
         </div>

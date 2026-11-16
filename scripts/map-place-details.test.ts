@@ -114,7 +114,7 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
 test('mobile sheet half height is pinned by the max-md breakpoint', () => {
   assert.match(
     pageSource,
-    /mapSheetView !== 'bus' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
+    /mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
     '半屏高度必须挂在水合完成 + half 的守卫上，无条件挂 max-md 会把 expanded 也压成 326'
   )
   assert.equal((pageSource.match(/max-md:!h-\[326px\]/g) || []).length, 1, '半屏高度类只应出现一次')
@@ -231,7 +231,7 @@ test('sheet stays collapsed before hydration so mobile first paint never flashes
   // 用户手机反馈：地图还在转圈时面板已经展开，hydration 完才收起。
   assert.match(pageSource, /const sheetHydrated = ref\(false\)/)
   assert.match(pageSource, /sheetHydrated\.value = true/)
-  assert.ok(pageSource.includes('sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
+  assert.ok(pageSource.includes('mapSheetView !== \'bus\' && mapSheetView !== \'transit\' && sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
   assert.ok(pageSource.includes('mapSheetView !== \'bus\' && (!sheetHydrated || mobileSheetState === \'collapsed\') ? \'max-md:!h-0 max-md:border-t-0 max-md:shadow-none\' : \'\''))
 })
 
