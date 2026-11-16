@@ -265,7 +265,7 @@ export function resolveBusSheetHeightClass(state: MobileSheetState): string {
   return ({
     collapsed: 'max-md:!h-[84px]',
     half: 'max-md:!h-[326px]',
-    expanded: 'max-md:!h-[548px]'
+    expanded: 'max-md:!h-[min(548px,calc(100%_-_0.75rem))]'
   } as const)[state]
 }
 
@@ -285,7 +285,7 @@ export function resolveTransitSheetHeightClass(state: MobileSheetState): string 
   return ({
     collapsed: 'max-md:!h-0',
     half: 'max-md:!h-[400px]',
-    expanded: 'max-md:!h-[548px]'
+    expanded: 'max-md:!h-[min(548px,calc(100%_-_0.75rem))]'
   } as const)[state]
 }
 

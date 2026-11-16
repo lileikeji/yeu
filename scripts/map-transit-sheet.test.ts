@@ -105,7 +105,7 @@ test('修正 01 F1+05：抽屉在 400 半屏内铺满，不再把面板顶到 54
   // 修正 02：transit 视图改走自己的高度助手（半屏 400 / 展开 548），不再和列表视图共用 326。
   assert.match(pageSource, /mapSheetView === 'transit'\s*\?\s*resolveTransitSheetHeightClass\(mobileSheetState\)/)
   assert.match(presentationSource, /half: 'max-md:!h-\[400px\]'/)
-  assert.match(presentationSource, /expanded: 'max-md:!h-\[548px\]'/)
+  assert.match(presentationSource, /expanded: 'max-md:!h-\[min\(548px,calc\(100%_-_0\.75rem\)\)\]'/)
   assert.match(pageSource, /function handleTransitDrawerChange\(open: boolean\): void \{/)
   assert.doesNotMatch(pageSource, /transitDrawerRaised\.value = true/)
   assert.match(pageSource, /@update:drawer-open="handleTransitDrawerChange\(\$event\)"/)
