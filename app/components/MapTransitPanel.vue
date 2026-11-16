@@ -626,7 +626,7 @@ const snapshotText = computed(() => {
 
     <div
       v-if="drawerOpen"
-      class="scrollbar-none mb-0.5 max-h-[268px] shrink-0 overflow-y-auto overscroll-contain border-t border-zinc-100 px-3 pb-2 dark:border-zinc-800"
+      class="scrollbar-none mb-0.5 max-h-[268px] shrink-0 overflow-y-auto overscroll-contain border-t border-zinc-100 bg-white/85 px-3 pb-2 backdrop-blur-[3px] dark:border-zinc-800 dark:bg-zinc-950/85"
       aria-label="今日时刻表"
     >
       <div class="mt-2 flex items-baseline gap-1">
@@ -655,7 +655,7 @@ const snapshotText = computed(() => {
             :key="time"
             class="flex h-8 items-center justify-center rounded-[10px] text-[12px] tabular-nums"
             :class="chipStateOf(time) === 'past'
-              ? 'bg-transparent text-zinc-300 opacity-60 dark:bg-zinc-800/40 dark:text-zinc-600'
+              ? 'bg-zinc-100/70 text-zinc-400 line-through decoration-zinc-300 dark:bg-zinc-800/50 dark:text-zinc-500 dark:decoration-zinc-600'
               : chipStateOf(time) === 'next'
                 ? 'font-semibold text-white'
                 : 'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'"
