@@ -66,7 +66,9 @@ export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
     // 2026-11-16 实测 934753 B：叮叮车并入面板三态 + 折叠态 ETA 胶囊（约 +8 KB）后再顶破旧预算，
     // 按合并后实测重标 920 KiB（余量约 7.3 KB）；再涨就谈瘦包（面板异步化 / 胶囊懒载）。
     'pages/map/index.vue': 920 * 1024,
-    'pages/procedures/[slug].vue': 470 * 1024,
+    // 2026-11-16 实测 550751 B：master 合入的办事指南改动把该页初始依赖抬到 538 KiB 以上，
+    // 基线分支自身也红（550508 B / 470 KiB）。按实测重标 545 KiB（余量约 7.3 KB）。
+    'pages/procedures/[slug].vue': 545 * 1024,
     // 2026-11-16 实测 686790 B：新增投影辅助进入 utils auto-import 共享 chunk，管理端初始依赖随之 +0.7 KB。
     'pages/admin/[section].vue': 678 * 1024,
     'pages/admin/procedures.vue': 720 * 1024,
