@@ -49,7 +49,7 @@ test('折叠条结构：4px 把手 + 30px 图标 + 两行文案 + 4 分钟胶囊
 
 test('半屏沿用 326、展开上限 548，拖拽锚点同步收口', () => {
   assert.match(presentationSource, /half: 'max-md:!h-\[326px\]'/)
-  assert.match(presentationSource, /expanded: 'max-md:!h-\[548px\]'/)
+  assert.match(presentationSource, /expanded: 'max-md:!h-\[min\(548px,calc\(100%_-_0\.75rem\)\)\]'/)
   assert.match(presentationSource, /expanded: Math\.min\(548, fallback\.expanded\)/)
   assert.match(pageSource, /if \(mapSheetView\.value === 'bus'\) return resolveBusSheetAnchors\(anchors\)/)
   // 地点列表的半屏兜底仍在，没有被叮叮车的高度改写
