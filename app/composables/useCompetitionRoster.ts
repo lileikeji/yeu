@@ -307,6 +307,44 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
    * 现场签到开关。只有签到的人进评委名单与顺序评分队列，
    * 所以这里勾上/取消会直接改变评委看到的名单与人数。
    */
+
+  /** 各轮曲目草稿：初赛/复赛/决赛分开存，改哪轮只写哪轮条目的 song。 */
+  const entrySongBusyId = ref('')
+  const entrySongDraft = ref<Record<string, string>>({})
+
+  function entrySongValue(entry: CompetitionRoundEntry): string {
+    return entrySongDraft.value[entry.id] ?? (entry.song ?? entry.singer.song ?? '')
+  }
+
+  function setEntrySongDraft(entry: CompetitionRoundEntry, value: string): void {
+    entrySongDraft.value = { ...entrySongDraft.value, [entry.id]: value }
+  }
+
+  async function saveEntrySong(round: CompetitionRoundView, entry: CompetitionRoundEntry): Promise<void> {
+    if (round.status === 'closed' || entrySongBusyId.value) return
+    const value = entrySongValue(entry).trim()
+    if (!value) {
+      toast.add({ title: '曲目不能为空', color: 'warning' })
+      return
+    }
+    if (value === (entry.song ?? entry.singer.song ?? '')) return
+    entrySongBusyId.value = entry.id
+    try {
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/entry-song`,
+        { method: 'POST', body: { entryId: entry.id, song: value } }
+      )
+      payload.value = result.payload
+      const { [entry.id]: _saved, ...rest } = entrySongDraft.value
+      entrySongDraft.value = rest
+      toast.add({ title: `${entry.singer.name} 的${round.title}曲目已保存`, description: value, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '保存曲目失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      entrySongBusyId.value = ''
+    }
+  }
+
   async function toggleEntryCheckIn(
     round: CompetitionRoundView,
     entry: CompetitionRoundEntry
@@ -514,6 +552,11 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     changeEntryDay,
     checkInBusyId,
     toggleEntryCheckIn,
+    entrySongBusyId,
+    entrySongDraft,
+    entrySongValue,
+    setEntrySongDraft,
+    saveEntrySong,
     changeJudgeDay,
     redrawRound,
     clearRoster,
