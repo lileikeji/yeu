@@ -442,6 +442,13 @@
       "when": 1794658000000,
       "tag": "0062_competition_trim_extremes",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1794682000000,
+      "tag": "0063_competition_edition_receipts",
+      "breakpoints": true
     }
   ]
 }
