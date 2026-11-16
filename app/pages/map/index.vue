@@ -809,6 +809,15 @@ function backToMapSections(): void {
   mobileSheetState.value = 'half'
 }
 
+// 手机上点「清空搜索」时顺手把面板收回折叠：面板停在半屏、查询又空了时，
+// dock 的 v-show 条件两个都不成立，输入框会连同整条 dock 一起消失，用户得先收面板才能再搜。
+// 桌面侧栏没有三态，直接交给 clearSearchQuery。
+function onClearSearch(): void {
+  clearSearchQuery()
+  if (panelIsDesktop.value || mobileSheetState.value === 'collapsed') return
+  mobileSheetState.value = 'collapsed'
+}
+
 function focusMapSheetSection(section: 'favorites' | 'recent' | 'category'): void {
   mapSheetView.value = 'sections'
   if (mobileSheetState.value === 'collapsed') {
@@ -846,6 +855,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     :data-glass-ready="mapGlassActive ? 'on' : 'off'"
     :data-glass-fps="mapGlassFps"
     :data-sheet-state="mobileSheetState"
+        :data-mobile-dock="mobileSheetState === 'collapsed' ? 'bottom' : mapSheetSearching ? 'floating' : 'hidden'"
     :style="{ '--map-mobile-dock': `${mobileDockBottom}px` }"
   >
     <aside
@@ -1037,7 +1047,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                 :aria-hidden="searchQuery ? undefined : 'true'"
                 :tabindex="searchQuery ? undefined : -1"
                 aria-label="清空搜索"
-                @click="clearSearchQuery"
+                @click="onClearSearch"
               />
             </template>
           </UInput>
@@ -1465,7 +1475,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               size="xs"
               class="shrink-0 rounded-full"
               aria-label="清空搜索"
-              @click="clearSearchQuery"
+              @click="onClearSearch"
             />
             <button
               type="button"
@@ -2356,6 +2366,13 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   /* 校车胶囊（MapBusRoutePanel 折叠触发器）跟着同一条基线走 */
   .map-workspace .map-bus-dock {
     bottom: var(--map-mobile-dock, 10.25rem);
+  }
+
+  /* 搜索胶囊浮在面板上沿时（搜索把面板抬到半屏、dock 改跟 --map-mobile-dock），
+     胶囊自己占 10px + 54px + 22px ≈ 86px 的一条浮带。校车胶囊原来跟它同基线，
+     右半截被搜索框压住，这里整体让开那条浮带。 */
+  .map-workspace[data-mobile-dock='floating'] .map-bus-dock {
+    bottom: calc(var(--map-mobile-dock, 10.25rem) + 86px);
   }
 
   /* impl/05：折叠态面板收起，底栏搜索块占住底部，校车浮标上移让位 */
