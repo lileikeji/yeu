@@ -406,6 +406,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     isCurrent: row.isCurrent !== 0,
     reminderSubject: row.reminderSubject || COMPETITION_REMINDER_DEFAULTS.subject,
     reminderBody: row.reminderBody || COMPETITION_REMINDER_DEFAULTS.body,
+    qqGroupUrl: row.qqGroupUrl ?? '',
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
     createdAt: Number(row.createdAt ?? 0),
@@ -588,6 +589,7 @@ export interface UpdateCompetitionInput {
   schedule?: unknown
   formFields?: unknown
   trimExtremes?: unknown
+  qqGroupUrl?: unknown
 }
 
 function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
@@ -662,10 +664,14 @@ export function updateCompetitionEvent(
   const trimExtremes = input.trimExtremes === undefined
     ? row.trimExtremes === 1
     : input.trimExtremes === true
+  const qqGroupUrl = input.qqGroupUrl === undefined
+    ? (row.qqGroupUrl ?? '')
+    : String(input.qqGroupUrl).trim().slice(0, 400)
   client.db.update(competitionEvents).set({
     title,
     registrationOpen,
     edition,
+    qqGroupUrl,
     trimExtremes: trimExtremes ? 1 : 0,
     scheduleJson: JSON.stringify(schedule),
     formFieldsJson: JSON.stringify(formFields),
@@ -2814,6 +2820,10 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
       '',
       '{{收到按钮}}',
       '',
+      '群里会同步通知，点下面按钮加入 QQ 群：',
+      '',
+      '{{加群按钮}}',
+      '',
       '仰恩大学音乐协会'
     ].join('\n')
   },
@@ -2828,6 +2838,10 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
       '',
       '{{收到按钮}}',
       '',
+      '群里会同步通知，点下面按钮加入 QQ 群：',
+      '',
+      '{{加群按钮}}',
+      '',
       '仰恩大学音乐协会'
     ].join('\n')
   },
@@ -2841,6 +2855,10 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
       '请点下面的按钮确认你已经收到这条通知：',
       '',
       '{{收到按钮}}',
+      '',
+      '群里会同步通知，点下面按钮加入 QQ 群：',
+      '',
+      '{{加群按钮}}',
       '',
       '仰恩大学音乐协会'
     ].join('\n')
@@ -2923,6 +2941,11 @@ export function renderCompetitionEmailTemplate(template: string, variables: Reco
  * 其余文字照旧转义、换行转 <br>。
  */
 /** 把「收到」链接渲染成按钮；邮件客户端只认绝对地址，所以这里必须给完整 URL。 */
+function groupButtonHtml(url: string): string {
+  const href = url.replace(/"/g, '&quot;')
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto;"><tr><td align="center" bgcolor="#0f766e" style="border-radius:999px;"><a href="${href}" style="display:inline-block;padding:10px 22px;border-radius:999px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">点我加入 QQ 群</a></td></tr></table>`
+}
+
 function receiptButtonHtml(url: string): string {
   // 用 table 做按钮：QQ 邮箱、Gmail 会剥掉 <a> 上的背景与内边距，只有 table + bgcolor 能保住样式。
   // 只给按钮、不把链接文字露在外面；点不动时学生还能在「查询结果」页用姓名+学号+QQ 自助确认。
@@ -2937,7 +2960,8 @@ function receiptButtonHtml(url: string): string {
 export function competitionEmailBodyToHtml(
   body: string,
   images: CompetitionEmailImageBinary[] = [],
-  receiptUrl = ''
+  receiptUrl = '',
+  qqGroupUrl = ''
 ): string {
   const byId = new Map(images.map(image => [image.id, image]))
   const escape = (text: string): string => text
@@ -2962,6 +2986,12 @@ export function competitionEmailBodyToHtml(
 
   let html = `<p style="margin:0 0 4px;line-height:1.8;">${parts.join('').split('\n').join('<br>')}</p>`
   if (receiptUrl) html = html.replace(receiptUrl, receiptButtonHtml(receiptUrl))
+  if (qqGroupUrl) {
+    html = html.split('{{加群按钮}}').join(groupButtonHtml(qqGroupUrl))
+    html = html.replace(qqGroupUrl, groupButtonHtml(qqGroupUrl))
+  } else {
+    html = html.split('{{加群按钮}}').join('')
+  }
   return html
 }
 
@@ -2969,7 +2999,7 @@ export function buildEmailVariables(
   round: RoundRow,
   entry: CompetitionRoundEntry,
   singer: CompetitionSinger,
-  context: { edition?: string, receiptUrl?: string } = {}
+  context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string } = {}
 ): Record<string, string> {
   void entry
   return {
@@ -2979,7 +3009,8 @@ export function buildEmailVariables(
     歌曲: singer.song || '—',
     轮次: round.title,
     届次: context.edition || '新声歌手大赛',
-    收到按钮: context.receiptUrl || ''
+    收到按钮: context.receiptUrl || '',
+    加群按钮: context.qqGroupUrl || ''
   }
 }
 
@@ -3453,6 +3484,10 @@ export const COMPETITION_REMINDER_DEFAULTS = {
     '你在仰恩大学音乐协会{{届次}}的报名还留在系统里，但比赛当天没有签到记录。',
     '',
     '如果还想上台，请直接到现场找工作人员补登记；已经确定不参加的可以忽略这封邮件。',
+    '',
+    '点下面按钮加入 QQ 群，后续通知都会发在群里：',
+    '',
+    '{{加群按钮}}',
     '',
     '仰恩大学音乐协会'
   ].join('\n')

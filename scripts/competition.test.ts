@@ -1872,6 +1872,40 @@ test('数据库：微调后的勾选要生效，下一轮名单跟着勾选变',
   closeDatabase(':memory:')
 })
 
+test('数据库：模板里的加群按钮按设置的 QQ 群链接渲染，没设就不显示', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const body = '点下面按钮加群：\n\n{{加群按钮}}'
+  const without = competitionEmailBodyToHtml(body, [], '', '')
+  assert.doesNotMatch(without, /qm\.qq\.com/)
+  assert.doesNotMatch(without, /\{\{加群按钮\}\}/)
+
+  const updated = updateCompetitionEvent(client, event, {
+    title: '新声歌手大赛',
+    registrationOpen: true,
+    dimensions: DEFAULT_COMPETITION_DIMENSIONS,
+    qqGroupUrl: 'https://qm.qq.com/q/example'
+  })
+  assert.equal(updated.qqGroupUrl, 'https://qm.qq.com/q/example')
+  const withGroup = competitionEmailBodyToHtml(body, [], '', updated.qqGroupUrl)
+  assert.match(withGroup, /https:\/\/qm\.qq\.com\/q\/example/)
+  assert.match(withGroup, /点我加入 QQ 群/)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：一键提醒只发没签到的预报名，签到的跳过', () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

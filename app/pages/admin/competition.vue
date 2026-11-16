@@ -2072,6 +2072,23 @@ onBeforeUnmount(stopLiveRefresh)
           </div>
 
           <div class="mt-3 space-y-3">
+            <UFormField label="QQ 群链接">
+              <div class="flex flex-wrap items-center gap-2">
+                <UInput
+                  v-model="settings.qqGroupUrl"
+                  placeholder="https://qm.qq.com/…（填了之后模板里的「加群按钮」才有跳转）"
+                  class="w-full sm:w-[420px]"
+                />
+                <UButton
+                  icon="i-lucide-save"
+                  label="保存群链接"
+                  size="xs"
+                  variant="soft"
+                  :loading="savingSettings"
+                  @click="saveSettings"
+                />
+              </div>
+            </UFormField>
             <UFormField label="邮件主题">
               <UInput
                 v-model="emailTemplate.subject"
