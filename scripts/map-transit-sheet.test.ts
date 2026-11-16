@@ -147,7 +147,7 @@ test('修正 01 F3：抽屉头带来收起按钮，底栏让位抽屉', () => {
 test('修正 04：时刻表抽屉带过渡、表头吸附，下一班不再被表头压住', () => {
   assert.match(componentSource, /transition-\[opacity\] duration-200 ease-out/)
   assert.match(componentSource, /drawerOpen \? 'flex-1 opacity-100' : 'pointer-events-none max-h-0 flex-none border-t-0 !p-0 opacity-0'/)
-  assert.match(componentSource, /sticky top-0 z-10 -mx-3 flex items-baseline gap-1\.5 border-b[^"]*bg-white\/95 px-3 pt-2 pb-1 backdrop-blur-\[3px\]/)
+  assert.match(componentSource, /sticky top-0 z-10 -mx-3 flex items-baseline gap-1\.5 border-b[^"]*bg-\[color-mix\(in_srgb,var\(--surface\)_95%,transparent\)\] px-3 pt-2 pb-1 backdrop-blur-\[3px\]/)
   assert.match(componentSource, /const headerHeight = header instanceof HTMLElement \? header\.getBoundingClientRect\(\)\.height : 0/)
   assert.match(componentSource, /drawer\.scrollTop \+= offset - \(visibleTop \+ room \/ 2\)/)
   assert.match(componentSource, /\{\{ drawerOpen \? '收起 ⌄' : '时刻表 ›' \}\}/)
