@@ -46,6 +46,8 @@ export interface GlassTarget {
   rim?: number
   /** 边缘 band 只由上边驱动（'top'）还是四边都算（默认 'all'）。T-030：手机面板左右是屏幕边。 */
   bandEdges?: 'all' | 'top'
+  /** T-033：边带高度（CSS px）。给了就按它算，不给沿用默认的短边 0.55 比例。 */
+  band?: number
 }
 
 export interface MapGlassOptions {
@@ -72,6 +74,8 @@ export interface GlassQuad {
   frost: number
   rim: number
   bandEdges: 'all' | 'top'
+  /** T-033：边带高度占容器高度的比例（0 表示走默认短边比例）。 */
+  band: number
 }
 
 /** 容器在屏幕上的位置与尺寸（getBoundingClientRect 的原样裁剪）。 */
@@ -201,6 +205,12 @@ void main() {
 
   // 边缘折射带：占短边的 42%。这一比例决定「液态」观感——太窄像描边，太宽整块都在扭。
   float bandPx = min(bpx.x, bpx.y) * 0.55;
+  // T-033：带数值 band 的 target（dock 上沿 26px）用 CSS px 折算出的设备像素覆盖默认比例；
+  // 其余 target 的 vEdges 只有 0/1，override 为 0，行为与改动前逐像素一致。
+  float bandOverride = max(vEdges - 1.0, 0.0);
+  if (bandOverride > 0.0001) {
+    bandPx = bandOverride * uRes.y;
+  }
   float band = clamp(1.0 - smoothstep(0.0, bandPx, -d), 0.0, 1.0);
   // T-030：bandEdges='top' 的 target 只按到上边的距离算 band，左右两侧退化成与中心同款，不再留竖白带。
   if (vEdges > 0.5) {
@@ -342,7 +352,8 @@ export function collectGlassQuads(
       strengthMul: clamp(target.strengthMul, 0, 4),
       frost: clamp(target.frost, 0, 1),
       rim: clamp(target.rim ?? 1, 0, 2),
-      bandEdges: target.bandEdges === 'top' ? 'top' : 'all'
+      bandEdges: target.bandEdges === 'top' ? 'top' : 'all',
+    band: clamp((target.band ?? 0) / viewport.height, 0, 1)
     })
   }
   return quads
@@ -591,7 +602,9 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
       mount.params[base + 1] = quad.strengthMul
       mount.params[base + 2] = quad.frost
       mount.params[base + 3] = quad.rim
-      mount.edges[i] = quad.bandEdges === 'top' ? 1 : 0
+      // T-033：带数值 band 的 target 把 band 比例编码在 1 之上（vEdges - 1），
+      // 片元里 (vEdges - 1) * uRes.y 就是设备像素的边带高度。
+      mount.edges[i] = (quad.bandEdges === 'top' ? 1 : 0) + clamp(quad.band, 0, 0.9)
     }
 
     gl.useProgram(pipeline.program)

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict'
+import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -47,7 +47,8 @@ test('feedback page is a thin shell over feedback-presentation util', () => {
 test('feedback short fields keep a comfortable mobile touch height', () => {
   assert.equal((pageSource.match(/class="mt-2(?:\s+dark:[^"\s]+)*\s+min-h-11(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*"/g) || []).length, 2)
   assert.equal((pageSource.match(/:ui="\{ base: 'min-h-11' \}"/g) || []).length, 2)
-  assert.match(pageSource, /scroll-mb-\[calc\(var\(--mobile-nav-height\)\+1rem\)\]/)
+  // 底栏抬升后发送按钮的滚动留白要同时让开导航高度与 dock 内边距，否则点发送会被底栏挡住
+  assert.match(pageSource, /scroll-mb-\[calc\(var\(--mobile-nav-height\)\+var\(--mobile-dock-inset\)/)
 })
 
 test('feedback page separates required and optional information on small screens', () => {
