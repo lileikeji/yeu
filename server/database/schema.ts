@@ -1079,6 +1079,8 @@ export const competitionEvents = sqliteTable('competition_events', {
   isCurrent: integer('is_current').notNull().default(1),
   /** 预报名未到场的一键提醒：主题与正文（独立模板）。 */
   reminderSubject: text('reminder_subject'),
+  // 邮件模板里「加群按钮」跳转的 QQ 群链接；空 = 不显示按钮。
+  qqGroupUrl: text('qq_group_url').notNull().default(''),
   reminderBody: text('reminder_body'),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
