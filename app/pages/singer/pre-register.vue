@@ -20,9 +20,16 @@ const form = reactive({
   studentNo: '',
   phone: '',
   email: '',
+  qq: '',
   song: '',
   preferredDay: null as number | null
 })
+
+/** QQ 邮箱就是 QQ 号@qq.com：填了邮箱就顺手补上 QQ。 */
+function syncQqFromEmail(): void {
+  const match = /^\s*([0-9]{5,12})@qq\.com\s*$/i.exec(form.email)
+  if (match) form.qq = match[1]!
+}
 
 const ROUND_LABELS: Record<string, string> = { prelim: '初赛', semi: '复赛', final: '决赛' }
 
@@ -108,6 +115,7 @@ async function submit(): Promise<void> {
         ...(has('studentNo') && form.studentNo.trim() ? { studentNo: form.studentNo.trim() } : {}),
         ...(has('phone') && form.phone.trim() ? { phone: form.phone.trim() } : {}),
         ...(has('email') && form.email.trim() ? { email: form.email.trim() } : {}),
+        ...(has('qq') && form.qq.trim() ? { qq: form.qq.trim() } : {}),
         ...(has('song') && form.song.trim() ? { song: form.song.trim() } : {}),
         ...(has('preferredDay') && form.preferredDay ? { preferredDay: form.preferredDay } : {})
       }
@@ -410,8 +418,38 @@ onMounted(loadStatus)
                 type="email"
                 class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
                 placeholder="用于接收比赛结果通知"
+                @blur="syncQqFromEmail"
               >
             </div>
+          </div>
+          <div
+            v-if="has('qq')"
+            class="mt-3"
+          >
+            <label
+              class="block text-sm font-semibold text-[var(--ink)]"
+              for="pre-qq"
+            >
+              {{ labelOf('qq', 'QQ') }}
+              <span
+                v-if="!requiredOf('qq')"
+                class="text-xs font-normal text-[var(--muted-ink)]"
+              >（选填）</span>
+              <span
+                v-else
+                class="text-[var(--color-green-700)]"
+              >*</span>
+            </label>
+            <input
+              id="pre-qq"
+              v-model="form.qq"
+              :required="requiredOf('qq')"
+              maxlength="12"
+              name="qq"
+              inputmode="numeric"
+              class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
+              placeholder="填数字"
+            >
           </div>
         </template>
 

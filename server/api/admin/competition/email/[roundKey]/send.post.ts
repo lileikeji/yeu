@@ -2,6 +2,9 @@ import { competitionEmailSendSchema } from '../../../../../../shared/schemas/ser
 import {
   buildEmailSendPlan,
   buildEmailVariables,
+  ensureReceiptToken,
+  openResultQuery,
+  receiptPath,
   competitionEmailBodyToHtml,
   emailImageAttachments,
   ensureCompetitionEvent,
@@ -55,12 +58,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const siteUrl = String(useRuntimeConfig(event).public.siteUrl || '').replace(/\/$/, '')
+  const receiptTargets: string[] = []
   const failures: Array<{ name: string, email: string, error: string }> = []
   let sent = 0
   let failed = 0
 
   for (const recipient of plan.recipients) {
-    const variables = buildEmailVariables(round, recipient.entry, recipient.singer)
+    const token = ensureReceiptToken(client, competition.id, roundKey, recipient.singer.id)
+    const receiptUrl = `${siteUrl}${receiptPath(token)}`
+    const variables = buildEmailVariables(round, recipient.entry, recipient.singer, {
+      edition: competition.edition,
+      receiptUrl
+    })
     const subject = renderCompetitionEmailTemplate(plan.template.subject, variables)
     const body = renderCompetitionEmailTemplate(plan.template.body, variables)
     const images = loadEmailImagesForBody(client, competition.id, body)
@@ -69,10 +79,14 @@ export default defineEventHandler(async (event) => {
         to: recipient.singer.email!,
         subject,
         text: body,
-        html: competitionEmailBodyToHtml(body, images),
+        html: competitionEmailBodyToHtml(body, images).replace(
+          receiptUrl,
+          `<a href="${receiptUrl}" style="display:inline-block;padding:10px 22px;border-radius:999px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;">我已收到</a>`
+        ),
         attachments: emailImageAttachments(body, images)
       }, { fromName: '仰恩大学音乐协会' })
       recordEmailSend(client, competition.id, roundKey, recipient.singer.id, recipient.singer.email!, 'sent', null)
+      receiptTargets.push(recipient.singer.name)
       sent += 1
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error)
@@ -82,6 +96,8 @@ export default defineEventHandler(async (event) => {
     }
     await sleep(SEND_INTERVAL_MS)
   }
+
+  if (sent > 0) openResultQuery(client, round)
 
   writeAudit(client, event, {
     actorAdminId: session.admin.id,
