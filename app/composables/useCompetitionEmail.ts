@@ -48,8 +48,10 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
   function emailPool(scope: EmailScope): CompetitionRoundEntry[] {
     const round = emailRoundView.value
     if (!round) return []
-    if (scope === 'qualified') return round.entries.filter(entry => entry.qualified)
-    if (scope === 'unqualified') return round.entries.filter(entry => !entry.qualified && !entry.forfeited)
+    // 与后端一致：晋级以「晋级名单里勾选的人」为准（advanced === 1），
+    // 不能再按名次 qualified 算，否则后台显示的封数会和实际发送对象对不上。
+    if (scope === 'qualified') return round.entries.filter(entry => entry.advanced === 1)
+    if (scope === 'unqualified') return round.entries.filter(entry => entry.advanced !== 1 && !entry.forfeited)
     return round.entries
   }
 
