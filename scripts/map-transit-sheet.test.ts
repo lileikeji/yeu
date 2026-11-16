@@ -40,7 +40,7 @@ test('T-030 标题只报当前线：校外公交 · K2', () => {
 })
 
 test('T-029 面板内线路视图：头部返回、折叠中间站、可滚动', () => {
-  assert.match(pageSource, /<MapTransitPanel\s+variant="sheet"/)
+  assert.match(pageSource, /<LazyMapTransitPanel\s+variant="sheet"/, 'sheet 视图用懒加载组件，首屏预算才有余量')
   assert.match(pageSource, /:drawer-open="transitDrawerOpen"/)
   assert.match(pageSource, /@back="handleSheetBack\(\)"/)
   assert.match(pageSource, /@update:drawer-open="handleTransitDrawerChange\(\$event\)"/)
@@ -96,7 +96,7 @@ test('T-030 面板左右竖带：sheet 只按上边算 band，玻璃开也干净
 test('桌面浮层行为不变：overlay 分支与既有限高原样', () => {
   assert.match(componentSource, /v-else-if="!open"/)
   assert.match(componentSource, /md:max-h-\[62vh\]/)
-  assert.match(pageSource, /<MapTransitPanel\s+v-if="transitLinesOpen/)
+  assert.match(pageSource, /<LazyMapTransitPanel\s+v-if="transitLinesOpen/)
   assert.match(pageSource, /:left-offset="sidebarCollapsed/)
   assert.match(pageSource, /flex min-h-0 flex-1 flex-col md:hidden/)
 })
