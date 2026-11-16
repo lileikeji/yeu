@@ -52,13 +52,15 @@ test('T-029 面板内线路视图：头部返回、折叠中间站、可滚动',
   assert.match(sheetSource, /aria-label="线路与站点"/)
 })
 
-test('T-030 时刻表抽屉：首班末班 + 四列 chip + 268px 上限', () => {
-  assert.match(sheetSource, /首班 \{\{ sheetFirstLast\.first \}\} · 末班 \{\{ sheetFirstLast\.last \}\}/)
+test('T-030 时刻表抽屉：首班末班 + 四列 chip + 填空剩余高度', () => {
+  assert.match(sheetSource, /首班 \$\{sheetFirstLast\.first\} · 末班 \$\{sheetFirstLast\.last\}/)
+  assert.doesNotMatch(sheetSource, /今日时刻[\s\S]{0,500}?首班 \{\{/)
   assert.match(sheetSource, /const sheetFirstLast = computed/)
   assert.match(sheetSource, /grid grid-cols-4 gap-1\.5/)
   assert.match(sheetSource, /aria-label="drawerOpen \? '收起今日时刻表' : '打开今日时刻表'"/)
   assert.match(sheetSource, /class="flex h-12 shrink-0/)
-  assert.match(sheetSource, /max-h-\[268px\]/)
+  assert.match(sheetSource, /drawerOpen \? 'flex-1 opacity-100' :/)
+  assert.match(sheetSource, /v-show="!drawerOpen"/)
   assert.match(sheetSource, /:inert="!drawerOpen"/)
   assert.match(pageSource, /function handleMapSurfaceClick\(\)/)
   assert.match(pageSource, /@click="handleMapSurfaceClick"/)
@@ -99,21 +101,21 @@ test('桌面浮层行为不变：overlay 分支与既有限高原样', () => {
   assert.match(pageSource, /flex min-h-0 flex-1 flex-col md:hidden/)
 })
 
-test('修正 01 F1：抽屉打开自动抬到 548，抽屉 268 封顶不再溢出', () => {
+test('修正 01 F1+05：抽屉在 400 半屏内铺满，不再把面板顶到 548', () => {
   // 修正 02：transit 视图改走自己的高度助手（半屏 400 / 展开 548），不再和列表视图共用 326。
   assert.match(pageSource, /mapSheetView === 'transit'\s*\?\s*resolveTransitSheetHeightClass\(mobileSheetState\)/)
   assert.match(presentationSource, /half: 'max-md:!h-\[400px\]'/)
   assert.match(presentationSource, /expanded: 'max-md:!h-\[548px\]'/)
   assert.match(pageSource, /function handleTransitDrawerChange\(open: boolean\): void \{/)
-  assert.match(pageSource, /if \(!transitDrawerRaised\.value && mobileSheetState\.value === 'half'\) \{/)
+  assert.doesNotMatch(pageSource, /transitDrawerRaised\.value = true/)
   assert.match(pageSource, /@update:drawer-open="handleTransitDrawerChange\(\$event\)"/)
-  assert.match(componentSource, /shrink-0 overflow-y-auto overscroll-contain/)
-  assert.match(componentSource, /max-h-\[268px\] opacity-100/)
+  assert.match(componentSource, /min-h-0 overflow-y-auto overscroll-contain/)
+  assert.match(componentSource, /drawerOpen \? 'flex-1 opacity-100' :/)
   assert.match(componentSource, /const drawer = document\.querySelector<HTMLElement>/)
 })
 
 test('修正 01/02 F2：抽屉打开时线路体与方向切换都还在', () => {
-  assert.doesNotMatch(componentSource, /v-show="!drawerOpen" class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2"/)
+  assert.match(componentSource, /v-show="!drawerOpen"\n {6}class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2"/)
   assert.match(componentSource, /v-for="segment in sheetDirectionSegments"/)
   assert.match(componentSource, /@click="toggleDirection\(segment\.direction\)"/)
   assert.doesNotMatch(componentSource, /<footer[\s\S]{0,200}?v-show=/)
@@ -136,15 +138,16 @@ test('T-032 在途车大卡、站列徽标与头部更新秒数', () => {
 })
 
 test('修正 01 F3：抽屉头带来收起按钮，底栏让位抽屉', () => {
-  assert.match(componentSource, /aria-label="收起时刻表"/)
-  assert.match(componentSource, /@click="emit\('update:drawerOpen', false\)"/)
+  assert.doesNotMatch(componentSource, /aria-label="收起时刻表"/)
+  assert.match(componentSource, /aria-label="drawerOpen \? '收起今日时刻表' : '打开今日时刻表'"/)
+  assert.match(componentSource, /@click="emit\('update:drawerOpen', !drawerOpen\)"/)
   assert.match(componentSource, /\{\{ sheetNextChipTime \|\| .—. \}\}/)
 })
 
 test('修正 04：时刻表抽屉带过渡、表头吸附，下一班不再被表头压住', () => {
-  assert.match(componentSource, /transition-\[max-height,opacity\] duration-200 ease-out/)
-  assert.match(componentSource, /drawerOpen \? 'max-h-\[268px\] opacity-100' : 'pointer-events-none max-h-0 border-t-0 !p-0 opacity-0'/)
-  assert.match(componentSource, /sticky top-0 z-10 -mx-3 flex items-baseline gap-1 border-b[^"]*bg-white\/95 px-3 pt-2 pb-1 backdrop-blur-\[3px\]/)
+  assert.match(componentSource, /transition-\[opacity\] duration-200 ease-out/)
+  assert.match(componentSource, /drawerOpen \? 'flex-1 opacity-100' : 'pointer-events-none max-h-0 flex-none border-t-0 !p-0 opacity-0'/)
+  assert.match(componentSource, /sticky top-0 z-10 -mx-3 flex items-baseline gap-1\.5 border-b[^"]*bg-white\/95 px-3 pt-2 pb-1 backdrop-blur-\[3px\]/)
   assert.match(componentSource, /const headerHeight = header instanceof HTMLElement \? header\.getBoundingClientRect\(\)\.height : 0/)
   assert.match(componentSource, /drawer\.scrollTop \+= offset - \(visibleTop \+ room \/ 2\)/)
   assert.match(componentSource, /\{\{ drawerOpen \? '收起 ⌄' : '时刻表 ›' \}\}/)

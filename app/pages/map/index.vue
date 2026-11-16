@@ -939,17 +939,6 @@ const transitDrawerRaised = ref(false)
 
 function handleTransitDrawerChange(open: boolean): void {
   transitDrawerOpen.value = open
-  if (open) {
-    if (!transitDrawerRaised.value && mobileSheetState.value === 'half') {
-      transitDrawerRaised.value = true
-      mobileSheetState.value = 'expanded'
-    }
-    return
-  }
-  if (transitDrawerRaised.value) {
-    transitDrawerRaised.value = false
-    mobileSheetState.value = 'half'
-  }
 }
 
 // 抽屉被返回键 / 点地图关掉时也要把面板放回半屏。
