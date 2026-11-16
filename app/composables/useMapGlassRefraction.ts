@@ -44,6 +44,8 @@ export interface GlassTarget {
   frost: number
   /** 亮边（水切面）倍率，默认 1；大面板给 0，边缘只留模糊与折射，不出白线 */
   rim?: number
+  /** 边缘 band 只由上边驱动（'top'）还是四边都算（默认 'all'）。T-030：手机面板左右是屏幕边。 */
+  bandEdges?: 'all' | 'top'
 }
 
 export interface MapGlassOptions {
@@ -69,6 +71,7 @@ export interface GlassQuad {
   strengthMul: number
   frost: number
   rim: number
+  bandEdges: 'all' | 'top'
 }
 
 /** 容器在屏幕上的位置与尺寸（getBoundingClientRect 的原样裁剪）。 */
@@ -87,26 +90,31 @@ precision highp float;
 
 uniform vec4 uRect[MAX_GLASS];
 uniform vec4 uParams[MAX_GLASS];
+uniform float uEdges[MAX_GLASS];
 uniform vec2 uRes;
 
 layout(location = 0) in vec2 aCorner;
 
 flat out vec4 vRect;
 flat out vec4 vParams;
+flat out float vEdges;
 
 void main() {
   vec4 g = vec4(0.0);
   vec4 p = vec4(0.0);
+  float e = 0.0;
   // 顶点着色器里按 gl_InstanceID 取自己那块玻璃的矩形；用等值循环代替动态下标，
   // 个别驱动/翻译层对 uniform 数组动态下标支持不一致，这里每实例只跑 4 个顶点，代价可忽略。
   for (int i = 0; i < MAX_GLASS; i++) {
     if (i == gl_InstanceID) {
       g = uRect[i];
       p = uParams[i];
+      e = uEdges[i];
     }
   }
   vRect = g;
   vParams = p;
+  vEdges = e;
 
   // 矩形外扩 2 设备像素：rim 亮边和抗锯齿要画到边界外那一半像素。
   vec2 pad = 2.0 / uRes;
@@ -130,6 +138,7 @@ uniform float uDpr;
 
 flat in vec4 vRect;
 flat in vec4 vParams;
+flat in float vEdges;
 
 out vec4 outColor;
 
@@ -193,6 +202,11 @@ void main() {
   // 边缘折射带：占短边的 42%。这一比例决定「液态」观感——太窄像描边，太宽整块都在扭。
   float bandPx = min(bpx.x, bpx.y) * 0.55;
   float band = clamp(1.0 - smoothstep(0.0, bandPx, -d), 0.0, 1.0);
+  // T-030：bandEdges='top' 的 target 只按到上边的距离算 band，左右两侧退化成与中心同款，不再留竖白带。
+  if (vEdges > 0.5) {
+    float topGap = bpx.y - px.y;
+    band = clamp(1.0 - smoothstep(0.0, bandPx, topGap), 0.0, 1.0);
+  }
   vec2 dir = normalize(px / max(bpx, vec2(1e-3)) + vec2(1e-6));
   // 用 band*band 代替 pow(band, 2.0)：GLSL 的 pow 在底数为 0 时未定义，部分驱动会出 NaN。
   float k = band * band;
@@ -264,6 +278,7 @@ interface GlassPipeline {
   texture: WebGLTexture
   uRect: WebGLUniformLocation | null
   uParams: WebGLUniformLocation | null
+  uEdges: WebGLUniformLocation | null
   uRes: WebGLUniformLocation | null
   uStrength: WebGLUniformLocation | null
   uDpr: WebGLUniformLocation | null
@@ -280,6 +295,7 @@ interface GlassMount {
   pipeline: GlassPipeline | null
   rects: Float32Array
   params: Float32Array
+  edges: Float32Array
 }
 
 /** 设备像素比收敛到 [1, 2]：0、NaN、Infinity 一律按 1 处理。 */
@@ -325,7 +341,8 @@ export function collectGlassQuads(
       radius: clamp(target.radius, 0, 0.5),
       strengthMul: clamp(target.strengthMul, 0, 4),
       frost: clamp(target.frost, 0, 1),
-      rim: clamp(target.rim ?? 1, 0, 2)
+      rim: clamp(target.rim ?? 1, 0, 2),
+      bandEdges: target.bandEdges === 'top' ? 'top' : 'all'
     })
   }
   return quads
@@ -410,6 +427,7 @@ function buildPipeline(gl: WebGL2RenderingContext): GlassPipeline | null {
     texture,
     uRect: gl.getUniformLocation(program, 'uRect[0]'),
     uParams: gl.getUniformLocation(program, 'uParams[0]'),
+    uEdges: gl.getUniformLocation(program, 'uEdges[0]'),
     uRes: gl.getUniformLocation(program, 'uRes'),
     uStrength: gl.getUniformLocation(program, 'uStrength'),
     uDpr: gl.getUniformLocation(program, 'uDpr'),
@@ -573,6 +591,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
       mount.params[base + 1] = quad.strengthMul
       mount.params[base + 2] = quad.frost
       mount.params[base + 3] = quad.rim
+      mount.edges[i] = quad.bandEdges === 'top' ? 1 : 0
     }
 
     gl.useProgram(pipeline.program)
@@ -582,6 +601,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     gl.uniform1i(pipeline.uTex, 0)
     gl.uniform4fv(pipeline.uRect, mount.rects)
     gl.uniform4fv(pipeline.uParams, mount.params)
+    gl.uniform1fv(pipeline.uEdges, mount.edges)
     gl.uniform2f(pipeline.uRes, pixelWidth, pixelHeight)
     gl.uniform1f(pipeline.uStrength, strength)
     gl.uniform1f(pipeline.uDpr, dpr)
@@ -731,7 +751,8 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
       positionPatched,
       pipeline,
       rects: new Float32Array(MAX_GLASS_QUADS * 4),
-      params: new Float32Array(MAX_GLASS_QUADS * 4)
+      params: new Float32Array(MAX_GLASS_QUADS * 4),
+      edges: new Float32Array(MAX_GLASS_QUADS)
     }
     canvas.addEventListener('webglcontextlost', handleContextLost)
     canvas.addEventListener('webglcontextrestored', handleContextRestored)
