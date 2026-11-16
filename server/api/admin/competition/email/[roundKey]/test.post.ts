@@ -4,9 +4,12 @@ import {
   competitionEmailBodyToHtml,
   emailImageAttachments,
   ensureCompetitionEvent,
+  ensureReceiptToken,
   getEmailTemplate,
   getRoundByKey,
+  listSingers,
   loadEmailImagesForBody,
+  receiptPath,
   renderCompetitionEmailTemplate
 } from '../../../../../modules/competition/service'
 import { writeAudit } from '../../../../../utils/audit'
@@ -70,7 +73,17 @@ export default defineEventHandler(async (event) => {
     source: 'admin' as const,
     preRegistrationId: null
   }
-  const variables = buildEmailVariables(round, sampleEntry, sampleSinger)
+  // 预览也要有「我已收到」按钮：优先用真实选手的回执链接，没有选手就用示例链接。
+  const siteUrl = String(useRuntimeConfig(event).public.siteUrl || '').replace(/\/$/, '')
+  const realSinger = listSingers(client, competition.id).find(singer => Boolean(singer.email))
+  const receiptUrl = `${siteUrl}${receiptPath(realSinger
+    ? ensureReceiptToken(client, competition.id, roundKey, realSinger.id)
+    : 'preview')}`
+
+  const variables = buildEmailVariables(round, sampleEntry, sampleSinger, {
+    edition: competition.edition,
+    receiptUrl
+  })
   const subject = renderCompetitionEmailTemplate(template.subject, variables)
   const body = renderCompetitionEmailTemplate(template.body, variables)
   const images = loadEmailImagesForBody(client, competition.id, body)
@@ -79,7 +92,7 @@ export default defineEventHandler(async (event) => {
     to: input.email,
     subject,
     text: body,
-    html: competitionEmailBodyToHtml(body, images),
+    html: competitionEmailBodyToHtml(body, images, receiptUrl),
     attachments: emailImageAttachments(body, images)
   }, { fromName: '仰恩大学音乐协会' })
 
