@@ -119,6 +119,12 @@ const mobileSheetDragPointerId = ref<number | null>(null)
 const mobileSheetDragStartY = ref(0)
 const mobileSheetDragStartHeight = ref(0)
 const mobileSheetDragging = ref(false)
+/** T-031 B1：本次按下后是否真的移动过（>6px）。没移动就是轻点，折叠条轻点等于抬到半屏。 */
+const mobileSheetDragMoved = ref(false)
+/** T-031 B3：320ms 高度过渡进行中。过渡期摘掉站列 mask、冻结 ETA 文案，避免每帧重建合成层。 */
+const sheetTransitioning = ref(false)
+/** T-031 B4：胶囊层 DOM 句柄，逐帧定位器直接写 style，不再走 Vue patch。 */
+const busEtaLayerElement = ref<HTMLElement | null>(null)
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
 
@@ -226,10 +232,12 @@ function clearGlassTransitionTimer(): void {
 function endGlassTransition(): void {
   clearGlassTransitionTimer()
   setMapGlassUploadFrozen(false)
+  sheetTransitioning.value = false
 }
 
 function beginGlassTransition(): void {
   setMapGlassUploadFrozen(true)
+  sheetTransitioning.value = true
   // transitionend 可能被吞掉（快速连点、中途反向拖拽、tab 切走）：
   // 用略长于动画的兜底定时器保证一定能恢复，不让折射卡在暂停态。
   clearGlassTransitionTimer()
@@ -598,7 +606,11 @@ function finishMobileSheetDrag(pointerId?: number): void {
 
   if (!mobileSheetDragging.value) return
   const anchors = mobileSheetAnchors()
-  const nextState = resolveMobileSheetStateFromHeight(mobileSheetDragHeight.value ?? mobileSheetDragStartHeight.value, anchors)
+  // 折叠条按下没移动 = 轻点：直接抬到半屏，不依赖随后的 click，避免 pointer capture 把 click 吃掉。
+  const tappedCollapsedBar = !mobileSheetDragMoved.value && mobileSheetDragStartHeight.value <= 120
+  const nextState = tappedCollapsedBar
+    ? 'half'
+    : resolveMobileSheetStateFromHeight(mobileSheetDragHeight.value ?? mobileSheetDragStartHeight.value, anchors)
   mobileSheetDragging.value = false
   mobileSheetDragPointerId.value = null
   mobileSheetDragHeight.value = null
@@ -625,6 +637,7 @@ function handleMobileSheetPointerDown(event: PointerEvent): void {
   mobileSheetDragStartY.value = event.clientY
   mobileSheetDragStartHeight.value = sheet.getBoundingClientRect().height
   mobileSheetDragging.value = true
+  mobileSheetDragMoved.value = false
   mobileSheetDragHeight.value = mobileSheetDragStartHeight.value
   event.preventDefault()
   sheet.setPointerCapture(event.pointerId)
@@ -635,6 +648,7 @@ function handleMobileSheetPointerMove(event: PointerEvent): void {
   const anchors = mobileSheetAnchors()
   const maxHeight = anchors.expanded
   const height = mobileSheetDragStartHeight.value + (mobileSheetDragStartY.value - event.clientY)
+  if (Math.abs(event.clientY - mobileSheetDragStartY.value) > 6) mobileSheetDragMoved.value = true
   mobileSheetDragHeight.value = Math.min(maxHeight, Math.max(0, height))
   event.preventDefault()
 }
@@ -736,7 +750,44 @@ const {
 })
 
 // 折叠态地图上的校车 ETA 胶囊：位置来自 provider.projectToScreen 投影 seam。
-const busEtaPills = useMapBusEta({ buses: busVehicles, routes: busRoutes, provider: mapProvider, activeRouteId: busSelectedRouteId })
+// 拖动 / 高度过渡期间冻结 ETA：文本与首帧位移都不再随 150ms 车辆 tick 重算，
+// 避免响应式 patch 插进拖动帧。松手或过渡结束 frozen 转 false，立刻回到实时值。
+const sheetInteractionActive = computed(() => mobileSheetDragging.value || sheetTransitioning.value)
+
+// 折叠态地图上的校车 ETA 胶囊：位置来自 provider.projectToScreen 投影 seam。
+const busEtaPills = useMapBusEta({
+  buses: busVehicles,
+  routes: busRoutes,
+  provider: mapProvider,
+  activeRouteId: busSelectedRouteId,
+  frozen: sheetInteractionActive
+})
+
+// T-031 B4：胶囊位移改为 rAF 逐帧直写 style.transform（不经过 Vue patch），
+// 拖动地图时与车点同帧；旧实现只在 150ms 车辆 tick 上挪一次，实测落后 64.9px。
+// 定位器接管后模板不再绑 :style，否则每次重渲染都会用冻结快照把逐帧写入覆盖回去。
+const busEtaLayerVisible = computed(() => mobileSheetState.value === 'collapsed')
+const busEtaPositionerActive = ref(false)
+const busEtaPositioner = useMapBusEtaPositioner({
+  layer: busEtaLayerElement,
+  pills: busEtaPills,
+  buses: busVehicles,
+  provider: mapProvider,
+  enabled: busEtaLayerVisible
+})
+watch(busEtaLayerVisible, (visible) => {
+  if (!visible) {
+    busEtaPositionerActive.value = false
+    busEtaPositioner.stop()
+    return
+  }
+  busEtaPositionerActive.value = true
+  nextTick(() => {
+    busEtaPositioner.syncOnce()
+    busEtaPositioner.start()
+  })
+}, { immediate: true })
+onBeforeUnmount(() => busEtaPositioner.stop())
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
@@ -1018,6 +1069,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     :data-glass-ready="mapGlassActive ? 'on' : 'off'"
     :data-glass-fps="mapGlassFps"
     :data-sheet-state="mobileSheetState"
+    :data-sheet-transition="sheetTransitioning ? 'on' : 'off'"
     :style="{ '--map-mobile-dock': `${mobileDockBottom}px` }"
   >
     <aside
@@ -1610,15 +1662,17 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <!-- 校车 ETA 胶囊：只在折叠态浮在地图上方；位置由投影 seam 给出，半屏/展开不显示。 -->
       <div
         v-if="mobileSheetState === 'collapsed'"
+        ref="busEtaLayerElement"
         class="pointer-events-none absolute inset-0 z-[19] md:hidden"
         data-bus-eta-layer
       >
         <MapBusEtaPill
           v-for="pill in busEtaPills"
           :key="pill.id"
+          :pill-id="pill.id"
           :label="pill.label"
           :eta-minutes="pill.etaMinutes"
-          :style="{ transform: pill.transform }"
+          :style="busEtaPositionerActive ? undefined : { transform: pill.transform }"
         />
       </div>
 
@@ -2540,6 +2594,13 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   }
 
   /* 底栏搜索框浮在地图上，占位文字要压得住底图（暗色尤其） */
+  /* T-031 B3：高度过渡只有 320ms，站列底部渐隐的 mask 会在这段时间里对面积不断变化的
+     整块面板重建合成层。过渡期先摘掉 mask，结束自动恢复；肉眼只差一条 24px 柔边。 */
+  .map-workspace[data-sheet-transition='on'] [data-bus-stops-fade] {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
   .map-workspace input[aria-label='搜索地图地点']::placeholder {
     color: color-mix(in srgb, var(--muted-ink) 82%, transparent);
   }
