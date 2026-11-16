@@ -1694,6 +1694,20 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             <button
               type="button"
               class="grid size-[38px] shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] text-zinc-600 active:bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] dark:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] dark:text-zinc-200"
+              :aria-label="tracking ? '停止实时定位' : '开启实时定位'"
+              :aria-pressed="tracking"
+              :disabled="locating"
+              @click="tracking ? toggleTracking() : locateUser()"
+            >
+              <UIcon
+                :name="tracking ? 'i-lucide-locate-fixed' : 'i-lucide-locate'"
+                class="size-4"
+                :class="tracking ? 'text-green-700 dark:text-green-300' : ''"
+              />
+            </button>
+            <button
+              type="button"
+              class="grid size-[38px] shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] text-zinc-600 active:bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] dark:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] dark:text-zinc-200"
               aria-label="拉起点位面板"
               @click="() => { mobileSheetState = 'half' }"
             >

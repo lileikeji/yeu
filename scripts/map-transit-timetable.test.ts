@@ -79,7 +79,9 @@ test('抽屉头走当前方向的线名与首末班', () => {
   assert.match(script, /function chipStateOf\(time: string\): 'past' \| 'next' \| 'future' \{/)
   assert.match(script, /const color = lineColor\(sheetActiveGroup\.value\.name\)/)
   assert.match(script, /backgroundColor: color,/)
-  assert.match(script, /color: '#ffffff',/)
+  assert.doesNotMatch(script, /color: '#ffffff'/, '下一班的白字交给模板 text-white 类，内联写死白色会被主题守卫拦下')
+  assert.match(template, /chipStateOf\(time\) === 'next'/, '模板按 next 状态上白字')
+  assert.match(template, /font-semibold text-white/, 'next 格子有 text-white，与 lineColor 实底一起保证对比度')
   assert.match(script, /boxShadow: `0 0 0 2px color-mix\(in srgb, \$\{color\} 30%, transparent\)`/)
 })
 
@@ -99,9 +101,9 @@ test('F4 抽屉一打开自动滚到下一班，三态拉出可辨差', () => {
   assert.match(template, /:ref="\(element: unknown\) => setChipRef\(time, element\)"/)
   assert.match(template, /'font-semibold text-white'/)
   assert.match(template, /'bg-zinc-100\/70 text-zinc-400 line-through decoration-zinc-300 dark:bg-zinc-800\/50 dark:text-zinc-500 dark:decoration-zinc-600'/, '已过＝灰底 + 删除线，不再用 60% 透明糊成一片')
-  assert.match(template, /bg-white\/90 [^"]*dark:border-zinc-800 dark:bg-zinc-950\/90/, '抽屉自带实底，避免贴着玻璃面板读不清')
+  assert.match(template, /bg-\[color-mix\(in_srgb,var\(--surface\)_90%,transparent\)\] [^"]*dark:border-zinc-800 dark:bg-zinc-950\/90/, '抽屉自带实底，避免贴着玻璃面板读不清')
   assert.match(template, /sticky top-0 z-10 -mx-3/, '表头吸附在抽屉顶，自动滚到下一班时不会被滚走')
-  assert.match(template, /'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'/)
+  assert.match(template, /'bg-\[var\(--surface\)\] text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'/)
   assert.match(template, /下一班 \$\{sheetNextChipTime \|\| '—'\}/)
 })
 

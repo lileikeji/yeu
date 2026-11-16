@@ -502,12 +502,12 @@ const sheetTimetableSections = computed(() => [
   { key: 'pm', label: '下午', times: sheetTimetable.value.pm }
 ].filter(section => section.times.length > 0))
 
-/** 首末班：接口的 beginTime / endTime 可能缺失，缺失时退回当日时刻表的首条与末条。 */
+/** 首末班：接口的 startTime / endTime 可能缺失，缺失时退回当日时刻表的首条与末条。 */
 const sheetFirstLast = computed(() => {
   const direction = sheetActiveDirection.value
   const times = [...sheetTimetable.value.am, ...sheetTimetable.value.pm]
   return {
-    first: direction?.beginTime || times[0] || '—',
+    first: direction?.startTime || times[0] || '—',
     last: direction?.endTime || times[times.length - 1] || '—'
   }
 })
@@ -557,7 +557,6 @@ const nextChipStyle = computed(() => {
   const color = lineColor(sheetActiveGroup.value.name)
   return {
     backgroundColor: color,
-    color: '#ffffff',
     boxShadow: `0 0 0 2px color-mix(in srgb, ${color} 30%, transparent)`
   }
 })
@@ -660,7 +659,7 @@ const snapshotText = computed(() => {
         :key="card.name"
         type="button"
         class="h-[68px] rounded-[16px] border px-2.5 text-left"
-        :class="card.active ? 'bg-white dark:bg-zinc-900' : 'border-zinc-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/60'"
+        :class="card.active ? 'bg-[var(--surface)] dark:bg-zinc-900' : 'border-zinc-200 bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-zinc-800 dark:bg-zinc-900/60'"
         :style="card.active ? { borderColor: lineColor(card.name), backgroundColor: lineColor(card.name) + '14' } : undefined"
         :aria-pressed="card.active"
         :aria-label="`选择 ${card.name}`"
@@ -808,11 +807,11 @@ const snapshotText = computed(() => {
 
     <div
       :inert="!drawerOpen"
-      class="scrollbar-none min-h-0 overflow-y-auto overscroll-contain border-t border-zinc-100 bg-white/90 px-3 pb-2 backdrop-blur-[3px] transition-[opacity] duration-200 ease-out dark:border-zinc-800 dark:bg-zinc-950/90"
+      class="scrollbar-none min-h-0 overflow-y-auto overscroll-contain border-t border-zinc-100 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] px-3 pb-2 backdrop-blur-[3px] transition-[opacity] duration-200 ease-out dark:border-zinc-800 dark:bg-zinc-950/90"
       :class="drawerOpen ? 'flex-1 opacity-100' : 'pointer-events-none max-h-0 flex-none border-t-0 !p-0 opacity-0'"
       aria-label="今日时刻表"
     >
-      <div class="sticky top-0 z-10 -mx-3 flex items-baseline gap-1.5 border-b border-zinc-100/70 bg-white/95 px-3 pt-2 pb-1 backdrop-blur-[3px] dark:border-zinc-800/70 dark:bg-zinc-950/95">
+      <div class="sticky top-0 z-10 -mx-3 flex items-baseline gap-1.5 border-b border-zinc-100/70 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] px-3 pt-2 pb-1 backdrop-blur-[3px] dark:border-zinc-800/70 dark:bg-zinc-950/95">
         <span class="text-[12px] font-semibold text-zinc-900 dark:text-zinc-100">今日时刻</span>
         <span
           class="text-[12px] font-semibold"
@@ -838,7 +837,7 @@ const snapshotText = computed(() => {
               ? 'bg-zinc-100/70 text-zinc-400 line-through decoration-zinc-300 dark:bg-zinc-800/50 dark:text-zinc-500 dark:decoration-zinc-600'
               : chipStateOf(time) === 'next'
                 ? 'font-semibold text-white'
-                : 'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'"
+                : 'bg-[var(--surface)] text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200'"
             :style="chipStateOf(time) === 'next' ? nextChipStyle : undefined"
             :aria-label="chipStateOf(time) === 'next' ? `下一班 ${time}` : undefined"
           >
