@@ -55,7 +55,8 @@ const {
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
-  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, redrawRound, clearRoster,
+  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn,
+  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -1591,7 +1592,15 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ entry.singer.name }}
                   </td>
                   <td class="px-3 py-2 text-zinc-600 dark:text-zinc-300">
-                    {{ entry.singer.song }}
+                    <input
+                      v-if="activeRound?.status !== 'closed'"
+                      :value="entrySongValue(entry)"
+                      class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
+                      :disabled="entrySongBusyId === entry.id"
+                      @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
+                      @change="saveEntrySong(activeRound!, entry)"
+                    >
+                    <span v-else>{{ entrySongValue(entry) }}</span>
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.singer.className || '—' }}

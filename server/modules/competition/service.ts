@@ -1805,6 +1805,32 @@ export function setRoundDay(
  * 现场签到：勾上这个人，评委与顺序评分立刻能看到；取消签到把他移出队列，
  * 如果正好是当前这位，指针一并清空。
  */
+/** 后台给某一轮的某位选手改曲目：只动这一轮的条目，其它轮不受影响。 */
+export function setEntrySong(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  song: string
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已经结束，曲目不能再改')
+  }
+  const entry = client.db.select().from(competitionRoundEntries)
+    .where(and(eq(competitionRoundEntries.id, entryId), eq(competitionRoundEntries.roundId, round.id)))
+    .get()
+  if (!entry) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '这条出场记录不存在' } })
+  }
+  const value = String(song ?? '').trim()
+  if (!value) validationError('曲目必填', 'song')
+  if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
+    validationError('曲目要填具体歌名，不能填「待定」', 'song')
+  }
+  if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
+  client.db.update(competitionRoundEntries).set({ song: value })
+    .where(eq(competitionRoundEntries.id, entryId)).run()
+}
+
 export function setEntryCheckIn(
   client: DatabaseClient,
   round: RoundRow,
@@ -3676,6 +3702,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
           singerId: row.singer.id,
           sortOrder: index + 1,
           advancedFromRank: row.rank ?? null,
+          // 先把当前这轮的歌带过去，之后各轮各改各的
+          song: (row.singer.song ?? '').trim() || null,
           createdAt: now
         }).run()
       })

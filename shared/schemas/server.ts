@@ -1431,6 +1431,11 @@ export const setCompetitionEntryDaySchema = z.object({
   day: z.number().int().min(1).max(2).nullable()
 }).strict()
 
+export const setCompetitionEntrySongSchema = z.object({
+  entryId: z.string().min(1).max(64),
+  song: z.string().trim().min(1).max(100)
+}).strict()
+
 export const setCompetitionEntryCheckInSchema = z.object({
   entryId: z.string().min(1).max(64),
   checkedIn: z.boolean()
