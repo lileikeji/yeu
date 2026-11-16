@@ -3692,39 +3692,112 @@ export function confirmReceiptByToken(client: DatabaseClient, token: string): Co
 export interface CompetitionSongFormState {
   singerName: string
   song: string
-  roundKey: CompetitionRoundKey
-  roundTitle: string
+  stageTitle: string
+  editable: boolean
+  reason: string
 }
 
-/** 晋级选手用邮件里的链接填复赛曲目：token 直接定位到人，不用再填三要素。 */
-function singerByReceiptToken(client: DatabaseClient, token: string) {
-  const row = client.db.select().from(competitionEmailReceipts)
-    .where(eq(competitionEmailReceipts.token, token))
-    .get()
-  if (!row) validationError('这个链接无效，请用邮件里的按钮重新打开', 'token')
-  const singer = client.db.select().from(competitionSingers)
-    .where(eq(competitionSingers.id, row.singerId))
-    .get()
-  if (!singer) validationError('这个链接无效，请用邮件里的按钮重新打开', 'token')
-  const round = client.db.select().from(competitionRounds)
-    .where(and(eq(competitionRounds.eventId, row.eventId), eq(competitionRounds.key, row.roundKey)))
-    .get()
-  if (!round) validationError('这个链接无效，请用邮件里的按钮重新打开', 'token')
-  return { row, singer, round }
+/** 晋级选手填复赛/决赛曲目：姓名 + 学号 + QQ 或邮箱三要素定位，和邮箱完全分开。 */
+function singerByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+) {
+  const name = normalizeLookup(input.name)
+  const studentNo = normalizeLookup(input.studentNo)
+  const contact = normalizeLookup(input.contact)
+  if (!name || !studentNo || !contact) {
+    validationError('姓名、学号、QQ 或邮箱三项都要填', !name ? 'name' : !studentNo ? 'studentNo' : 'contact')
+  }
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const byEmail = contact.includes('@')
+  const preRows = client.db.select().from(competitionPreRegistrations)
+    .where(eq(competitionPreRegistrations.eventId, eventRow.id))
+    .all()
+  const preKey = (row: { name?: string | null, studentNo?: string | null }) =>
+    `${normalizeLookup(row.name ?? undefined)}|${normalizeLookup(row.studentNo ?? undefined)}`
+  const preQq = new Map(preRows.filter(row => row.qq).map(row => [preKey(row), normalizeLookup(row.qq ?? undefined)]))
+  const preEmail = new Map(preRows.filter(row => row.email).map(row => [preKey(row), normalizeLookup(row.email ?? undefined)]))
+
+  const singer = listSingers(client, eventRow.id).find((item) => {
+    const itemName = normalizeLookup(item.name ?? undefined)
+    const itemNo = normalizeLookup(item.studentNo ?? undefined)
+    if (itemName !== name || itemNo !== studentNo) return false
+    if (byEmail) {
+      const itemEmail = normalizeLookup(item.email ?? undefined)
+        || preEmail.get(`${itemName}|${itemNo}`)
+        || ''
+      return itemEmail === contact
+    }
+    const itemQq = normalizeLookup(item.qq ?? undefined)
+      || normalizeLookup(qqFromEmail(item.email))
+      || preQq.get(`${itemName}|${itemNo}`)
+      || ''
+    return itemQq === contact
+  })
+  if (!singer) {
+    conflictError('COMPETITION_LOOKUP_NOT_FOUND', '姓名、学号、QQ 或邮箱对不上，请核对后重试')
+  }
+  return { singer, eventRow }
 }
 
-export function getSongFormState(client: DatabaseClient, token: string): CompetitionSongFormState {
-  const { singer, round } = singerByReceiptToken(client, token)
+/** 只有「上一轮已确认、本人被勾进下一轮」的选手才能改曲目。 */
+function songStage(client: DatabaseClient, eventId: string, singerId: string) {
+  const rounds = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventId))
+    .orderBy(asc(competitionRounds.position))
+    .all()
+  for (let index = 0; index < rounds.length; index += 1) {
+    const current = rounds[index]!
+    const entry = client.db.select().from(competitionRoundEntries)
+      .where(and(
+        eq(competitionRoundEntries.roundId, current.id),
+        eq(competitionRoundEntries.singerId, singerId)
+      ))
+      .get()
+    if (!entry) continue
+    const confirmed = current.rosterConfirmedAt !== null && entry.advanced === 1
+    const next = rounds[index + 1] ?? null
+    return {
+      editable: confirmed,
+      stageTitle: next ? next.title : current.title,
+      reason: confirmed
+        ? ''
+        : current.rosterConfirmedAt === null
+          ? '晋级名单还没确认，等组委会确认完再来填'
+          : '你这一轮没有晋级，不用填新曲目'
+    }
+  }
+  return { editable: false, stageTitle: '', reason: '没找到你的出场记录，先确认已经登台唱过' }
+}
+
+export function getSongEditor(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+): CompetitionSongFormState {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
   return {
     singerName: singer.name,
     song: singer.song ?? '',
-    roundKey: round.key as CompetitionRoundKey,
-    roundTitle: round.title
+    stageTitle: stage.stageTitle,
+    editable: stage.editable,
+    reason: stage.reason
   }
 }
 
-export function updateSongByToken(client: DatabaseClient, token: string, song: string): CompetitionSongFormState {
-  const { singer, round } = singerByReceiptToken(client, token)
+export function submitSongByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  song: string
+): CompetitionSongFormState {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  if (!stage.editable) {
+    conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能改曲目')
+  }
   const value = String(song ?? '').trim()
   if (!value) validationError('曲目必填，请填具体歌名', 'song')
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
@@ -3737,8 +3810,9 @@ export function updateSongByToken(client: DatabaseClient, token: string, song: s
   return {
     singerName: singer.name,
     song: value,
-    roundKey: round.key as CompetitionRoundKey,
-    roundTitle: round.title
+    stageTitle: stage.stageTitle,
+    editable: true,
+    reason: ''
   }
 }
 
