@@ -23,6 +23,10 @@ const props = defineProps<{
   selectedDirection?: string
   /** 「我」的当前位置（已转成 GCJ-02）；没定位时为空。 */
   location?: { lng: number, lat: number } | null
+  /** sheet = 手机底部面板里的视图；overlay = 桌面浮层（默认，行为不变）。 */
+  variant?: 'overlay' | 'sheet'
+  /** sheet 变体：时刻表抽屉是否展开（由页面持有，返回栈要用）。 */
+  drawerOpen?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -31,6 +35,10 @@ const emit = defineEmits<{
   'focus-vehicle': [payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }]
   'select-direction': [line: ApiBusLineDirection]
   'change-line': [line: string]
+  /** sheet 变体：头部「‹ 我的地图」退回上一层。 */
+  'back': []
+  /** sheet 变体：底栏「时刻表 ›」开关抽屉。 */
+  'update:drawerOpen': [value: boolean]
 }>()
 
 const LINE_ORDER = ['K2', 'K6'] as const
@@ -84,7 +92,6 @@ function vehiclesOf(direction: ApiBusLineDirection): ApiBusLiveDirection['vehicl
   const list = liveOf(direction)?.vehicles ?? []
   return [...list].sort((a, b) => (a.distanceToNext ?? 99999) - (b.distanceToNext ?? 99999))
 }
-
 
 /** 简略图：站点、在途车辆与「我」都投影到同一条沿线里程轴上（0→100%）。 */
 interface Schematic {
@@ -227,6 +234,99 @@ function toggleDirection(direction: ApiBusLineDirection): void {
   emit('select-direction', direction)
 }
 
+// ── T-029：手机面板内的校外公交视图（variant="sheet"）──
+const sheetTitle = computed(() => ['校外公交', ...lineNames.value].join(' · '))
+
+const sheetLineGroups = computed(() => lineNames.value.map(name => ({
+  name,
+  directions: props.directions.filter(item => item.line === name)
+})))
+
+/** 站列默认只展开起终点与最近两站，中间折叠成一行「⋯ 中间 N 站」；点开后在视图内展开。 */
+const sheetStopsExpanded = ref<Record<string, boolean>>({})
+
+type SheetStopRow
+  = | { kind: 'stop', key: string, stop: ApiBusLineDirection['stops'][number] }
+    | { kind: 'fold', key: string, count: number }
+
+function sheetStopRows(direction: ApiBusLineDirection): SheetStopRow[] {
+  const stops = direction.stops
+  if (!stops.length) return []
+  if (sheetStopsExpanded.value[direction.id]) {
+    return stops.map((stop, index) => ({ kind: 'stop', key: `stop-${direction.id}-${index}`, stop }))
+  }
+  const keep = new Set<number>([0, stops.length - 1])
+  const location = props.location
+  if (location) {
+    stops
+      .map((stop, index) => ({
+        index,
+        meters: Math.hypot((location.lng - stop.lng) * 96_000, (location.lat - stop.lat) * 110_540)
+      }))
+      .sort((a, b) => a.meters - b.meters)
+      .slice(0, 2)
+      .forEach((item) => { keep.add(item.index) })
+  }
+  const rows: SheetStopRow[] = []
+  let folded = 0
+  const flush = (): void => {
+    if (!folded) return
+    rows.push({ kind: 'fold', key: `fold-${direction.id}-${rows.length}`, count: folded })
+    folded = 0
+  }
+  stops.forEach((stop, index) => {
+    if (!keep.has(index)) {
+      folded += 1
+      return
+    }
+    flush()
+    rows.push({ kind: 'stop', key: `stop-${direction.id}-${index}`, stop })
+  })
+  flush()
+  return rows
+}
+
+function toggleSheetStops(direction: ApiBusLineDirection): void {
+  sheetStopsExpanded.value = {
+    ...sheetStopsExpanded.value,
+    [direction.id]: !sheetStopsExpanded.value[direction.id]
+  }
+}
+
+/** 底栏与抽屉都跟「当前方向」走：优先地图上只看的那条，否则第一个方向。 */
+const sheetActiveDirection = computed<ApiBusLineDirection | null>(() => {
+  const list = lineDirections.value
+  return list.find(item => item.id === props.selectedDirection) ?? list[0] ?? null
+})
+
+const sheetNextBus = computed(() => sheetActiveDirection.value ? nextDeparture(sheetActiveDirection.value) : '')
+
+const sheetTodayCount = computed(() => {
+  const direction = sheetActiveDirection.value
+  if (!direction) return 0
+  const departures = departuresOf(direction)
+  return departures ? departures.groups.reduce((total, group) => total + group.times.length, 0) : 0
+})
+
+const sheetDrawerGroups = computed(() => {
+  const direction = sheetActiveDirection.value
+  if (!direction) return []
+  return departuresOf(direction)?.groups ?? []
+})
+
+/** 已经开走的班次置灰；时刻表只覆盖当天，所以按「时 * 60 + 分」直接比。 */
+function isPastDeparture(time: string): boolean {
+  const [hour, minute] = time.split(':').map(Number)
+  if (hour === undefined || minute === undefined || !Number.isFinite(hour) || !Number.isFinite(minute)) return false
+  const now = new Date()
+  return hour * 60 + minute < now.getHours() * 60 + now.getMinutes()
+}
+
+watch([() => props.variant, lineDirections], () => {
+  if (props.variant !== 'sheet' || expandedId.value) return
+  expandedId.value = lineDirections.value[0]?.id ?? ''
+}, { immediate: true })
+
 const snapshotText = computed(() => {
   if (!props.fetchedAt) return ''
   const date = new Date(props.fetchedAt)
@@ -238,9 +338,139 @@ const snapshotText = computed(() => {
 </script>
 
 <template>
+  <!-- T-029：手机面板内的校外公交视图。头部固定、内容滚动、底栏 48px，点开时刻表抽屉最长 268px。 -->
+  <section
+    v-if="variant === 'sheet'"
+    class="flex h-full min-h-0 flex-col"
+    aria-label="校外公交线路"
+  >
+    <header class="flex h-11 shrink-0 items-center gap-1 px-2">
+      <button
+        type="button"
+        class="flex min-h-9 shrink-0 items-center rounded-md px-1.5 text-[13px] font-medium text-zinc-600 active:bg-zinc-100 dark:text-zinc-300 dark:active:bg-zinc-800"
+        aria-label="返回我的地图"
+        @click="emit('back')"
+      >
+        <UIcon name="i-lucide-chevron-left" class="size-4 shrink-0" />
+        我的地图
+      </button>
+      <h2 class="min-w-0 flex-1 truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
+        {{ sheetTitle }}
+      </h2>
+      <span v-if="snapshotText" class="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
+        快照 {{ snapshotText }}
+      </span>
+    </header>
+
+    <div class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-2" aria-label="线路与站点">
+      <article
+        v-for="group in sheetLineGroups"
+        :key="group.name"
+        class="mb-2 rounded-[14px] border border-zinc-100 p-2 dark:border-zinc-800"
+      >
+        <div class="flex items-center gap-1.5">
+          <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: lineColor(group.name) }" />
+          <span class="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">{{ group.name }}</span>
+          <span class="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">{{ group.directions.length }} 个方向</span>
+        </div>
+
+        <div class="mt-1 grid grid-cols-2 gap-1">
+          <button
+            v-for="direction in group.directions"
+            :key="direction.id"
+            type="button"
+            class="flex min-h-9 flex-col items-start rounded-[10px] px-2 py-1 text-left"
+            :class="expandedId === direction.id ? 'bg-zinc-100 dark:bg-zinc-800' : 'bg-zinc-50 dark:bg-zinc-900/60'"
+            :aria-expanded="expandedId === direction.id"
+            @click="toggleDirection(direction)"
+          >
+            <span class="w-full truncate text-[11px] font-medium text-zinc-800 dark:text-zinc-100">
+              {{ direction.from }} → {{ direction.to }}
+            </span>
+            <span class="w-full truncate text-[10px] text-zinc-500 dark:text-zinc-400">
+              末 {{ direction.endTime }} · {{ direction.distanceKm }} km · {{ priceText(direction) }}
+            </span>
+          </button>
+        </div>
+
+        <template v-for="direction in group.directions" :key="`stops-${direction.id}`">
+          <ol v-if="expandedId === direction.id" class="mt-1" aria-label="站点">
+            <li v-for="row in sheetStopRows(direction)" :key="row.key">
+              <button
+                v-if="row.kind === 'stop'"
+                type="button"
+                class="flex min-h-8 w-full items-center gap-2 rounded-md px-1 py-1 text-left text-xs text-zinc-600 active:bg-green-50 dark:text-zinc-300 dark:active:bg-green-950/60"
+                @click="emit('focus-stop', { lng: row.stop.lng, lat: row.stop.lat })"
+              >
+                <span class="w-4 shrink-0 text-right text-[10px] tabular-nums text-zinc-400">{{ row.stop.seq }}</span>
+                <span class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600" />
+                <span class="truncate">{{ row.stop.name }}</span>
+              </button>
+              <button
+                v-else
+                type="button"
+                class="flex min-h-8 w-full items-center gap-1 rounded-md px-1 text-left text-[11px] text-zinc-400 active:bg-zinc-100 dark:text-zinc-500 dark:active:bg-zinc-800"
+                :aria-label="`展开中间 ${row.count} 站`"
+                @click="toggleSheetStops(direction)"
+              >
+                <span class="w-4 shrink-0 text-right">⋯</span>
+                <span>中间 {{ row.count }} 站（点开）</span>
+              </button>
+            </li>
+          </ol>
+        </template>
+      </article>
+
+      <p v-if="!directions.length" class="px-3 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+        公交线路加载中…
+      </p>
+    </div>
+
+    <footer class="flex h-12 shrink-0 items-center gap-2 border-t border-zinc-100 px-3 dark:border-zinc-800">
+      <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">下一班 {{ sheetNextBus || '—' }}</span>
+      <span class="text-[11px] text-zinc-500 dark:text-zinc-400">· 今日 {{ sheetTodayCount }} 班</span>
+      <button
+        type="button"
+        class="ml-auto flex min-h-9 items-center rounded-md px-1.5 text-[11px] font-medium text-blue-600 active:bg-blue-50 dark:text-blue-400 dark:active:bg-blue-950/40"
+        :aria-expanded="drawerOpen === true"
+        aria-label="打开今日时刻表"
+        @click="emit('update:drawerOpen', !drawerOpen)"
+      >
+        时刻表 ›
+      </button>
+    </footer>
+
+    <div
+      v-if="drawerOpen"
+      class="scrollbar-none max-h-[268px] shrink-0 overflow-y-auto overscroll-contain border-t border-zinc-100 px-3 pb-2 dark:border-zinc-800"
+      aria-label="今日时刻表"
+    >
+      <div v-for="group in sheetDrawerGroups" :key="group.group" class="mt-1.5">
+        <p class="text-[10px] text-zinc-400 dark:text-zinc-500">
+          {{ group.group }}
+        </p>
+        <p class="mt-1 flex flex-wrap gap-1">
+          <span
+            v-for="time in group.times"
+            :key="time"
+            class="rounded px-1 py-0.5 text-[10px] tabular-nums"
+            :class="time === sheetNextBus
+              ? 'bg-blue-600 font-semibold text-white'
+              : isPastDeparture(time) ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-600 dark:text-zinc-300'"
+          >
+            {{ time }}
+          </span>
+        </p>
+      </div>
+      <p v-if="!sheetDrawerGroups.length" class="py-3 text-center text-[11px] text-zinc-400 dark:text-zinc-500">
+        时刻表加载中…
+      </p>
+    </div>
+  </section>
+
   <!-- 收起态：地图左下角浮钮 -->
   <UButton
-    v-if="!open"
+    v-else-if="!open"
     icon="i-lucide-bus"
     label="公交线路"
     color="neutral"
