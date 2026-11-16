@@ -8,7 +8,7 @@ import { calculateCompetitionTotal } from '~~/shared/utils/competition'
 import { adminFetch } from '~~/app/utils/admin-request'
 import { apiErrorMessage } from './useCompetitionRoster'
 
-export type CompetitionExportKind = 'detail' | 'summary' | 'advancing'
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain'
 
 export interface UseCompetitionScoresOptions {
   /** 当前维度定义（来自 settings.dimensions，改权重后立刻跟着变）。 */
