@@ -2946,6 +2946,15 @@ function groupButtonHtml(url: string): string {
   return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto;"><tr><td align="center" bgcolor="#0f766e" style="border-radius:999px;"><a href="${href}" style="display:inline-block;padding:10px 22px;border-radius:999px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">点我加入 QQ 群</a></td></tr></table>`
 }
 
+function songButtonHtml(url: string): string {
+  return [
+    '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto;"><tr>',
+    '<td align="center" bgcolor="#0f766e" style="border-radius:999px;">',
+    `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:11px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">填写下一轮曲目</a>`,
+    '</td></tr></table>'
+  ].join('')
+}
+
 function receiptButtonHtml(url: string): string {
   // 用 table 做按钮：QQ 邮箱、Gmail 会剥掉 <a> 上的背景与内边距，只有 table + bgcolor 能保住样式。
   // 只给按钮、不把链接文字露在外面；点不动时学生还能在「查询结果」页用姓名+学号+QQ 自助确认。
@@ -2961,7 +2970,8 @@ export function competitionEmailBodyToHtml(
   body: string,
   images: CompetitionEmailImageBinary[] = [],
   receiptUrl = '',
-  qqGroupUrl = ''
+  qqGroupUrl = '',
+  songUrl = ''
 ): string {
   const byId = new Map(images.map(image => [image.id, image]))
   const escape = (text: string): string => text
@@ -2992,6 +3002,7 @@ export function competitionEmailBodyToHtml(
   } else {
     html = html.split('{{加群按钮}}').join('')
   }
+  html = songUrl ? html.split('{{填歌按钮}}').join(songButtonHtml(songUrl)) : html.split('{{填歌按钮}}').join('')
   return html
 }
 
@@ -2999,7 +3010,7 @@ export function buildEmailVariables(
   round: RoundRow,
   entry: CompetitionRoundEntry,
   singer: CompetitionSinger,
-  context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string } = {}
+  context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string, songUrl?: string } = {}
 ): Record<string, string> {
   void entry
   return {
@@ -3010,7 +3021,8 @@ export function buildEmailVariables(
     轮次: round.title,
     届次: context.edition || '新声歌手大赛',
     收到按钮: context.receiptUrl || '',
-    加群按钮: context.qqGroupUrl || ''
+    加群按钮: context.qqGroupUrl || '',
+    填歌按钮: context.songUrl || ''
   }
 }
 
