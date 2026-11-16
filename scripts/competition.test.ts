@@ -1604,6 +1604,16 @@ test('数据库：三要素查询只在发信后开放，回执点一次就记�
   closeDatabase(':memory:')
 })
 
+test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', () => {
+  const url = 'https://yx.huiliyill.cn/singer/result?token=abc123'
+  const html = competitionEmailBodyToHtml(`请点这里确认：${url}\n音乐协会`, [], url)
+  assert.match(html, new RegExp(`<a href="${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`))
+  assert.match(html, /我已收到/)
+  // 没有回执链接时保持纯文本，不留空按钮
+  const plain = competitionEmailBodyToHtml('正文', [], '')
+  assert.doesNotMatch(plain, /我已收到/)
+})
+
 test('数据库：一键提醒只发没签到的预报名，签到的跳过', () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

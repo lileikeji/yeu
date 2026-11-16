@@ -79,10 +79,7 @@ export default defineEventHandler(async (event) => {
         to: recipient.singer.email!,
         subject,
         text: body,
-        html: competitionEmailBodyToHtml(body, images).replace(
-          receiptUrl,
-          `<a href="${receiptUrl}" style="display:inline-block;padding:10px 22px;border-radius:999px;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:600;">我已收到</a>`
-        ),
+        html: competitionEmailBodyToHtml(body, images, receiptUrl),
         attachments: emailImageAttachments(body, images)
       }, { fromName: '仰恩大学音乐协会' })
       recordEmailSend(client, competition.id, roundKey, recipient.singer.id, recipient.singer.email!, 'sent', null)
