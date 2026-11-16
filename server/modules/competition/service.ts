@@ -981,7 +981,7 @@ function buildRoundRanking(
 
 // -- 导出（后台名单） ----------------------------------------------------------
 
-export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed'
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain'
 
 function csvCell(value: unknown): string {
   const text = String(value ?? '')
@@ -1115,6 +1115,51 @@ export function buildCompetitionExport(
         row.scoreCount,
         row.average === null ? '' : row.average.toFixed(2),
         row.rank ?? ''
+      ])
+    })
+  } else if (kind === 'confirmed-plain') {
+    const contactRows = client.db.select().from(competitionSingers)
+      .where(eq(competitionSingers.eventId, round.eventId))
+      .all()
+    const contactById = new Map(contactRows.map(row => [row.id, row]))
+    if (round.rosterConfirmedAt === null) {
+      conflictError('ROSTER_NOT_CONFIRMED', '先确认晋级名单，再导出确认后的名单')
+    }
+    // 不带成绩的名单：按姓名首字拼音排（同首字再按整个姓名，最后按出场顺序），方便现场点名。
+    const plainCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+    const plainRows = ranking
+      .filter(row => entryBySinger.get(row.singer.id)?.advanced === 1)
+      .sort((left, right) =>
+        plainCollator.compare(left.singer.name.slice(0, 1), right.singer.name.slice(0, 1))
+        || plainCollator.compare(left.singer.name, right.singer.name)
+        || (left.sortOrder - right.sortOrder)
+      )
+    label = '晋级名单（不带成绩）'
+    rows.push([
+      '序号',
+      '选手',
+      '班级',
+      '学号',
+      'QQ',
+      '邮箱',
+      '电话',
+      '歌曲',
+      '参赛天',
+      '出场顺序'
+    ])
+    plainRows.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      rows.push([
+        index + 1,
+        row.singer.name,
+        row.singer.className ?? '',
+        contactById.get(row.singer.id)?.studentNo ?? '',
+        contactById.get(row.singer.id)?.qq ?? '',
+        contactById.get(row.singer.id)?.email ?? '',
+        contactById.get(row.singer.id)?.phone ?? '',
+        row.singer.song,
+        dayLabelOf(entry?.contestDay ?? null),
+        (entry && daySequence.get(entry.id)) || ''
       ])
     })
   } else {
