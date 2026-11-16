@@ -606,7 +606,9 @@ function finishMobileSheetDrag(pointerId?: number): void {
 }
 
 function handleMobileSheetPointerDown(event: PointerEvent): void {
-  if (!event.isPrimary || mobileSheetState.value === 'collapsed' || mobileSheetDragging.value) return
+  if (!event.isPrimary || mobileSheetDragging.value) return
+  // 叮叮车折叠后是 84px 常驻条，这是它唯一的抬手势入口；其余视图折叠即无面板，仍拒绝起拖。
+  if (mobileSheetState.value === 'collapsed' && mapSheetView.value !== 'bus') return
   const target = event.target
   const explicitDragHandle = target instanceof HTMLElement
     ? target.closest('[data-sheet-drag-handle]')

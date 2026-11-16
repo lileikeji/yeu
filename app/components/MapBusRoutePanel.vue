@@ -526,7 +526,7 @@ function markerBarTop(ratio: number): string {
             v-for="marker in busMarkers"
             :key="'dot-' + marker.busId"
             aria-hidden="true"
-            class="pointer-events-none absolute left-0 z-20 -translate-y-1/2"
+            class="pointer-events-none absolute left-[4px] z-20 -translate-x-1/2 -translate-y-1/2"
             :style="{ top: markerBarTop(marker.anchorRatio) }"
           >
             <span class="block size-3.5 rounded-full bg-[var(--bus-accent)] ring-2 ring-[var(--surface)]" />
