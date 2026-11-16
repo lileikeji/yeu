@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>六方向首屏缩略图 · 迎新指南首页探索</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    background: #eceae4;
+    color: #1c1e1d;
+    padding: 28px;
+  }
+  .board-head {
+    max-width: 1460px;
+    margin: 0 auto 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1.5px solid #c9c5bc;
+    padding-bottom: 12px;
+  }
+  .board-head h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .board-head p { font-size: 13px; color: #525653; }
+  .grid {
+    max-width: 1460px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #d4d1c9;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .card.selected {
+    border: 2px solid #135d3b;
+    box-shadow: 0 8px 24px rgba(19, 93, 59, 0.12);
+  }
+  .thumb-frame {
+    width: 100%;
+    height: 295px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid #e2dfd7;
+  }
+  .card-meta {
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    background: #faf9f6;
+  }
+  .card-title { font-size: 14px; font-weight: 700; color: #161817; }
+  .card-sub { font-size: 12px; color: #555956; margin-top: 2px; }
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .badge-pick { background: #135d3b; color: #fff; }
+  .badge-alt { background: #e5e2da; color: #444744; }
+
+  /* 1. 吕敬人折页 */
+  .t1 { background: #F7F5EE; display: grid; grid-template-columns: 44px 1fr 185px; height: 100%; color: #0F2D2E; }
+  .t1-rail { border-right: 1px solid #D8E2DD; writing-mode: vertical-rl; display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 12px; color: #4A6363; letter-spacing: 0.12em; }
+  .t1-main { padding: 18px 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .t1-brand { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; }
+  .t1-brand img { width: 18px; height: 18px; }
+  .t1-h { font-family: "Songti SC", "Noto Serif SC", serif; font-size: 26px; line-height: 1.25; font-weight: 900; margin-top: 8px; }
+  .t1-lead { font-size: 12px; line-height: 1.6; color: #465B5B; margin-top: 6px; }
+  .t1-search { border: 1px solid #0F2D2E; background: #fff; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 10px; font-size: 12px; color: #5C6F6F; margin-top: 10px; }
+  .t1-search span:last-child { background: #C84B24; color: #fff; font-size: 11px; padding: 4px 8px; font-weight: 700; }
+  .t1-links { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #D8E2DD; padding-top: 8px; gap: 4px 10px; font-size: 12px; font-weight: 700; }
+  .t1-art { border-left: 1px solid #D8E2DD; position: relative; background: #F5F2EA; overflow: hidden; }
+  .t1-art img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+  .t1-seal { position: absolute; right: 10px; bottom: 10px; background: #C84B24; color: #fff; font-size: 11px; padding: 4px 6px; font-weight: 700; }
+
+  /* 2. Vignelli 瑞士导视 */
+  .t2 { background: #FFFFFF; border-top: 5px solid #111413; display: grid; grid-template-rows: 34px 1fr 84px; height: 100%; color: #111413; }
+  .t2-top { border-bottom: 1px solid #111413; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 12px; font-weight: 700; }
+  .t2-pill { background: #D94F1A; color: #fff; padding: 2px 7px; font-size: 11px; }
+  .t2-mid { display: grid; grid-template-columns: 1.35fr 1fr; }
+  .t2-left { padding: 14px; border-right: 1px solid #111413; display: flex; flex-direction: column; justify-content: space-between; }
+  .t2-h { font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: -0.03em; }
+  .t2-bar { display: flex; border: 1.5px solid #111413; height: 34px; align-items: center; justify-content: space-between; padding-left: 8px; font-size: 12px; color: #555; }
+  .t2-bar b { background: #135D3B; color: #fff; height: 100%; display: grid; place-items: center; padding: 0 10px; font-size: 12px; }
+  .t2-right { display: grid; grid-template-rows: 1fr auto; }
+  .t2-photo { overflow: hidden; border-bottom: 1px solid #111413; }
+  .t2-photo img { width: 100%; height: 100%; object-fit: cover; object-position: left center; }
+  .t2-dates { padding: 8px 10px; font-size: 12px; line-height: 1.5; background: #F2F4F2; }
+  .t2-bot { border-top: 1px solid #111413; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .t2-cell { padding: 10px; border-right: 1px solid #111413; font-size: 12px; font-weight: 700; display: flex; flex-direction: column; justify-content: space-between; }
+  .t2-cell:last-child { border-right: none; }
+  .t2-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* 3. Dir-1 湖山实景画报 */
+  .t3 { background: #FAFAF7; height: 100%; display: grid; grid-template-rows: 28px 1fr 54px; }
+  .t3-notice { background: #182420; color: #F5E6D3; font-size: 12px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; }
+  .t3-hero { position: relative; overflow: hidden; margin: 10px 12px 8px; border-radius: 10px; }
+  .t3-hero img { width: 100%; height: 100%; object-fit: cover; object-position: 35% 35%; transform: scale(1.06); }
+  .t3-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(16,32,27,0.28) 0%, rgba(16,32,27,0.82) 100%); }
+  .t3-content { position: absolute; inset: 14px; display: flex; flex-direction: column; justify-content: flex-end; color: #fff; }
+  .t3-content h2 { font-size: 24px; font-weight: 800; line-height: 1.15; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+  .t3-search { margin-top: 10px; background: rgba(255,255,255,0.96); border-radius: 8px; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 10px; color: #525955; font-size: 12px; }
+  .t3-search b { background: #0F5C4D; color: #fff; border-radius: 6px; padding: 4px 10px; font-size: 12px; }
+  .t3-strip { padding: 0 12px 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .t3-q { background: #fff; border: 1px solid #E1E5E0; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #182420; }
+
+  /* 4. Dir-2 现代校园工作台 */
+  .t4 { background: #F1F4F1; height: 100%; padding: 10px 12px; display: grid; grid-template-rows: 28px 1fr; gap: 10px; color: #17201B; }
+  .t4-bar { background: #FFF5ED; border: 1px solid #F6CFB4; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; font-size: 12px; color: #8D320A; font-weight: 600; }
+  .t4-split { display: grid; grid-template-columns: 1.15fr 0.95fr; gap: 10px; min-height: 0; }
+  .t4-left { background: #fff; border: 1px solid #DCE2DC; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; }
+  .t4-h { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .t4-input { border: 1.5px solid #176F46; border-radius: 8px; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 10px; font-size: 12px; color: #5C6560; }
+  .t4-input b { background: #176F46; color: #fff; border-radius: 6px; padding: 4px 9px; font-size: 12px; }
+  .t4-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .t4-chip { background: #F6F8F6; border: 1px solid #E3E8E3; border-radius: 6px; padding: 6px 8px; font-size: 12px; font-weight: 600; }
+  .t4-right { background: #123627; color: #F2F7F4; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; }
+  .t4-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: rgba(255,255,255,0.1); padding: 3px; border-radius: 6px; font-size: 12px; text-align: center; }
+  .t4-tabs span.on { background: #fff; color: #123627; border-radius: 4px; font-weight: 700; padding: 2px 0; }
+  .t4-tasks { font-size: 12px; line-height: 1.65; color: #D7E8DF; }
+  .t4-prog { background: rgba(255,255,255,0.12); border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+  .t4-track { height: 6px; background: rgba(255,255,255,0.2); border-radius: 99px; margin-top: 5px; overflow: hidden; }
+  .t4-fill { width: 35%; height: 100%; background: #5CD69C; }
+
+  /* 5. 纯 CSS 几何画 */
+  .t5 { background: #FAF3E0; height: 100%; padding: 16px; display: grid; grid-template-columns: 1fr 205px; gap: 14px; color: #122036; }
+  .t5-left { display: flex; flex-direction: column; justify-content: space-between; }
+  .t5-h { font-size: 27px; font-weight: 900; line-height: 1.12; }
+  .t5-h mark { background: #EC534A; color: #fff; padding: 0 5px; }
+  .t5-sub { font-size: 12px; line-height: 1.5; color: #36455E; margin-top: 8px; }
+  .t5-search { background: #fff; border: 2px solid #122036; border-radius: 8px; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 8px; font-size: 12px; }
+  .t5-search b { background: #122036; color: #F7C631; padding: 4px 8px; border-radius: 5px; }
+  .t5-art { background: #122036; position: relative; overflow: hidden; box-shadow: 6px 6px 0 #EC534A; }
+  .t5-sun { position: absolute; right: 18px; top: 18px; width: 46px; height: 46px; border-radius: 50%; background: #F7C631; }
+  .t5-mtn1 { position: absolute; left: -10px; bottom: 56px; width: 120px; height: 120px; background: #176F46; border-radius: 50% 50% 0 0; }
+  .t5-mtn2 { position: absolute; right: -14px; bottom: 52px; width: 130px; height: 110px; background: #1FA38B; border-radius: 60% 40% 0 0; }
+  .t5-bldg { position: absolute; left: 26px; bottom: 54px; width: 58px; height: 42px; background: #FAF3E0; border-top: 7px solid #EC534A; }
+  .t5-lake { position: absolute; inset: auto 0 0 0; height: 56px; background: repeating-linear-gradient(180deg, #1FA38B 0 9px, #122036 9px 15px); }
+
+  /* 6. Dir-3 田中一光东方几何 */
+  .t6 { background: #EFECE4; height: 100%; padding: 14px; display: grid; grid-template-columns: 175px 62px 1fr; gap: 12px; color: #161614; border-bottom: 2px solid #161614; }
+  .t6-geo { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 22px; gap: 0; height: 100%; }
+  .t6-q1 { background: #C93B20; display: grid; place-items: center; }
+  .t6-q1 span { width: 44px; height: 44px; border-radius: 50%; background: #EFECE4; }
+  .t6-q2 { background: #161614; border-radius: 0 100% 0 0; }
+  .t6-q3 { background: #165E4B; border-radius: 0 0 0 100%; }
+  .t6-q4 { background: #DFAA2B; position: relative; }
+  .t6-q4::after { content: ""; position: absolute; inset: 14px 0 0 14px; background: #161614; border-radius: 100% 0 0 0; }
+  .t6-bars { grid-column: 1 / -1; background: repeating-linear-gradient(90deg, #161614 0 10px, transparent 10px 20px); margin-top: 8px; }
+  .t6-vert { writing-mode: vertical-rl; font-family: "Songti SC", "Noto Serif SC", serif; font-size: 32px; font-weight: 900; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; border-left: 1px solid #C8C3B8; border-right: 1px solid #C8C3B8; }
+  .t6-info { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; }
+  .t6-tag { color: #C93B20; font-weight: 800; font-size: 12px; margin-bottom: 2px; }
+  .t6-search { border: 1.5px solid #161614; background: #FAF8F3; height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 0 0 8px; font-size: 12px; }
+  .t6-search b { background: #C93B20; color: #fff; height: 100%; display: grid; place-items: center; padding: 0 9px; }
+  .t6-foot { border-top: 1.5px solid #161614; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; }
+  .t6-reddot { width: 11px; height: 11px; border-radius: 50%; background: #C93B20; }
+</style>
+</head>
+<body>
+  <header class="board-head">
+    <div>
+      <h1>仰恩大学迎新指南首页 · 六个候选方向缩略图</h1>
+      <p>三套逻辑各出 2 版，挑选骨架最不同、最契合校园题材的 3 版做完整交互初稿（其余 3 版保留作备选）</p>
+    </div>
+    <p>2026级新生 · 真实资产：校园航拍 / 手绘地图 / 品牌徽标</p>
+  </header>
+
+  <main class="grid">
+    <!-- 1 -->
+    <article class="card">
+      <div class="thumb-frame" data-thumb="1">
+        <div class="t1">
+          <div class="t1-rail">目录 · 时间 · 查询 · 清单 · 求助</div>
+          <div class="t1-main">
+            <div>
+              <div class="t1-brand"><img src="../public/images/brand/system-logo-mark-light.png" alt="">迎新指南 / 学生整理</div>
+              <div class="t1-h">2026级<br>新生入学指南</div>
+              <p class="t1-lead">9月5–6日报到，按入学当天顺序翻阅全校指引。</p>
+              <div class="t1-search"><span>搜索校园信息或提问</span><span>AI 搜索</span></div>
+            </div>
+            <div class="t1-links">
+              <span>报到安排</span><span>校园地图</span>
+              <span>校园网卡</span><span>快递外卖</span>
+            </div>
+          </div>
+          <div class="t1-art">
+            <img src="../public/images/posters/freshman-guide-campus-map.png" alt="仰恩校园手绘地形图">
+            <span class="t1-seal">校园图志</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div>
+          <div class="card-title">候选 1 · 吕敬人书籍折页秩序</div>
+          <div class="card-sub">最佳设计师 A｜手绘校园图跨页 + 左侧竖排目录轨</div>
+        </div>
+        <span class="badge badge-alt">备选</span>
+      </div>
+    </article>
+
+    <!-- 2 -->
+    <article class="card">
+      <div class="thumb-frame" data-thumb="2">
+        <div class="t2">
+          <div class="t2-top">
+            <span>迎新导视 SYSTEM</span>
+            <span class="t2-pill">9月5–6日 注册报到</span>
+          </div>
+          <div class="t2-mid">
+            <div class="t2-left">
+              <div class="t2-h">2026级<br>入学指南</div>
+              <div class="t2-bar"><span>输入宿舍/教学楼/问题</span><b>AI 检索</b></div>
+            </div>
+            <div class="t2-right">
+              <div class="t2-photo"><img src="../public/images/intro/yeu-campus-hero.webp" alt="校园航拍"></div>
+              <div class="t2-dates"><strong>09.05</strong> 报到 · <strong>09.10</strong> 开课</div>
+            </div>
+          </div>
+          <div class="t2-bot">
+            <div class="t2-cell"><span class="t2-dot" style="background:#135D3B"></span>报到安排</div>
+            <div class="t2-cell"><span class="t2-dot" style="background:#1D638A"></span>校园地图</div>
+            <div class="t2-cell"><span class="t2-dot" style="background:#5B4B9E"></span>网络一卡通</div>
+            <div class="t2-cell"><span class="t2-dot" style="background:#D94F1A"></span>快递外卖</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div>
+          <div class="card-title">候选 2 · 瑞士导视系统网格</div>
+          <div class="card-sub">最佳设计师 B｜发丝线刚性网格 + 色彩功能编码</div>
+        </div>
+        <span class="badge badge-alt">备选</span>
+      </div>
+    </article>
+
+    <!-- 3 -->
+    <article class="card selected">
+      <div class="thumb-frame" data-thumb="3">
+        <div class="t3">
+          <div class="t3-notice">
+            <span>2026级重要时间：9月5–6日报到 · 9月10日上课</span>
+            <span>查看</span>
+          </div>
+          <div class="t3-hero">
+            <img src="../public/images/intro/yeu-campus-hero.webp" alt="仰恩大学湖畔航拍">
+            <div class="t3-scrim"></div>
+            <div class="t3-content">
+              <h2>2026级新生入学指南</h2>
+              <div class="t3-search"><span>搜索校园信息，或输入你的问题</span><b>AI 搜索</b></div>
+            </div>
+          </div>
+          <div class="t3-strip">
+            <div class="t3-q">报到安排</div>
+            <div class="t3-q">校园地图</div>
+            <div class="t3-q">一卡通与网络</div>
+            <div class="t3-q">快递与外卖</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div>
+          <div class="card-title">候选 3 · 湖山实景画报导览（Dir-1）</div>
+          <div class="card-sub">现实参照 A｜真实山水航拍开场 + 杂志双栏生活图鉴</div>
+        </div>
+        <span class="badge badge-pick">已选 Dir-1</span>
+      </div>
+    </article>
+
+    <!-- 4 -->
+    <article class="card selected">
+      <div class="thumb-frame" data-thumb="4">
+        <div class="t4">
+          <div class="t4-bar">
+            <span>9月5–6日注册报到 · 9月7–9日入学教育 · 9月10日开课</span>
+            <span>时间表</span>
+          </div>
+          <div class="t4-split">
+            <div class="t4-left">
+              <div>
+                <div class="t4-h">2026级新生入学指南</div>
+                <div style="font-size:12px;color:#55605A;margin-top:4px;">学生整理 · 非学校官网</div>
+              </div>
+              <div class="t4-input"><span>搜宿舍、校园网、报到材料</span><b>AI 搜索</b></div>
+              <div class="t4-chips">
+                <div class="t4-chip">报到安排</div>
+                <div class="t4-chip">校园地图</div>
+                <div class="t4-chip">网络一卡通</div>
+                <div class="t4-chip">快递外卖</div>
+              </div>
+            </div>
+            <div class="t4-right">
+              <div class="t4-tabs"><span class="on">到校前</span><span>当天</span><span>第一周</span></div>
+              <div class="t4-tasks">
+                ✓ 核对报到时间与携带材料<br>
+                ○ 查专业对应的住宿片区<br>
+                ○ 收藏校园地图认准方向
+              </div>
+              <div class="t4-prog">
+                <div style="display:flex;justify-content:space-between;"><span>新生准备清单</span><span>35%</span></div>
+                <div class="t4-track"><div class="t4-fill"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div>
+          <div class="card-title">候选 4 · 现代校园工作台（Dir-2）</div>
+          <div class="card-sub">现实参照 B｜首屏双栏控制台 + 即时阶段清单联动</div>
+        </div>
+        <span class="badge badge-pick">已选 Dir-2</span>
+      </div>
+    </article>
+
+    <!-- 5 -->
+    <article class="card">
+      <div class="thumb-frame" data-thumb="5">
+        <div class="t5">
+          <div class="t5-left">
+            <div>
+              <div class="t5-h">仰恩<mark>迎新</mark><br>指南 2026</div>
+              <p class="t5-sub">用纯几何画把仙公山与仰恩湖装进首屏，按断点重排。</p>
+            </div>
+            <div class="t5-search"><span>搜校园地标与流程</span><b>搜索</b></div>
+            <div style="display:flex;gap:10px;font-size:12px;font-weight:700;">
+              <span>报到安排</span><span>校园地图</span><span>校园网</span>
+            </div>
+          </div>
+          <div class="t5-art" aria-label="纯CSS校园山水几何画">
+            <div class="t5-sun"></div>
+            <div class="t5-mtn1"></div>
+            <div class="t5-mtn2"></div>
+            <div class="t5-bldg"></div>
+            <div class="t5-lake"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div>
+          <div class="card-title">候选 5 · 纯 CSS 校园几何插画</div>
+          <div class="card-sub">秒数轮盘 Web #5｜零图片响应式重排彩蛋</div>
+        </div>
+        <span class="badge badge-alt">备选</span>
+      </div>
+    </article>
+
+    <!-- 6 -->
+    <article class="card selected">
+      <div class="thumb-frame" data-thumb="6">
+        <div class="t6">
+          <div class="t6-geo" aria-hidden="true">
+            <div class="t6-q1"><span></span></div>
+            <div class="t6-q2"></div>
+            <div class="t6-q3"></div>
+            <div class="t6-q4"></div>
+            <div class="t6-bars"></div>
+          </div>
+          <div class="t6-vert">迎新指南</div>
+          <div class="t6-info">
+            <div>
+              <div class="t6-tag">2026 级新生</div>
+              <div style="font-weight:700;line-height:1.45;">9月5–6日 报到<br>9月10日 开课</div>
+            </div>
+            <div class="t6-search"><span>搜索校园与问答</span><b>AI</b></div>
+            <div>
+              <div class="t6-tag">高频入口</div>
+              <div style="line-height:1.55;">报到 / 地图 / 网络 / 快递</div>
+            </div>
+            <div class="t6-foot">
+              <span>泉州 · 学生整理</span>
+              <span class="t6-reddot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-meta">
+        <div>
+          <div class="card-title">候选 6 · 田中一光几何构成海报（Dir-3）</div>
+          <div class="card-sub">秒数轮盘 East #9｜徽标几何阵 + 竖排宋体报头</div>
+        </div>
+        <span class="badge badge-pick">已选 Dir-3</span>
+      </div>
+    </article>
+  </main>
+</body>
+</html>

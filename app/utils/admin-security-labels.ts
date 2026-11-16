@@ -26,7 +26,7 @@ export const adminAuditActionLabels: Record<string, string> = {
   'chat.unmute_all': '取消全员禁言',
   'chat.message.soft_delete': '删除聊天消息',
   'chat.message.delete': '删除聊天消息',
-  soft_delete: '软删除',
+  'soft_delete': '软删除',
   'user.create': '创建账号',
   'user.update': '更新账号',
   'user.status': '调整账号状态',
@@ -36,7 +36,7 @@ export const adminAuditActionLabels: Record<string, string> = {
   'auth.login_failed': '管理员登录失败',
   'auth.device_login': '设备密钥登录',
   'auth.device_login_failed': '设备密钥登录失败',
-  user_login: '用户登录',
+  'user_login': '用户登录',
   'admin.logout': '管理员登出',
   'auth.logout': '管理员登出',
   'place.create': '新增地点',
@@ -60,11 +60,11 @@ export const adminAuditActionLabels: Record<string, string> = {
   'source.delete': '删除来源',
   'feedback.update': '处理反馈',
   'feedback.delete': '删除反馈',
-  publish: '发布',
-  unpublish: '取消发布',
-  create: '创建',
-  update: '更新',
-  delete: '删除'
+  'publish': '发布',
+  'unpublish': '取消发布',
+  'create': '创建',
+  'update': '更新',
+  'delete': '删除'
 }
 
 export const adminAuditEntityLabels: Record<string, string> = {
@@ -330,7 +330,7 @@ export function formatAdminDay(iso: string | null | undefined): string {
   }
 }
 
-export function prettyAdminDetails(details: Record<string, unknown> | null | undefined): Array<{ key: string; value: string }> {
+export function prettyAdminDetails(details: Record<string, unknown> | null | undefined): Array<{ key: string, value: string }> {
   if (!details || typeof details !== 'object') return []
   return Object.entries(details).map(([key, value]) => {
     let text = ''
@@ -347,7 +347,7 @@ export function prettyAdminDetails(details: Record<string, unknown> | null | und
   })
 }
 
-export function banStatusMeta(ban: { isActive: boolean; expiresAt: string | null }): {
+export function banStatusMeta(ban: { isActive: boolean, expiresAt: string | null }): {
   label: string
   tone: 'active' | 'expired' | 'inactive'
 } {
@@ -357,8 +357,6 @@ export function banStatusMeta(ban: { isActive: boolean; expiresAt: string | null
   }
   return { label: '生效中', tone: 'active' }
 }
-
-
 
 export const adminResponseQueueKindLabels: Record<string, string> = {
   ip_cluster: '同一网络来源',
@@ -442,7 +440,7 @@ export function adminAuditHref(entityType?: string | null, entityId?: string | n
 
 export function groupByAdminDay<T extends { createdAt: string }>(
   items: T[]
-): Array<{ day: string; items: T[] }> {
+): Array<{ day: string, items: T[] }> {
   const map = new Map<string, T[]>()
   for (const item of items) {
     const day = formatAdminDay(item.createdAt)

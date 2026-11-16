@@ -89,7 +89,7 @@ async function loadBans(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const payload = await adminFetch<{ items: BanRow[]; total: number }>('/api/admin/visitors/bans', {
+    const payload = await adminFetch<{ items: BanRow[], total: number }>('/api/admin/visitors/bans', {
       query: {
         page: page.value,
         pageSize,
@@ -453,15 +453,21 @@ onMounted(async () => {
                 </div>
                 <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                   创建 {{ formatTime(ban.createdAt) }}
-                  <template v-if="ban.expiresAt"> · 到期 {{ formatTime(ban.expiresAt) }}</template>
-                  <template v-else> · 永久</template>
+                  <template v-if="ban.expiresAt">
+                    · 到期 {{ formatTime(ban.expiresAt) }}
+                  </template>
+                  <template v-else>
+                    · 永久
+                  </template>
                 </p>
                 <p class="mt-1 text-xs text-zinc-700 dark:text-zinc-200">
                   原因：{{ banReasonText(ban.reason) }}
                 </p>
                 <p class="mt-1 break-all text-[11px] text-zinc-400 dark:text-zinc-500">
                   封禁记录 {{ shortAdminId(ban.id, 10) }}
-                  <template v-if="ban.bannedByAdminId"> · 管理员 {{ shortAdminId(ban.bannedByAdminId, 10) }}</template>
+                  <template v-if="ban.bannedByAdminId">
+                    · 管理员 {{ shortAdminId(ban.bannedByAdminId, 10) }}
+                  </template>
                 </p>
               </button>
               <div class="flex shrink-0 flex-col gap-1">
@@ -546,28 +552,52 @@ onMounted(async () => {
           </div>
           <dl class="grid gap-2 sm:grid-cols-2">
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">状态</dt>
-              <dd class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ banStatusMeta(selectedBan).label }}</dd>
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                状态
+              </dt>
+              <dd class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {{ banStatusMeta(selectedBan).label }}
+              </dd>
             </div>
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">原因</dt>
-              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ banReasonText(selectedBan.reason) }}</dd>
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                原因
+              </dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+                {{ banReasonText(selectedBan.reason) }}
+              </dd>
             </div>
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">创建时间</dt>
-              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ formatTime(selectedBan.createdAt) }}</dd>
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                创建时间
+              </dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+                {{ formatTime(selectedBan.createdAt) }}
+              </dd>
             </div>
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">到期</dt>
-              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                到期
+              </dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+                {{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}
+              </dd>
             </div>
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">操作管理员</dt>
-              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '系统自动处理' }}</dd>
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                操作管理员
+              </dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+                {{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '系统自动处理' }}
+              </dd>
             </div>
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">封禁记录</dt>
-              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ shortAdminId(selectedBan.id, 12) }}</dd>
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                封禁记录
+              </dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">
+                {{ shortAdminId(selectedBan.id, 12) }}
+              </dd>
             </div>
           </dl>
         </div>

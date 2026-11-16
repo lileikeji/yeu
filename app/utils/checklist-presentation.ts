@@ -14,7 +14,7 @@ import {
   parseChecklistProgress,
   percentComplete,
   serializeChecklistProgress,
-  toggleCompletedId,
+  toggleCompletedId
 } from '~~/shared/utils/checklist-catalog'
 import type {
   ChecklistAudience,
@@ -23,7 +23,7 @@ import type {
   ChecklistProgressSnapshot,
   ChecklistStage,
   ChecklistStageId,
-  ChecklistStageProgress,
+  ChecklistStageProgress
 } from '~~/shared/utils/checklist-catalog'
 
 export {
@@ -41,7 +41,7 @@ export {
   parseChecklistProgress,
   percentComplete,
   serializeChecklistProgress,
-  toggleCompletedId,
+  toggleCompletedId
 }
 export type {
   ChecklistAudience,
@@ -50,5 +50,5 @@ export type {
   ChecklistProgressSnapshot,
   ChecklistStage,
   ChecklistStageId,
-  ChecklistStageProgress,
+  ChecklistStageProgress
 }

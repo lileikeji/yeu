@@ -39,12 +39,12 @@ export const MAP_CATEGORY_LABELS: Readonly<Record<string, string>> = {
 /** 与 miniapp/static/marker/pin-*.png 一致的分类配色。 */
 export const MAP_CATEGORY_COLORS: Readonly<Record<string, string>> = {
   'campus-building': '#176f46',
-  dorm: '#2d6f8e',
-  food: '#b43c0b',
-  service: '#5b6b7c',
-  express: '#8a6d1f',
-  gate: '#44403c',
-  nearby: '#6b7280'
+  'dorm': '#2d6f8e',
+  'food': '#b43c0b',
+  'service': '#5b6b7c',
+  'express': '#8a6d1f',
+  'gate': '#44403c',
+  'nearby': '#6b7280'
 }
 
 export const MAP_DEFAULT_COLOR = '#176f46'
@@ -62,9 +62,9 @@ export const COORDINATE_VERIFICATION_LABELS: Readonly<Record<string, string>> = 
 }
 
 export const COORDINATE_SYSTEM_LABELS: Readonly<Record<string, string>> = {
-  WGS84: 'WGS84',
+  'WGS84': 'WGS84',
   'GCJ-02': 'GCJ-02',
-  BD09: 'BD09'
+  'BD09': 'BD09'
 }
 
 const PLACE_SUMMARY_KINDS: Readonly<Record<string, string>> = {

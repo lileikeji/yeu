@@ -5,7 +5,7 @@ import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-er
 // The knowledge library is the primary view; claim review remains an explicit workflow.
 definePageMeta({
   layout: 'admin',
-  middleware: [to => {
+  middleware: [(to) => {
     if (to.query.view === 'review' || to.query.action === 'create') return
     return navigateTo('/admin/knowledge/library', { replace: true })
   }]

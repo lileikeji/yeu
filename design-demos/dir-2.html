@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向 2 · 现代校园工作台 | 迎新指南 2026</title>
+<style>
+  :root {
+    --bg: #F1F4F1;
+    --surface: #FFFFFF;
+    --surface-2: #F7F9F7;
+    --ink: #141C17;
+    --ink-2: #4A564F;
+    --line: #D7DFD7;
+    --brand: #176F46;
+    --brand-dark: #103526;
+    --brand-soft: #EBF5EF;
+    --amber: #B44312;
+    --amber-soft: #FFF4EC;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+  img { display: block; max-width: 100%; }
+  .shell { width: min(100% - 32px, 1240px); margin-inline: auto; }
+
+  /* 顶部导航 */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .topbar-row {
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-height: 44px; flex-shrink: 0; }
+  .brand img { width: 30px; height: 30px; object-fit: contain; }
+  .brand-t { font-size: 16px; font-weight: 800; }
+  .brand-s { font-size: 12px; color: var(--ink-2); padding-left: 8px; border-left: 1px solid var(--line); }
+  .nav { display: flex; gap: 4px; }
+  .nav a {
+    min-height: 44px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-2);
+    border-radius: 7px;
+  }
+  .nav a.on { color: var(--brand); background: var(--brand-soft); font-weight: 700; }
+  .top-right { display: flex; align-items: center; gap: 8px; }
+  .seg {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 2px;
+  }
+  .seg button {
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .seg button.on { background: var(--surface); color: var(--brand); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+  .time-pill-btn {
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 7px;
+    background: var(--amber-soft);
+    border: 1px solid #F3CCB3;
+    color: #8A2E07;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* 重要日程提醒条 */
+  .alert-strip {
+    margin-top: 14px;
+    background: var(--amber-soft);
+    border: 1px solid #F3CCB3;
+    border-radius: 10px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .alert-strip-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+  .alert-badge { background: var(--amber); color: #fff; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .alert-copy { font-size: 14px; font-weight: 600; color: #5C2208; }
+
+  /* 首屏双栏控制台 */
+  .workbench {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1.15fr 0.95fr;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .wb-left {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .wb-h1 {
+    font-size: clamp(26px, 3vw, 38px);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .wb-desc { font-size: 15px; color: var(--ink-2); margin-top: 8px; max-width: 36em; }
+  .wb-search {
+    display: flex;
+    gap: 8px;
+    border: 2px solid var(--brand);
+    border-radius: 10px;
+    padding: 4px;
+    background: var(--surface);
+  }
+  .wb-search input {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    border: 0;
+    outline: 0;
+    padding: 0 12px;
+    font-size: 15px;
+  }
+  .wb-search button {
+    min-height: 44px;
+    padding: 0 20px;
+    background: var(--brand);
+    color: #FFFFFF;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .wb-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .wb-tags button {
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .wb-tags button:hover { border-color: var(--brand); color: var(--brand); }
+
+  .wb-quick {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .wb-qcard {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 82px;
+  }
+  .wb-qcard:hover { border-color: var(--brand); background: var(--brand-soft); }
+  .wb-qcard b { font-size: 15px; color: var(--ink); }
+  .wb-qcard span { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+
+  /* 右侧深翠工作控制台（阅读/预览核心区） */
+  .wb-right {
+    background: var(--brand-dark);
+    color: #F1F6F3;
+    border-radius: 14px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .wb-right-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .wb-right-head h2 { font-size: 17px; font-weight: 800; color: #FFFFFF; }
+  .wb-right-sub { font-size: 12px; color: #A9D4C0; }
+  .stage-seg {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .stage-seg button {
+    min-height: 40px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #D2E8DD;
+    white-space: nowrap;
+  }
+  .stage-seg button.on { background: #FFFFFF; color: var(--brand-dark); }
+  .stage-card-inner {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .stage-card-inner h3 { font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 10px; }
+  .task-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    font-size: 14px;
+    color: #E7F2EC;
+    cursor: pointer;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .task-check:first-of-type { border-top: 0; }
+  .task-check input { width: 17px; height: 17px; accent-color: #6CE0A8; }
+  .task-check.checked span { text-decoration: line-through; color: #9CC3B0; }
+  .prog-panel {
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .prog-bar { height: 8px; background: rgba(255, 255, 255, 0.2); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+  .prog-val { height: 100%; background: #6CE0A8; transition: width .2s ease; }
+  .map-mini {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 12px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    padding: 8px;
+  }
+  .map-mini img { width: 92px; height: 64px; object-fit: cover; border-radius: 6px; }
+  .map-mini b { font-size: 14px; color: #fff; display: block; }
+  .map-mini span { font-size: 12px; color: #BCE2D0; }
+
+  /* 第二屏：在发动态双列分离面板 */
+  .section-wrap { margin-top: 24px; }
+  .sec-bar { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .sec-bar h2 { font-size: 20px; font-weight: 800; }
+  .sec-bar a { font-size: 13px; font-weight: 700; color: var(--brand); min-height: 44px; display: inline-flex; align-items: center; }
+
+  .dual-board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .board-col {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .board-head {
+    padding: 12px 18px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .board-list { list-style: none; }
+  .board-list li + li { border-top: 1px solid var(--line); }
+  .board-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    min-height: 64px;
+  }
+  .board-row:hover { background: var(--surface-2); }
+  .tag-s {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .tag-warn { background: var(--amber-soft); color: var(--amber); }
+  .tag-ok { background: var(--brand-soft); color: var(--brand); }
+  .board-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .board-sub { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+
+  /* 第三屏：紧急求助速拨带 */
+  .sos-strip {
+    margin-top: 24px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .sos-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .sos-head h2 { font-size: 18px; font-weight: 800; }
+  .sos-head span { font-size: 14px; font-weight: 700; color: var(--amber); }
+  .sos-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .sos-btn {
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    border-radius: 9px;
+    padding: 12px 14px;
+    min-height: 62px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .sos-btn:hover { border-color: var(--brand); background: var(--brand-soft); }
+  .sos-btn strong { font-size: 15px; color: var(--ink); }
+  .sos-btn span { font-size: 13px; color: var(--ink-2); }
+
+  /* 第四屏：5x2 服务索引表 */
+  .svc-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .svc-item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 15px;
+    min-height: 92px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .svc-item:hover { border-color: var(--brand); }
+  .svc-item h3 { font-size: 15px; font-weight: 800; }
+  .svc-item p { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+
+  .site-foot {
+    margin-top: 32px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 28px 0 36px;
+  }
+  .foot-flex {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .foot-links { display: flex; flex-wrap: wrap; gap: 10px; }
+  .foot-links a {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .mobile-dock { display: none; }
+
+  @media (max-width: 960px) {
+    .nav { display: none; }
+    .workbench { grid-template-columns: 1fr; }
+    .dual-board { grid-template-columns: 1fr; }
+    .sos-grid { grid-template-columns: repeat(2, 1fr); }
+    .svc-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    body { padding-bottom: 72px; font-size: 15px; }
+    .brand-s, .time-pill-btn { display: none; }
+    .alert-strip { flex-direction: column; align-items: flex-start; padding: 10px 12px; gap: 6px; }
+    .alert-copy { font-size: 14px; line-height: 1.5; }
+    .wb-left { padding: 16px; gap: 14px; }
+    .wb-quick { grid-template-columns: 1fr 1fr; }
+    .wb-search { flex-direction: column; border: 0; padding: 0; background: transparent; gap: 8px; }
+    .wb-search input { border: 2px solid var(--brand); border-radius: 8px; background: #fff; }
+    .wb-search button { width: 100%; }
+    .sos-grid { grid-template-columns: 1fr; }
+    .mobile-dock {
+      position: fixed;
+      inset: auto 0 0 0;
+      height: 64px;
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      z-index: 40;
+    }
+    .mobile-dock a { display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+    .mobile-dock a.on { color: var(--brand); }
+  }
+</style>
+</head>
+<body>
+<!--
+Design decisions (Dir-2 现代校园工作台):
+- 借鉴本机品味偏好 L1（工具型外壳 + 焦点阅读/控制台双层并存）：外层浅雾灰 #F1F4F1 效率结构，首屏右侧嵌深翠墨 #103526 即时阶段控制台与清单勾选区
+- 主品牌绿 #176F46，警示琥珀 #B44312，正文 14-15px，所有按钮保持不换行
+-->
+<header class="topbar">
+  <div class="shell topbar-row">
+    <a href="#top" class="brand">
+      <img src="../public/images/brand/system-logo-mark-light.png" alt="迎新指南">
+      <span class="brand-t">迎新指南</span>
+      <span class="brand-s">学生整理 / 非官方</span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="#top" class="on">首页</a>
+      <a href="#map-card">地图</a>
+      <a href="#console">办事</a>
+      <a href="#services">生活</a>
+      <a href="#feeds">热点</a>
+      <a href="#console">我的</a>
+    </nav>
+    <div class="top-right">
+      <div class="seg" role="group" aria-label="模式切换">
+        <button type="button" class="on">完整</button>
+        <button type="button">简洁</button>
+      </div>
+      <a href="#hotlines" class="time-pill-btn">校园110求助</a>
+    </div>
+  </div>
+</header>
+
+<main id="top" class="shell">
+  <div class="alert-strip">
+    <div class="alert-strip-left">
+      <span class="alert-badge">2026级重要时间</span>
+      <span class="alert-copy">9月5–6日注册报到（看录取通知书）｜ 9月7–9日入学教育 ｜ 9月10日开始上课</span>
+    </div>
+    <a href="#console" style="font-size:13px;font-weight:700;color:#8A2E07;white-space:nowrap;">对照准备清单</a>
+  </div>
+
+  <section class="workbench" id="console">
+    <div class="wb-left">
+      <div>
+        <h1 class="wb-h1">2026级新生入学指南</h1>
+        <p class="wb-desc">按入学先后顺序把报到、宿舍、校园网、校园地图与交通放进同一张工作台，到校后随时查随时勾。</p>
+      </div>
+
+      <div>
+        <form class="wb-search" id="wbSearchForm">
+          <input type="text" id="wbQuery" placeholder="搜索校园信息，或输入你的问题" aria-label="搜索校园信息">
+          <button type="submit">AI 搜索</button>
+        </form>
+        <div class="wb-tags">
+          <button type="button" data-q="新生报到要带哪些证件和材料">报到材料</button>
+          <button type="button" data-q="宿舍空调开通与水电报修">宿舍空调报修</button>
+          <button type="button" data-q="泉州站到仰恩大学坐几路公交">泉州站公交</button>
+          <button type="button" data-q="迎新系统与校园网认证">校园网认证</button>
+        </div>
+        <p id="wbMsg" style="margin-top:8px;font-size:13px;color:var(--brand);min-height:20px;"></p>
+      </div>
+
+      <div class="wb-quick" aria-label="常用查询">
+        <a href="#console" class="wb-qcard">
+          <b>报到安排</b>
+          <span>查询时间、地点与材料</span>
+        </a>
+        <a href="#map-card" class="wb-qcard">
+          <b>校园地图</b>
+          <span>宿舍、教学楼与医务所</span>
+        </a>
+        <a href="#feeds" class="wb-qcard">
+          <b>校园一卡通与网络</b>
+          <span>校园网、校园卡办理说明</span>
+        </a>
+        <a href="#services" class="wb-qcard">
+          <b>快递与外卖</b>
+          <span>取件站点与外卖送达区</span>
+        </a>
+      </div>
+    </div>
+
+    <aside class="wb-right" aria-label="阶段指南与清单控制台">
+      <div class="wb-right-head">
+        <h2>入学阶段与准备清单</h2>
+        <span class="wb-right-sub">点击切换并直接勾选</span>
+      </div>
+
+      <div class="stage-seg" role="tablist">
+        <button type="button" class="on" data-idx="0">到校前</button>
+        <button type="button" data-idx="1">报到当天</button>
+        <button type="button" data-idx="2">入学第一周</button>
+      </div>
+
+      <div class="stage-card-inner" id="wbStageBox">
+        <h3>到校前先确认安排，不凭群聊猜</h3>
+        <label class="task-check checked"><input type="checkbox" checked><span>确认报到时间和要带的材料</span></label>
+        <label class="task-check"><input type="checkbox"><span>查专业对应的住宿片区</span></label>
+        <label class="task-check"><input type="checkbox"><span>收藏校园地图认准方向</span></label>
+      </div>
+
+      <div class="prog-panel">
+        <div>
+          <div style="font-size:13px;color:#BCE2D0;">新生准备清单进度（本机保存）</div>
+          <div class="prog-bar"><div class="prog-val" id="wbFill" style="width:33%;"></div></div>
+        </div>
+        <strong style="font-size:24px;color:#6CE0A8;font-variant-numeric:tabular-nums;" id="wbPct">33%</strong>
+      </div>
+
+      <a href="#services" class="map-mini" id="map-card">
+        <img src="../public/images/posters/freshman-guide-campus-map.png" alt="仰恩校园地形导览">
+        <div>
+          <b>校园地形与全景入口</b>
+          <span>查看新区/旧区宿舍、教学楼与湖心路线</span>
+        </div>
+      </a>
+    </aside>
+  </section>
+
+  <section class="section-wrap" id="feeds">
+    <div class="sec-bar">
+      <h2>最近在发</h2>
+      <a href="#services">全部热点与活动</a>
+    </div>
+    <div class="dual-board">
+      <div class="board-col">
+        <div class="board-head">
+          <span>校内公告与提醒</span>
+          <span style="font-weight:600;color:var(--ink-2);">每天更新</span>
+        </div>
+        <ul class="board-list">
+          <li>
+            <a href="#console" class="board-row">
+              <span class="tag-s tag-warn">热</span>
+              <div>
+                <div class="board-title">2026级新生报到及车站接站安排</div>
+                <div class="board-sub">招生/迎新通知整理 ｜ 含泉州站直达交通提示</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="#services" class="board-row">
+              <span class="tag-s tag-ok">新</span>
+              <div>
+                <div class="board-title">仰恩大学校园网使用与统一认证指引</div>
+                <div class="board-sub">网络中心公开流程 ｜ 宿舍接入与密码初始化</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="#hotlines" class="board-row">
+              <span class="tag-s tag-ok">生活</span>
+              <div>
+                <div class="board-title">学生宿舍空调使用规定与报修入口</div>
+                <div class="board-sub">后勤总务公开 ｜ 故障请拨 0595-22076110</div>
+              </div>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="board-col">
+        <div class="board-head">
+          <span>近期校园活动</span>
+          <span style="font-weight:600;color:var(--ink-2);">支持留言</span>
+        </div>
+        <ul class="board-list">
+          <li>
+            <a href="#console" class="board-row">
+              <span class="tag-s tag-warn">9/6</span>
+              <div>
+                <div class="board-title">各学院新生报到咨询点与志愿引导</div>
+                <div class="board-sub">第一教学区与新生宿舍片区全天值守</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="#services" class="board-row">
+              <span class="tag-s tag-ok">9/8</span>
+              <div>
+                <div class="board-title">学生社团招新广场集中展示</div>
+                <div class="board-sub">可预先浏览各社团方向与在线报名入口</div>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a href="#services" class="board-row">
+              <span class="tag-s tag-ok">实景</span>
+              <div>
+                <div class="board-title">普通型与舒适型宿舍实拍对比开放查看</div>
+                <div class="board-sub">入校前先看清宿舍空间、床铺尺寸与收纳位</div>
+              </div>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sos-strip" id="hotlines">
+    <div class="sos-head">
+      <h2>校内求助与常用电话</h2>
+      <span>紧急先拨校园 110 ｜ 医务室 24 小时值班（地图搜「医务所」）</span>
+    </div>
+    <div class="sos-grid">
+      <a href="tel:059522076110" class="sos-btn"><strong>拨打校园 110</strong><span>0595-22076110 ｜ 报修与求助</span></a>
+      <a href="tel:059522099033" class="sos-btn"><strong>心理健康中心</strong><span>0595-22099033 ｜ 适应与咨询</span></a>
+      <a href="tel:059522082006" class="sos-btn"><strong>教务部</strong><span>0595-22082006 ｜ 学籍与课表</span></a>
+      <a href="tel:059522099018" class="sos-btn"><strong>学生资助中心</strong><span>0595-22099018 ｜ 贷款与助学</span></a>
+    </div>
+  </section>
+
+  <section class="section-wrap" id="services">
+    <div class="sec-bar">
+      <h2>服务导航</h2>
+      <span style="font-size:13px;color:var(--ink-2);">10 项常用生活与学习目录</span>
+    </div>
+    <div class="svc-grid">
+      <a href="#console" class="svc-item"><h3>新生清单</h3><p>到校前与第一周事项勾选</p></a>
+      <a href="#hotlines" class="svc-item"><h3>安全医疗与心理</h3><p>校园 110 与心理健康支持</p></a>
+      <a href="#services" class="svc-item"><h3>学生手册与资助</h3><p>校纪规定、奖助学金入口</p></a>
+      <a href="#services" class="svc-item"><h3>学生社团</h3><p>社团目录与学期纳新</p></a>
+      <a href="#services" class="svc-item"><h3>校内部门</h3><p>招生、教务与学生事务</p></a>
+      <a href="#services" class="svc-item"><h3>吃喝玩乐</h3><p>学生街、马甲与泉州攻略</p></a>
+      <a href="#services" class="svc-item"><h3>到校与离校交通</h3><p>泉州站、机场到校公交</p></a>
+      <a href="#map-card" class="svc-item"><h3>全景云游校园</h3><p>校门、教学楼与校史馆</p></a>
+      <a href="#feeds" class="svc-item"><h3>宿舍实拍</h3><p>普通型与舒适型宿舍实景</p></a>
+      <a href="https://dz.lileikeji.top/uploads/releases/download.php" target="_blank" rel="noopener noreferrer" class="svc-item"><h3>WeLearn 学习工具</h3><p>第三方工具下载入口</p></a>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="shell foot-flex">
+    <div>
+      <p style="font-size:15px;font-weight:800;">学生整理 / 非学校官网 ｜ 重要事项，再到学校原文确认一次</p>
+      <p style="font-size:13px;color:var(--ink-2);margin-top:4px;">报到、缴费、住宿和资助等要求，最终看录取通知书和学校通知（最近查看：2026年7月23日）。</p>
+    </div>
+    <div class="foot-links">
+      <a href="https://www.yeu.edu.cn/" target="_blank" rel="noopener noreferrer">学校官网</a>
+      <a href="https://zhaosheng.yeu.edu.cn/" target="_blank" rel="noopener noreferrer">招生官网</a>
+      <a href="https://xsb.yeu.edu.cn/xszz/list.htm" target="_blank" rel="noopener noreferrer">学生资助</a>
+      <a href="#top">看信息从哪来</a>
+      <a href="#hotlines">反馈纠错</a>
+    </div>
+  </div>
+</footer>
+
+<nav class="mobile-dock" aria-label="移动端主导航">
+  <a href="#top" class="on">首页</a>
+  <a href="#map-card">地图</a>
+  <a href="#console">办事</a>
+  <a href="#services">生活</a>
+  <a href="#hotlines">我的</a>
+</nav>
+
+<script>
+  const wbStages = [
+    {
+      title: '到校前先确认安排，不凭群聊猜',
+      tasks: [
+        { text: '确认报到时间和要带的材料', done: true },
+        { text: '查专业对应的住宿片区', done: false },
+        { text: '收藏校园地图认准方向', done: false }
+      ]
+    },
+    {
+      title: '报到当天按方位与步骤逐项办',
+      tasks: [
+        { text: '按现场指引完成报到', done: true },
+        { text: '到宿舍确认入住与空调开通', done: false },
+        { text: '核对校园一卡通与校园网', done: false }
+      ]
+    },
+    {
+      title: '入学第一周补齐学习与生活入口',
+      tasks: [
+        { text: '登录教务确认课表和教学楼', done: true },
+        { text: '办理一卡通和校园网连接', done: true },
+        { text: '保存校园 110 和办事入口', done: false }
+      ]
+    }
+  ];
+
+  function renderStage(idx) {
+    const s = wbStages[idx];
+    const box = document.getElementById('wbStageBox');
+    box.innerHTML = `<h3>${s.title}</h3>` + s.tasks.map((t, i) => `
+      <label class="task-check ${t.done ? 'checked' : ''}">
+        <input type="checkbox" data-i="${i}" ${t.done ? 'checked' : ''}>
+        <span>${t.text}</span>
+      </label>
+    `).join('');
+    box.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        s.tasks[Number(inp.dataset.i)].done = inp.checked;
+        inp.closest('.task-check').classList.toggle('checked', inp.checked);
+        refreshWbPct();
+      });
+    });
+    refreshWbPct();
+  }
+
+  function refreshWbPct() {
+    const all = wbStages.flatMap(s => s.tasks);
+    const done = all.filter(t => t.done).length;
+    const pct = Math.round((done / all.length) * 100);
+    document.getElementById('wbPct').textContent = pct + '%';
+    document.getElementById('wbFill').style.width = pct + '%';
+  }
+
+  document.querySelectorAll('.stage-seg button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.stage-seg button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      renderStage(Number(btn.dataset.idx));
+    });
+  });
+
+  document.querySelectorAll('.wb-tags button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.getElementById('wbQuery').value = b.dataset.q;
+      document.getElementById('wbMsg').textContent = `已填入：「${b.dataset.q}」，点击右侧 AI 搜索即可查看回答。`;
+    });
+  });
+  document.getElementById('wbSearchForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const q = document.getElementById('wbQuery').value.trim();
+    document.getElementById('wbMsg').textContent = q ? `原型演示：即将检索「${q}」` : '请先输入你想了解的问题';
+  });
+  document.querySelectorAll('.seg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.seg button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+    });
+  });
+  renderStage(0);
+</script>
+</body>
+</html>
