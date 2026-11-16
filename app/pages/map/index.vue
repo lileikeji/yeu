@@ -30,6 +30,8 @@ import {
   resolveAutoSelectSearchApply,
   resolveBusSheetAnchors,
   resolveBusSheetHeightClass,
+  resolveSheetBackAction,
+  resolveSheetHistorySync,
   resolveSearchQueryChangeReset,
   resolveInitialMapViewMode,
   resolveInitialSelectedMapPoiId,
@@ -41,6 +43,7 @@ import {
   toggleMapDisplayOption,
   withMapLabelSize,
   type MapDisplayToggleKey,
+  type MapSheetBackAction,
   type MobileSheetState
 } from '~~/app/utils/map-presentation'
 
@@ -739,6 +742,8 @@ onMounted(() => {
   startLocateDisplay()
   // 手机上公交列表默认收起，免得和校车浮层叠在一起
   if (window.innerWidth < 768) transitPanelOpen.value = false
+  window.addEventListener('popstate', handleSheetPopState)
+  window.addEventListener('keydown', handleSheetKeydown)
   // 玻璃开关按上次的选择恢复；移动端才 attach（桌面浮层是 md:hidden，不需要这一层）
   glassEnabled.value = readGlassPreference()
   void syncMapGlass()
@@ -766,11 +771,21 @@ onBeforeUnmount(() => {
   cancelNativeSearch()
   clearWalkingRoute()
   stopMapGlass()
+  window.removeEventListener('popstate', handleSheetPopState)
+  window.removeEventListener('keydown', handleSheetKeydown)
+  sheetHistoryPushed = false
+  suppressNextPop = false
 })
 
 // ── P-002/impl/04：抽屉首屏 = 收藏 / 最近去过 / 分类；98 个地点列表降级为「全部地点」二级视图 ──
-type MapSheetView = 'sections' | 'all' | 'bus'
+type MapSheetView = 'sections' | 'all' | 'bus' | 'transit'
 const mapSheetView = ref<MapSheetView>('sections')
+// T-029：校外公交面板里的「时刻表」抽屉，展开时也是返回栈的一层。
+const transitDrawerOpen = ref(false)
+// 返回栈是否已经在浏览器历史里压过一层（popstate 与桌面 Esc 共用 handleSheetBack）。
+let sheetHistoryPushed = false
+// 自己撤层时置位：紧随其后的那次 popstate 是撤层回弹，不能当成用户按返回。
+let suppressNextPop = false
 const {
   favorites,
   recent,
@@ -819,6 +834,105 @@ const mapSheetShowsFullList = computed(() => {
 function backToMapSections(): void {
   mapSheetView.value = 'sections'
   mobileSheetState.value = 'half'
+}
+
+// ── T-029：手机面板里的「校外公交」视图（桌面浮层行为保持不变）──
+// 面板内还有抽屉、half、collapsed 三层，一次浏览器返回只退一层，所以要自己维护一层守卫历史。
+function sheetHasBackLayer(): boolean {
+  return mapSheetView.value === 'transit' || transitDrawerOpen.value || mobileSheetState.value !== 'collapsed'
+}
+
+function pushSheetHistoryLayer(): void {
+  if (typeof window === 'undefined' || sheetHistoryPushed || !sheetHasBackLayer()) return
+  window.history.pushState({ mapSheet: mapSheetView.value === 'transit' ? 'transit' : 'sheet' }, '')
+  sheetHistoryPushed = true
+}
+
+/** 用户自己把面板收起来时撤掉守卫层；这次 history.back() 的 popstate 由 suppressNextPop 吞掉。 */
+function dropSheetHistoryLayer(): void {
+  if (typeof window === 'undefined' || !sheetHistoryPushed) return
+  sheetHistoryPushed = false
+  suppressNextPop = true
+  window.history.back()
+}
+
+/** 半屏 / 展开 / transit / 抽屉：任一非折叠态都保持恰好一层守卫；收起到 collapsed 就撤层。 */
+function syncSheetHistoryGuard(): void {
+  if (panelIsDesktop.value) return
+  const action = resolveSheetHistorySync({ hasLayer: sheetHasBackLayer(), pushed: sheetHistoryPushed })
+  if (action === 'push') pushSheetHistoryLayer()
+  else if (action === 'drop') dropSheetHistoryLayer()
+}
+
+// 首屏 half、拖到半屏/展开、进 transit、拉开抽屉都会走到这里，不只在 openTransitSheet 里压层。
+watch([mobileSheetState, mapSheetView, transitDrawerOpen], () => {
+  syncSheetHistoryGuard()
+})
+
+function openTransitSheet(): void {
+  if (!transitLinesOpen.value) toggleTransitLines()
+  // 手机上面板内已经有 transit 视图；原浮层是 absolute z-50，留着会把地图整块盖住。
+  if (!panelIsDesktop.value) transitPanelOpen.value = false
+  mapSheetView.value = 'transit'
+  mobileSheetState.value = 'half'
+  transitDrawerOpen.value = false
+  if (transitLinesOpen.value && !transitLive.value) startTransitLive()
+  pushSheetHistoryLayer()
+}
+
+/** popstate 与桌面 Esc 共用这一条判定：关抽屉 → 回 sections → 收 collapsed → 离开页面。 */
+function handleSheetBack(): MapSheetBackAction {
+  if (transitPanelOpen.value && panelIsDesktop.value) {
+    transitPanelOpen.value = false
+    return 'leave'
+  }
+
+  const action = resolveSheetBackAction({
+    view: mapSheetView.value,
+    drawerOpen: transitDrawerOpen.value,
+    sheetState: mobileSheetState.value
+  })
+
+  if (action === 'close-drawer') {
+    transitDrawerOpen.value = false
+  } else if (action === 'to-sections') {
+    mapSheetView.value = 'sections'
+    mobileSheetState.value = 'half'
+    transitDrawerOpen.value = false
+  } else if (action === 'collapse') {
+    mapSheetView.value = 'sections'
+    mobileSheetState.value = 'collapsed'
+    transitDrawerOpen.value = false
+  } else {
+    sheetHistoryPushed = false
+  }
+  return action
+}
+
+function handleSheetPopState(): void {
+  if (suppressNextPop) {
+    suppressNextPop = false
+    syncSheetHistoryGuard()
+    return
+  }
+  if (!sheetHistoryPushed) {
+    // 层丢了但面板还开着（例如撤层回弹与再次抬起撞在一起）：补齐，别让下一次返回直接离开。
+    syncSheetHistoryGuard()
+    return
+  }
+  sheetHistoryPushed = false
+  const action = handleSheetBack()
+  if (action !== 'leave') pushSheetHistoryLayer()
+}
+
+function handleSheetKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  handleSheetBack()
+}
+
+/** 点地图空白只关抽屉：面板与地图是兄弟节点，点面板不会走到这里。 */
+function handleMapSurfaceClick(): void {
+  if (transitDrawerOpen.value) transitDrawerOpen.value = false
 }
 
 // 手机上点「清空搜索」时顺手把面板收回折叠：面板停在半屏、查询又空了时，
@@ -904,6 +1018,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     >
       <template v-if="mapSheetView !== 'bus'">
         <div
+          v-if="mapSheetView !== 'transit'"
           data-sheet-drag-zone
           class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 px-3 md:hidden"
           :class="mobileSheetState === 'half' ? '!h-10' : ''"
@@ -1182,7 +1297,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               </button>
               <button
                 type="button"
-                class="flex min-h-9 items-center justify-center gap-1 rounded-[10px] border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-2 text-[12px] font-medium text-[var(--bus-accent)]"
+                class="map-sheet-transport flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] text-[var(--bus-accent)] px-1 text-[12.5px] font-medium"
                 aria-label="打开叮叮车"
                 @click="openBusSheet"
               >
@@ -1191,6 +1306,19 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                   class="size-4 shrink-0"
                 />
                 叮叮车
+              </button>
+              <button
+                type="button"
+                class="map-sheet-transport flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-[#1a6cf5]/35 bg-[#1a6cf5]/10 text-[#1a6cf5] dark:border-[#1a6cf5]/45 dark:bg-[#1a6cf5]/15 dark:text-[#6ea8ff] px-1 text-[12.5px] font-medium"
+                aria-label="打开校外公交"
+                @click="openTransitSheet"
+              >
+                <UIcon
+                  name="i-lucide-tram-front"
+                  class="size-4 shrink-0"
+                />
+                校外公交
+                <span class="text-[10px] font-normal text-[var(--muted-ink)]">K2 · K6</span>
               </button>
             </div>
           </section>
@@ -1377,6 +1505,29 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           </div>
         </div>
       </template>
+      <div
+        v-if="mapSheetView === 'transit'"
+        class="flex min-h-0 flex-1 flex-col md:hidden"
+      >
+        <MapTransitPanel
+          variant="sheet"
+          :open="false"
+          :directions="transitDirections"
+          :fetched-at="transitFetchedAt"
+          :live="transitLive"
+          :departures="transitDepartures"
+          :live-error="transitLiveError"
+          :selected-direction="transitSelectedDirection"
+          :location="transitMyLocation"
+          :drawer-open="transitDrawerOpen"
+          @back="handleSheetBack()"
+          @update:drawer-open="transitDrawerOpen = $event"
+          @focus-stop="focusTransitStop($event)"
+          @focus-vehicle="focusTransitVehicleFromPanel($event)"
+          @select-direction="changeTransitDirection($event)"
+          @change-line="changeTransitLine"
+        />
+      </div>
       <MapBusRoutePanel
         v-if="mapSheetView === 'bus'"
         variant="sheet"
@@ -1397,6 +1548,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     <section
       class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[var(--page-bg)] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
+      @click="handleMapSurfaceClick"
     >
       <div
         v-show="mapViewMode === 'geographic'"
@@ -2110,7 +2262,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       />
     </div>
     <MapTransitPanel
-      v-if="transitLinesOpen"
+      v-if="transitLinesOpen && panelIsDesktop"
       v-model:open="transitPanelOpen"
       :directions="transitDirections"
       :fetched-at="transitFetchedAt"
@@ -2475,7 +2627,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     white-space: nowrap;
   }
 
-  /* 分类只剩 5 个：上排 3 个、下排 2 个各占一半，不留空洞 */
+  /* T-029：6 个分类每行 3 个（共 2 行），第 3 行是「叮叮车 / 校外公交」两个交通格，各占一半，不留空洞 */
   @media (max-width: 767px) {
     .map-workspace .map-sheet-categories {
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2485,7 +2637,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       grid-column: span 2;
     }
 
-    .map-workspace .map-sheet-categories > *:nth-child(n + 4) {
+    .map-workspace .map-sheet-categories > .map-sheet-transport {
       grid-column: span 3;
     }
   }
