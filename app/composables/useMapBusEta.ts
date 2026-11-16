@@ -141,8 +141,9 @@ export function useMapBusEta(options: {
   if (!frozen) return live
 
   const snapshot = shallowRef<BusEtaPill[]>(live.value)
-  watch(live, (value) => {
-    if (!frozen.value) snapshot.value = value
+  // 源里先看 frozen：冻结期直接返回 null，连 live 的 computed 都不求值（否则拖动时每 tick 仍在算投影与 ETA）。
+  watch(() => (frozen.value ? null : live.value), (value) => {
+    if (value) snapshot.value = value
   }, { flush: 'sync' })
   // 解冻后可能错过一次 tick：立刻补拍一张，避免文案停在拖动前。
   watch(frozen, (value) => {
