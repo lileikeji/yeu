@@ -42,7 +42,7 @@ const CLUSTER_CELL_PX = 48
 const CLUSTER_MIN_GROUP = 2
 
 /** 校车线路强调色（橙/青循环），与高德 provider 保持一致。 */
-const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
+const BUS_ROUTE_COLORS = ['#c2410c', '#0f766e'] as const
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -398,7 +398,7 @@ export class WechatOfflineMapProvider implements MapProvider {
       'padding:1px 6px 1px 4px',
       'border:2px solid #fff',
       'border-radius:999px',
-      'background:#ea580c',
+      'background:#c2410c',
       'color:#fff',
       'font:600 11px/1.4 system-ui,sans-serif',
       'white-space:nowrap',
@@ -732,6 +732,7 @@ export class WechatOfflineMapProvider implements MapProvider {
       busLine.setAttribute('fill', 'none')
       busLine.setAttribute('stroke', route.color ?? BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!)
       busLine.setAttribute('stroke-width', '4')
+      busLine.setAttribute('stroke-opacity', '0.6')
       busLine.setAttribute('stroke-linejoin', 'round')
       busLine.setAttribute('stroke-linecap', 'round')
       layer.append(busLine)

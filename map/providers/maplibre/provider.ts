@@ -32,6 +32,7 @@ import {
   MAP_MARKER_PIXEL_RATIO,
   resolveMarkerCategory
 } from './marker-image'
+import { vehicleSvg } from '../amap/marker-icons'
 
 /**
  * 预览底图（OSM / MapLibre）只吃 WGS84。业务库里的 POI 多为 GCJ-02
@@ -68,7 +69,8 @@ const BUS_STOP_DOTS_LAYER_ID = 'yeu-bus-stop-dots'
 const BUS_TERMINALS_LAYER_ID = 'yeu-bus-terminals'
 const BUSES_SOURCE_ID = 'yeu-buses'
 const BUSES_LAYER_ID = 'yeu-bus-vehicles'
-const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
+const BUSES_ICON_LAYER_ID = 'yeu-bus-vehicle-icons'
+const BUS_ROUTE_COLORS = ['#c2410c', '#0f766e'] as const
 const TRANSIT_ROUTES_SOURCE_ID = 'yeu-transit-routes'
 const TRANSIT_ROUTE_LINES_LAYER_ID = 'yeu-transit-route-lines'
 const TRANSIT_TERMINALS_LAYER_ID = 'yeu-transit-terminals'
@@ -508,7 +510,7 @@ export class MapLibrePreviewProvider implements MapProvider {
 
   /**
    * Live campus-bus vehicles from the YKTGetBusCarInfo poll, rendered as an
-   * orange circle layer updated in place (WGS84, preview basemap is
+   * vehicle icon + circle layer updated in place (WGS84, preview basemap is
    * WGS84-native). Empty array clears the layer.
    */
   setBuses(buses: MapBus[]): void {
@@ -524,8 +526,8 @@ export class MapLibrePreviewProvider implements MapProvider {
       return
     }
     this.ensureBusLayers(map)
-    // 车头朝向角（angleDeg）在 circle 渲染层退化不生效（dev-only provider；
-    // 生产 amap 与 offline 走 DOM chip 旋转）。
+    // 车头朝向角（angleDeg）喂给 symbol 图层的 icon-rotate；circle 兜底层仍不旋转。
+    // 车型与生产 amap 同源（vehicleSvg），保证 dev 预览与手机端一致。
     this.updateSource(BUSES_SOURCE_ID, {
       type: 'FeatureCollection',
       features: buses
@@ -535,12 +537,47 @@ export class MapLibrePreviewProvider implements MapProvider {
           geometry: { type: 'Point', coordinates: [bus.point.lng, bus.point.lat] },
           properties: {
             id: bus.id,
+            // 车头朝向（正北 0°，顺时针）：与 amap 车辆模型同口径。
+            // 方向（0 去程 / 1 回程）：MapBus 目前不带 isBack，上游补字段后自动生效。
+            angle: bus.angleDeg ?? 0,
+            dir: Number((bus as MapBus & { isBack?: boolean }).isBack === true),
             name: bus.name,
             isAtSite: bus.isAtSite,
             siteName: bus.siteName ?? ''
           }
         }))
     })
+  }
+
+  /** 把 amap 同款车辆 SVG 注册成 MapLibre 图片（车头朝北，朝向走 icon-rotate）。 */
+  private ensureBusVehicleImage(map: MapLibreMap): void {
+    BUS_ROUTE_COLORS.forEach((color, dir) => {
+      const imageId = `yeu-bus-vehicle-icon-${dir}`
+      if (map.hasImage(imageId)) return
+      // 与 amap 车辆模型同尺寸（40px），pixelRatio 1 表示按 CSS 像素贴图。
+      const svg = vehicleSvg({ color, size: 40 })
+      const image = new Image(40, 40)
+      image.onload = () => {
+        if (!map.hasImage(imageId))
+          map.addImage(imageId, image, { pixelRatio: 1 })
+        map.triggerRepaint()
+      }
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+    })
+  }
+
+  /**
+   * 业务经纬度 → 容器像素坐标（左上角原点）。预览底图直接用 WGS84，
+   * 与 setBuses 同口径。style 未就绪或点不可渲染时返回 null，
+   * 供 DOM 覆盖层（贴在车上的 ETA 胶囊）判空跳过。
+   */
+  projectToScreen(point: GeoPoint): { x: number, y: number } | null {
+    const map = this.map
+    if (!map || !this.layersReady) return null
+    if (!this.isRenderablePoint(point)) return null
+    const projected = map.project([point.lng, point.lat])
+    if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) return null
+    return { x: projected.x, y: projected.y }
   }
 
   /**
@@ -741,8 +778,8 @@ export class MapLibrePreviewProvider implements MapProvider {
         filter: ['==', ['get', 'kind'], 'route'],
         paint: {
           'line-color': ['get', 'color'],
-          'line-width': 5,
-          'line-opacity': 0.75
+          'line-width': 4,
+          'line-opacity': 0.6
         }
       })
       map.addLayer({
@@ -781,11 +818,29 @@ export class MapLibrePreviewProvider implements MapProvider {
         source: BUSES_SOURCE_ID,
         paint: {
           'circle-radius': 9,
-          'circle-color': '#ea580c',
+          'circle-color': ['case', ['==', ['get', 'dir'], 1], BUS_ROUTE_COLORS[1], BUS_ROUTE_COLORS[0]],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 3
         }
       })
+      // 车模型：生产 amap 用 vehicleSvg 画俯视车头，dev 预览之前只有橙点。
+      // 这里叠一层 symbol 图层复用同一枚 SVG（车头朝北），朝向交给 icon-rotate。
+      if (!map.getLayer(BUSES_ICON_LAYER_ID)) {
+        map.addLayer({
+          id: BUSES_ICON_LAYER_ID,
+          type: 'symbol',
+          source: BUSES_SOURCE_ID,
+          layout: {
+            'icon-image': ['concat', 'yeu-bus-vehicle-icon-', ['to-string', ['get', 'dir']]],
+            'icon-size': 1,
+            'icon-rotate': ['coalesce', ['get', 'angle'], 0],
+            'icon-rotation-alignment': 'map',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true
+          }
+        })
+      }
+      this.ensureBusVehicleImage(map)
     }
   }
 
