@@ -1652,6 +1652,17 @@ onBeforeUnmount(stopLiveRefresh)
                   v-if="advanceConfirmed"
                   size="xs"
                   color="neutral"
+                  variant="soft"
+                  icon="i-lucide-download"
+                  :loading="exportingKind === 'confirmed'"
+                  @click="exportRound(activeRound, 'confirmed')"
+                >
+                  导出名单
+                </UButton>
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
                   variant="outline"
                   :loading="advanceBusyKey.endsWith(':reopen')"
                   @click="reopenAdvance"
