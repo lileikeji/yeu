@@ -4,7 +4,7 @@ import type {
   CompetitionJudgePayload,
   CompetitionRoundEntry
 } from '~~/shared/types'
-import { calculateCompetitionTotal, COMPETITION_MAX_DIMENSION_SCORE, roundCompetitionScore } from '~~/shared/utils/competition'
+import { calculateCompetitionTotal, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
 
 definePageMeta({ layout: false })
 
@@ -88,6 +88,10 @@ const singerList = computed(() => {
 const maxTotal = computed(() => event.value?.maxTotal ?? dimensions.value.length * 10)
 /** 每个维度的满分（10 分制），供输入框与校验使用。 */
 const dimensionMax = COMPETITION_MAX_DIMENSION_SCORE
+/** 本轮打分精度：整数（默认）或小数（小数只能用拖滑块，输入框只读）。 */
+const scorePrecision = computed(() => payload.value?.round.scorePrecision ?? 'integer')
+const decimalMode = computed(() => scorePrecision.value === 'decimal')
+const scoreStep = computed(() => (decimalMode.value ? 0.1 : 1))
 const tapScoreChoices = Array.from({ length: dimensionMax }, (_, index) => index + 1)
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
@@ -278,8 +282,10 @@ function normalizeScore(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  // 十点制按整数打：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
-  return Math.min(dimensionMax, Math.max(0, Math.round(value)))
+  const bounded = Math.min(dimensionMax, Math.max(0, value))
+  if (decimalMode.value) return Math.round(bounded * 10) / 10
+  // 整数模式：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
+  return Math.round(bounded)
 }
 
 function setDraftScore(key: string, raw: unknown): void {
@@ -987,9 +993,10 @@ onBeforeUnmount(stopPolling)
                         type="number"
                         min="0"
                         :max="dimensionMax"
-                        step="1"
-                        inputmode="numeric"
+                        :step="scoreStep"
+                        :inputmode="decimalMode ? 'decimal' : 'numeric'"
                         enterkeyhint="next"
+                        :readonly="decimalMode"
                         :data-score-input="dimension.key"
                         class="w-12 rounded-md border border-zinc-300 bg-[var(--surface)] px-1 py-0.5 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800 sm:w-14 sm:py-1"
                         :value="draftScores[dimension.key] ?? ''"
@@ -1032,7 +1039,7 @@ onBeforeUnmount(stopPolling)
                       type="range"
                       min="0"
                       :max="dimensionMax"
-                      step="1"
+                      :step="scoreStep"
                       class="judge-slider"
                       :style="{ '--slider-pct': sliderFillPercent(dimension.key) }"
                       :value="draftScores[dimension.key] ?? 0"
@@ -1319,7 +1326,11 @@ onBeforeUnmount(stopPolling)
   );
 }
 
-
+.judge-slider::-moz-range-progress {
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: var(--color-green-600);
+}
 
 .judge-slider::-moz-range-thumb {
   width: 1.625rem;
