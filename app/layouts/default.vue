@@ -4,7 +4,6 @@ const runtimeConfig = useRuntimeConfig()
 const { isAuthenticated } = useUserSession()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
-const { isDark: isSiteDark } = useThemeMode()
 
 type NavigationKey = 'home' | 'map' | 'procedures' | 'life' | 'hot' | 'me'
 
@@ -94,10 +93,10 @@ function shareCurrentPage(): void {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-white dark:bg-zinc-900">
+  <div class="min-h-dvh bg-[var(--surface)] dark:bg-zinc-900">
     <a
       href="#main-content"
-      class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-green-800 dark:text-green-300 shadow-lg focus:translate-y-0"
+      class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-green-800 dark:text-green-300 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <a
       href="/__yeu_crawl_trap__"
@@ -106,7 +105,7 @@ function shareCurrentPage(): void {
       rel="nofollow noindex"
       class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
     >site index</a>
-    <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 backdrop-blur">
+    <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--surface)]/95 dark:bg-zinc-900/95 backdrop-blur">
       <div class="page-shell relative flex min-h-16 flex-wrap items-center justify-between gap-2 py-2 md:h-[4.5rem] md:flex-nowrap md:gap-6 md:py-0">
         <NuxtLink
           to="/"
@@ -115,11 +114,19 @@ function shareCurrentPage(): void {
         >
           <span class="flex min-w-0 items-center gap-2">
             <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0">
+              <!-- 两枚 logo 由 CSS 切：SSR 不知道用户存的是暗色，条件 src 会造成 hydration mismatch -->
               <img
-                :src="isSiteDark ? '/images/brand/system-logo-mark.png' : '/images/brand/system-logo-mark-light.png'"
+                src="/images/brand/system-logo-mark-light.png"
                 alt=""
                 aria-hidden="true"
-                class="size-full object-contain"
+                class="size-full object-contain dark:hidden"
+                decoding="async"
+              >
+              <img
+                src="/images/brand/system-logo-mark.png"
+                alt=""
+                aria-hidden="true"
+                class="hidden size-full object-contain dark:block"
                 decoding="async"
               >
             </span>
@@ -156,7 +163,7 @@ function shareCurrentPage(): void {
           <button
             type="button"
             class="inline-flex min-h-8 min-w-10 items-center justify-center rounded px-2 text-[11px] font-semibold transition sm:min-w-12 sm:px-2.5"
-            :class="activeHomeMode === 'full' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'"
+            :class="activeHomeMode === 'full' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'"
             :aria-pressed="activeHomeMode === 'full'"
             @click="setHomeMode('full')"
           >
@@ -165,7 +172,7 @@ function shareCurrentPage(): void {
           <button
             type="button"
             class="inline-flex min-h-8 min-w-10 items-center justify-center rounded px-2 text-[11px] font-semibold transition sm:min-w-12 sm:px-2.5"
-            :class="activeHomeMode === 'compact' ? 'bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'"
+            :class="activeHomeMode === 'compact' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'"
             :aria-pressed="activeHomeMode === 'compact'"
             @click="setHomeMode('compact')"
           >
@@ -245,7 +252,7 @@ function shareCurrentPage(): void {
 
     <footer
       v-if="!isMapPage"
-      class="border-t border-[var(--line)] bg-white dark:bg-zinc-900 pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
+      class="border-t border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
     >
       <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 dark:text-zinc-400 md:flex-row md:items-center md:justify-between md:gap-6">
         <div class="space-y-2">
@@ -291,7 +298,7 @@ function shareCurrentPage(): void {
     </footer>
 
     <nav
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--surface)]/95 dark:bg-zinc-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       aria-label="移动端主导航"
     >
       <div class="grid h-[var(--mobile-nav-height)] grid-cols-5">

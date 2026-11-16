@@ -220,8 +220,14 @@ function pointAtDistance(line: LngLat[], cumulative: number[], distanceAlong: nu
   return { ...(line[line.length - 1] ?? { lng: 0, lat: 0 }) }
 }
 
-/** 每站上下客停留时间（秒）：实测含停站均速 3.4 m/s 与纯行驶 4 m/s 的差额主要在这里。 */
-export const STATION_DWELL_SECONDS = 60
+/**
+ * 每站上下客停留时间（秒）。
+ *
+ * 2026-11-13 实测（1573 帧、车3/车10、09:58–13:04）：真停靠 n=19，p50 34s、p90 48s；
+ * 另有约 27% 只是减速通过（<15s），不计入。采样 6s 一帧，时长已按半个间隔修正。
+ * 起点候客（p50 494s）与终点停靠（p50 338s）不进这个常量，它们属于发车间隔。
+ */
+export const STATION_DWELL_SECONDS = 35
 
 /** 折线上落在行车轨迹里的减速带沿线里程（横向偏移超过阈值的不算）。 */
 export function bumpDistancesOnLine(line: LngLat[], cumulative: number[]): number[] {

@@ -7,6 +7,9 @@ import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
 import { alongOnPolyline, cumulativeDistances, samplePolylinePoint, snapToPolyline } from '~~/shared/utils/bus-route-progress'
 import { advanceBusTrack, createBusTrack, observeBusTrack, resetBusTrack, TRACK_OFF_ROUTE_M, type BusTrack } from '~~/shared/utils/bus-track'
 
+/** 校车线路双色（去程橙 / 回程青）；与 map/providers 各 provider 的 BUS_ROUTE_COLORS 同值，供 app 侧复用。 */
+export const BUS_ROUTE_COLORS = ['#c2410c', '#0f766e'] as const
+
 /** 线路快照（校车实时接口响应 routes[]，路径见 shared/constants/server.ts BUS_POSITIONS_API_PATH）。 */
 export interface BusRouteSnapshot {
   routeId: string

@@ -22,6 +22,7 @@ import {
   resolveMapDataLabel,
   resolveMapFallbackMessage,
   resolveMapPoiStatusText,
+  resolveDockSearchMobileSheetState,
   resolveMobileSheetAnchors,
   resolveMobileSheetHeightClass,
   resolveMobileSheetStateFromHeight,
@@ -429,6 +430,10 @@ test('map list filtering and mobile sheet helpers stay pure', () => {
   assert.equal(resolveMobileSheetStateFromHeight(40, anchors), 'collapsed')
   assert.equal(resolveMobileSheetStateFromHeight(300, anchors), 'half')
   assert.equal(resolveMobileSheetStateFromHeight(700, anchors), 'expanded')
+  // dock 搜索抬起面板是显式意图（折叠态才会抬），不是 POI 选中那条「强制折叠」的反面。
+  assert.equal(resolveDockSearchMobileSheetState('collapsed'), 'half')
+  assert.equal(resolveDockSearchMobileSheetState('half'), 'half')
+  assert.equal(resolveDockSearchMobileSheetState('expanded'), 'expanded')
 
   assert.equal(resolveInitialMapViewMode({
     activeScope: 'nearby',

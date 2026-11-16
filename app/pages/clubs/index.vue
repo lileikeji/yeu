@@ -69,7 +69,7 @@ function clearClubFilters() {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           发现同好
@@ -117,7 +117,7 @@ function clearClubFilters() {
               type="button"
               class="inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-xs font-medium transition"
               :class="selectedGroup === group
-                ? 'bg-green-700 text-white'
+                ? 'bg-green-700 text-[var(--surface)]'
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200'"
               :aria-pressed="selectedGroup === group"
               @click="selectedGroup = group"
@@ -257,7 +257,7 @@ function clearClubFilters() {
 
       <div
         v-if="!error && !filteredClubs.length"
-        class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-12 text-center"
+        class="border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-5 py-12 text-center"
       >
         <UIcon
           name="i-lucide-search-x"

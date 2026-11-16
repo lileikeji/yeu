@@ -9,7 +9,7 @@
 按顺序执行，每一步都有对应的核对动作。
 
 1. **基线含 master**
-   构建前确认：`git merge-base --is-ancestor <构建commit> master`。不成立就先 `git merge master` 再构建。
+   构建前确认：`git merge-base --is-ancestor github/master <构建commit>`（A 必须是 master，B 才是构建提交；写反会把老提交判成通过）。不成立就先 `git merge github/master` 再构建。
    核对：`git log --oneline <commit>..master` 输出为空。
 2. **自带测试清零**
    `pnpm run test` 与 `npx nuxt typecheck` 都必须 exit 0。
@@ -57,7 +57,7 @@
 
 - 现象：线上 commit 是分支上的 `d7731a1d`，master 已到 `4c5392bc`。顶栏搜索按钮居中、`ASSISTANT_CACHE_VERSION` v86、移动端滑动标点不再误开详情这三处线上都没有。
 - 原因：分支父链是 `684fca98`，从没合过 master，用分支 HEAD 构建就等于用旧基线发版。
-- 做法：构建前跑 `git merge-base --is-ancestor <commit> master`；不成立先 merge master，用 merge commit 构建。
+- 做法：构建前跑 `git merge-base --is-ancestor github/master <构建commit>`；不成立先 merge master，用 merge commit 构建。
 
 ### 2. 删除工作树时掏空主仓 node_modules（2026-11-12）
 
@@ -108,7 +108,18 @@
 
   核对：`sudo -u www test -r .../_nuxt/<file>` 返回 0；线上第二次请求 `X-Cache-Lookup: Cache Hit`。
 
+### 9. 线上跑的是功能分支，部署 master 等于回退功能（2026-11-10 / 2026-11-15）
+线上 `current` 指向的 release 记录的 commit 不在 master 里时，用 master 构建并切换会把该分支上的功能整体顶回去：11-10 主题配色被隔壁会话的脏树产物覆盖（palette CSS 直接消失），11-15 线上跑着叫号台/十分制/去掉最高最低分那条线，若照旧部署 master 会一次性回退 10 个提交。
+落地做法：部署前 `cat /www/wwwroot/yeu/current/.output/release.json` 取 commit，`git merge-base --is-ancestor <commit> master` 不成立就先把 master 合进该分支，用合并后的提交构建。
+
+### 10. 本机构建不可用，制品只能从 CI 出（2026-11-11 起）
+`npx nuxt build` 稳定失败 `[nitro] ERROR Error: remove D:\DevTemp\esbuild-<hex>: Access is denied.`，最小复现为 esbuild 用 stdin 传 2.5MB 源码时删不掉临时文件；换 Node 22/26、esbuild 0.18–0.28 都复现，属环境级限制。改为：推 `deploy/theme-on-competition` 触发 `build-artifact.yml`，`gh run download -n output` 取制品，本地补 `release.json`（`platform/arch/node/abi` 必须改成服务器实际值）。
+
+### 11. 检索哈希按行尾算，CRLF 工作树会假报「未 bump」（2026-11-11 / 2026-11-13）
+`release-tools.mjs checkRetrieval` 用文件字节算 hash：`core.autocrlf=true` 的工作树算出 `d7978e91…`，LF 工作树算出 `8c3787f2…`，与线上一致的是后者。命令必须在 LF 工作树（或 Linux CI）里跑，否则会被「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」拦下，且改的是假问题。
+
 ## 三、固定约定
+- 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。
 - 构建一律在本机（Windows/macOS）做，不在生产机跑 `pnpm build`。
 - 动生产库前先做表级 dump 到 `/data/yeu/shared/backups/<主题>-<时间>/`。

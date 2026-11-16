@@ -56,6 +56,25 @@ const {
   closeDetail, closeEditSinger
 } = useCompetitionSingers({ load, toast })
 
+/** 从「评分明细」弹窗跳去改分：两者都读同一份 payload，这里只做一次空值收口。 */
+function editDetailScore(): void {
+  const round = activeRound.value
+  const singer = detailSinger.value
+  const score = detailScore.value
+  if (!round || !singer || !score) return
+  openScoreEditor(round, singer, score.judgeId, score.judgeName)
+}
+
+const {
+  scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
+  savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
+  saveScoreEdit, exportingKind, exportRound
+} = useCompetitionScores({
+  dimensions: computed(() => settings.value?.dimensions ?? []),
+  load,
+  toast
+})
+
 const {
   advanceBusyKey, advanceRows, advanceConfirmed, advanceCount, receipts, receiptConfirmedCount,
   toggleAdvance, confirmAdvance, reopenAdvance,
@@ -179,7 +198,7 @@ onBeforeUnmount(stopLiveRefresh)
 
     <template v-else-if="payload && settings && event">
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
             选手库
           </p>
@@ -190,7 +209,7 @@ onBeforeUnmount(stopLiveRefresh)
         <div
           v-for="round in roundSummary"
           :key="round.id"
-          class="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+          class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
         >
           <p class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
             <span>{{ round.title }}</span>
@@ -1164,7 +1183,7 @@ onBeforeUnmount(stopLiveRefresh)
                   class="flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
                   :class="item.submitted
                     ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40'
-                    : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
+                    : 'border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900'"
                 >
                   <span class="w-4 shrink-0 tabular-nums text-zinc-400">{{ slot + 1 }}</span>
                   <span class="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">{{ item.name }}</span>
@@ -1221,11 +1240,15 @@ onBeforeUnmount(stopLiveRefresh)
             >
               <select
                 :value="activeRound.scorePrecision"
-                class="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 @change="activeRound.scorePrecision = ($event.target as HTMLSelectElement).value as 'integer' | 'decimal'"
               >
-                <option value="integer">整数（0-10）</option>
-                <option value="decimal">小数（拖滑块，0.1 步长）</option>
+                <option value="integer">
+                  整数（0-10）
+                </option>
+                <option value="decimal">
+                  小数（拖滑块，0.1 步长）
+                </option>
               </select>
             </UFormField>
             <UButton
@@ -1396,7 +1419,7 @@ onBeforeUnmount(stopLiveRefresh)
                     class="px-3 py-2"
                   >
                     <select
-                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      class="rounded-md border border-zinc-200 bg-[var(--surface)] px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       :value="judge.day ?? 0"
                       :disabled="busyJudgeId === judge.id || activeRound.status === 'closed'"
                       @change="changeJudgeDay(activeRound, judge, ($event.target as HTMLSelectElement).value)"
@@ -1482,7 +1505,7 @@ onBeforeUnmount(stopLiveRefresh)
                 v-model="rosterQuery"
                 type="search"
                 placeholder="搜选手名字或歌名"
-                class="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 aria-label="搜索出场名单"
               >
               <a
@@ -1747,6 +1770,35 @@ onBeforeUnmount(stopLiveRefresh)
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               实时按平均分排序，同分按出场顺序；还没分数的排在最后。
             </p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-download"
+                label="成绩明细 CSV"
+                :loading="exportingKind === 'detail'"
+                @click="exportRound(activeRound, 'detail')"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-download"
+                label="排名汇总 CSV"
+                :loading="exportingKind === 'summary'"
+                @click="exportRound(activeRound, 'summary')"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-trophy"
+                label="晋级名单 CSV"
+                :loading="exportingKind === 'advancing'"
+                @click="exportRound(activeRound, 'advancing')"
+              />
+            </div>
             <label
               v-if="settings"
               class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
@@ -1827,7 +1879,7 @@ onBeforeUnmount(stopLiveRefresh)
                     class="px-3 py-2.5"
                   >
                     <select
-                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      class="rounded-md border border-zinc-200 bg-[var(--surface)] px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       :value="entry.contestDay ?? 0"
                       :disabled="activeRound.status === 'closed'"
                       @change="changeEntryDay(activeRound, entry, ($event.target as HTMLSelectElement).value)"
@@ -1909,7 +1961,7 @@ onBeforeUnmount(stopLiveRefresh)
                   v-for="entry in rosterEntries(activeRound)"
                   :key="entry.id"
                 >
-                  <td class="sticky left-0 bg-white px-4 py-2 font-medium text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+                  <td class="sticky left-0 bg-[var(--surface)] px-4 py-2 font-medium text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
                     {{ entry.singer.name }}
                     <span class="block text-xs font-normal text-zinc-400">{{ entry.singer.song }}</span>
                   </td>
@@ -1918,18 +1970,29 @@ onBeforeUnmount(stopLiveRefresh)
                     :key="judge.id"
                     class="px-3 py-2 text-center"
                   >
-                    <button
-                      v-if="scoreFor(activeRound, entry.singer.id, judge.id)"
-                      type="button"
-                      class="rounded-md px-2 py-1 text-sm font-semibold tabular-nums text-green-800 underline decoration-green-300 underline-offset-2 hover:bg-green-50 dark:text-green-300 dark:decoration-green-800 dark:hover:bg-green-950"
-                      @click="openScoreFor(activeRound, entry.singer, judge.id)"
-                    >
-                      {{ scoreTotalFor(activeRound, entry.singer.id, judge.id) }}
-                    </button>
-                    <span
-                      v-else
-                      class="text-xs text-zinc-300 dark:text-zinc-600"
-                    >—</span>
+                    <div class="flex items-center justify-center gap-1">
+                      <button
+                        v-if="scoreFor(activeRound, entry.singer.id, judge.id)"
+                        type="button"
+                        class="rounded-md px-2 py-1 text-sm font-semibold tabular-nums text-green-800 underline decoration-green-300 underline-offset-2 hover:bg-green-50 dark:text-green-300 dark:decoration-green-800 dark:hover:bg-green-950"
+                        @click="openScoreFor(activeRound, entry.singer, judge.id)"
+                      >
+                        {{ scoreTotalFor(activeRound, entry.singer.id, judge.id) }}
+                      </button>
+                      <span
+                        v-else
+                        class="text-xs text-zinc-300 dark:text-zinc-600"
+                      >—</span>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        :icon="scoreFor(activeRound, entry.singer.id, judge.id) ? 'i-lucide-pencil' : 'i-lucide-plus'"
+                        :aria-label="`${scoreFor(activeRound, entry.singer.id, judge.id) ? '修改' : '补录'}${entry.singer.name}·${judge.displayName}的评分`"
+                        :title="scoreFor(activeRound, entry.singer.id, judge.id) ? '修改这位评委的评分' : '补录这位评委的评分'"
+                        @click="openScoreEditor(activeRound, entry.singer, judge.id, judge.displayName)"
+                      />
+                    </div>
                   </td>
                   <td class="px-4 py-2 text-right font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {{ activeRound.entries.find(item => item.singer.id === entry.singer.id)?.average?.toFixed(2) ?? '—' }}
@@ -1999,7 +2062,7 @@ onBeforeUnmount(stopLiveRefresh)
                 ref="emailBodyRef"
                 v-model="emailTemplate.body"
                 rows="10"
-                class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm leading-6 text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm leading-6 text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </UFormField>
             <div class="flex flex-wrap gap-1.5">
@@ -2087,7 +2150,7 @@ onBeforeUnmount(stopLiveRefresh)
                 发送范围：
                 <select
                   v-model="emailScope"
-                  class="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 >
                   <option value="all">
                     全部选手
@@ -2360,7 +2423,7 @@ onBeforeUnmount(stopLiveRefresh)
                     </label>
                     <select
                       v-model="qrPosition"
-                      class="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                      class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
                     >
                       <option value="bottom-left">
                         左下角
@@ -2656,12 +2719,103 @@ onBeforeUnmount(stopLiveRefresh)
         </div>
       </template>
       <template #footer>
-        <div class="flex w-full justify-end">
+        <div class="flex w-full items-center justify-between gap-2">
+          <UButton
+            v-if="detailScore && detailSinger"
+            label="修正这份评分"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-pencil"
+            @click="editDetailScore"
+          />
           <UButton
             label="关闭"
             color="neutral"
             variant="soft"
             @click="closeDetail"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      :open="scoreEditorOpen"
+      :title="scoreEditorSinger ? `修改评分 · ${scoreEditorSinger.name} · ${scoreEditorJudgeName}` : '修改评分'"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-lg' }"
+      @update:open="value => { if (!value) closeScoreEditor() }"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <p class="rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            这里改的是评委本人那一份评分，保存后平均分、名次、晋级标记立刻按同一套规则重算。
+            进行中也能改，用于现场救场（漏打维度、手机没电、算错）。
+          </p>
+
+          <div class="space-y-2">
+            <div
+              v-for="dimension in (settings?.dimensions ?? [])"
+              :key="dimension.key"
+              class="flex items-center justify-between gap-3"
+            >
+              <label
+                :for="`score-dim-${dimension.key}`"
+                class="text-sm text-zinc-700 dark:text-zinc-200"
+              >
+                {{ dimension.label }}
+                <span class="text-xs text-zinc-400">（权重 {{ dimension.weight }}）</span>
+              </label>
+              <input
+                :id="`score-dim-${dimension.key}`"
+                v-model="scoreDraft[dimension.key]"
+                type="number"
+                min="0"
+                :max="dimensionScoreMax"
+                step="0.5"
+                class="w-24 rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/60">
+            <span class="text-zinc-600 dark:text-zinc-300">按权重折算总分</span>
+            <span class="font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+              {{ scoreDraftTotal.toFixed(2) }}
+              <span class="text-xs font-normal text-zinc-400">/ {{ maxTotal }}</span>
+            </span>
+          </div>
+
+          <div>
+            <label
+              for="score-comment-edit"
+              class="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+            >
+              评委备注
+            </label>
+            <textarea
+              id="score-comment-edit"
+              v-model="scoreCommentDraft"
+              rows="3"
+              maxlength="500"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              placeholder="可留空"
+            />
+          </div>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            label="取消"
+            color="neutral"
+            variant="soft"
+            @click="closeScoreEditor"
+          />
+          <UButton
+            label="保存评分"
+            icon="i-lucide-check"
+            :loading="savingScore"
+            :disabled="!scoreDraftComplete"
+            @click="saveScoreEdit"
           />
         </div>
       </template>

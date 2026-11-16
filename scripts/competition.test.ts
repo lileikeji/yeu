@@ -57,6 +57,7 @@ import {
   confirmAdvanceRoster,
   submitJudgeScore,
   updateCompetitionEvent,
+  buildCompetitionExport,
   updateEmailTemplate,
   updateSinger,
   updateJudge,
@@ -90,6 +91,23 @@ function checkInEntries(
     if (round.status === 'closed') continue
     for (const entry of roundView(payload, roundKey).entries) setEntryCheckIn(client, round, entry.id, true)
   }
+}
+
+/** 用例跑在真实时钟上：初赛当天会把「今天就是初赛日」判成真，这里把届次钉到 2031，让初赛日期只由 fixture 决定。 */
+const PINNED_EDITION = '2031 第六届'
+
+function ensureCompetitionEventPinned(client: TestClient, contentId: string) {
+  const created = ensureCompetitionEvent(client, contentId)
+  if (created.edition === '') {
+    updateCompetitionEvent(client, created, {
+      title: created.title,
+      edition: PINNED_EDITION,
+      // 该入参缺省即「关闭登记」，必须原样带回去，否则后续用例全被判「登记已结束」。
+      registrationOpen: created.registrationOpen !== false,
+      dimensions: DEFAULT_COMPETITION_DIMENSIONS
+    })
+  }
+  return ensureCompetitionEvent(client, contentId)
 }
 
 test('等权五维时总分等于各维度累加，满分 100（每维 20）', () => {
@@ -1824,6 +1842,135 @@ test('数据库：QQ 就是邮箱去掉 @qq.com，没填 QQ 也能自动补上',
     contact: '13850839985@qq.com'
   })
   assert.equal(byEmail.singerName, '甲一')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：赛程年份取届次，钉住后运行当天永不落入初赛日', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  assert.equal(event.edition, PINNED_EDITION)
+
+  // 初赛两天由赛程标签里的月日 + 届次年份拼出，全部落在 2031，与运行当天无关。
+  const days = prelimDayDates(event)
+  assert.equal(days.length, 2)
+  assert.deepEqual(days.map(item => item.dateKey), ['2031-11-14', '2031-11-15'])
+
+  // 兜底逻辑单独验：没有届次时回落当前年，这才是 11-14 当天必红的来源。
+  const bare = { ...event, edition: '' }
+  const currentYear = new Date().getFullYear()
+  assert.equal(prelimDayDates(bare)[0]!.dateKey, `${currentYear}-11-14`)
+  closeDatabase(':memory:')
+})
+
+test('数据库：导出里的出场顺序按当天重排，第二天从 1 起算', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  for (const [name, song] of [['第一天甲', '晴天'], ['第一天乙', '后来'], ['第二天甲', '如愿'], ['第二天乙', '起风了']] as const) {
+    createSinger(client, event.id, { name, song })
+  }
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  checkInEntries(client, musicId, 'prelim')
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const byName = (name: string) => roster.find(entry => entry.singer.name === name)!
+
+  // 前两位排第一天、后两位排第二天；第二天的人 sort_order 是全局序号，直接拿去当「第几位」就错了。
+  setEntryDay(client, reload(), byName('第一天甲').id, 1)
+  setEntryDay(client, reload(), byName('第一天乙').id, 1)
+  setEntryDay(client, reload(), byName('第二天甲').id, 2)
+  setEntryDay(client, reload(), byName('第二天乙').id, 2)
+  assert.equal(byName('第二天甲').sortOrder, 3)
+  assert.equal(byName('第二天乙').sortOrder, 4)
+
+  const summary = buildCompetitionExport(client, reload(), 'summary')
+  const [header, ...lines] = summary.csv.split('\r\n')
+  const columns = header!.split(',')
+  const nameAt = columns.indexOf('选手')
+  const orderAt = columns.indexOf('出场顺序')
+  assert.equal(orderAt, columns.indexOf('参赛天') + 1)
+  const orderOf = new Map(lines.map((line) => {
+    const cells = line.split(',')
+    return [cells[nameAt]!, cells[orderAt]!] as const
+  }))
+  // 每天各自从 1 数起：第二天第一位是 1，不是第 3。
+  assert.equal(orderOf.get('第一天甲'), '1')
+  assert.equal(orderOf.get('第一天乙'), '2')
+  assert.equal(orderOf.get('第二天甲'), '1')
+  assert.equal(orderOf.get('第二天乙'), '2')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：导出里的出场顺序按当天重排，第二天从 1 起算', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  for (const [name, song] of [['第一天甲', '晴天'], ['第一天乙', '后来'], ['第二天甲', '如愿'], ['第二天乙', '起风了']] as const) {
+    createSinger(client, event.id, { name, song })
+  }
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  checkInEntries(client, musicId, 'prelim')
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const byName = (name: string) => roster.find(entry => entry.singer.name === name)!
+
+  // 前两位排第一天、后两位排第二天；第二天的人 sort_order 是全局序号，直接拿去当「第几位」就错了。
+  setEntryDay(client, reload(), byName('第一天甲').id, 1)
+  setEntryDay(client, reload(), byName('第一天乙').id, 1)
+  setEntryDay(client, reload(), byName('第二天甲').id, 2)
+  setEntryDay(client, reload(), byName('第二天乙').id, 2)
+  assert.equal(byName('第二天甲').sortOrder, 3)
+  assert.equal(byName('第二天乙').sortOrder, 4)
+
+  const summary = buildCompetitionExport(client, reload(), 'summary')
+  const [header, ...lines] = summary.csv.split('\r\n')
+  const columns = header!.split(',')
+  const nameAt = columns.indexOf('选手')
+  const orderAt = columns.indexOf('出场顺序')
+  assert.equal(orderAt, columns.indexOf('参赛天') + 1)
+  const orderOf = new Map(lines.map((line) => {
+    const cells = line.split(',')
+    return [cells[nameAt]!, cells[orderAt]!] as const
+  }))
+  // 每天各自从 1 数起：第二天第一位是 1，不是第 3。
+  assert.equal(orderOf.get('第一天甲'), '1')
+  assert.equal(orderOf.get('第一天乙'), '2')
+  assert.equal(orderOf.get('第二天甲'), '1')
+  assert.equal(orderOf.get('第二天乙'), '2')
 
   closeDatabase(':memory:')
 })
