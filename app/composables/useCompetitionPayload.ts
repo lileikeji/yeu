@@ -19,6 +19,8 @@ export interface SettingsDraft {
   registrationOpen: boolean
   /** 算平均分时去掉一个最高分和一个最低分。 */
   trimExtremes: boolean
+  /** 邮件模板「加群按钮」跳转的 QQ 群链接。 */
+  qqGroupUrl: string
   schedule: CompetitionScheduleItem[]
   formFields: CompetitionFormField[]
   dimensions: CompetitionDimension[]
@@ -90,6 +92,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
       edition: source.edition,
       registrationOpen: source.registrationOpen,
       trimExtremes: source.trimExtremes === true,
+      qqGroupUrl: source.qqGroupUrl ?? '',
       schedule: cloneSchedule(source.schedule),
       formFields: cloneFormFields(source.formFields),
       dimensions: cloneDimensions(source.dimensions)
@@ -146,6 +149,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
           edition: draft.edition.trim(),
           registrationOpen: draft.registrationOpen,
           trimExtremes: draft.trimExtremes,
+          qqGroupUrl: draft.qqGroupUrl.trim(),
           schedule: draft.schedule.map(item => ({
             key: item.key,
             dateLabel: item.dateLabel.trim(),

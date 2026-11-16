@@ -23,7 +23,9 @@ export const COMPETITION_EMAIL_MERGE_FIELDS: Array<{ key: string, desc: string }
   { key: '{{轮次}}', desc: '轮次名称（初赛/复赛/决赛）' },
   { key: '{{平均分}}', desc: '本轮评委平均分' },
   { key: '{{名次}}', desc: '本轮排名' },
-  { key: '{{结果}}', desc: '晋级 / 未能晋级 / 弃权' }
+  { key: '{{结果}}', desc: '晋级 / 未能晋级 / 弃权' },
+  { key: '{{收到按钮}}', desc: '确认收到的按钮' },
+  { key: '{{加群按钮}}', desc: '加入 QQ 群的按钮' }
 ]
 
 export function roundCompetitionScore(value: number): number {

@@ -174,16 +174,6 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     return `将从${previous.title}取前 ${previous.advanceCount} 名，并随机抽签决定出场顺序`
   }
 
-  function canGenerate(round: CompetitionRoundView): boolean {
-    if (round.key === 'prelim') return false
-    const previous = previousRound(round)
-    return Boolean(previous
-      && previous.status === 'closed'
-      && previous.advanceCount !== null
-      && previous.entries.some(entry => entry.scoreCount > 0)
-      && round.entries.length === 0)
-  }
-
   function canRedraw(round: CompetitionRoundView): boolean {
     return round.key !== 'prelim'
       && round.status !== 'closed'
@@ -360,26 +350,6 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     }
   }
 
-  async function generateNextRound(round: CompetitionRoundView): Promise<void> {
-    if (generatingRoundKey.value) return
-    const hint = advanceHint(round)
-    if (!window.confirm(`${hint}\n\n确定生成下一轮名单并随机抽签？`)) return
-
-    generatingRoundKey.value = round.key
-    try {
-      const result = await adminFetch<{ advanced: number, payload: CompetitionAdminPayload }>(
-        `/api/admin/competition/rounds/${round.key}/advance`,
-        { method: 'POST' }
-      )
-      payload.value = result.payload
-      toast.add({ title: `已生成下一轮名单：${result.advanced} 位选手`, color: 'success' })
-    } catch (error) {
-      toast.add({ title: '生成失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-    } finally {
-      generatingRoundKey.value = ''
-    }
-  }
-
   async function redrawRound(round: CompetitionRoundView): Promise<void> {
     if (generatingRoundKey.value) return
     if (!window.confirm(`重新随机抽签${round.title}出场顺序？现有顺序会被打乱。`)) return
@@ -530,7 +500,6 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     entryStatusClass,
     wrongStatus,
     advanceHint,
-    canGenerate,
     canRedraw,
     canClearRoster,
     rankClass,
@@ -546,7 +515,6 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     checkInBusyId,
     toggleEntryCheckIn,
     changeJudgeDay,
-    generateNextRound,
     redrawRound,
     clearRoster,
     draggingEntryId,
