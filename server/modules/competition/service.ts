@@ -3541,15 +3541,16 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
     { trimExtremes: trimExtremesFor(client, round) }
   ).filter(row => row.scoreCount > 0)
 
-  const confirmed = round.rosterConfirmedAt !== null
   const limit = round.advanceCount ?? ranking.length
+  // advanced 为空 = 还没人动过这一轮的勾选，默认按名次勾前 N 名；
+  // 一旦有人勾/取消，就以其存下来的值为准，未被碰过的仍按默认名次。
   return ranking.map((row, index) => ({
     entryId: row.id,
     singer: row.singer,
     average: row.average,
     scoreCount: row.scoreCount,
     rank: row.rank,
-    advanced: confirmed ? row.advanced === 1 : index < limit
+    advanced: row.advanced === null ? index < limit : row.advanced === 1
   }))
 }
 
@@ -3580,6 +3581,9 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   }
 
   const nextRound = nextRoundOf(client, round)
+  if (nextRound && countRoundScores(client, nextRound.id) > 0) {
+    conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已经开始评分了，名单不能再改')
+  }
   const now = Date.now()
   client.db.transaction((transaction) => {
     for (const row of rows) {
@@ -3589,8 +3593,27 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
     transaction.update(competitionRounds).set({ rosterConfirmedAt: now, updatedAt: now })
       .where(eq(competitionRounds.id, round.id)).run()
 
-    if (nextRound && countEntries(client, nextRound.id) === 0 && countRoundScores(client, nextRound.id) === 0) {
+    if (nextRound) {
+      // 下一轮名单必须与这次勾选完全一致：多的删掉、缺的补上、顺序按勾选名次重排。
+      const keepSingerIds = new Set(picked.map(row => row.singer.id))
+      const existing = transaction.select().from(competitionRoundEntries)
+        .where(eq(competitionRoundEntries.roundId, nextRound.id))
+        .all()
+      for (const entry of existing) {
+        if (!keepSingerIds.has(entry.singerId)) {
+          transaction.delete(competitionRoundEntries)
+            .where(eq(competitionRoundEntries.id, entry.id)).run()
+        }
+      }
+      const existingBySinger = new Map(existing.map(entry => [entry.singerId, entry]))
       picked.forEach((row, index) => {
+        const found = existingBySinger.get(row.singer.id)
+        if (found) {
+          transaction.update(competitionRoundEntries)
+            .set({ sortOrder: index + 1, advancedFromRank: row.rank ?? null })
+            .where(eq(competitionRoundEntries.id, found.id)).run()
+          return
+        }
         transaction.insert(competitionRoundEntries).values({
           id: randomUUID(),
           roundId: nextRound.id,

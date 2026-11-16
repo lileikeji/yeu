@@ -17,6 +17,9 @@ import {
   ensureCompetitionEvent,
   findMusicAssociationContent,
   confirmAdvanceRoster,
+  listRoundEntryRows,
+  reopenAdvanceRoster,
+  listAdvanceRows,
   getAdminCompetitionPayload,
   getCallBoard,
   getEmailTemplate,
@@ -1802,6 +1805,69 @@ test('数据库：确认后可以导出一份不带成绩的名单，按姓名�
   const names = lines.slice(1).map(line => line.split(',')[1])
   assert.deepEqual(names, ['安七', '陈四', '王五'])
   assert.match(plain.filename, /不带成绩/)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：微调后的勾选要生效，下一轮名单跟着勾选变', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singers = ['甲一', '乙二', '丙三'].map((name, index) => createSinger(client, event.id, {
+    name,
+    song: `曲${index}`,
+    studentNo: `12345678908${index}`,
+    email: `t${index}@example.com`
+  }))
+  checkInEntries(client, musicId)
+
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, prelim, 1)
+  for (const [index, singer] of singers.entries()) {
+    submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singer.id, {
+      scores: scoresForAll(9 - index)
+    })
+  }
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 2 })
+
+  const before = listAdvanceRows(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.deepEqual(before.map(row => row.advanced), [true, true, false])
+
+  // 把第三名换成晋级、把第二名取消：确认后下一轮就应该是这两个人
+  const second = before[1]!
+  const third = before[2]!
+  setEntryAdvanced(client, getRoundByKey(client, event.id, 'prelim'), second.entryId, false)
+  setEntryAdvanced(client, getRoundByKey(client, event.id, 'prelim'), third.entryId, true)
+  const afterToggle = listAdvanceRows(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.deepEqual(afterToggle.map(row => row.advanced), [true, false, true])
+
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const semi = getRoundByKey(client, event.id, 'semi')
+  const semiEntries = listRoundEntryRows(client, semi.id).map(row => row.singerId).sort()
+  assert.deepEqual(semiEntries, [singers[0]!.id, singers[2]!.id].sort())
+  assert.equal(semiEntries.includes(singers[1]!.id), false)
+
+  // 再改一次并重新确认：下一轮也跟着改
+  reopenAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const reopenRows = listAdvanceRows(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.deepEqual(reopenRows.map(row => row.advanced), [true, false, true])
+  setEntryAdvanced(client, getRoundByKey(client, event.id, 'prelim'), reopenRows[2]!.entryId, false)
+  setEntryAdvanced(client, getRoundByKey(client, event.id, 'prelim'), reopenRows[1]!.entryId, true)
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const semiAgain = listRoundEntryRows(client, getRoundByKey(client, event.id, 'semi').id).map(row => row.singerId).sort()
+  assert.deepEqual(semiAgain, [singers[0]!.id, singers[1]!.id].sort())
 
   closeDatabase(':memory:')
 })
