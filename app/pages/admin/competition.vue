@@ -42,9 +42,9 @@ const {
   SCHEDULE_KEY_OPTIONS, addScheduleRow, removeScheduleRow, restoreDefaultFormFields, formatDateTime,
   weightPercent, rosterEntries, rosterQuery, rosterVisible, missingJudgeCount,
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
-  wrongStatus, advanceHint, canGenerate, canRedraw, canClearRoster, rankClass,
+  wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
-  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, generateNextRound, redrawRound, clearRoster,
+  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -981,16 +981,6 @@ onBeforeUnmount(stopLiveRefresh)
                 @click="setRoundStatus(activeRound, 'closed')"
               />
               <UButton
-                v-if="activeRound.key !== 'final'"
-                icon="i-lucide-shuffle"
-                label="生成下一轮名单并抽签"
-                color="neutral"
-                variant="soft"
-                :disabled="!canGenerate(activeRound)"
-                :loading="generatingRoundKey === activeRound.key"
-                @click="generateNextRound(activeRound)"
-              />
-              <UButton
                 v-if="activeRound.key !== 'prelim'"
                 icon="i-lucide-dices"
                 label="重新抽签"
@@ -1662,6 +1652,28 @@ onBeforeUnmount(stopLiveRefresh)
                   v-if="advanceConfirmed"
                   size="xs"
                   color="neutral"
+                  variant="soft"
+                  icon="i-lucide-download"
+                  :loading="exportingKind === 'confirmed'"
+                  @click="exportRound(activeRound, 'confirmed')"
+                >
+                  导出名单
+                </UButton>
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-list-ordered"
+                  :loading="exportingKind === 'confirmed-plain'"
+                  @click="exportRound(activeRound, 'confirmed-plain')"
+                >
+                  名单（不带成绩）
+                </UButton>
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
                   variant="outline"
                   :loading="advanceBusyKey.endsWith(':reopen')"
                   @click="reopenAdvance"
@@ -2060,6 +2072,23 @@ onBeforeUnmount(stopLiveRefresh)
           </div>
 
           <div class="mt-3 space-y-3">
+            <UFormField label="QQ 群链接">
+              <div class="flex flex-wrap items-center gap-2">
+                <UInput
+                  v-model="settings.qqGroupUrl"
+                  placeholder="https://qm.qq.com/…（填了之后模板里的「加群按钮」才有跳转）"
+                  class="w-full sm:w-[420px]"
+                />
+                <UButton
+                  icon="i-lucide-save"
+                  label="保存群链接"
+                  size="xs"
+                  variant="soft"
+                  :loading="savingSettings"
+                  @click="saveSettings"
+                />
+              </div>
+            </UFormField>
             <UFormField label="邮件主题">
               <UInput
                 v-model="emailTemplate.subject"
