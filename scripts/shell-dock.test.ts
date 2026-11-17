@@ -279,3 +279,16 @@ test('F-44 dock 不透明 + 玻璃 fallback 与折射态同一条（T-033 R7）'
     assert.match(refract, /color-mix\(in srgb, var\(--surface\) 66%, transparent\)/)
   }
 })
+
+test('F-51 dock 让位量按变量相减，不写死旧几何（100 − 52 = 48px）', () => {
+  const at = dock.indexOf('function syncDockExtra()')
+  assert.ok(at > 0, '缺少 syncDockExtra')
+  const body = dock.slice(at, at + 420)
+  assert.match(body, /--mobile-dock-extra/)
+  assert.match(
+    body,
+    /calc\(var\(--shell-dock-map-height, 6\.25rem\) - var\(--mobile-nav-height, 3\.25rem\)\)/,
+    '让位量必须由两个壳层变量相减得出'
+  )
+  assert.doesNotMatch(body, /'3\.875rem'/, '旧的 62px 常量会把浮层顶高 14px')
+})
