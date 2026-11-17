@@ -55,7 +55,7 @@ async function loadForm(): Promise<void> {
   loading.value = true
   notFound.value = false
   try {
-    payload.value = await $fetch<PublicRecruitPayload>(`/api/public/recruit/${encodeURIComponent(slug.value)}`)
+    payload.value = await plainFetch<PublicRecruitPayload>(`/api/public/recruit/${encodeURIComponent(slug.value)}`)
     const draft = payload.value?.form?.draft ?? { data: {}, submitted: false }
     textValues.value = Object.fromEntries(fields.value
       .filter(field => field.type !== 'multiselect')
@@ -79,7 +79,7 @@ async function loadForm(): Promise<void> {
 function scheduleDraftSave(): void {
   if (draftTimer) clearTimeout(draftTimer)
   draftTimer = setTimeout(() => {
-    void $fetch(`/api/public/recruit/${encodeURIComponent(slug.value)}/draft`, {
+    void plainFetch<void>(`/api/public/recruit/${encodeURIComponent(slug.value)}/draft`, {
       method: 'POST',
       body: { data: { ...textValues.value, ...multiValues.value } }
     }).catch(() => {})
@@ -87,7 +87,7 @@ function scheduleDraftSave(): void {
 }
 
 async function resetDraft(mode: 'edit' | 'fresh'): Promise<void> {
-  await $fetch(`/api/public/recruit/${encodeURIComponent(slug.value)}/draft-reset`, {
+  await plainFetch<void>(`/api/public/recruit/${encodeURIComponent(slug.value)}/draft-reset`, {
     method: 'POST',
     body: { mode }
   }).catch(() => {})
@@ -162,7 +162,7 @@ async function submitForm(): Promise<void> {
 
   submitting.value = true
   try {
-    const result = await $fetch<{ id: string, filename: string }>(
+    const result = await plainFetch<{ id: string, filename: string }>(
       `/api/public/recruit/${encodeURIComponent(slug.value)}`,
       {
         method: 'POST',

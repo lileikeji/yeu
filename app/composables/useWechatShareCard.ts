@@ -90,7 +90,7 @@ function reportWechatShareDiagnostic(
   if (reportedDiagnostics.has(key)) return
   reportedDiagnostics.add(key)
 
-  void $fetch('/api/public/wechat-share/report', {
+  void plainFetch<void>('/api/public/wechat-share/report', {
     method: 'POST',
     body: {
       stage,
@@ -238,7 +238,7 @@ export function useWechatShareCard() {
     const imageUrl = new URL(input.imageUrl, window.location.origin).toString()
 
     try {
-      const signaturePromise = $fetch<WechatShareSignature>('/api/public/wechat-share', {
+      const signaturePromise = plainFetch<WechatShareSignature>('/api/public/wechat-share', {
         query: { url: signedUrl }
       }).catch((error) => {
         reportWechatShareDiagnostic('signature', 'error', error)

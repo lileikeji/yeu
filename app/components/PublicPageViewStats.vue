@@ -37,7 +37,7 @@ async function loadStats(path: string): Promise<void> {
 
   const token = ++requestToken
   try {
-    const result = await $fetch<PageViewStats>('/api/public/track/stats', {
+    const result = await plainFetch<PageViewStats>('/api/public/track/stats', {
       query: { path }
     })
     if (token === requestToken && sameTrackedPath(result.path, currentPath.value)) {

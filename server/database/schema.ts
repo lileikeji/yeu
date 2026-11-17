@@ -1559,6 +1559,7 @@ export const yeucaSiteSettings = sqliteTable('yeuca_site_settings', {
   contactNote: text('contact_note').notNull().default(''),
   groupQrUrl: text('group_qr_url').notNull().default(''),
   departmentsJson: text('departments_json').notNull().default('[]'),
+  extrasJson: text('extras_json').notNull().default('{}'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
@@ -1611,4 +1612,3 @@ export const yeucaProjects = sqliteTable('yeuca_projects', {
   index('yeuca_projects_pub_order_idx').on(table.isPublished, table.sortOrder),
   check('yeuca_projects_status_check', sql`${table.status} in ('active', 'maintaining', 'planning')`)
 ])
-

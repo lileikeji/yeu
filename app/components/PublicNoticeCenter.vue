@@ -107,7 +107,7 @@ async function confirmNotice(notice: PublicNotice): Promise<void> {
   confirmingId.value = notice.id
 
   try {
-    const result = await $fetch<ConfirmNoticeResponse>(
+    const result = await plainFetch<ConfirmNoticeResponse>(
       `/api/public/notices/${encodeURIComponent(notice.id)}/confirm`,
       { method: 'POST' }
     )

@@ -17,7 +17,7 @@ export function useRecruitFiles() {
       return
     }
     try {
-      const blob = await $fetch<Blob>(url, { responseType: 'blob' })
+      const blob = await plainFetch<Blob>(url, { responseType: 'blob' })
       const blobUrl = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = blobUrl
