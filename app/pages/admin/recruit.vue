@@ -3,6 +3,8 @@ import RecruitStatsPanel from '~/components/admin/recruit/RecruitStatsPanel.vue'
 import RecruitExportPanel from '~/components/admin/recruit/RecruitExportPanel.vue'
 import RecruitSubmissionEditModal from '~/components/admin/recruit/RecruitSubmissionEditModal.vue'
 
+definePageMeta({ layout: 'admin' })
+
 const sections = [
   { key: 'settings', label: '基础设置', icon: 'i-lucide-sliders-horizontal' },
   { key: 'referrers', label: '纳新人与邀请码', icon: 'i-lucide-user-plus' },

@@ -343,7 +343,7 @@ export function useMapBusPositions(options: {
 
   async function refresh(): Promise<void> {
     try {
-      const data = await $fetch<BusPositionsResponse>(BUS_POSITIONS_API_PATH)
+      const data = await plainFetch<BusPositionsResponse>(BUS_POSITIONS_API_PATH)
       if (stopped) return
       lastData = data
       routes.value = data.routes

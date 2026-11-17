@@ -13,7 +13,9 @@ const chatSource = readFileSync(resolve('app/pages/admin/chat/index.vue'), 'utf8
 test('admin navigation and destructive controls keep readable contrast', () => {
   assert.match(cssSource, /--color-red-500: #b4232c/)
   assert.match(layoutSource, /aria-label="后台主导航"/)
-  assert.match(layoutSource, /adminRole === 'organization' \? '组织内容管理' : '总管理员模式'/)
+  // 2026-11-17：后台按主机与组织身份分支（计协主站），保留两条角色文案，不再是一个三元表达式
+  assert.match(layoutSource, /adminRole === 'organization'[\s\S]{0,240}'组织内容管理'/, '组织角色要看到「组织内容管理」')
+  assert.match(layoutSource, /'总管理员模式'/, '总管理员要看到「总管理员模式」')
   assert.match(layoutSource, /text-zinc-300/)
   assert.doesNotMatch(layoutSource, /text-zinc-500">\s*已登录/)
   assert.equal((catalogSource.match(/!text-red-800 hover:!bg-red-50/g) || []).length, 2)

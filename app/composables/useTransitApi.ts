@@ -57,7 +57,7 @@ async function decodeTransit<T>(envelope: TransitEnvelope, keyMaterial: string):
 async function ensureTicket(): Promise<TransitTicket> {
   if (ticket && ticket.t - Date.now() > 20_000) return ticket
   if (!ticketPromise) {
-    ticketPromise = $fetch<TransitTicket>('/api/public/transit/ticket')
+    ticketPromise = plainFetch<TransitTicket>('/api/public/transit/ticket')
       .then((next) => {
         ticket = next
         return next
@@ -73,7 +73,7 @@ async function ensureTicket(): Promise<TransitTicket> {
 export async function fetchTransit<T>(path: string): Promise<T> {
   const current = await ensureTicket()
   const nonce = randomNonce()
-  const envelope = await $fetch<TransitEnvelope>(path, {
+  const envelope = await plainFetch<TransitEnvelope>(path, {
     headers: {
       'x-yeu-ticket': `${current.t}.${current.s}`,
       'x-yeu-nonce': nonce

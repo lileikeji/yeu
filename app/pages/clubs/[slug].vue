@@ -19,6 +19,7 @@ import { resolvePublicContactActions } from '~~/app/utils/public-phone-contact'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
+const isComputerAssociationClub = computed(() => slug === 'computer-association')
 const { data: content, error } = await usePublicClub(slug)
 const seedClub = computed(() => findOfficialClub(slug))
 if (error.value && !seedClub.value) throwPublicDetailError(error.value, '社团')
@@ -94,7 +95,7 @@ const recruitSignupOpen = ref(false)
 const recruitSignupPath = computed(() => `/recruit/${encodeURIComponent(slug)}`)
 onMounted(async () => {
   try {
-    const payload = await $fetch<{ available: boolean }>(`/api/public/recruit/${encodeURIComponent(slug)}?probe=1`)
+    const payload = await plainFetch<{ available: boolean }>(`/api/public/recruit/${encodeURIComponent(slug)}?probe=1`)
     recruitSignupOpen.value = payload.available === true
   } catch {
     recruitSignupOpen.value = false
@@ -198,6 +199,71 @@ async function shareClub(): Promise<void> {
 
     <div class="page-shell py-7 md:py-10">
       <article class="mx-auto min-w-0 max-w-4xl">
+        <section
+          v-if="isComputerAssociationClub"
+          class="mb-6 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/75 dark:bg-sky-950/50 p-4 sm:p-5"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <UBadge
+              label="官方网站主站"
+              color="info"
+              variant="soft"
+            />
+            <UBadge
+              label="关联项目：YeU 迎新指南"
+              color="neutral"
+              variant="outline"
+            />
+          </div>
+          <h2 class="mt-2.5 text-base font-bold text-zinc-950 dark:text-zinc-100 sm:text-lg">
+            仰恩大学计算机协会独立官网主站：yeuca.huiliyill.cn
+          </h2>
+          <p class="mt-1.5 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+            这个迎新网站（YeU）由计协成员开发和维护。想看各部门平时练什么、用校内加速镜像、逛自建 Git 代码站和调试工具，可以直接去计协主站。
+          </p>
+          <div class="mt-3.5 flex flex-wrap gap-2">
+            <UButton
+              to="https://yeuca.huiliyill.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-external-link"
+              label="进入计协主站"
+              color="primary"
+              class="min-h-10"
+            />
+            <UButton
+              to="https://yeuca.huiliyill.cn/departments/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-layers"
+              label="各部门分工"
+              color="neutral"
+              variant="outline"
+              class="min-h-10"
+            />
+            <UButton
+              to="https://yeuca.huiliyill.cn/git/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-git-branch"
+              label="Git 代码站"
+              color="neutral"
+              variant="outline"
+              class="min-h-10"
+            />
+            <UButton
+              to="https://yeuca.huiliyill.cn/mirrors/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-package"
+              label="PyPI / npm 镜像"
+              color="neutral"
+              variant="outline"
+              class="min-h-10"
+            />
+          </div>
+        </section>
+
         <div
           v-if="!hasRecruitmentDetails"
           class="border-l-4 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950"

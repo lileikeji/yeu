@@ -63,10 +63,10 @@ async function loadRoutes(): Promise<void> {
 
   const pointId = transitPointId(selectedDestination.value)
   const [outboundResult, inboundResult] = await Promise.allSettled([
-    $fetch<ApiTransitPlanResponse>('/api/public/transit/plan', {
+    plainFetch<ApiTransitPlanResponse>('/api/public/transit/plan', {
       query: { from: 'campus', to: pointId }
     }),
-    $fetch<ApiTransitPlanResponse>('/api/public/transit/plan', {
+    plainFetch<ApiTransitPlanResponse>('/api/public/transit/plan', {
       query: { from: pointId, to: 'campus' }
     })
   ])

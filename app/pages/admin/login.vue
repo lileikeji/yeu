@@ -17,12 +17,18 @@ import {
 
 definePageMeta({ layout: false })
 
+const route = useRoute()
+const requestUrl = useRequestURL()
+const isYeucaHost = computed(() => {
+  const clientHost = import.meta.client ? window.location.hostname : ''
+  return (clientHost || requestUrl.hostname) === 'yeuca.huiliyill.cn'
+})
+
 useSeoMeta({
-  title: '后台登录',
+  title: () => isYeucaHost.value ? '计协主站后台登录｜仰恩大学计算机协会' : '后台登录',
   robots: 'noindex, nofollow'
 })
 
-const route = useRoute()
 const username = ref('')
 const password = ref('')
 const passwordVisible = ref(false)
@@ -34,19 +40,19 @@ const deviceKeyAvailable = ref(false)
 const deviceKeyInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref('')
 
-function redirectTarget(): string {
-  return resolveAdminLoginRedirectTarget(route.query.redirect)
-}
-
 async function checkExistingSession(): Promise<boolean> {
   checkingSession.value = true
 
   try {
-    const payload = await $fetch<unknown>('/api/admin/auth/session', {
+    const payload = await plainFetch<unknown>('/api/admin/auth/session', {
       credentials: 'include'
     })
     if (isAdminSessionAuthenticated(payload)) {
-      await navigateTo(redirectTarget(), { replace: true })
+      const baseRedirect = resolveAdminLoginRedirectTarget(route.query.redirect)
+      await navigateTo(
+        resolveAdminPostLoginTarget(payload, baseRedirect, isYeucaHost.value ? '/admin/yeuca' : undefined),
+        { replace: true }
+      )
       return true
     }
   } catch {
@@ -63,7 +69,7 @@ async function loginWithDevice(): Promise<void> {
   errorMessage.value = ''
 
   try {
-    const challenge = await $fetch<AdminDeviceChallengePayload>(
+    const challenge = await plainFetch<AdminDeviceChallengePayload>(
       '/api/admin/auth/device/challenge',
       {
         method: 'POST',
@@ -71,13 +77,16 @@ async function loginWithDevice(): Promise<void> {
       }
     )
     const proof = await signAdminDeviceChallenge(challenge)
-    const payload = await $fetch<unknown>('/api/admin/auth/device/verify', {
+    const payload = await plainFetch<unknown>('/api/admin/auth/device/verify', {
       method: 'POST',
       body: proof,
       credentials: 'include'
     })
     clearNuxtData('admin-session')
-    await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
+    await navigateTo(
+      resolveAdminPostLoginTarget(payload, route.query.redirect, isYeucaHost.value ? '/admin/yeuca' : undefined),
+      { replace: true }
+    )
   } catch (error) {
     errorMessage.value = adminDeviceLoginRequestMessage(error)
   } finally {
@@ -124,7 +133,7 @@ async function login(): Promise<void> {
   errorMessage.value = ''
 
   try {
-    const payload = await $fetch<unknown>('/api/admin/auth/login', {
+    const payload = await plainFetch<unknown>('/api/admin/auth/login', {
       method: 'POST',
       body: {
         username: username.value.trim(),
@@ -133,7 +142,10 @@ async function login(): Promise<void> {
       credentials: 'include'
     })
     clearNuxtData('admin-session')
-    await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
+    await navigateTo(
+      resolveAdminPostLoginTarget(payload, route.query.redirect, isYeucaHost.value ? '/admin/yeuca' : undefined),
+      { replace: true }
+    )
   } catch (error) {
     errorMessage.value = adminLoginRequestMessage(error)
   } finally {
@@ -153,8 +165,116 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="grid min-h-dvh bg-[#f5f7f4] dark:bg-zinc-950 lg:grid-cols-[minmax(20rem,0.72fr)_minmax(30rem,1fr)]">
-    <section class="hidden border-r border-green-950 bg-green-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
+  <div
+    class="grid min-h-dvh lg:grid-cols-[minmax(22rem,0.82fr)_minmax(28rem,1fr)]"
+    :class="isYeucaHost ? 'bg-[#f6f6f4] dark:bg-zinc-950' : 'bg-[#f5f7f4] dark:bg-zinc-950'"
+  >
+    <!-- 计协主站专属视觉品牌栏 -->
+    <section
+      v-if="isYeucaHost"
+      class="relative hidden overflow-hidden border-r border-zinc-800 bg-[#121211] px-10 py-11 text-white lg:flex lg:flex-col lg:justify-between"
+    >
+      <div
+        class="pointer-events-none absolute inset-0 opacity-25"
+        style="background-image: radial-gradient(rgba(255,255,255,0.22) 1px, transparent 1px); background-size: 22px 22px;"
+        aria-hidden="true"
+      />
+      <div
+        class="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[#a8121e]/25 blur-3xl"
+        aria-hidden="true"
+      />
+      <div
+        class="pointer-events-none absolute -bottom-24 -left-16 size-72 rounded-full bg-sky-600/20 blur-3xl"
+        aria-hidden="true"
+      />
+
+      <div class="relative flex items-center gap-3.5">
+        <img
+          src="/images/yeuca-logo.jpg"
+          alt="仰恩大学计算机协会徽标"
+          class="size-11 rounded-full border border-white/25 object-cover shadow-md"
+        >
+        <div>
+          <p class="font-bold tracking-tight text-white">
+            仰恩大学计算机协会
+          </p>
+          <p class="font-mono text-xs text-zinc-400">
+            YEUCA STUDIO · 管理控制台
+          </p>
+        </div>
+      </div>
+
+      <div class="relative max-w-md space-y-6">
+        <div>
+          <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-[11px] text-zinc-200">
+            <span class="size-1.5 rounded-full bg-emerald-400" />
+            yeuca.huiliyill.cn / yx.huiliyill.cn 数据同步
+          </span>
+          <h1 class="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-white">
+            维护官网部门、动态、项目与图片素材
+          </h1>
+          <p class="mt-3 text-sm leading-6 text-zinc-300">
+            使用计算机协会或总管理员账号登录后，修改直接同步到主站前端与迎新平台关联名片。
+          </p>
+        </div>
+
+        <div class="grid gap-2.5 text-xs">
+          <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
+            <UIcon
+              name="i-lucide-layers"
+              class="mt-0.5 size-4 shrink-0 text-sky-400"
+            />
+            <div>
+              <p class="font-semibold text-zinc-100">
+                部门全量配置与工作流演示
+              </p>
+              <p class="mt-0.5 text-zinc-400">
+                增删改查部门简介、工具标签与是否开放招新
+              </p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
+            <UIcon
+              name="i-lucide-newspaper"
+              class="mt-0.5 size-4 shrink-0 text-rose-400"
+            />
+            <div>
+              <p class="font-semibold text-zinc-100">
+                动态、笔记与 Git 项目联动
+              </p>
+              <p class="mt-0.5 text-zinc-400">
+                发布图文公告、管理实验项目和赛事清单
+              </p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
+            <UIcon
+              name="i-lucide-images"
+              class="mt-0.5 size-4 shrink-0 text-amber-400"
+            />
+            <div>
+              <p class="font-semibold text-zinc-100">
+                首屏实景图、迎新群码与相册直传
+              </p>
+              <p class="mt-0.5 text-zinc-400">
+                传图后一键保存即可在前台生效显示
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative flex items-center justify-between border-t border-white/10 pt-4 text-xs text-zinc-400">
+        <span>1999 年创会 · 仰恩大学洛江校区</span>
+        <span class="font-mono text-zinc-500">yeuca.huiliyill.cn</span>
+      </div>
+    </section>
+
+    <!-- 迎新指南原默认左栏（保持独立互不干扰） -->
+    <section
+      v-else
+      class="hidden border-r border-green-950 bg-green-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between"
+    >
       <div class="flex items-center gap-3">
         <span class="grid size-10 place-items-center rounded-md bg-green-600 text-white">
           <UIcon
@@ -191,7 +311,16 @@ onMounted(async () => {
     <main class="grid place-items-center p-5 sm:p-8">
       <div class="w-full max-w-md">
         <div class="mb-7 flex items-center gap-3 lg:hidden">
-          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-[var(--surface)]">
+          <img
+            v-if="isYeucaHost"
+            src="/images/yeuca-logo.jpg"
+            alt="仰恩大学计算机协会徽标"
+            class="size-10 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover shadow-xs"
+          >
+          <span
+            v-else
+            class="grid size-10 place-items-center rounded-md bg-green-700 text-[var(--surface)]"
+          >
             <UIcon
               name="i-lucide-compass"
               class="size-5"
@@ -200,130 +329,162 @@ onMounted(async () => {
           </span>
           <div>
             <p class="font-semibold text-zinc-950 dark:text-zinc-100">
-              迎新指南
+              {{ isYeucaHost ? '仰恩大学计算机协会' : '迎新指南' }}
             </p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
-              内容管理后台
+              {{ isYeucaHost ? 'YEUCA STUDIO · 主站内容后台' : '内容管理后台' }}
             </p>
           </div>
         </div>
 
-        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
-          <div>
-            <p class="text-xs font-semibold text-green-700 dark:text-green-400">
-              ADMIN
-            </p>
-            <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
-              管理员登录
-            </h1>
-          </div>
-
+        <div
+          class="overflow-hidden rounded-xl border bg-[var(--surface)] dark:bg-zinc-900"
+          :class="isYeucaHost ? 'border-zinc-200/90 dark:border-zinc-800 shadow-[0_14px_36px_rgba(17,17,16,0.06)]' : 'border-zinc-200 dark:border-zinc-800 shadow-sm'"
+        >
           <div
-            v-if="errorMessage"
-            class="mt-5 flex items-start gap-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-300"
-            role="alert"
-          >
-            <UIcon
-              name="i-lucide-circle-alert"
-              class="mt-0.5 size-4 shrink-0"
-            />
-            <span>{{ errorMessage }}</span>
-          </div>
+            v-if="isYeucaHost"
+            class="h-1.5 w-full bg-gradient-to-r from-[#a8121e] via-[#c81e2b] to-[#1d4ed8]"
+          />
 
-          <form
-            class="mt-6 space-y-4"
-            @submit.prevent="login"
-          >
-            <UFormField
-              label="管理员账号"
-              required
-            >
-              <UInput
-                v-model="username"
-                name="username"
-                autocomplete="username"
-                icon="i-lucide-user-round"
-                placeholder="请输入账号"
-                size="lg"
-                autofocus
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField
-              label="密码"
-              required
-            >
-              <UInput
-                v-model="password"
-                name="password"
-                :type="passwordVisible ? 'text' : 'password'"
-                autocomplete="current-password"
-                icon="i-lucide-lock-keyhole"
-                placeholder="请输入密码"
-                size="lg"
-                class="w-full"
+          <div class="p-5 sm:p-7">
+            <div>
+              <p
+                class="font-mono text-xs font-semibold"
+                :class="isYeucaHost ? 'text-[#a8121e] dark:text-rose-400' : 'text-green-700 dark:text-green-400'"
               >
-                <template #trailing>
-                  <UButton
-                    :icon="passwordVisible ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-                    @click="() => { passwordVisible = !passwordVisible }"
-                  />
-                </template>
-              </UInput>
-            </UFormField>
+                {{ isYeucaHost ? 'YEUCA ADMIN CONSOLE' : 'ADMIN' }}
+              </p>
+              <h1 class="mt-1.5 text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100">
+                {{ isYeucaHost ? '计协官网管理登录' : '管理员登录' }}
+              </h1>
+              <p
+                v-if="isYeucaHost"
+                class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
+              >
+                仅限社团维护者与管理员访问，普通访问官网无需登录。
+              </p>
+            </div>
 
-            <UButton
-              type="submit"
-              icon="i-lucide-log-in"
-              label="登录"
-              size="lg"
-              block
-              :loading="submitting || checkingSession"
-            />
-          </form>
-
-          <div class="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-5">
-            <input
-              ref="deviceKeyInput"
-              type="file"
-              accept=".json,application/json"
-              class="hidden"
-              @change="importDeviceKey"
+            <div
+              v-if="errorMessage"
+              class="mt-5 flex items-start gap-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-300"
+              role="alert"
             >
-            <UButton
-              type="button"
-              icon="i-lucide-key-round"
-              :label="deviceKeyAvailable ? '使用本机设备密钥' : '导入设备密钥'"
-              color="neutral"
-              variant="outline"
-              size="lg"
-              block
-              :loading="deviceLoginActive || deviceImporting"
-              @click="deviceKeyAvailable ? loginWithDevice() : chooseDeviceKey()"
-            />
-            <UButton
-              v-if="deviceKeyAvailable && route.query.password === '1'"
-              type="button"
-              icon="i-lucide-key-round"
-              label="移除本机密钥"
-              color="error"
-              variant="ghost"
-              size="sm"
-              block
-              class="mt-2"
-              @click="forgetDeviceKey"
-            />
+              <UIcon
+                name="i-lucide-circle-alert"
+                class="mt-0.5 size-4 shrink-0"
+              />
+              <span>{{ errorMessage }}</span>
+            </div>
+
+            <form
+              class="mt-6 space-y-4"
+              @submit.prevent="login"
+            >
+              <UFormField
+                label="管理员账号"
+                required
+              >
+                <UInput
+                  v-model="username"
+                  name="username"
+                  autocomplete="username"
+                  icon="i-lucide-user-round"
+                  placeholder="请输入账号"
+                  size="lg"
+                  autofocus
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                label="密码"
+                required
+              >
+                <UInput
+                  v-model="password"
+                  name="password"
+                  :type="passwordVisible ? 'text' : 'password'"
+                  autocomplete="current-password"
+                  icon="i-lucide-lock-keyhole"
+                  placeholder="请输入密码"
+                  size="lg"
+                  class="w-full"
+                >
+                  <template #trailing>
+                    <UButton
+                      :icon="passwordVisible ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
+                      @click="() => { passwordVisible = !passwordVisible }"
+                    />
+                  </template>
+                </UInput>
+              </UFormField>
+
+              <UButton
+                type="submit"
+                icon="i-lucide-log-in"
+                :label="isYeucaHost ? '登录计协控制台' : '登录'"
+                size="lg"
+                block
+                :loading="submitting || checkingSession"
+                :class="isYeucaHost ? '!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white transition-colors' : ''"
+              />
+            </form>
+
+            <div class="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-5">
+              <input
+                ref="deviceKeyInput"
+                type="file"
+                accept=".json,application/json"
+                class="hidden"
+                @change="importDeviceKey"
+              >
+              <UButton
+                type="button"
+                icon="i-lucide-key-round"
+                :label="deviceKeyAvailable ? '使用本机设备密钥登录' : '导入设备密钥文件'"
+                color="neutral"
+                variant="outline"
+                size="lg"
+                block
+                :loading="deviceLoginActive || deviceImporting"
+                @click="deviceKeyAvailable ? loginWithDevice() : chooseDeviceKey()"
+              />
+              <UButton
+                v-if="deviceKeyAvailable && route.query.password === '1'"
+                type="button"
+                icon="i-lucide-key-round"
+                label="移除本机密钥"
+                color="error"
+                variant="ghost"
+                size="sm"
+                block
+                class="mt-2"
+                @click="forgetDeviceKey"
+              />
+            </div>
           </div>
         </div>
 
         <div class="mt-5 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-          <span>仅限维护者访问</span>
+          <span>{{ isYeucaHost ? '支持计协管理员 / 总管理员账号' : '仅限维护者访问' }}</span>
+          <a
+            v-if="isYeucaHost"
+            href="/"
+            class="inline-flex items-center gap-1 font-medium text-[#a8121e] dark:text-rose-400 hover:underline"
+          >
+            返回计协主站
+            <UIcon
+              name="i-lucide-arrow-right"
+              class="size-3.5"
+            />
+          </a>
           <NuxtLink
+            v-else
             to="/"
             class="inline-flex items-center gap-1 font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
           >
