@@ -1487,6 +1487,12 @@ export const competitionSongLookupSchema = z.object({
   contact: z.string().trim().min(4).max(120)
 }).strict()
 
+export const setCompetitionEntryAccompanimentSchema = z.object({
+  entryId: z.string().min(1).max(64),
+  filename: z.string().trim().max(120).optional(),
+  data: z.string().min(1).max(30 * 1024 * 1024)
+}).strict()
+
 export const competitionSongAccompanimentSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(30),
