@@ -1038,6 +1038,31 @@ function formatExportTime(value: number | null | undefined): string {
  * 导出复用页面上的同一套排名算法（含去极值开关），所以导出的名次与
  * 后台看到的完全一致，不存在「导出另算一套」的偏差。
  */
+/** 多音姓氏按姓氏读音换成同音常用字，只为借用拼音排序规则定位。 */
+const COMPETITION_SURNAME_HINTS: Record<string, string> = {
+  曾: '增',
+  单: '山',
+  仇: '求',
+  解: '谢',
+  查: '扎',
+  朴: '瓢',
+  区: '欧',
+  乐: '月',
+  覃: '秦',
+  缪: '妙',
+  盖: '葛',
+  尉: '玉',
+  种: '崇'
+}
+
+function plainSortName(name: string): string {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) return ''
+  const head = trimmed.slice(0, 1)
+  const hint = COMPETITION_SURNAME_HINTS[head]
+  return hint ? `${hint}${trimmed.slice(1)}` : trimmed
+}
+
 export function buildCompetitionExport(
   client: DatabaseClient,
   round: RoundRow,
@@ -1157,12 +1182,13 @@ export function buildCompetitionExport(
       conflictError('ROSTER_NOT_CONFIRMED', '先确认晋级名单，再导出确认后的名单')
     }
     // 不带成绩的名单：按姓名首字拼音排（同首字再按整个姓名，最后按出场顺序），方便现场点名。
+    // 多音姓氏用常用同音字替换后再交给排序器，否则「曾」会被读成 céng 排到最前面。
     const plainCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
     const plainRows = ranking
       .filter(row => entryBySinger.get(row.singer.id)?.advanced === 1)
       .sort((left, right) =>
-        plainCollator.compare(left.singer.name.slice(0, 1), right.singer.name.slice(0, 1))
-        || plainCollator.compare(left.singer.name, right.singer.name)
+        plainCollator.compare(plainSortName(left.singer.name).slice(0, 1), plainSortName(right.singer.name).slice(0, 1))
+        || plainCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name))
         || (left.sortOrder - right.sortOrder)
       )
     label = '晋级名单（不带成绩）'

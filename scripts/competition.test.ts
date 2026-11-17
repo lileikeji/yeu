@@ -1888,6 +1888,47 @@ test('数据库：确认后可以导出一份不带成绩的名单，按姓名�
   closeDatabase(':memory:')
 })
 
+test('数据库：不带成绩的名单里「曾」按姓氏读音排，不会挤到最前面', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const made = ['曾晨希', '陈四', '安七'].map((name, index) => createSinger(client, event.id, {
+    name,
+    song: `歌曲${index}`,
+    studentNo: `12345678907${index}`,
+    email: `q${index}@example.com`
+  }))
+  checkInEntries(client, musicId)
+
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, prelim, 1)
+  for (const singer of made) {
+    submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singer.id, {
+      scores: scoresForAll(6)
+    })
+  }
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 3 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+
+  const plain = buildCompetitionExport(client, getRoundByKey(client, event.id, 'prelim'), 'confirmed-plain')
+  const names = plain.csv.replace(/^\uFEFF/, '').split('\r\n').slice(1).map(line => line.split(',')[1])
+  assert.deepEqual(names, ['安七', '陈四', '曾晨希'])
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：微调后的勾选要生效，下一轮名单跟着勾选变', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
