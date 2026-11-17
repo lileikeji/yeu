@@ -13,6 +13,9 @@ import { expect, test } from '@playwright/test'
 const LAYOUT_PATH = 'app/layouts/default.vue'
 const layoutSource = readFileSync(LAYOUT_PATH, 'utf8')
 
+const DOCK_PATH = 'app/components/ShellDock.vue'
+const dockSource = readFileSync(DOCK_PATH, 'utf8')
+
 function arrayBody(name: string): string {
   const match = layoutSource.match(new RegExp(`const ${name}[^=]*=\\s*\\[([\\s\\S]*?)\\n\\]`))
   if (!match) throw new Error(`${LAYOUT_PATH} 里找不到 ${name} 数组`)
@@ -147,10 +150,11 @@ test('导航 key 都在 NavigationKey 联合类型内', () => {
 })
 
 test('窄屏底栏 5 列，两处选中态都用 aria-current', () => {
-  expect(layoutSource.match(/grid-cols-5/g)?.length).toBe(1)
-  expect(layoutSource.match(/:aria-current="/g)?.length).toBe(2)
+  // T-033：窄屏底栏换成全局 ShellDock，5 等分与两处选中态都落在它里面。
+  expect(dockSource.match(/grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/g)?.length).toBe(1)
+  expect(dockSource.match(/:aria-current="/g)?.length).toBe(1)
   expect(layoutSource).toContain('v-for="item in desktopNavigation"')
-  expect(layoutSource).toContain('v-for="item in mobileNavigation"')
+  expect(layoutSource).toContain(':items="mobileNavigation"')
   expect(layoutSource).toContain('aria-label="移动端主导航"')
 })
 

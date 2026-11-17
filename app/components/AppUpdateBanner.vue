@@ -50,7 +50,7 @@ function reload(): void {
 <template>
   <div
     v-if="outdated && !dismissed && !$pwa?.needRefresh"
-    class="fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-[70] flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-lg md:inset-x-auto md:right-4 md:bottom-4"
+    class="fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+env(safe-area-inset-bottom)+0.75rem)] z-[70] flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 shadow-lg md:inset-x-auto md:right-4 md:bottom-4"
     role="status"
   >
     <span class="flex-1">站点已更新，当前页面还是旧版本。</span>
