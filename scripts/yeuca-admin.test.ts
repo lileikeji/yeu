@@ -1,11 +1,31 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { createEvent } from 'h3'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { adminUsers, contents } from '../server/database/schema'
+import { adminUsers, contents, recruitForms, recruitSubmissions } from '../server/database/schema'
+import {
+  createYeucaActivityAdmin,
+  listActivityRegistrationsAdmin,
+  setMemberActivityRegistration,
+  updateActivityRegistrationStatusAdmin
+} from '../server/modules/yeuca/activity-service'
+import type { SyncGiteaAccountInput } from '../server/modules/yeuca/gitea'
+import {
+  approveRecruitSubmissionsToMembers,
+  changeMemberPassword,
+  importYeucaMembersAdmin,
+  loginYeucaMember,
+  readOptionalYeucaMemberSession,
+  registerYeucaMember,
+  updateYeucaMemberAdmin,
+  verifyMemberEligibility
+} from '../server/modules/yeuca/member-service'
 import {
   createYeucaPost,
   createYeucaProject,
@@ -17,8 +37,27 @@ import {
 } from '../server/modules/yeuca/service'
 import { resolveYeucaAdminScope } from '../server/utils/yeuca-admin'
 import type { AdminSessionContext } from '../server/utils/auth'
+import {
+  parseMatrixToMemberImportRows,
+  parsePastedTextToMemberImportRows
+} from '../shared/utils/yeuca-member-import'
+
+function makeTestEvent(token?: string) {
+  const socket = new Socket()
+  const req = new IncomingMessage(socket)
+  req.url = '/api/public/yeuca/member/test'
+  req.method = 'POST'
+  req.headers = {
+    'host': 'localhost:3000',
+    'x-forwarded-for': '127.0.0.1',
+    ...(token ? { 'x-yeuca-member-token': token } : {})
+  }
+  const res = new ServerResponse(req)
+  return createEvent(req, res)
+}
 
 function createTempClient() {
+  process.env.NUXT_ADMIN_SESSION_SECRET = '0123456789abcdef0123456789abcdef_test_secret_key'
   const dir = mkdtempSync(join(tmpdir(), 'yeu-yeuca-test-'))
   const dbPath = join(dir, 'test.sqlite')
   const client = getDatabase(dbPath)
@@ -70,7 +109,7 @@ function createTempClient() {
   }
 }
 
-test('yeuca initializes 6 verified departments with zero fake news/projects and enforces club isolation', () => {
+test('yeuca initializes 6 verified departments with zero fake news/projects and enforces club isolation', async () => {
   const { client, cleanup } = createTempClient()
 
   try {
@@ -160,7 +199,7 @@ test('yeuca initializes 6 verified departments with zero fake news/projects and 
       isPublished: true
     })
 
-    const overview = getAdminYeucaOverview(client)
+    const overview = await getAdminYeucaOverview(client)
     assert.equal(overview.posts.length, 2)
     assert.equal(overview.projects.length, 2)
 
@@ -224,6 +263,178 @@ test('yeuca initializes 6 verified departments with zero fake news/projects and 
     })
     assert.equal(reducedSettings.departments.length, 5)
     assert.equal(reducedSettings.extras.heroImageUrl, '/uploads/hero-test.png')
+  } finally {
+    cleanup()
+  }
+})
+
+test('yeuca member import, whitelist registration, gitea sync, disable, recruit approval and activity registration', async () => {
+  const { client, cleanup } = createTempClient()
+  const giteaCalls: SyncGiteaAccountInput[] = []
+
+  const fakeGiteaSync = async (input: SyncGiteaAccountInput) => {
+    giteaCalls.push(input)
+    return {
+      synced: true,
+      gitUserId: 101,
+      error: ''
+    }
+  }
+
+  try {
+    // 1. 解析 Excel 二维数组与粘贴文本
+    const pasted = '学号\t姓名\t专业班级\t部门\t角色\n125920250165\t李磊\t25电子专升本1班\tAI 部\t副会长\n\t缺学号\t测试\tAI 部\t会员'
+    const parsedPaste = parsePastedTextToMemberImportRows(pasted)
+    assert.equal(parsedPaste.length, 2)
+    assert.equal(parsedPaste[0]?.valid, true)
+    assert.equal(parsedPaste[0]?.studentNo, '125920250165')
+    assert.equal(parsedPaste[1]?.valid, false)
+
+    const matrixParsed = parseMatrixToMemberImportRows([
+      ['学号', '姓名', '班级', '所属部门'],
+      ['20240010', '陈同学', '24计科2班', '编程部']
+    ])
+    assert.equal(matrixParsed[0]?.valid, true)
+    assert.equal(matrixParsed[0]?.department, '编程部')
+
+    // 2. 批量导入入库
+    const importSummary = importYeucaMembersAdmin(client, 'admin-super', 'update_existing', [
+      {
+        studentNo: '125920250165',
+        name: '李磊',
+        gradeMajorClass: '25电子专升本1班',
+        department: 'AI 部',
+        roleTitle: '副会长',
+        term: '2025-2026学年',
+        phone: '',
+        qq: '',
+        email: '',
+        gitUsername: '',
+        notes: ''
+      }
+    ])
+    assert.equal(importSummary.inserted, 1)
+
+    // 3. 未导入名单者核验与注册均拒绝
+    const notInList = verifyMemberEligibility(makeTestEvent(), client, '99999999', '路人甲')
+    assert.equal(notInList.eligible, false)
+    assert.equal(notInList.reason, 'NOT_IN_LIST')
+
+    await assert.rejects(
+      () => registerYeucaMember(makeTestEvent(), client, {
+        studentNo: '99999999',
+        name: '路人甲',
+        gitUsername: 'lurenjia',
+        email: '',
+        password: 'Password123'
+      }, { giteaSync: fakeGiteaSync }),
+      (err: { statusCode?: number }) => err?.statusCode === 403
+    )
+
+    // 4. 在册成员核验成功并开放注册 -> 同步开通 Gitea 并自动登录
+    const okCheck = verifyMemberEligibility(makeTestEvent(), client, '125920250165', '李磊')
+    assert.equal(okCheck.eligible, true)
+    assert.equal(okCheck.profile?.suggestedGitUsername, '125920250165')
+
+    const regRes = await registerYeucaMember(makeTestEvent(), client, {
+      studentNo: '125920250165',
+      name: '李磊',
+      gitUsername: 'lilei_yeuca',
+      email: 'lilei@example.com',
+      password: 'Password123'
+    }, { giteaSync: fakeGiteaSync })
+
+    assert.equal(regRes.authenticated, true)
+    assert.equal(regRes.member.gitUsername, 'lilei_yeuca')
+    assert.equal(regRes.member.gitSynced, true)
+    assert.equal(giteaCalls.length, 1)
+    assert.equal(giteaCalls[0]?.username, 'lilei_yeuca')
+    assert.equal(giteaCalls[0]?.active, true)
+
+    // 5. Token 鉴权读取与修改密码同步 Gitea
+    const authedSession = readOptionalYeucaMemberSession(makeTestEvent(regRes.sessionToken), client)
+    assert.equal(authedSession?.member.studentNo, '125920250165')
+
+    await changeMemberPassword(client, regRes.member.id, 'Password123', 'NewPassword456', {
+      giteaSync: fakeGiteaSync
+    })
+    assert.equal(giteaCalls.length, 2)
+    assert.equal(giteaCalls[1]?.password, 'NewPassword456')
+
+    const loginRes = await loginYeucaMember(makeTestEvent(), client, 'lilei_yeuca', 'NewPassword456')
+    assert.equal(loginRes.member.studentNo, '125920250165')
+
+    // 6. 管理员停用成员同步冻结 Gitea 且注销全部会话
+    const disabled = await updateYeucaMemberAdmin(client, regRes.member.id, {
+      memberStatus: 'disabled'
+    }, { giteaSync: fakeGiteaSync })
+    assert.equal(disabled.memberStatus, 'disabled')
+    assert.equal(giteaCalls.at(-1)?.active, false)
+    assert.equal(readOptionalYeucaMemberSession(makeTestEvent(regRes.sessionToken), client), null)
+
+    // 7. 招新一键审批转入白名单 + 活动报名与签到
+    const now = Date.now()
+    client.db.insert(recruitForms).values({
+      id: 'rf-1',
+      contentId: 'club-yeuca',
+      title: '招新',
+      slogan: '',
+      intro: '',
+      status: 'open',
+      createdAt: now,
+      updatedAt: now
+    }).run()
+    client.db.insert(recruitSubmissions).values({
+      id: '11111111-1111-4111-8111-111111111111',
+      formId: 'rf-1',
+      name: '王新同学',
+      studentNo: '20251001',
+      major: '计算机',
+      className: '1班',
+      departments: '网络安全部',
+      createdAt: now
+    }).run()
+
+    const approved = approveRecruitSubmissionsToMembers(
+      client,
+      'club-yeuca',
+      'admin-super',
+      ['11111111-1111-4111-8111-111111111111'],
+      'AI 部',
+      '2025-2026学年'
+    )
+    assert.equal(approved.imported, 1)
+    assert.equal(verifyMemberEligibility(makeTestEvent(), client, '20251001', '王新同学').eligible, true)
+
+    // 恢复李磊并测试直管活动与会员报名签到
+    await updateYeucaMemberAdmin(client, regRes.member.id, { memberStatus: 'active' }, { giteaSync: fakeGiteaSync })
+    const act = createYeucaActivityAdmin(client, 'admin-super', {
+      title: 'Agent 工作流实战分享',
+      deptName: 'AI 部',
+      category: '技术培训',
+      summary: '手把手带跑工具调用',
+      body: '带笔记本电脑',
+      placeName: '图信楼',
+      room: '302 机房',
+      startsAt: new Date(now + 3600 * 1000).toISOString(),
+      endsAt: null,
+      allowRegistration: true,
+      maxParticipants: 40,
+      status: 'published',
+      photos: []
+    })
+    assert.equal(getPublicYeucaSnapshot(client).activities.length, 1)
+
+    const regStatus = setMemberActivityRegistration(client, act.id, regRes.member.id, 'register', '带笔记本参加')
+    assert.equal(regStatus.status, 'registered')
+    assert.equal(regStatus.registrationCount, 1)
+
+    const regs = listActivityRegistrationsAdmin(client, act.id)
+    assert.equal(regs.length, 1)
+    assert.equal(regs[0]?.studentNo, '125920250165')
+
+    updateActivityRegistrationStatusAdmin(client, regs[0]!.id, 'checked_in')
+    assert.equal(listActivityRegistrationsAdmin(client, act.id)[0]?.status, 'checked_in')
   } finally {
     cleanup()
   }

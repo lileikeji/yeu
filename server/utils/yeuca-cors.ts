@@ -18,7 +18,7 @@ function isLocalLoopbackOrigin(origin: string): boolean {
 }
 
 /**
- * 计协独立官网允许跨域拉取只读公开快照与投递纳新。
+ * 计协独立官网允许跨域拉取只读公开快照、投递纳新与会员端交互。
  * 额外来源通过 `NUXT_YEUCA_ALLOWED_ORIGINS`（逗号分隔）显式授权，不影响主站其他接口护栏。
  */
 export function resolveYeucaAllowedOrigins(event: H3Event): Set<string> {
@@ -46,9 +46,10 @@ export function applyYeucaCors(event: H3Event): void {
   const matchedOrigin = isOriginAllowedForYeuca(event, originHeader)
   if (matchedOrigin) {
     setHeader(event, 'Access-Control-Allow-Origin', matchedOrigin)
+    setHeader(event, 'Access-Control-Allow-Credentials', 'true')
     setHeader(event, 'Vary', 'Origin')
-    setHeader(event, 'Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    setHeader(event, 'Access-Control-Allow-Headers', 'Content-Type')
+    setHeader(event, 'Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+    setHeader(event, 'Access-Control-Allow-Headers', 'Content-Type, X-YEUCA-Member-Token')
     setHeader(event, 'Cross-Origin-Resource-Policy', 'cross-origin')
   }
 }

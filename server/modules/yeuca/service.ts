@@ -9,16 +9,21 @@ import {
   places,
   recruitForms,
   recruitSubmissions,
+  yeucaMembers,
   yeucaPosts,
   yeucaProjects,
   yeucaSiteSettings
 } from '../../database/schema'
-import { getRecruitFormBySlug } from '../recruit/service'
+import { ensureRecruitForm, getRecruitFormBySlug } from '../recruit/service'
+import { inspectGiteaHealth } from './gitea'
+import { listYeucaActivitiesAdmin, listYeucaActivitiesPublic } from './activity-service'
+import { listYeucaMembersAdmin } from './member-service'
 import type {
   createYeucaPostSchema,
   createYeucaProjectSchema,
   updateYeucaPostSchema,
   updateYeucaProjectSchema,
+  updateYeucaRecruitConfigSchema,
   updateYeucaSettingsSchema
 } from '../../../shared/schemas/yeuca'
 import type {
@@ -28,6 +33,8 @@ import type {
   YeucaProjectItem,
   YeucaPublicActivityItem,
   YeucaPublicSnapshot,
+  YeucaRecruitAdminConfig,
+  YeucaRecruitSubmissionAdminItem,
   YeucaSiteExtras,
   YeucaSiteSettings
 } from '../../../shared/types/yeuca'
@@ -213,7 +220,118 @@ function serializeProject(row: typeof yeucaProjects.$inferSelect): YeucaProjectI
   }
 }
 
-export function getAdminYeucaOverview(client: DatabaseClient): YeucaAdminOverviewPayload {
+export function getYeucaRecruitAdminConfig(client: DatabaseClient, contentId: string | null): YeucaRecruitAdminConfig {
+  if (!contentId) {
+    return {
+      open: false,
+      title: '仰恩大学计算机协会纳新报名',
+      slogan: '',
+      intro: '',
+      totalSubmissions: 0,
+      submissions: []
+    }
+  }
+
+  const form = client.db
+    .select()
+    .from(recruitForms)
+    .where(eq(recruitForms.contentId, contentId))
+    .get()
+
+  if (!form) {
+    return {
+      open: false,
+      title: '仰恩大学计算机协会纳新报名',
+      slogan: '',
+      intro: '',
+      totalSubmissions: 0,
+      submissions: []
+    }
+  }
+
+  const subRows = client.db
+    .select()
+    .from(recruitSubmissions)
+    .where(eq(recruitSubmissions.formId, form.id))
+    .orderBy(desc(recruitSubmissions.createdAt))
+    .limit(300)
+    .all()
+
+  const memberRows = client.db
+    .select({
+      studentNo: yeucaMembers.studentNo,
+      memberStatus: yeucaMembers.memberStatus,
+      recruitSubmissionId: yeucaMembers.recruitSubmissionId
+    })
+    .from(yeucaMembers)
+    .all()
+
+  const bySubId = new Map(
+    memberRows
+      .filter(m => m.recruitSubmissionId)
+      .map(m => [m.recruitSubmissionId!, m.memberStatus])
+  )
+  const byStudentNo = new Map(
+    memberRows.map(m => [m.studentNo.trim().toLowerCase(), m.memberStatus])
+  )
+
+  const submissions: YeucaRecruitSubmissionAdminItem[] = subRows.map((row) => {
+    const cleanNo = (row.studentNo || '').trim().toLowerCase()
+    const matchedStatus = bySubId.get(row.id) ?? (cleanNo ? byStudentNo.get(cleanNo) : undefined) ?? null
+    let parsedData: Record<string, unknown> = {}
+    try {
+      const p: unknown = JSON.parse(row.dataJson)
+      if (p && typeof p === 'object' && !Array.isArray(p)) parsedData = p as Record<string, unknown>
+    } catch {
+      parsedData = {}
+    }
+    return {
+      id: row.id,
+      name: row.name || String(parsedData.name || ''),
+      studentNo: row.studentNo || String(parsedData.studentNo || ''),
+      major: row.major || String(parsedData.major || ''),
+      className: row.className || String(parsedData.className || ''),
+      phone: row.phone || String(parsedData.phone || ''),
+      qq: row.qq || String(parsedData.qq || ''),
+      departments: row.departments || (Array.isArray(parsedData.departments) ? parsedData.departments.join('、') : String(parsedData.departments || '')),
+      createdAt: new Date(row.createdAt).toISOString(),
+      data: parsedData,
+      memberImported: matchedStatus !== null,
+      memberStatus: matchedStatus
+    }
+  })
+
+  return {
+    open: form.status === 'open',
+    title: form.title,
+    slogan: form.slogan,
+    intro: form.intro,
+    totalSubmissions: submissions.length,
+    submissions
+  }
+}
+
+export function updateYeucaRecruitConfig(
+  client: DatabaseClient,
+  contentId: string,
+  input: z.infer<typeof updateYeucaRecruitConfigSchema>
+): YeucaRecruitAdminConfig {
+  const form = ensureRecruitForm(client, contentId)
+  client.db
+    .update(recruitForms)
+    .set({
+      status: input.open ? 'open' : 'closed',
+      title: input.title.trim(),
+      slogan: input.slogan.trim(),
+      intro: input.intro.trim(),
+      updatedAt: Date.now()
+    })
+    .where(eq(recruitForms.id, form.id))
+    .run()
+  return getYeucaRecruitAdminConfig(client, contentId)
+}
+
+export async function getAdminYeucaOverview(client: DatabaseClient): Promise<YeucaAdminOverviewPayload> {
   const settings = ensureYeucaSettings(client)
   const postRows = client.db
     .select()
@@ -228,46 +346,42 @@ export function getAdminYeucaOverview(client: DatabaseClient): YeucaAdminOvervie
 
   const posts = postRows.map(serializePost)
   const projects = projectRows.map(serializeProject)
+  const yeucaActivitiesList = listYeucaActivitiesAdmin(client)
+  const membersList = listYeucaMembersAdmin(client)
+  const recruit = getYeucaRecruitAdminConfig(client, settings.contentId)
 
-  let publishedActivities = 0
-  let recruitOpen = false
-  let recruitSubmissionsCount = 0
-
+  let campusPublishedActivities = 0
   if (settings.contentId) {
-    publishedActivities = client.db
+    campusPublishedActivities = client.db
       .select({ id: activities.id })
       .from(activities)
       .where(and(eq(activities.organizationContentId, settings.contentId), eq(activities.status, 'published')))
       .all()
       .length
-
-    const recruitForm = client.db
-      .select({ id: recruitForms.id, status: recruitForms.status })
-      .from(recruitForms)
-      .where(eq(recruitForms.contentId, settings.contentId))
-      .get()
-    if (recruitForm) {
-      recruitOpen = recruitForm.status === 'open'
-      recruitSubmissionsCount = client.db
-        .select({ id: recruitSubmissions.id })
-        .from(recruitSubmissions)
-        .where(eq(recruitSubmissions.formId, recruitForm.id))
-        .all()
-        .length
-    }
   }
+
+  const gitSyncedMembers = membersList.filter(m => m.gitSynced && m.memberStatus === 'active').length
+  const gitea = await inspectGiteaHealth(gitSyncedMembers)
 
   return {
     settings,
     posts,
     projects,
+    activities: yeucaActivitiesList,
+    members: membersList,
+    recruit,
+    gitea,
     stats: {
       publishedNews: posts.filter(p => p.kind === 'news' && p.status === 'published').length,
       publishedResources: posts.filter(p => p.kind === 'resource' && p.status === 'published').length,
       publishedProjects: projects.filter(p => p.isPublished).length,
-      publishedActivities,
-      recruitOpen,
-      recruitSubmissions: recruitSubmissionsCount
+      publishedActivities: yeucaActivitiesList.filter(a => a.status === 'published').length + campusPublishedActivities,
+      recruitOpen: recruit.open,
+      recruitSubmissions: recruit.totalSubmissions,
+      totalMembers: membersList.length,
+      activeMembers: membersList.filter(m => m.memberStatus === 'active').length,
+      pendingMembers: membersList.filter(m => m.memberStatus === 'pending').length,
+      gitSyncedMembers
     }
   }
 }
@@ -456,7 +570,7 @@ export function getPublicYeucaSnapshot(client: DatabaseClient): YeucaPublicSnaps
     .all()
     .map(serializeProject)
 
-  const publicActivities: YeucaPublicActivityItem[] = settings.contentId
+  const campusActivities: YeucaPublicActivityItem[] = settings.contentId
     ? client.db
         .select({
           activity: activities,
@@ -478,9 +592,15 @@ export function getPublicYeucaSnapshot(client: DatabaseClient): YeucaPublicSnaps
           endsAt: row.activity.endsAt ? new Date(row.activity.endsAt).toISOString() : null,
           placeName: row.placeStatus === 'published' && row.placeName ? row.placeName : '校内场地',
           room: row.activity.room,
-          photos: parseJsonArray<string>(row.activity.photosJson, [])
+          photos: parseJsonArray<string>(row.activity.photosJson, []),
+          source: 'campus' as const,
+          allowRegistration: false
         }))
     : []
+
+  const directActivities = listYeucaActivitiesPublic(client)
+  const publicActivities = [...directActivities, ...campusActivities]
+    .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt))
 
   const recruitFound = getRecruitFormBySlug(client, COMPUTER_ASSOCIATION_SLUG)
   const recruitOpen = Boolean(

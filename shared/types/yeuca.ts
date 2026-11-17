@@ -1,6 +1,9 @@
 export type YeucaPostKind = 'news' | 'resource'
 export type YeucaPostStatus = 'draft' | 'published' | 'archived'
 export type YeucaProjectStatus = 'active' | 'maintaining' | 'planning'
+export type YeucaMemberStatus = 'pending' | 'active' | 'disabled'
+export type YeucaActivityStatus = 'draft' | 'published' | 'archived'
+export type YeucaActivityRegStatus = 'registered' | 'checked_in' | 'cancelled'
 
 export interface YeucaDepartment {
   id: string
@@ -36,12 +39,130 @@ export interface YeucaFaqItem {
   a: string
 }
 
+export interface YeucaAnnouncementConfig {
+  enabled: boolean
+  tag: string
+  text: string
+  href?: string
+}
+
+export interface YeucaHomeHeroConfig {
+  badge?: string
+  headline?: string
+  joinBtnText?: string
+  qrBtnText?: string
+  guideCardNote?: string
+}
+
+export interface YeucaHomeEntryCard {
+  id: string
+  badge: string
+  title: string
+  desc: string
+  href: string
+  cta: string
+  enabled: boolean
+}
+
+export interface YeucaFeatureFlags {
+  showGitNav?: boolean
+  showMirrorsNav?: boolean
+  showToolsNav?: boolean
+  showMemberEntry?: boolean
+  gitGateHint?: string
+  mirrorNotice?: string
+}
+
+export interface YeucaAiWorkflowStep {
+  id: string
+  step: string
+  title: string
+  role: string
+  logic: string
+  pitfall: string
+  sample: string
+}
+
+export interface YeucaSeasonalRhythmItem {
+  phase: string
+  title: string
+  detail: string
+  tags: string[]
+}
+
+export interface YeucaTimelineNode {
+  period: string
+  tag: string
+  title: string
+  detail: string
+}
+
+export interface YeucaChecklistRow {
+  item: string
+  source: string
+  note: string
+}
+
+export interface YeucaPracticeTopic {
+  dept: string
+  title: string
+  stack: string[]
+  desc: string
+}
+
+export interface YeucaStarterLink {
+  dept: string
+  title: string
+  host: string
+  url: string
+  note: string
+}
+
+export interface YeucaMirrorEntry {
+  id: string
+  category: '语言与包' | 'AI 与模型' | '系统与容器'
+  name: string
+  upstream: string
+  note: string
+  cmd: string
+  snippetTitle?: string
+  snippet?: string
+  helpUrl: string
+  helpHost: string
+}
+
+export interface YeucaScriptOption {
+  id: string
+  label: string
+  ps1: string[]
+  sh: string[]
+}
+
+export interface YeucaFriendLink {
+  label: string
+  href: string
+}
+
 export interface YeucaSiteExtras {
   heroImageUrl?: string
   gallery?: YeucaGalleryItem[]
   competitions?: YeucaCompetitionItem[]
   faqs?: YeucaFaqItem[]
   flagshipNote?: string
+  homeAnnouncement?: YeucaAnnouncementConfig
+  homeHero?: YeucaHomeHeroConfig
+  homeEntries?: YeucaHomeEntryCard[]
+  featureFlags?: YeucaFeatureFlags
+  aiWorkflowSteps?: YeucaAiWorkflowStep[]
+  seasonalRhythm?: YeucaSeasonalRhythmItem[]
+  archiveTimeline?: YeucaTimelineNode[]
+  volatileChecklist?: YeucaChecklistRow[]
+  practiceTopics?: YeucaPracticeTopic[]
+  starterLinks?: YeucaStarterLink[]
+  mirrors?: YeucaMirrorEntry[]
+  scriptOptions?: YeucaScriptOption[]
+  footerNote?: string
+  friendLinks?: YeucaFriendLink[]
 }
 
 export interface YeucaSiteSettings {
@@ -102,6 +223,143 @@ export interface YeucaPublicActivityItem {
   placeName: string
   room: string | null
   photos: string[]
+  source?: 'yeuca' | 'campus'
+  deptName?: string
+  category?: string
+  allowRegistration?: boolean
+  maxParticipants?: number
+  registrationCount?: number
+}
+
+export interface YeucaAdminActivityItem {
+  id: string
+  slug: string
+  title: string
+  deptName: string
+  category: string
+  summary: string
+  body: string
+  placeName: string
+  room: string
+  startsAt: string
+  endsAt: string | null
+  allowRegistration: boolean
+  maxParticipants: number
+  status: YeucaActivityStatus
+  photos: string[]
+  registrationCount: number
+  checkedInCount: number
+  updatedAt: string
+}
+
+export interface YeucaActivityRegistrationItem {
+  id: string
+  activityId: string
+  memberId: string
+  studentNo: string
+  name: string
+  gradeMajorClass: string
+  department: string
+  roleTitle: string
+  status: YeucaActivityRegStatus
+  note: string
+  checkedInAt: string | null
+  createdAt: string
+}
+
+export interface YeucaMemberItem {
+  id: string
+  studentNo: string
+  name: string
+  gradeMajorClass: string
+  department: string
+  roleTitle: string
+  term: string
+  phone: string
+  qq: string
+  email: string
+  gitUsername: string
+  gitUserId: number | null
+  gitSynced: boolean
+  gitSyncError: string
+  memberStatus: YeucaMemberStatus
+  bio: string
+  skills: string[]
+  notes: string
+  recruitSubmissionId: string | null
+  registeredAt: string | null
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface YeucaPublicMemberProfile {
+  id: string
+  studentNo: string
+  name: string
+  gradeMajorClass: string
+  department: string
+  roleTitle: string
+  term: string
+  phone: string
+  qq: string
+  email: string
+  gitUsername: string
+  gitSynced: boolean
+  memberStatus: YeucaMemberStatus
+  bio: string
+  skills: string[]
+  registeredAt: string | null
+  lastLoginAt: string | null
+}
+
+export interface YeucaMemberGitRepo {
+  id: number
+  name: string
+  fullName: string
+  description: string
+  htmlUrl: string
+  cloneUrl: string
+  isPrivate: boolean
+  starsCount: number
+  forksCount: number
+  updatedAt: string
+}
+
+export interface YeucaRecruitSubmissionAdminItem {
+  id: string
+  name: string
+  studentNo: string
+  major: string
+  className: string
+  phone: string
+  qq: string
+  departments: string
+  createdAt: string
+  data: Record<string, unknown>
+  memberImported: boolean
+  memberStatus: YeucaMemberStatus | null
+}
+
+export interface YeucaRecruitAdminConfig {
+  open: boolean
+  title: string
+  slogan: string
+  intro: string
+  totalSubmissions: number
+  submissions: YeucaRecruitSubmissionAdminItem[]
+}
+
+export interface YeucaGiteaAdminOverview {
+  configured: boolean
+  reachable: boolean
+  version: string
+  requireSigninView: boolean
+  disableRegistration: boolean
+  baseUrl: string
+  publicGitUrl: string
+  syncedMemberCount: number
+  error: string
 }
 
 export interface YeucaRecruitPublicStatus {
@@ -142,6 +400,10 @@ export interface YeucaAdminOverviewPayload {
   settings: YeucaSiteSettings
   posts: YeucaPostItem[]
   projects: YeucaProjectItem[]
+  activities: YeucaAdminActivityItem[]
+  members: YeucaMemberItem[]
+  recruit: YeucaRecruitAdminConfig
+  gitea: YeucaGiteaAdminOverview
   stats: {
     publishedNews: number
     publishedResources: number
@@ -149,5 +411,9 @@ export interface YeucaAdminOverviewPayload {
     publishedActivities: number
     recruitOpen: boolean
     recruitSubmissions: number
+    totalMembers: number
+    activeMembers: number
+    pendingMembers: number
+    gitSyncedMembers: number
   }
 }
