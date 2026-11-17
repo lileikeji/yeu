@@ -1,6 +1,9 @@
 /** 后台纳新页共用的文件下载：模板 / 示例文档 / 单份申请表 / 选中打包 zip / 总表 xlsx。 */
 export function useRecruitFiles() {
-  const isWeChatBrowser = /MicroMessenger/i.test(navigator.userAgent)
+  /** 微信内置浏览器不支持 blob 下载；SSR 阶段没有 navigator，这里必须现取。 */
+  function isWeChatBrowser(): boolean {
+    return import.meta.client && typeof navigator !== 'undefined' && /MicroMessenger/i.test(navigator.userAgent)
+  }
 
   /**
    * Nuxt UI buttons render `href` through NuxtLink, which treats an /api path as
@@ -9,12 +12,12 @@ export function useRecruitFiles() {
    * WeChat's in-app browser cannot save blobs, so it opens a new window instead.
    */
   async function downloadFile(url: string, filename: string): Promise<void> {
-    if (isWeChatBrowser) {
+    if (isWeChatBrowser()) {
       window.open(url, '_blank', 'noopener')
       return
     }
     try {
-      const blob = await $fetch<Blob>(url, { responseType: 'blob' })
+      const blob = await plainFetch<Blob>(url, { responseType: 'blob' })
       const blobUrl = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = blobUrl

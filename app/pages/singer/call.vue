@@ -53,7 +53,7 @@ function clockText(ts: number): string {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const data = await $fetch<CompetitionCallBoard>('/api/public/competition/call-board')
+    const data = await plainFetch<CompetitionCallBoard>('/api/public/competition/call-board')
     board.value = data
     updatedAt.value = clockText(data.updatedAt)
     failed.value = ''

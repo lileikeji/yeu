@@ -99,7 +99,7 @@ async function loadQueue(): Promise<void> {
   if (!owner) return
   queueRefreshing.value = true
   try {
-    const data = await $fetch<QueuePosition>('/api/public/competition/register/queue', {
+    const data = await plainFetch<QueuePosition>('/api/public/competition/register/queue', {
       query: { singerId: owner.singerId }
     })
     if (data.state === 'unknown') {
@@ -181,7 +181,7 @@ function serverErrorMessage(error: unknown, fallback: string): string {
 
 async function loadStatus(): Promise<void> {
   try {
-    status.value = await $fetch<RegistrationStatus>('/api/public/competition/register')
+    status.value = await plainFetch<RegistrationStatus>('/api/public/competition/register')
   } catch {
     statusError.value = '登记状态获取失败，请刷新重试。'
   }
@@ -193,7 +193,7 @@ async function lookupPreRegistrations(): Promise<void> {
   if (!name || !/^\d{4}$/.test(studentNoTail) || lookingUp.value) return
   lookingUp.value = true
   try {
-    const result = await $fetch<{ candidates: PreRegistrationCandidate[] }>(
+    const result = await plainFetch<{ candidates: PreRegistrationCandidate[] }>(
       '/api/public/competition/register/lookup',
       { method: 'POST', body: { name, studentNoTail } }
     )
@@ -256,7 +256,7 @@ async function submit(): Promise<void> {
   submitting.value = true
   errorMessage.value = ''
   try {
-    const result = await $fetch<{ id: string, sortOrder: number }>('/api/public/competition/register', {
+    const result = await plainFetch<{ id: string, sortOrder: number }>('/api/public/competition/register', {
       method: 'POST',
       body: {
         className: form.className.trim(),

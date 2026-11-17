@@ -118,12 +118,19 @@ const {
   onCanvasMove, onCanvasUp, undoLastPatch, clearPatches, downloadQr, downloadPoster
 } = useCompetitionPoster()
 
-const accompanimentPreview = ref<{ name: string, url: string } | null>(null)
+const accompanimentPreview = ref<{ name: string, url: string, size: number | null } | null>(null)
 const accompanimentPreviewOpen = ref(false)
+
+/** 伴奏体积：MB 保留一位，小的用 KB。 */
+function accompanimentSize(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) return '—'
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`
+}
 
 function openAccompaniment(entry: CompetitionRoundEntry): void {
   if (!entry.accompaniment) return
-  accompanimentPreview.value = { name: entry.accompaniment.name, url: entry.accompaniment.url }
+  accompanimentPreview.value = { name: entry.accompaniment.name, url: entry.accompaniment.url, size: entry.accompaniment.size }
   accompanimentPreviewOpen.value = true
 }
 
@@ -1676,7 +1683,10 @@ onBeforeUnmount(stopLiveRefresh)
                           <UIcon name="i-lucide-play" class="size-3" />
                           试听
                         </button>
-                        <span class="ml-1 text-[11px]">{{ entry.accompaniment.name }}</span>
+                        <span class="ml-1 text-[11px]">
+                          {{ entry.accompaniment.name }}
+                          <span class="text-zinc-400">· {{ accompanimentSize(entry.accompaniment.size) }}</span>
+                        </span>
                       </template>
                     </template>
                     <span v-else>—</span>
@@ -3030,7 +3040,7 @@ onBeforeUnmount(stopLiveRefresh)
     <UModal
       v-model:open="accompanimentPreviewOpen"
       :title="accompanimentPreview?.name || '伴奏'"
-      description="手机上直接点播放就能听，电脑也可以下载下来。"
+      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}，手机上直接点播放就能听，电脑也可以下载下来。` : '手机上直接点播放就能听，电脑也可以下载下来。'"
       :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
     >
       <template #body>

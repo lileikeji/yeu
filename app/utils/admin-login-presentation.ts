@@ -106,16 +106,23 @@ export function resolveAdminLoginRedirectTarget(redirectQuery: unknown): string 
  */
 export function resolveAdminPostLoginTarget(
   payload: unknown,
-  redirectQuery: unknown
+  redirectQuery: unknown,
+  superFallback?: string
 ): string | { path: string, query?: Record<string, string> } {
+  const safeRedirect = resolveAdminLoginRedirectTarget(redirectQuery)
+  const fallbackTarget = superFallback && safeRedirect === '/admin' ? superFallback : safeRedirect
   if (!isAdminLoginPayloadObject(payload)) {
-    return resolveAdminLoginRedirectTarget(redirectQuery)
+    return fallbackTarget
   }
   const admin = isAdminLoginPayloadObject(payload.admin) ? payload.admin : null
   if (admin?.role !== 'organization') {
-    return resolveAdminLoginRedirectTarget(redirectQuery)
+    return fallbackTarget
   }
+  const organization = isAdminLoginPayloadObject(admin.organization) ? admin.organization : null
+  const isComputerAssociation = organization?.slug === 'computer-association'
+    || organization?.title === '计算机协会'
+  const basePath = isComputerAssociation ? '/admin/yeuca' : '/admin/organization'
   return admin.mustChangePassword === true
-    ? { path: '/admin/organization', query: { password: 'required' } }
-    : '/admin/organization'
+    ? { path: basePath, query: { password: 'required' } }
+    : basePath
 }

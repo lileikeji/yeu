@@ -739,7 +739,7 @@ async function openNotice(notice: PublicNotice): Promise<void> {
   noticeOpen.value = true
   if (notice.confirmed) return
   try {
-    const result = await $fetch<ConfirmNoticeResponse>(
+    const result = await plainFetch<ConfirmNoticeResponse>(
       `/api/public/notices/${encodeURIComponent(notice.id)}/confirm`,
       { method: 'POST' }
     )

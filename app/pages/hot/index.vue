@@ -142,7 +142,7 @@ async function toggle(slug: string): Promise<void> {
   if (details.value[slug]) return
   loading.value = slug
   try {
-    const detail = await $fetch<SignalDetail>(`/api/public/signal/${slug}`)
+    const detail = await plainFetch<SignalDetail>(`/api/public/signal/${slug}`)
     details.value = { ...details.value, [slug]: detail }
   } catch {
     expanded.value = null

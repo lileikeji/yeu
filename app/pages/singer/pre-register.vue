@@ -74,7 +74,7 @@ function serverErrorMessage(error: unknown, fallback: string): string {
 
 async function loadStatus(): Promise<void> {
   try {
-    status.value = await $fetch<CompetitionRegistrationStatus>('/api/public/competition/register')
+    status.value = await plainFetch<CompetitionRegistrationStatus>('/api/public/competition/register')
   } catch {
     statusError.value = '报名状态获取失败，请刷新重试。'
   }
@@ -107,7 +107,7 @@ async function submit(): Promise<void> {
   submitting.value = true
   errorMessage.value = ''
   try {
-    await $fetch<{ id: string }>('/api/public/competition/pre-register', {
+    await plainFetch<{ id: string }>('/api/public/competition/pre-register', {
       method: 'POST',
       body: {
         ...(has('name') ? { name: form.name.trim() } : {}),

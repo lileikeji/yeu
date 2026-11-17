@@ -45,7 +45,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   async function sendTrack(action: string, path: string, meta?: Record<string, unknown>) {
     try {
-      const result = await $fetch<{
+      const result = await plainFetch<{
         stats?: { path: string, viewCount: number, visitorCount: number }
       }>('/api/public/track', {
         method: 'POST',

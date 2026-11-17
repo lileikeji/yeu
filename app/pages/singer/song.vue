@@ -40,7 +40,7 @@ async function lookup() {
   state.value = null
   loading.value = true
   try {
-    const data = await $fetch<SongState>('/api/public/competition/song/lookup', {
+    const data = await plainFetch<SongState>('/api/public/competition/song/lookup', {
       method: 'POST',
       body: {
         name: name.value.trim(),
@@ -91,7 +91,7 @@ async function uploadAccompaniment(event: Event) {
   accompanimentBusy.value = true
   try {
     const data = await readFileAsBase64(file)
-    const result = await $fetch<SongState>('/api/public/competition/song/accompaniment', {
+    const result = await plainFetch<SongState>('/api/public/competition/song/accompaniment', {
       method: 'POST',
       body: {
         name: name.value.trim(),
@@ -119,7 +119,7 @@ async function submit() {
   }
   saving.value = true
   try {
-    const data = await $fetch<SongState>('/api/public/competition/song/submit', {
+    const data = await plainFetch<SongState>('/api/public/competition/song/submit', {
       method: 'POST',
       body: {
         name: name.value.trim(),

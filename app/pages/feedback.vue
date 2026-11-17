@@ -79,7 +79,7 @@ async function submitFeedback() {
   submitting.value = true
 
   try {
-    const result = await $fetch<{ receiptCode?: string }>('/api/public/feedback', {
+    const result = await plainFetch<{ receiptCode?: string }>('/api/public/feedback', {
       method: 'POST',
       body: buildFeedbackSubmitBody({
         targetType: targetType.value,
@@ -142,7 +142,7 @@ async function lookupReceipt() {
   receiptLookupLoading.value = true
 
   try {
-    receiptLookupResult.value = await $fetch<ApiFeedbackReceipt>(
+    receiptLookupResult.value = await plainFetch<ApiFeedbackReceipt>(
       `/api/public/feedback/receipt/${encodeURIComponent(code)}`
     )
   } catch {
