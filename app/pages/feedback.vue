@@ -450,7 +450,7 @@ onMounted(() => {
               icon="i-lucide-send"
               :label="formCopy.submitLabel"
               size="lg"
-              class="min-h-11 w-full shrink-0 scroll-mb-[calc(var(--mobile-nav-height)+1rem)] sm:w-auto md:scroll-mb-0"
+              class="min-h-11 w-full shrink-0 scroll-mb-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+1rem)] sm:w-auto md:scroll-mb-0"
               :loading="submitting"
               :disabled="!canSubmit"
             />
