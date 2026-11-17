@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event)
   const contentId = resolveCompetitionContentId(client, session)
   const roundKey = requireCompetitionRoundKey(event)
-  const input = await parseBody(event, setCompetitionEntryAccompanimentSchema)
+  const input = await parseBody(event, setCompetitionEntryAccompanimentSchema, { maxBytes: 40 * 1024 * 1024 })
 
   const competition = ensureCompetitionEvent(client, contentId)
   const round = getRoundByKey(client, competition.id, roundKey)

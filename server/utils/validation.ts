@@ -4,6 +4,17 @@ import type { ZodType } from 'zod'
 /** Reject oversized JSON bodies before full parse (DoS / memory). */
 export const MAX_JSON_BODY_BYTES = 262_144
 
+/**
+ * 上传类接口（把文件 base64 塞进 JSON）用的上限：
+ * 15MB 伴奏 base64 后约 20MB，留一点余量给其它字段。
+ */
+export const MAX_UPLOAD_JSON_BODY_BYTES = 24 * 1024 * 1024
+
+export interface ParseBodyOptions {
+  /** 这个接口自己的请求体上限，默认 256KB。 */
+  maxBytes?: number
+}
+
 function validationError(issues: Array<{ path: PropertyKey[], message: string }>) {
   return createError({
     statusCode: 422,
@@ -46,7 +57,7 @@ function assertJsonContentType(event: H3Event): void {
   }
 }
 
-function assertJsonBodySize(event: H3Event): void {
+function assertJsonBodySize(event: H3Event, maxBytes: number): void {
   const raw = getHeader(event, 'content-length')
   if (!raw) return
   const length = Number(raw)
@@ -57,11 +68,11 @@ function assertJsonBodySize(event: H3Event): void {
       data: { code: 'INVALID_CONTENT_LENGTH' }
     })
   }
-  if (!isJsonBodyWithinLimit(length)) {
+  if (!isJsonBodyWithinLimit(length, maxBytes)) {
     throw createError({
       statusCode: 413,
       statusMessage: 'Request body too large',
-      data: { code: 'PAYLOAD_TOO_LARGE', maxBytes: MAX_JSON_BODY_BYTES }
+      data: { code: 'PAYLOAD_TOO_LARGE', maxBytes }
     })
   }
 }
@@ -74,17 +85,22 @@ function assertJsonBodySize(event: H3Event): void {
  *   chunked requests without Content-Length cannot bypass the limit.
  * - Uses strict JSON.parse (not form/urlencoded parsers).
  */
-export async function parseBody<T>(event: H3Event, schema: ZodType<T>): Promise<T> {
+export async function parseBody<T>(
+  event: H3Event,
+  schema: ZodType<T>,
+  options: ParseBodyOptions = {}
+): Promise<T> {
+  const maxBytes = options.maxBytes ?? MAX_JSON_BODY_BYTES
   assertJsonContentType(event)
-  assertJsonBodySize(event)
+  assertJsonBodySize(event, maxBytes)
 
   const raw = await readRawBody(event, false)
   const byteLength = raw?.byteLength ?? 0
-  if (!isJsonBodyWithinLimit(byteLength)) {
+  if (!isJsonBodyWithinLimit(byteLength, maxBytes)) {
     throw createError({
       statusCode: 413,
       statusMessage: 'Request body too large',
-      data: { code: 'PAYLOAD_TOO_LARGE', maxBytes: MAX_JSON_BODY_BYTES }
+      data: { code: 'PAYLOAD_TOO_LARGE', maxBytes }
     })
   }
 
