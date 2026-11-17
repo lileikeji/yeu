@@ -195,7 +195,7 @@ async function applySessionPayload(payload: Record<string, unknown>): Promise<vo
 // 等 54 个后台 chunk（约 765KB）下载解析完、水合之后才发这 26ms 的请求，
 // 用户实际要干等好几秒。useAsyncData 让服务端直接把 authenticated 状态写进
 // HTML，payload 随水合复用，客户端不再重复请求。
-const requestFetch = useRequestFetch()
+const requestFetch = useRequestFetch() as <T = unknown>(url: string) => Promise<T>
 const { data: initialSession, error: initialSessionError } = await useAsyncData(
   'admin-session',
   () => requestFetch<unknown>('/api/admin/auth/session'),
