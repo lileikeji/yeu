@@ -743,9 +743,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 font-mono text-zinc-300">
                 主站：yeuca.huiliyill.cn
               </span>
-              <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 text-zinc-300">
-                与 yx.huiliyill.cn 打通
-              </span>
               <span
                 v-if="lastSavedAt"
                 class="font-mono text-emerald-300"
