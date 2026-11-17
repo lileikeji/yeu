@@ -795,15 +795,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               color="neutral"
               variant="subtle"
             />
-            <UButton
-              to="https://yx.huiliyill.cn/clubs/computer-association"
-              target="_blank"
-              rel="noopener noreferrer"
-              icon="i-lucide-link"
-              label="YeU 计协名片"
-              color="neutral"
-              variant="outline"
-            />
           </div>
         </div>
       </section>
