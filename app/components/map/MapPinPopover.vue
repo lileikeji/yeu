@@ -130,24 +130,45 @@ const ARROW_INSET = 18
  */
 const VIEWPORT_INSET = 0
 
+/**
+ * 已经写进卡片的横向修正。getBoundingClientRect() 会把 translate 算进矩形，
+ * 所以要扣掉它再算绝对修正；否则 syncOpen() 连续两帧里第二帧看到「没有溢出」就把修正清掉，
+ * reduced-motion（没有过渡兜底）下卡片会跳回屏外。
+ */
+let appliedShift = 0
+
 function alignArrow(): void {
   const el = popEl.value
   const anchor = props.anchor
   if (!el || !anchor) return
   if (!el.matches(':popover-open')) return
-  let rect = el.getBoundingClientRect()
+  const rect = el.getBoundingClientRect()
   if (rect.width === 0) return
-  const overflowRight = rect.right - (window.innerWidth - VIEWPORT_INSET)
-  const overflowLeft = VIEWPORT_INSET - rect.left
+  const baseLeft = rect.left - appliedShift
+  const baseRight = rect.right - appliedShift
+  const overflowRight = baseRight - (window.innerWidth - VIEWPORT_INSET)
+  const overflowLeft = VIEWPORT_INSET - baseLeft
   const shift = overflowRight > 0
     ? -Math.round(overflowRight)
     : (overflowLeft > 0 ? Math.round(overflowLeft) : 0)
-  el.style.translate = shift === 0 ? '' : shift + 'px 0'
-  if (shift !== 0) rect = el.getBoundingClientRect()
+  // 本来就放得下时必须回到零修正，不能把上次的位移留在卡片上。
+  if (shift !== appliedShift) {
+    appliedShift = shift
+    if (shift === 0) {
+      el.style.translate = ''
+    } else {
+      // 纠偏不是动效：临时摘掉 translate 过渡再写位移，写完下一帧交还 CSS。
+      el.style.transitionProperty = 'opacity'
+      el.style.translate = shift + 'px 0'
+      requestAnimationFrame(() => {
+        if (popEl.value === el) el.style.transitionProperty = ''
+      })
+    }
+  }
   // 卡片落到锚点下方即视为 flip-block（替代 lightningcss 不支持的 anchored() 容器查询）
   el.toggleAttribute('data-flipped', rect.top > anchor.y)
 
-  const offset = anchor.x - rect.left
+  const offset = anchor.x - (baseLeft + appliedShift)
   const limit = Math.max(0, rect.width / 2 - 8)
   const clamped = Math.min(Math.max(offset, Math.min(ARROW_INSET, limit)), rect.width - Math.min(ARROW_INSET, limit))
   el.style.setProperty('--pin-arrow-x', Math.round(clamped) + 'px')
@@ -791,6 +812,11 @@ function onToggle(event: Event): void {
 :global(.dark .pin-popover__etacaption),
 :global(.dark .pin-popover__meta) {
   color: var(--color-zinc-400, #a1a1aa);
+}
+
+/* ETA 数字是卡片里最该先读到的信息：暗色卡底就是 zinc-900，必须换成亮前景。 */
+:global(.dark .pin-popover__etavalue) {
+  color: var(--color-zinc-50, #fafafa);
 }
 
 :global(.dark .pin-popover__rows) {

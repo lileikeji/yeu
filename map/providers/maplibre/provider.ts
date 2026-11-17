@@ -1195,6 +1195,9 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     if (feature.layer.id === CLUSTER_LAYER_ID) {
       this.poiSelectHandler?.(null)
+      // 簇也要出浮窗：先发选择再放大，放大只是相机动作，不能把卡片吞掉。
+      const clusterSelection = this.selectionFromFeature(feature)
+      if (clusterSelection) this.featureSelectHandler?.(clusterSelection)
       void this.expandCluster(feature)
       return
     }

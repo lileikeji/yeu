@@ -833,6 +833,17 @@ function pinProjectionPoint(point: GeoPoint): GeoPoint {
   return { lng: wgs.longitude, lat: wgs.latitude, crs: 'WGS84' }
 }
 
+/**
+ * 车辆会移动：锚点重投影必须取最新坐标，否则浮窗会停在点击时那个点。
+ * 实时数据来自 useMapTransit（在本文件更下方初始化），这里用可后置挂载的读取器，
+ * 避免 setup 早期（深链的 immediate watch）就摸到还没初始化的 const。
+ */
+let pinLivePointReader: ((selection: PinSelection) => GeoPoint | undefined) | null = null
+
+function pinSelectionPoint(selection: PinSelection): GeoPoint | undefined {
+  return pinLivePointReader?.(selection) ?? selection.point
+}
+
 function refreshPinAnchor(): void {
   const selection = pinSelection.value
   if (!selection) {
@@ -840,8 +851,9 @@ function refreshPinAnchor(): void {
     pinDetached.value = false
     return
   }
-  const projected = selection.point
-    ? mapProvider.value?.projectToScreen?.(pinProjectionPoint(selection.point)) ?? null
+  const point = pinSelectionPoint(selection)
+  const projected = point
+    ? mapProvider.value?.projectToScreen?.(pinProjectionPoint(point)) ?? null
     : null
   const box = mapElement.value?.getBoundingClientRect()
   // 投影点落在可视地图之外（相机没跟过去）时不能把卡片甩到屏幕外，退回贴底居中。
@@ -1012,9 +1024,8 @@ function pinPoiChecklist(poi: object): string[] {
 }
 
 /** 地点浮窗的电话入口：复用公共电话解析，多号只显示第一个，其余折成「等 N 个」。 */
-function pinPhoneRows(poiId: string): PinCardModel['rows'] {
-  const place = catalogPlaces.value.find(item => item.id === poiId)
-  const contacts = parsePublicPhoneContacts(place?.phone)
+function pinPhoneRows(phone?: string | null): PinCardModel['rows'] {
+  const contacts = parsePublicPhoneContacts(phone)
   const first = contacts[0]
   if (!first) return []
   // parsePublicPhoneContacts 已给出 tel: 链接，这里再兜一层，避免上游改格式后变死链
@@ -1027,32 +1038,50 @@ function pinPhoneRows(poiId: string): PinCardModel['rows'] {
   }]
 }
 
+/**
+ * 浮窗指向的地点有两种来源：地图图钉（catalog 或高德原生搜索）与完整地点（带 slug / phone）。
+ * 原生搜索结果不进 catalog，只能靠 selectedPoi / nativeSearchResults 兜住，
+ * 否则点自己的搜索结果会退化成一张没有详情、没有导航的通用「地点」卡。
+ */
+function resolvePinPlace(selection: PinSelection): { poi?: MapPoi, place?: PublicMapPlace } {
+  const poi = filteredMapPois.value.find(item => item.id === selection.id)
+  const place = poi
+    ? catalogPlaces.value.find(item => item.id === poi.id)
+    : (selectedPoi.value?.id === selection.id
+        ? selectedPoi.value
+        : nativeSearchResults.value.find(item => item.id === selection.id))
+  return { poi, place }
+}
+
 const pinCard = computed<PinCardModel | null>(() => {
   const selection = pinSelection.value
   if (!selection) return null
 
   if (selection.kind === 'poi') {
-    const poi = filteredMapPois.value.find(item => item.id === selection.id)
-    if (!poi) {
+    const { poi, place } = resolvePinPlace(selection)
+    if (!poi && !place) {
       return { kind: 'poi', tone: 'place', icon: 'i-lucide-map-pin', title: '地点', chips: [], rows: [], actions: [], meta: '' }
     }
-    const distance = pinDistanceText(poi.point)
-    // MapPoi 只有渲染字段，详情目标要拿完整地点（slug / 是否已发布）来拼。
-    const place = catalogPlaces.value.find(item => item.id === poi.id)
+    const name = poi?.name ?? place!.name
+    const category = poi?.category ?? place!.category
+    const point = poi?.point ?? place!.point
+    const detail = (poi ?? place!) as unknown as PublicMapPlace
+    const distance = pinDistanceText(point)
+    // 未发布的地点没有详情页（slug 为空），别摆一个点了会跳首页的入口。
     const detailsTarget = place ? placeDetailsTarget(place) : undefined
     return {
       kind: 'poi',
-      tone: poi.category === 'gate' ? 'gate' : 'place',
-      icon: categoryIcon(poi.category),
-      title: poi.name,
+      tone: category === 'gate' ? 'gate' : 'place',
+      icon: categoryIcon(category),
+      title: name,
       subtitle: [
-        categoryLabel(poi.category),
+        categoryLabel(category),
         distance,
         // 有图钉就不写「暂时没有地图位置」，否则和箭头所指的图钉自相矛盾。
-        poi.point ? '' : poiStatusText(poi as unknown as PublicMapPlace)
+        point ? '' : poiStatusText(detail)
       ].filter(Boolean).join(' · '),
-      chips: pinPoiChecklist(poi).slice(0, 3).map(label => ({ label })),
-      rows: pinPhoneRows(poi.id),
+      chips: pinPoiChecklist(detail).slice(0, 3).map(label => ({ label })),
+      rows: pinPhoneRows(place?.phone),
       actions: [
         { key: 'route', label: '导航', icon: 'i-lucide-navigation', variant: 'primary' },
         { key: 'favorite', label: '', icon: 'i-lucide-star', variant: 'icon' }
@@ -1211,8 +1240,10 @@ function handlePinAction(key: string): void {
   if (!selection) return
 
   if (key === 'details' && selection.kind === 'poi') {
-    // 手机端详情卡已由浮窗取代，详情动作直接进地点详情页（与桌面卡「详情」同一个目标）
-    const target = selectedPoi.value ? placeDetailsTarget(selectedPoi.value) : undefined
+    // 手机端详情卡已由浮窗取代，详情动作直接进地点详情页（与桌面卡「详情」同一个目标）。
+    // 目标按「这张卡指向的地点」算，不读 selectedPoi：原生搜索选中的卡也能跳。
+    const { place } = resolvePinPlace(selection)
+    const target = place ? placeDetailsTarget(place) : undefined
     if (target) void navigateTo(target)
     return
   }
@@ -1237,12 +1268,14 @@ function handlePinAction(key: string): void {
     return
   }
   if (key === 'route' && selection.kind === 'poi') {
-    const poi = filteredMapPois.value.find(item => item.id === selection.id)
-    if (poi?.point) startWalkingRoute(poi.name, poi.point)
+    const { poi, place } = resolvePinPlace(selection)
+    const point = poi?.point ?? place?.point
+    if (point) startWalkingRoute(poi?.name ?? place!.name, point)
     return
   }
   if (key === 'favorite' && selection.kind === 'poi') {
-    toggleFavorite(selection.id)
+    const { place } = resolvePinPlace(selection)
+    toggleFavorite(place?.id ?? selection.id)
   }
 }
 
@@ -1280,18 +1313,24 @@ function selectPoiFromSheet(poi: PublicMapPlace): void {
     return
   }
   mobileSheetState.value = 'collapsed'
-  const applySelection = () => {
-    if (selectedPoiId.value !== poi.id) selectPoi(poi)
-  }
+  void nextTick(() => {
+    // 同一个地点再点一次（卡片已被 Esc 关掉）也要把卡弹回来：
+    // selectedPoiId 没变就不重跑飞镜头，只补回浮窗选择。
+    if (selectedPoiId.value === poi.id) {
+      if (pinSelection.value?.kind !== 'poi' || pinSelection.value.id !== poi.id)
+        pinSelection.value = { kind: 'poi', id: poi.id, point: poi.point ?? undefined }
+      return
+    }
+    selectPoi(poi)
+  })
   // 面板收起时地图容器在变尺寸，首帧投影可能拿不到值；补齐几次重投影，箭头才对得准。
+  // 只补投影、不重放选中：用户在这几百毫秒里换了地点，旧回调不能把新选择顶掉。
   for (const delay of [120, 300, 700, 1200]) {
     window.setTimeout(() => {
-      if (pinSelection.value && pinDetached.value) refreshPinAnchor()
+      if (pinSelection.value?.kind !== 'poi' || pinSelection.value.id !== poi.id) return
+      if (pinDetached.value) refreshPinAnchor()
     }, delay)
   }
-  void nextTick(applySelection)
-  window.setTimeout(applySelection, 160)
-  window.setTimeout(applySelection, 360)
 }
 
 /** 面板里点车：面板收到半屏，浮窗贴到车上（桌面面板保持原行为）。 */
@@ -1303,13 +1342,21 @@ function handleTransitVehicleFocusFromPanel(payload: { plate: string, point: [nu
     pinSelection.value = {
       kind: 'transit-vehicle',
       id: payload.plate,
-      point: { lng: payload.point[0], lat: payload.point[1], crs: 'WGS84' }
+      // 校外公交车辆坐标是从接口原样带过来的 GCJ-02，标成 WGS84 会让锚点整体偏几十米。
+      point: { lng: payload.point[0], lat: payload.point[1], crs: 'GCJ-02' }
     }
     refreshPinAnchor()
   })
 }
 
+// 面板撤层还要让路由同步闭嘴：那次 popstate 只是把 URL 退回压层前的样子。
+let ignoreRouteApplyAfterDrop = false
 const { cancelMapRouteSync } = useMapRouteSync({
+  consumeSelfNavigation: () => {
+    if (!ignoreRouteApplyAfterDrop) return false
+    ignoreRouteApplyAfterDrop = false
+    return true
+  },
   categoryIds,
   places,
   areas: amapImportedAreas,
@@ -1358,6 +1405,24 @@ const {
   userLocation,
   notify: notice => toast.add(notice)
 })
+
+// 校车给的是插值显示位（没有自己的 crs，沿用点击时那份）；校外公交给实时 GCJ-02 GPS 点。
+pinLivePointReader = (selection) => {
+  if (selection.kind === 'bus') {
+    const bus = busVehicles.value.find(item => item.busId === selection.id)
+    return bus ? { lng: bus.lng, lat: bus.lat, crs: selection.point?.crs ?? 'WGS84' } : undefined
+  }
+  if (selection.kind === 'transit-vehicle') {
+    for (const direction of transitLive.value?.directions ?? []) {
+      for (const vehicle of direction.vehicles) {
+        const id = `${direction.line}-${direction.direction}-${vehicle.plate}`
+        if (id === selection.id || vehicle.plate === selection.id || vehicle.plate === selection.name)
+          return { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' }
+      }
+    }
+  }
+  return undefined
+}
 
 // 折叠态地图上的校车 ETA 胶囊：位置来自 provider.projectToScreen 投影 seam。
 // 拖动 / 高度过渡期间冻结 ETA：文本与首帧位移都不再随 150ms 车辆 tick 重算，
@@ -1593,6 +1658,7 @@ function dropSheetHistoryLayer(): void {
   if (typeof window === 'undefined' || !sheetHistoryPushed) return
   sheetHistoryPushed = false
   suppressNextPop = true
+  ignoreRouteApplyAfterDrop = true
   window.history.back()
 }
 
