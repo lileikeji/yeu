@@ -69,6 +69,9 @@
   --ink: #0a0a0a;
   --muted-ink: #6f6f6f;
   --line: rgb(0 0 0 / 8%);
+  /* T-033 R5（F-39）：面板上沿与地图的分界描边。深色下 --line 是 #262626，压在浅色底图上就是一条黑边，
+     所以单开一条只给面板上沿用的 hairline：浅色 8% 黑、暗色 14% 白，圆角处也不再出现深色弧。 */
+  --sheet-hairline: rgb(0 0 0 / 8%);
   --accent-warm: #c2410c;
   --accent-blue: #1d4ed8;
   /* 叮叮车（校车实时）唯一暖橙来源：四套 palette 共用，暗色见 html.dark。
@@ -77,8 +80,18 @@
   --bus-accent-ink: #ffffff;
   --bus-accent-soft: color-mix(in srgb, var(--bus-accent) 12%, var(--surface));
   --bus-accent-line: color-mix(in srgb, var(--bus-accent) 30%, var(--surface));
-  --header-height: 4.0625rem;
-  --mobile-nav-height: 4.5625rem;
+  --header-height: 2.75rem;
+  --mobile-nav-height: 3.25rem;
+  /* T-033：悬浮 dock 的左右/底部内缩与块内间距，52px 胶囊 + 10px 内缩 = 底部常驻 62px。 */
+  --mobile-dock-inset: 0.625rem;
+  --mobile-dock-gap: 0rem;
+  /* T-033 R2：块左右内缩（用户 22:48：宽度不用收，保持 10px），与底部 --mobile-dock-inset 解耦，便于单独调。 */
+  --mobile-dock-inline: 0.625rem;
+  /* T-033 R2：/map 合成块总高 100px = 4 padding + 36 搜索行 + 4 gap + 52 导航行 + 4 padding。 */
+  --shell-dock-map-height: 6.25rem;
+  /* T-033：/map 合成块比胶囊高出的部分（114 - 52 = 62px），由 ShellDock 在路由变化时写到 <html>；
+     页面里的浮动元素统一用「nav-height + inset + extra」让开底栏，其他页 extra = 0。 */
+  --mobile-dock-extra: 0rem;
 
   /* 表面下沉档：卡片内的凹槽、表头、分段控件的槽底。四套 palette 各自覆盖。 */
   --surface-sunken: #f4f4f4;
@@ -112,6 +125,7 @@ html.dark {
   --ink: #fafafa;
   --muted-ink: #a3a3a3;
   --line: #262626;
+  --sheet-hairline: rgb(255 255 255 / 14%);
   --surface-sunken: #0f0f0f;
   --accent-warm: #ff7a45;
   --accent-blue: #6b9bff;
@@ -217,17 +231,47 @@ select {
 }
 
 .safe-bottom {
-  padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-dock-inset) + env(safe-area-inset-bottom));
+}
+
+/*
+ * T-033 §2：底部内容隐化。mask 让最后 84px 渐隐，padding-bottom 保证最后一行还能滚出来、点得到
+ * （只 mask 不 padding 的话最后一行永远压在渐隐带里，看得见摸不着）。
+ */
+.shell-fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 84px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 84px), transparent 100%);
+  padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-dock-inset));
+}
+
+/*
+ * T-033 R8（CR-1）：mask 只给手机。桌面端 dock 常驻、没有悬浮胶囊要躲，
+ * 渐隐只会把最后一行按钮压成半透明、看得见点不清 → md 以上取消 mask，padding 保留。
+ */
+@media (min-width: 768px) {
+  .shell-fade-bottom {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+.shell-fade-bottom--map {
+  padding-bottom: 124px;
+  /* 2026-11-17 用户 m00986「这里不要隐化了」：地图页抽屉最后一行是「叮叮车 / 校外公交」两个交通格，
+     84px 渐隐正好压在这一行上，读起来像半透明坏格。dock 已不透明（F-44）并且盖在这条带子上，
+     渐隐不再有任何遮挡价值 → 地图页只保 padding，不保 mask。 */
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 /*
  * The map is a viewport surface, not a page section. Keeping its height on
- * the main element reserves space below the sticky header and above the
- * fixed mobile navigation. The stable viewport unit prevents WebView chrome
- * animations from moving the map while a user scrolls the place list.
+ * the main element reserves space below the sticky header. T-033 R2：底部不再
+ * 减 nav + inset —— 那 62px 会变成 dock 下方的一条白底（用户 22:48「旧 dock 栏
+ * 没删干净」）。地图铺到屏幕底，悬浮 dock 压在它上面。
  */
 main.map-page {
-  height: calc(100vh - var(--header-height) - var(--mobile-nav-height) - env(safe-area-inset-bottom));
+  height: calc(100vh - var(--header-height));
   min-height: 0;
   overflow: hidden;
   overscroll-behavior: none;
@@ -235,7 +279,7 @@ main.map-page {
 
 @supports (height: 100svh) {
   main.map-page {
-    height: calc(100svh - var(--header-height) - var(--mobile-nav-height) - env(safe-area-inset-bottom));
+    height: calc(100svh - var(--header-height));
   }
 }
 
@@ -301,7 +345,7 @@ main.map-page {
 
 @media (min-width: 768px) {
   :root {
-    --header-height: 4.5625rem;
+    --header-height: 4.5rem;
   }
 
   .page-shell {

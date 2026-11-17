@@ -53,7 +53,9 @@ const navigationSections: Array<{ prefix: string, key: NavigationKey }> = [
   { prefix: '/search', key: 'map' },
   { prefix: '/me', key: 'me' },
   { prefix: '/feedback', key: 'me' },
-  { prefix: '/sources', key: 'me' }
+  { prefix: '/sources', key: 'me' },
+  // T-033 R7（F-42）：/me 未登录会跳 /login，登录页也要让「我的」保持选中。
+  { prefix: '/login', key: 'me' }
 ]
 
 // 窄屏 5 项没有「热点」，热点页族回落到「生活」，避免底栏全灭。
@@ -105,8 +107,14 @@ function shareCurrentPage(): void {
       rel="nofollow noindex"
       class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
     >site index</a>
-    <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--surface)]/95 dark:bg-zinc-900/95 backdrop-blur">
-      <div class="page-shell relative flex min-h-16 flex-wrap items-center justify-between gap-2 py-2 md:h-[4.5rem] md:flex-nowrap md:gap-6 md:py-0">
+    <header
+      class="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--surface)]/95 dark:bg-zinc-900/95 backdrop-blur"
+      :style="isHomePage ? undefined : { height: 'var(--header-height)' }"
+    >
+      <div
+        class="page-shell relative flex min-h-16 flex-wrap items-center justify-between gap-2 py-2 md:h-[4.5rem] md:flex-nowrap md:gap-6 md:py-0"
+        :style="isHomePage ? undefined : { height: '100%', minHeight: '0px', paddingBlock: '0px' }"
+      >
         <NuxtLink
           to="/"
           class="flex min-h-11 min-w-0 flex-none items-center gap-2"
@@ -238,7 +246,7 @@ function shareCurrentPage(): void {
       :class="[
         isMapPage
           ? 'map-page min-h-0 overflow-hidden overscroll-none'
-          : 'safe-bottom min-h-[calc(100dvh-var(--header-height))]',
+          : 'safe-bottom shell-fade-bottom min-h-[calc(100dvh-var(--header-height))]',
         useCompactPageDensity ? 'compact-page-density' : ''
       ]"
       tabindex="-1"
@@ -252,7 +260,7 @@ function shareCurrentPage(): void {
 
     <footer
       v-if="!isMapPage"
-      class="border-t border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
+      class="border-t border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 pb-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
     >
       <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 dark:text-zinc-400 md:flex-row md:items-center md:justify-between md:gap-6">
         <div class="space-y-2">
@@ -297,26 +305,10 @@ function shareCurrentPage(): void {
       </div>
     </footer>
 
-    <nav
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--surface)]/95 dark:bg-zinc-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    <ShellDock
+      :items="mobileNavigation"
+      :active-key="activeMobileKey"
       aria-label="移动端主导航"
-    >
-      <div class="grid h-[var(--mobile-nav-height)] grid-cols-5">
-        <NuxtLink
-          v-for="item in mobileNavigation"
-          :key="item.to"
-          :to="item.to"
-          class="flex min-w-0 flex-col items-center justify-center gap-1 text-xs"
-          :class="activeMobileKey === item.key ? 'text-green-700 dark:text-green-400' : 'text-zinc-500 dark:text-zinc-400'"
-          :aria-current="activeMobileKey === item.key ? 'page' : undefined"
-        >
-          <UIcon
-            :name="item.icon"
-            class="size-5"
-          />
-          <span>{{ item.label }}</span>
-        </NuxtLink>
-      </div>
-    </nav>
+    />
   </div>
 </template>

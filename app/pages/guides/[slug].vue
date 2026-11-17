@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
       <a
         v-if="showContentsShortcut"
         href="#guide-contents"
-        class="fixed bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 shadow-lg shadow-zinc-950/10 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
+        class="fixed bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 shadow-lg shadow-zinc-950/10 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
         aria-label="返回本页目录"
         @click="openContents"
       >
