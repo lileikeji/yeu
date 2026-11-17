@@ -925,6 +925,16 @@ watch(mapProvider, (provider) => {
     closePinPopover()
     return
   }
+  // 深链进来时 pinSelection 在 setup 阶段就定了，那时候 provider 还没准备好，
+  // refreshPinAnchor 只能拿到空锚点。provider 到位后补投影，并给地图首帧留几次重试。
+  if (pinSelection.value && !pinAnchor.value) {
+    refreshPinAnchor()
+    for (const delay of [120, 300, 700, 1200]) {
+      window.setTimeout(() => {
+        if (pinSelection.value && !pinAnchor.value) refreshPinAnchor()
+      }, delay)
+    }
+  }
   provider.onFeatureSelect?.((selection) => {
     handlePinFeatureSelected(selection as unknown as PinSelection | null)
   })
@@ -946,7 +956,8 @@ watch(selectedPoi, (poi) => {
   }
   pinSelection.value = { kind: 'poi', id: poi.id, point: poi.point ?? undefined }
   refreshPinAnchor()
-})
+}, { immediate: true })
+// immediate：深链 /map?place=… 在 setup 时 selectedPoi 就已经有值，不加 immediate 就永远等不到这次变化。
 
 // 窗口拉宽到桌面分支时浮窗退场，桌面侧栏接管详情。
 watch(() => panelIsDesktop.value, (desktop) => {
@@ -1026,6 +1037,9 @@ const pinCard = computed<PinCardModel | null>(() => {
       return { kind: 'poi', tone: 'place', icon: 'i-lucide-map-pin', title: '地点', chips: [], rows: [], actions: [], meta: '' }
     }
     const distance = pinDistanceText(poi.point)
+    // MapPoi 只有渲染字段，详情目标要拿完整地点（slug / 是否已发布）来拼。
+    const place = catalogPlaces.value.find(item => item.id === poi.id)
+    const detailsTarget = place ? placeDetailsTarget(place) : undefined
     return {
       kind: 'poi',
       tone: poi.category === 'gate' ? 'gate' : 'place',
@@ -1043,8 +1057,9 @@ const pinCard = computed<PinCardModel | null>(() => {
         { key: 'route', label: '导航', icon: 'i-lucide-navigation', variant: 'primary' },
         { key: 'favorite', label: '', icon: 'i-lucide-star', variant: 'icon' }
       ],
-      meta: '详情',
-      metaAction: 'details'
+      // 未发布的地点没有详情页，别摆一个点了会跳首页的入口。
+      meta: detailsTarget ? '详情' : undefined,
+      metaAction: detailsTarget ? 'details' : undefined
     }
   }
 
@@ -1196,8 +1211,9 @@ function handlePinAction(key: string): void {
   if (!selection) return
 
   if (key === 'details' && selection.kind === 'poi') {
-    mobileSheetState.value = 'half'
-    mapSheetView.value = 'sections'
+    // 手机端详情卡已由浮窗取代，详情动作直接进地点详情页（与桌面卡「详情」同一个目标）
+    const target = selectedPoi.value ? placeDetailsTarget(selectedPoi.value) : undefined
+    if (target) void navigateTo(target)
     return
   }
   if (key === 'cluster-all') {
