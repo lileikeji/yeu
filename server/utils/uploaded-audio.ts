@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createError } from 'h3'
 import { uploadDirectory } from './uploaded-images'
@@ -64,6 +64,9 @@ export async function storeUploadedAudio(data: Uint8Array): Promise<{
   await mkdir(directory, { recursive: true })
   const filename = `${randomUUID()}.${type}`
   // 0644：nginx 以 www 身份读文件，0640 会 403
-  await writeFile(resolve(directory, filename), data, { mode: 0o644 })
+  const target = resolve(directory, filename)
+  await writeFile(target, data, { mode: 0o644 })
+  // 进程 umask 常是 027，会把 644 削成 640，nginx 以 www 身份就读不到；这里显式补一次。
+  await chmod(target, 0o644)
   return { filename, url: `/uploads/${filename}`, size: data.length, contentType: AUDIO_TYPES[type] }
 }
