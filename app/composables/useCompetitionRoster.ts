@@ -367,8 +367,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     file: File
   ): Promise<void> {
     if (round.status === 'closed' || accompanimentBusyId.value) return
-    if (file.size > 15 * 1024 * 1024) {
-      toast.add({ title: '伴奏不能超过 15MB', color: 'warning' })
+    if (file.size > 30 * 1024 * 1024) {
+      toast.add({ title: '伴奏不能超过 30MB', color: 'warning' })
       return
     }
     accompanimentBusyId.value = entry.id
