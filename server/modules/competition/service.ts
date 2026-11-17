@@ -452,11 +452,17 @@ export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge 
   }
 }
 
-/** 条目上的曲目优先：晋级后填的新歌只影响那一轮，初赛记录保持原样。 */
-export function entrySingerPublic(entry: EntryRow, singer: SingerRow): CompetitionSingerPublic {
+/** 条目上的曲目优先；只有初赛（报名登记的 song）允许回退到选手库，复赛/决赛空着就是空着。 */
+export function entrySingerPublic(
+  entry: EntryRow,
+  singer: SingerRow,
+  roundKey?: 'prelim' | 'semi' | 'final'
+): CompetitionSingerPublic {
   const base = serializeSingerPublic(singer)
   const song = (entry.song ?? '').trim()
-  return song ? { ...base, song } : base
+  if (song) return { ...base, song }
+  if (roundKey === 'prelim' || roundKey === undefined) return base
+  return { ...base, song: '' }
 }
 
 export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
@@ -940,7 +946,7 @@ function buildRoundRanking(
         || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
       .map(row => ({
         id: row.entry.id,
-        singer: entrySingerPublic(row.entry, row.singer),
+        singer: entrySingerPublic(row.entry, row.singer, round.key),
         sortOrder: row.entry.sortOrder,
         contestDay: row.entry.contestDay ?? null,
         checkedInAt: row.entry.checkedInAt ?? null,
@@ -966,7 +972,7 @@ function buildRoundRanking(
     }
     result.push({
       id: row.entry.id,
-      singer: entrySingerPublic(row.entry, row.singer),
+      singer: entrySingerPublic(row.entry, row.singer, round.key),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
@@ -986,7 +992,7 @@ function buildRoundRanking(
   for (const row of unscored) {
     result.push({
       id: row.entry.id,
-      singer: entrySingerPublic(row.entry, row.singer),
+      singer: entrySingerPublic(row.entry, row.singer, round.key),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
@@ -1353,7 +1359,7 @@ export function buildCurrentSinger(
 
   return {
     entryId: entry.id,
-    singer: entrySingerPublic(entry, singer),
+    singer: entrySingerPublic(entry, singer, round.key),
     index: index + 1,
     total: dayEntries.length,
     judgeTotal: judgedTotal,
@@ -2493,7 +2499,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .map(({ entry, singer }, index) => ({
-      ...entrySingerPublic(entry, singer),
+      ...entrySingerPublic(entry, singer, round.key),
       // 分天评比时给评委展示当天顺位（1 起），避免第二天从昨日总数之后接续显示。
       sortOrder: scopedByDay ? index + 1 : entry.sortOrder,
       advancedFromRank: entry.advancedFromRank,
@@ -3061,7 +3067,7 @@ export function buildEmailVariables(
     姓名: singer.name,
     班级: singer.className || '—',
     学号: singer.studentNo || '—',
-    歌曲: (entry.song ?? '').trim() || singer.song || '—',
+    歌曲: (entry.song ?? '').trim() || (round.key === 'prelim' ? singer.song : '') || '—',
     轮次: round.title,
     届次: context.edition || '新声歌手大赛',
     收到按钮: context.receiptUrl || '',
@@ -3711,8 +3717,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
           singerId: row.singer.id,
           sortOrder: index + 1,
           advancedFromRank: row.rank ?? null,
-          // 先把当前这轮的歌带过去，之后各轮各改各的
-          song: (row.singer.song ?? '').trim() || null,
+          // 下一轮的曲目留空：只有选手在收歌页填了才写进去，不再沿用上一轮
+          song: null,
           createdAt: now
         }).run()
       })
@@ -4139,11 +4145,13 @@ export async function buildAccompanimentArchive(
     index += 1
     const singer = singerById.get(entry.singerId)
     if (!singer) continue
-    const folder = `${String(index).padStart(2, '0')}-${sanitizePathPart(singer.name)}`
+    // 编号用后台抽签后的出场序号，抽签完重新导出就是新顺序
+    const position = entry.sortOrder > 0 ? entry.sortOrder : index
+    const folder = `${String(position).padStart(2, '0')}-${sanitizePathPart(singer.name)}`
     const song = ((entry.song ?? '').trim() || (singer.song ?? '').trim() || '未选曲')
     files.push({
       name: `${folder}/曲目.txt`,
-      data: new TextEncoder().encode(`${singer.name}\n${song}\n${singer.className ?? ''}\n`)
+      data: new TextEncoder().encode(`出场序：${position}\n姓名：${singer.name}\n曲目：${song}\n班级：${singer.className ?? ''}\n`)
     })
     const url = (entry.accompanimentUrl ?? '').trim()
     if (!url) continue

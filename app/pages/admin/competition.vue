@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
+import type { CompetitionRoundEntry, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
 
@@ -24,6 +25,13 @@ const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
+function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) void uploadEntryAccompaniment(round, entry, file)
+}
+
 const rankedEntries = computed(() => {
   const list = activeRound.value?.entries ?? []
   return [...list].sort((left, right) => {
@@ -56,7 +64,7 @@ const {
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
   changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn,
-  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, changeJudgeDay, redrawRound, clearRoster,
+  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -893,6 +901,9 @@ onBeforeUnmount(stopLiveRefresh)
                   <th class="px-3 py-2 font-medium">
                     歌曲
                   </th>
+                  <th class="px-3 py-2 text-left">
+                    伴奏
+                  </th>
                   <th class="px-3 py-2 font-medium">
                     状态
                   </th>
@@ -1594,13 +1605,35 @@ onBeforeUnmount(stopLiveRefresh)
                   <td class="px-3 py-2 text-zinc-600 dark:text-zinc-300">
                     <input
                       v-if="activeRound?.status !== 'closed'"
-                      :value="entrySongValue(entry)"
+                      :value="entrySongValue(entry, activeRound?.key)"
                       class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
                       :disabled="entrySongBusyId === entry.id"
                       @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
                       @change="saveEntrySong(activeRound!, entry)"
                     >
-                    <span v-else>{{ entrySongValue(entry) }}</span>
+                    <span v-else>{{ entrySongValue(entry, activeRound?.key) }}</span>
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <template v-if="activeRound?.key !== 'prelim'">
+                      <label
+                        class="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-xs hover:border-emerald-500 dark:border-zinc-700"
+                        :class="accompanimentBusyId === entry.id ? 'opacity-60' : ''"
+                      >
+                        <input
+                          type="file"
+                          class="hidden"
+                          accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac"
+                          :disabled="accompanimentBusyId === entry.id || activeRound?.status === 'closed'"
+                          @change="onPickAccompaniment(activeRound!, entry, $event)"
+                        >
+                        {{ entry.accompaniment ? '换伴奏' : '传伴奏' }}
+                      </label>
+                      <span
+                        v-if="entry.accompaniment"
+                        class="ml-1 text-[11px]"
+                      >{{ entry.accompaniment.name }}</span>
+                    </template>
+                    <span v-else>—</span>
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.singer.className || '—' }}

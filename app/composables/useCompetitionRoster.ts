@@ -12,6 +12,18 @@ import type {
 import { adminFetch } from '~~/app/utils/admin-request'
 import type { SettingsDraft } from './useCompetitionPayload'
 
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result ?? '')
+      resolve(result.slice(result.indexOf(',') + 1))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function apiErrorMessage(error: unknown, fallback: string): string {
   if (typeof error !== 'object' || error === null) return fallback
   const data = (error as { data?: { data?: { message?: string, issues?: Array<{ message?: string }> } } }).data?.data
@@ -310,10 +322,13 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
 
   /** 各轮曲目草稿：初赛/复赛/决赛分开存，改哪轮只写哪轮条目的 song。 */
   const entrySongBusyId = ref('')
+  const accompanimentBusyId = ref('')
   const entrySongDraft = ref<Record<string, string>>({})
 
-  function entrySongValue(entry: CompetitionRoundEntry): string {
-    return entrySongDraft.value[entry.id] ?? (entry.song ?? entry.singer.song ?? '')
+  function entrySongValue(entry: CompetitionRoundEntry, roundKey?: string): string {
+    // 初赛沿用选手库登记的 song；复赛/决赛空着就是空着，等选手在收歌页填
+    const fallback = roundKey === 'prelim' ? entry.singer.song ?? '' : ''
+    return entrySongDraft.value[entry.id] ?? (entry.song ?? fallback)
   }
 
   function setEntrySongDraft(entry: CompetitionRoundEntry, value: string): void {
@@ -342,6 +357,33 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       toast.add({ title: '保存曲目失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
     } finally {
       entrySongBusyId.value = ''
+    }
+  }
+
+  /** 后台代传伴奏：选手自己传不上来时（iOS 微信选不到聊天文件）由工作人员补。 */
+  async function uploadEntryAccompaniment(
+    round: CompetitionRoundView,
+    entry: CompetitionRoundEntry,
+    file: File
+  ): Promise<void> {
+    if (round.status === 'closed' || accompanimentBusyId.value) return
+    if (file.size > 15 * 1024 * 1024) {
+      toast.add({ title: '伴奏不能超过 15MB', color: 'warning' })
+      return
+    }
+    accompanimentBusyId.value = entry.id
+    try {
+      const data = await readFileAsBase64(file)
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/entry-accompaniment`,
+        { method: 'POST', body: { entryId: entry.id, filename: file.name, data } }
+      )
+      payload.value = result.payload
+      toast.add({ title: `${entry.singer.name} 的伴奏已上传`, description: file.name, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '上传伴奏失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      accompanimentBusyId.value = ''
     }
   }
 
@@ -553,6 +595,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     checkInBusyId,
     toggleEntryCheckIn,
     entrySongBusyId,
+    accompanimentBusyId,
+    uploadEntryAccompaniment,
     entrySongDraft,
     entrySongValue,
     setEntrySongDraft,
