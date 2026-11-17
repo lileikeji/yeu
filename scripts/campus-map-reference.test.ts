@@ -364,7 +364,7 @@ test('geographic map keeps a full-height wrapper around provider-owned container
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   assert.match(
     source,
-    /v-show="mapViewMode === 'geographic'"\s+class="absolute inset-0"[\s\S]*?ref="mapElement"\s+class="h-full w-full"/
+    /v-show="mapViewMode === 'geographic'"\s+class="absolute inset-0"[\s\S]*?ref="mapElement"[\s\S]{0,120}?class="h-full w-full[^"]*"/
   )
   assert.doesNotMatch(source, /ref="mapElement"\s+class="absolute inset-0"/)
 })

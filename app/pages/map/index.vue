@@ -11,6 +11,7 @@ import { officialSources } from '~~/data/seeds/public-content'
 import { haversineMeters } from '~~/shared/utils/bus-route-progress'
 import { gcj02ToWgs84 } from '~~/shared/utils/coordinate-convert'
 import { safeExternalHref } from '~/utils/safe-external-href'
+import { parsePublicPhoneContacts } from '~/utils/public-phone-contact'
 import type { GlassTarget } from '~/composables/useMapGlassRefraction'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
@@ -964,7 +965,7 @@ interface PinCardModel {
   title: string
   subtitle?: string
   chips: { label: string, icon?: string }[]
-  rows: { badge?: string, label: string, meta?: string }[]
+  rows: { badge?: string, label: string, meta?: string, href?: string }[]
   eta?: { value: string, caption: string, progress?: number, from?: string, to?: string } | null
   actions: { key: string, label: string, icon?: string, variant?: 'primary' | 'ghost' | 'icon' }[]
   meta?: string
@@ -999,6 +1000,22 @@ function pinPoiChecklist(poi: object): string[] {
   return poiUseChecklist({ ...poi, usageChecklist: checklist } as unknown as PublicMapPlace)
 }
 
+/** 地点浮窗的电话入口：复用公共电话解析，多号只显示第一个，其余折成「等 N 个」。 */
+function pinPhoneRows(poiId: string): PinCardModel['rows'] {
+  const place = catalogPlaces.value.find(item => item.id === poiId)
+  const contacts = parsePublicPhoneContacts(place?.phone)
+  const first = contacts[0]
+  if (!first) return []
+  // parsePublicPhoneContacts 已给出 tel: 链接，这里再兜一层，避免上游改格式后变死链
+  const href = first.href.startsWith('tel:') ? first.href : `tel:${first.href.replace(/[^\d+]/g, '')}`
+  return [{
+    badge: '电话',
+    label: first.label,
+    href,
+    meta: contacts.length > 1 ? `等 ${contacts.length} 个` : undefined
+  }]
+}
+
 const pinCard = computed<PinCardModel | null>(() => {
   const selection = pinSelection.value
   if (!selection) return null
@@ -1021,7 +1038,7 @@ const pinCard = computed<PinCardModel | null>(() => {
         poi.point ? '' : poiStatusText(poi as unknown as PublicMapPlace)
       ].filter(Boolean).join(' · '),
       chips: pinPoiChecklist(poi).slice(0, 3).map(label => ({ label })),
-      rows: [],
+      rows: pinPhoneRows(poi.id),
       actions: [
         { key: 'route', label: '导航', icon: 'i-lucide-navigation', variant: 'primary' },
         { key: 'favorite', label: '', icon: 'i-lucide-star', variant: 'icon' }

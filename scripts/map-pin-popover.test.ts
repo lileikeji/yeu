@@ -8,6 +8,14 @@ const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
 const providerSource = readFileSync(resolve('map/providers/maplibre/provider.ts'), 'utf8')
 const coreSource = readFileSync(resolve('map/core/provider.ts'), 'utf8')
 
+test('pin card phone rows stay inside the card and dial through tel:', () => {
+  assert.match(popoverSource, /href\?: string/)
+  assert.match(popoverSource, /:href="row\.href"/)
+  assert.match(popoverSource, /pin-popover__row--link/)
+  assert.match(pageSource, /pinPhoneRows\(poi\.id\)/)
+  assert.match(pageSource, /parsePublicPhoneContacts/)
+})
+
 test('pin popover uses native popover with css anchor positioning', () => {
   assert.match(popoverSource, /popover="auto"/)
   assert.match(popoverSource, /role="dialog"/)

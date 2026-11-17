@@ -17,6 +17,8 @@ export interface PinCardRow {
   badge?: string
   label: string
   meta?: string
+  /** 有 href 时整行渲染成可点的 <a>（电话入口等），最小点击高度 44px */
+  href?: string
 }
 export interface PinCardEta {
   value: string
@@ -251,14 +253,19 @@ function onToggle(event: Event): void {
         </div>
       </div>
 
-      <ul
+      <div
         v-if="rows.length"
         class="pin-popover__rows"
+        role="list"
       >
-        <li
+        <component
+          :is="row.href ? 'a' : 'div'"
           v-for="(row, index) in rows"
           :key="index"
+          :href="row.href"
+          role="listitem"
           class="pin-popover__row"
+          :class="row.href ? 'pin-popover__row--link min-h-11' : ''"
         >
           <span
             v-if="row.badge"
@@ -269,8 +276,8 @@ function onToggle(event: Event): void {
             v-if="row.meta"
             class="pin-popover__rowmeta"
           >{{ row.meta }}</span>
-        </li>
-      </ul>
+        </component>
+      </div>
 
       <div
         v-if="eta"
@@ -561,6 +568,23 @@ function onToggle(event: Event): void {
 
 .pin-popover__row + .pin-popover__row {
   border-block-start: 1px solid var(--surface);
+}
+
+/* 电话这类可点行：整行命中区 ≥44px，颜色不外跳到浏览器默认蓝 */
+.pin-popover__row--link {
+  color: inherit;
+  text-decoration: none;
+  min-height: 44px;
+  border-radius: 8px;
+}
+
+.pin-popover__row--link:active {
+  background: var(--surface);
+}
+
+.pin-popover__row--link .pin-popover__rowlabel {
+  color: var(--pin-accent, var(--color-zinc-800, #27272a));
+  font-weight: 600;
 }
 
 .pin-popover__rowbadge {
