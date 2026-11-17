@@ -58,7 +58,9 @@ export type BundleBudgetReport = {
 export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
   entryJavaScriptBytes: 430 * 1024,
   // 2026-11-16 实测 357818 B（上一版 348761），按实测重标 356 KiB。
-  entryCssBytes: 356 * 1024,
+  // 2026-11-17 计协工作台（`app/pages/admin/yeuca.vue`）加入后实测 365234 B，超 356 KiB 690 B，
+  // 按实测重标 360 KiB（余量约 3.4 KB）；再顶破就按 doc 里说的谈瘦包，不再逐次抬预算。
+  entryCssBytes: 360 * 1024,
   mapLibreBytes: 1150 * 1024,
   mapLibreCssBytes: 80 * 1024,
   // 2026-11-16 起口径变更：单页预算只算「这条路由自己的 chunk」，app entry 与它带出来的
