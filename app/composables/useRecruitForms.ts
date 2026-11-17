@@ -373,7 +373,7 @@ export function useRecruitForms() {
     const body = new FormData()
     body.append('image', file)
     const csrfHeaders = withAdminRequestOptions({ headers: new Headers() }).headers
-    $fetch<{ url: string }>('/api/admin/media/images', {
+    plainFetch<{ url: string }>('/api/admin/media/images', {
       method: 'POST',
       body,
       credentials: 'include',

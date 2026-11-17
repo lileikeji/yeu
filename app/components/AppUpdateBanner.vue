@@ -8,7 +8,7 @@ const outdated = ref(false)
 const dismissed = ref(false)
 
 async function readBuild(): Promise<string> {
-  const res = await $fetch<{ commit: string, release: string }>('/api/public/build', { cache: 'no-store' })
+  const res = await plainFetch<{ commit: string, release: string }>('/api/public/build', { cache: 'no-store' })
   return `${res.commit}@${res.release}`
 }
 

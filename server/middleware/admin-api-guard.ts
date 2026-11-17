@@ -1,5 +1,6 @@
 import { getMethod, getRequestURL, getQuery } from 'h3'
 import { isMusicAssociationContent } from '../modules/competition/service'
+import { isComputerAssociationContent } from '../modules/yeuca/service'
 import { requireAdminSession } from '../utils/auth'
 import { getClientIpAddress } from '../utils/client-ip'
 import { useAppDatabase } from '../utils/database'
@@ -81,6 +82,12 @@ export default defineEventHandler((event) => {
   if (pathname === '/api/admin/competition' || pathname.startsWith('/api/admin/competition/')) {
     const organizationContentId = session.admin.organization?.contentId
     if (organizationContentId && isMusicAssociationContent(client, organizationContentId)) return
+  }
+
+  // 计协官网内容管理只对计算机协会开放；其他组织管理员一律拒绝。
+  if (pathname === '/api/admin/yeuca' || pathname.startsWith('/api/admin/yeuca/')) {
+    const organizationContentId = session.admin.organization?.contentId
+    if (organizationContentId && isComputerAssociationContent(client, organizationContentId)) return
   }
 
   throw createError({

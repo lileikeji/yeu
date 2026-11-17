@@ -39,7 +39,7 @@ async function lookup(): Promise<void> {
   result.value = null
   receiptDone.value = false
   try {
-    result.value = await $fetch<CompetitionResultLookup>('/api/public/competition/result/lookup', {
+    result.value = await plainFetch<CompetitionResultLookup>('/api/public/competition/result/lookup', {
       method: 'POST',
       body: {
         name: form.name.trim(),
@@ -60,7 +60,7 @@ async function confirmReceipt(token: string): Promise<void> {
   receipting.value = true
   receiptError.value = ''
   try {
-    const data = await $fetch<CompetitionReceiptState>('/api/public/competition/result/receipt', {
+    const data = await plainFetch<CompetitionReceiptState>('/api/public/competition/result/receipt', {
       method: 'POST',
       body: { token }
     })

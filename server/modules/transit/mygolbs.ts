@@ -63,7 +63,7 @@ function cachePeek<T>(key: string, staleMs: number): T | null {
 
 async function post<T>(params: Record<string, string>): Promise<T> {
   const body = new URLSearchParams(params).toString()
-  const raw = await $fetch<ArrayBuffer | string>(API_ENDPOINT, {
+  const raw = await plainFetch<ArrayBuffer | string>(API_ENDPOINT, {
     method: 'POST',
     headers: HEADERS,
     body,

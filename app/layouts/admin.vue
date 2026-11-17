@@ -5,6 +5,11 @@ import {
 } from '~~/app/utils/admin-dashboard-presentation'
 
 const route = useRoute()
+const requestUrl = useRequestURL()
+const isYeucaHost = computed(() => {
+  const clientHost = import.meta.client ? window.location.hostname : ''
+  return (clientHost || requestUrl.hostname) === 'yeuca.huiliyill.cn'
+})
 
 const authState = ref<'checking' | 'authenticated' | 'error'>('checking')
 const authError = ref('')
@@ -29,34 +34,58 @@ function canUseCapability(capability?: AdminCapability): boolean {
 const isMusicAssociation = computed(() =>
   organizationSlug.value === 'music-association' || organizationTitle.value === '音乐协会')
 
+const isComputerAssociation = computed(() =>
+  organizationSlug.value === 'computer-association' || organizationTitle.value === '计算机协会')
+
 const organizationNavigation = computed(() => [{
   key: 'organization',
-  label: '组织后台',
-  items: [{
-    label: organizationTitle.value || '我的组织页面',
-    to: '/admin/organization',
-    icon: 'i-lucide-panels-top-left'
-  }, {
-    label: '纳新管理',
-    to: '/admin/recruit',
-    icon: 'i-lucide-clipboard-list'
-  }, {
-    label: '活动管理',
-    to: '/admin/activities',
-    icon: 'i-lucide-calendar-days'
-  }, ...(isMusicAssociation.value
+  label: isComputerAssociation.value ? '计算机协会' : '组织后台',
+  items: isComputerAssociation.value
     ? [{
-        label: '歌手大赛',
-        to: '/admin/competition',
-        icon: 'i-lucide-mic-vocal'
+        label: '计协主站工作台',
+        to: '/admin/yeuca',
+        icon: 'i-lucide-cpu'
+      }, {
+        label: '纳新管理',
+        to: '/admin/recruit',
+        icon: 'i-lucide-clipboard-list'
+      }, {
+        label: '活动管理',
+        to: '/admin/activities',
+        icon: 'i-lucide-calendar-days'
+      }, {
+        label: '社团名片（迎新站）',
+        to: '/admin/organization',
+        icon: 'i-lucide-panels-top-left'
       }]
-    : []), {
-    label: '小程序分析',
-    to: '/admin/miniapp',
-    icon: 'i-lucide-smartphone',
-    capability: 'analytics.view' as const
-  }].filter(item => canUseCapability(item.capability))
+    : [{
+        label: organizationTitle.value || '我的组织页面',
+        to: '/admin/organization',
+        icon: 'i-lucide-panels-top-left'
+      }, {
+        label: '纳新管理',
+        to: '/admin/recruit',
+        icon: 'i-lucide-clipboard-list'
+      }, {
+        label: '活动管理',
+        to: '/admin/activities',
+        icon: 'i-lucide-calendar-days'
+      }, ...(isMusicAssociation.value
+        ? [{
+            label: '歌手大赛',
+            to: '/admin/competition',
+            icon: 'i-lucide-mic-vocal'
+          }]
+        : []), {
+        label: '小程序分析',
+        to: '/admin/miniapp',
+        icon: 'i-lucide-smartphone',
+        capability: 'analytics.view' as const
+      }].filter(item => canUseCapability(item.capability))
 }].filter(group => group.items.length > 0))
+
+const isYeucaWorkspace = computed(() =>
+  isYeucaHost.value || isComputerAssociation.value || route.path === '/admin/yeuca')
 
 const visibleFullNavigationGroups = computed(() => fullAdminNavigationGroups
   .map(group => ({ ...group, items: group.items.filter(item => canUseCapability(item.capability)) }))
@@ -149,10 +178,12 @@ async function applySessionPayload(payload: Record<string, unknown>): Promise<vo
     || route.path === '/admin/activities'
     || route.path.startsWith('/admin/content/')
     || (route.path === '/admin/competition' && isMusicAssociation.value)
+    || (route.path === '/admin/yeuca' && isComputerAssociation.value)
     || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))
   if (adminRole.value === 'organization' && !organizationRouteAllowed) {
+    const landingPath = isComputerAssociation.value ? '/admin/yeuca' : '/admin/organization'
     await navigateTo({
-      path: '/admin/organization',
+      path: landingPath,
       query: mustChangePassword.value ? { password: 'required' } : undefined
     }, { replace: true })
     return
@@ -292,7 +323,10 @@ watch(desktopSidebarCollapsed, (collapsed) => {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-[#f6f7f5] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+  <div
+    class="min-h-dvh text-zinc-900 dark:text-zinc-100"
+    :class="isYeucaWorkspace ? 'bg-[#f6f6f4] dark:bg-zinc-950' : 'bg-[#f6f7f5] dark:bg-zinc-950'"
+  >
     <div
       v-if="authState === 'checking'"
       class="grid min-h-dvh place-items-center p-6"
@@ -302,7 +336,8 @@ watch(desktopSidebarCollapsed, (collapsed) => {
       <div class="text-center">
         <UIcon
           name="i-lucide-loader-circle"
-          class="mx-auto size-7 animate-spin text-green-700 dark:text-green-400"
+          class="mx-auto size-7 animate-spin"
+          :class="isYeucaHost ? 'text-[#a8121e] dark:text-rose-400' : 'text-green-700 dark:text-green-400'"
         />
         <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
           正在验证管理会话
@@ -343,12 +378,28 @@ watch(desktopSidebarCollapsed, (collapsed) => {
 
     <template v-else>
       <aside
-        class="fixed inset-y-0 left-0 z-40 hidden border-r border-zinc-800 bg-zinc-950 dark:bg-zinc-800 text-white transition-[width] duration-200 lg:flex lg:flex-col"
-        :class="desktopSidebarCollapsed ? 'w-16' : 'w-60'"
+        class="fixed inset-y-0 left-0 z-40 hidden border-r text-white transition-[width] duration-200 lg:flex lg:flex-col"
+        :class="[
+          desktopSidebarCollapsed ? 'w-16' : 'w-60',
+          isYeucaWorkspace ? 'border-zinc-800/90 bg-[#121211]' : 'border-zinc-800 bg-zinc-950 dark:bg-zinc-800'
+        ]"
         aria-label="后台主导航"
       >
+        <div
+          v-if="isYeucaWorkspace"
+          class="h-1 w-full shrink-0 bg-gradient-to-r from-[#a8121e] via-[#c81e2b] to-[#1d4ed8]"
+        />
         <div class="flex h-16 items-center gap-3 border-b border-white/10 px-4">
-          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-white">
+          <img
+            v-if="isYeucaWorkspace"
+            src="/images/yeuca-logo.jpg"
+            alt="仰恩大学计算机协会徽标"
+            class="size-9 shrink-0 rounded-full border border-white/20 object-cover shadow-xs"
+          >
+          <span
+            v-else
+            class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-white"
+          >
             <UIcon
               name="i-lucide-compass"
               class="size-5"
@@ -360,10 +411,14 @@ watch(desktopSidebarCollapsed, (collapsed) => {
             class="min-w-0"
           >
             <p class="truncate text-sm font-semibold">
-              新生指南后台
+              {{ isYeucaWorkspace ? '仰恩计协 · 控制台' : '新生指南后台' }}
             </p>
-            <p class="truncate text-xs text-zinc-300 dark:text-zinc-600">
-              {{ adminRole === 'organization' ? '组织内容管理' : '总管理员模式' }}
+            <p class="truncate font-mono text-[11px] text-zinc-400">
+              {{
+                adminRole === 'organization'
+                  ? (isComputerAssociation ? 'yeuca.huiliyill.cn' : '组织内容管理')
+                  : (isYeucaHost ? 'YEUCA 全局模式' : '总管理员模式')
+              }}
             </p>
           </div>
         </div>
@@ -380,7 +435,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
             <button
               v-if="!isStandaloneGroup(group.key) && !desktopSidebarCollapsed"
               type="button"
-              class="flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-300 dark:text-zinc-600 hover:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] hover:text-white"
+              class="flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-400 hover:bg-white/5 hover:text-white"
               :aria-expanded="!isNavigationGroupCollapsed(group.key)"
               @click="toggleNavigationGroup(group.key)"
             >
@@ -397,11 +452,22 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               :key="item.to"
               :to="item.to"
               :prefetch="false"
-              class="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-              :class="isActive(item.to) ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100' : 'text-zinc-300 dark:text-zinc-600 hover:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] hover:text-white'"
+              class="relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+              :class="isYeucaWorkspace
+                ? (isActive(item.to)
+                  ? 'border border-white/15 bg-white/10 font-semibold text-white shadow-xs'
+                  : 'text-zinc-300 hover:bg-white/5 hover:text-white')
+                : (isActive(item.to)
+                  ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100'
+                  : 'text-zinc-300 dark:text-zinc-600 hover:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] hover:text-white')"
               :aria-current="isActive(item.to) ? 'page' : undefined"
               :title="desktopSidebarCollapsed ? item.label : undefined"
             >
+              <span
+                v-if="isYeucaWorkspace && isActive(item.to)"
+                class="absolute inset-y-2 left-0 w-1 rounded-r bg-[#e11d48]"
+                aria-hidden="true"
+              />
               <UIcon
                 :name="item.icon"
                 class="size-4 shrink-0"
@@ -436,7 +502,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               <p class="truncate text-xs font-medium text-white">
                 {{ adminLabel }}
               </p>
-              <p class="text-xs text-zinc-300 dark:text-zinc-600">
+              <p class="text-xs text-zinc-400">
                 已登录
               </p>
             </div>
@@ -472,13 +538,32 @@ watch(desktopSidebarCollapsed, (collapsed) => {
             class="lg:hidden"
             @click="openMobileNavigation"
           />
-          <div class="min-w-0 flex-1">
+          <div class="flex min-w-0 flex-1 items-center gap-2.5">
             <p class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {{ currentTitle }}
             </p>
+            <span
+              v-if="isYeucaWorkspace"
+              class="hidden items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-0.5 font-mono text-[11px] text-zinc-600 dark:text-zinc-300 md:inline-flex"
+            >
+              <span class="size-1.5 rounded-full bg-emerald-500" />
+              yeuca.huiliyill.cn
+            </span>
           </div>
           <ThemeModeToggle />
           <UButton
+            v-if="isYeucaWorkspace"
+            to="https://yeuca.huiliyill.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            icon="i-lucide-external-link"
+            label="打开计协主站"
+            color="neutral"
+            variant="solid"
+            class="hidden sm:inline-flex !bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
+          />
+          <UButton
+            v-else
             :to="adminRole === 'organization' ? organizationPublicPath : '/'"
             icon="i-lucide-external-link"
             label="查看前台"
@@ -516,14 +601,25 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         <aside class="absolute inset-y-0 left-0 flex w-[min(19rem,88vw)] flex-col border-r border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 shadow-xl">
           <div class="flex h-16 items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4">
             <div class="flex items-center gap-3">
-              <span class="grid size-8 place-items-center rounded-md bg-green-700 text-[var(--surface)]">
+              <img
+                v-if="isYeucaWorkspace"
+                src="/images/yeuca-logo.jpg"
+                alt="仰恩大学计算机协会徽标"
+                class="size-8 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover"
+              >
+              <span
+                v-else
+                class="grid size-8 place-items-center rounded-md bg-green-700 text-[var(--surface)]"
+              >
                 <UIcon
                   name="i-lucide-compass"
                   class="size-4"
                   aria-hidden="true"
                 />
               </span>
-              <span class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">内容管理</span>
+              <span class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                {{ isYeucaWorkspace ? '仰恩计协 · 控制台' : '内容管理' }}
+              </span>
             </div>
             <UButton
               icon="i-lucide-x"
@@ -563,7 +659,13 @@ watch(desktopSidebarCollapsed, (collapsed) => {
                 :to="item.to"
                 :prefetch="false"
                 class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm"
-                :class="isActive(item.to) ? 'bg-green-50 dark:bg-green-950 font-medium text-green-800 dark:text-green-300' : 'text-zinc-600 dark:text-zinc-300'"
+                :class="isYeucaWorkspace
+                  ? (isActive(item.to)
+                    ? 'border-l-2 border-[#a8121e] bg-rose-50/80 dark:bg-rose-950/40 font-semibold text-[#a8121e] dark:text-rose-300'
+                    : 'text-zinc-600 dark:text-zinc-300')
+                  : (isActive(item.to)
+                    ? 'bg-green-50 dark:bg-green-950 font-medium text-green-800 dark:text-green-300'
+                    : 'text-zinc-600 dark:text-zinc-300')"
                 :aria-current="isActive(item.to) ? 'page' : undefined"
               >
                 <UIcon
