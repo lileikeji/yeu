@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
+import type { CompetitionRoundEntry, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
 
@@ -9,10 +10,28 @@ useSeoMeta({
 })
 
 const toast = useToast()
+
+/** 复赛填曲目是独立页，选手需要这个地址；后台一键复制发群。 */
+async function copySongLink(): Promise<void> {
+  const url = `${window.location.origin}/singer/song`
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.add({ title: '选歌链接已复制', description: url, color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败，手动复制这个地址', description: url, color: 'warning' })
+  }
+}
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
+function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) void uploadEntryAccompaniment(round, entry, file)
+}
+
 const rankedEntries = computed(() => {
   const list = activeRound.value?.entries ?? []
   return [...list].sort((left, right) => {
@@ -26,7 +45,7 @@ const rankedEntries = computed(() => {
 
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
-  sections, event, maxTotal, singers, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
+  sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
   load, saveSettings, addDimension, removeDimension, moveDimension, restoreDefaultDimensions,
   saveRound, setRoundStatus
 } = useCompetitionPayload({ toast })
@@ -44,7 +63,8 @@ const {
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
-  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, redrawRound, clearRoster,
+  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn,
+  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -68,7 +88,7 @@ function editDetailScore(): void {
 const {
   scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
   savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
-  saveScoreEdit, exportingKind, exportRound
+  saveScoreEdit, exportingKind, exportRound, exportAccompaniment
 } = useCompetitionScores({
   dimensions: computed(() => settings.value?.dimensions ?? []),
   load,
@@ -87,7 +107,8 @@ const {
   emailImageInput, emailImageUploading, emailImageDeletingId, emailImages, emailTemplate, emailStats,
   emailRoundView, emailCountWithEmail, emailCountWithoutEmail,
   emailAlreadySentCount, emailLatestRows, insertPlaceholder, insertBodyText,
-  pickEmailImage, uploadEmailImage, removeEmailImage, saveEmailTemplate, sendEmailTest, sendEmails
+  pickEmailImage, uploadEmailImage, removeEmailImage, saveEmailTemplate, sendEmailTest, sendEmails,
+  openSendConfirm, sendConfirmOpen, sendConfirmNames, sendConfirmAlreadySent, sendConfirmWithoutEmail
 } = useCompetitionEmail({ payload, singers, load, toast })
 
 const {
@@ -96,6 +117,15 @@ const {
   qrPreUrl, qrRegisterUrl, composePoster, onPosterFileChange, onCanvasDown,
   onCanvasMove, onCanvasUp, undoLastPatch, clearPatches, downloadQr, downloadPoster
 } = useCompetitionPoster()
+
+const accompanimentPreview = ref<{ name: string, url: string } | null>(null)
+const accompanimentPreviewOpen = ref(false)
+
+function openAccompaniment(entry: CompetitionRoundEntry): void {
+  if (!entry.accompaniment) return
+  accompanimentPreview.value = { name: entry.accompaniment.name, url: entry.accompaniment.url }
+  accompanimentPreviewOpen.value = true
+}
 
 const liveRefreshing = ref(false)
 let liveTimer: ReturnType<typeof setInterval> | null = null
@@ -685,7 +715,7 @@ onBeforeUnmount(stopLiveRefresh)
           v-else
           class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
         >
-          <table class="w-full min-w-[1180px] text-sm">
+          <table class="w-full min-w-[1360px] text-sm">
             <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
               <tr>
                 <th class="w-16 px-3 py-2 font-medium">
@@ -695,7 +725,13 @@ onBeforeUnmount(stopLiveRefresh)
                   姓名
                 </th>
                 <th class="px-3 py-2 font-medium">
-                  参赛歌曲
+                  初赛曲目
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  复赛曲目
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  决赛曲目
                 </th>
                 <th class="px-3 py-2 font-medium">
                   班级
@@ -736,7 +772,19 @@ onBeforeUnmount(stopLiveRefresh)
                   {{ singer.name }}
                 </td>
                 <td class="px-3 py-2">
-                  {{ singer.song || '待定' }}
+                  {{ singerRoundSong(singer, 'prelim') || singer.song || '待定' }}
+                </td>
+                <td class="px-3 py-2 text-xs">
+                  <template v-if="singerJoinedRound(singer.id, 'semi')">
+                    {{ singerRoundSong(singer, 'semi') || '待填' }}
+                  </template>
+                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                </td>
+                <td class="px-3 py-2 text-xs">
+                  <template v-if="singerJoinedRound(singer.id, 'final')">
+                    {{ singerRoundSong(singer, 'final') || '待填' }}
+                  </template>
+                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
                 </td>
                 <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ singer.className || '—' }}
@@ -879,6 +927,9 @@ onBeforeUnmount(stopLiveRefresh)
                   </th>
                   <th class="px-3 py-2 font-medium">
                     歌曲
+                  </th>
+                  <th class="px-3 py-2 text-left">
+                    伴奏
                   </th>
                   <th class="px-3 py-2 font-medium">
                     状态
@@ -1506,6 +1557,17 @@ onBeforeUnmount(stopLiveRefresh)
               >
                 叫号台
               </a>
+              <UButton
+                v-if="activeRound && activeRound.key !== 'prelim'"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-folder-down"
+                :loading="exportingKind === 'accompaniment'"
+                @click="exportAccompaniment(activeRound)"
+              >
+                下载全部伴奏
+              </UButton>
             </div>
           </div>
 
@@ -1579,7 +1641,45 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ entry.singer.name }}
                   </td>
                   <td class="px-3 py-2 text-zinc-600 dark:text-zinc-300">
-                    {{ entry.singer.song }}
+                    <input
+                      v-if="activeRound?.status !== 'closed'"
+                      :value="entrySongValue(entry, activeRound?.key)"
+                      class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
+                      :disabled="entrySongBusyId === entry.id"
+                      @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
+                      @change="saveEntrySong(activeRound!, entry)"
+                    >
+                    <span v-else>{{ entrySongValue(entry, activeRound?.key) }}</span>
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <template v-if="activeRound?.key !== 'prelim'">
+                      <label
+                        class="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-xs hover:border-emerald-500 dark:border-zinc-700"
+                        :class="accompanimentBusyId === entry.id ? 'opacity-60' : ''"
+                      >
+                        <input
+                          type="file"
+                          class="hidden"
+                          accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac"
+                          :disabled="accompanimentBusyId === entry.id || activeRound?.status === 'closed'"
+                          @change="onPickAccompaniment(activeRound!, entry, $event)"
+                        >
+                        {{ entry.accompaniment ? '换伴奏' : '传伴奏' }}
+                      </label>
+                      <template v-if="entry.accompaniment">
+                        <button
+                          type="button"
+                          class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                          aria-label="试听伴奏"
+                          @click="openAccompaniment(entry)"
+                        >
+                          <UIcon name="i-lucide-play" class="size-3" />
+                          试听
+                        </button>
+                        <span class="ml-1 text-[11px]">{{ entry.accompaniment.name }}</span>
+                      </template>
+                    </template>
+                    <span v-else>—</span>
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.singer.className || '—' }}
@@ -1653,6 +1753,15 @@ onBeforeUnmount(stopLiveRefresh)
                   size="xs"
                   color="neutral"
                   variant="soft"
+                  icon="i-lucide-link"
+                  label="选歌链接"
+                  @click="copySongLink"
+                />
+                <UButton
+                  v-if="advanceConfirmed"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
                   icon="i-lucide-download"
                   :loading="exportingKind === 'confirmed'"
                   @click="exportRound(activeRound, 'confirmed')"
@@ -1670,6 +1779,7 @@ onBeforeUnmount(stopLiveRefresh)
                 >
                   名单（不带成绩）
                 </UButton>
+
                 <UButton
                   v-if="advanceConfirmed"
                   size="xs"
@@ -1772,6 +1882,12 @@ onBeforeUnmount(stopLiveRefresh)
                       :class="receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'"
                     >
                       {{ receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ? '已收到' : '未确认' }}
+                      <span
+                        v-if="receipts.find(item => item.singerId === row.singer.id)?.confirmedAt"
+                        class="ml-1 text-[11px] text-zinc-400"
+                      >
+                        {{ formatDateTime(receipts.find(item => item.singerId === row.singer.id)?.confirmedAt ?? null) }}
+                      </span>
                     </span>
                     <span
                       v-else
@@ -2224,7 +2340,7 @@ onBeforeUnmount(stopLiveRefresh)
                 label="一键发送结果邮件"
                 :loading="emailSending"
                 :disabled="emailRoundView?.status !== 'closed' || emailCountWithEmail(emailScope) <= 0"
-                @click="sendEmails"
+                @click="openSendConfirm"
               />
             </div>
           </div>
@@ -2548,6 +2664,57 @@ onBeforeUnmount(stopLiveRefresh)
     </template>
 
     <UModal
+      v-model:open="sendConfirmOpen"
+      title="确认发送名单"
+      description="发出去就撤不回，先核对一遍这些人对不对。"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-lg' }"
+    >
+      <template #body>
+        <div class="space-y-3">
+          <p class="text-sm text-zinc-600 dark:text-zinc-300">
+            共 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ sendConfirmNames.length }}</span> 位将收到「{{ emailRoundView?.title }}」通知：
+          </p>
+          <div class="max-h-64 overflow-y-auto rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
+            <span
+              v-for="(name, index) in sendConfirmNames"
+              :key="`${name}-${index}`"
+              class="mr-1.5 mb-1.5 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {{ index + 1 }}. {{ name }}
+            </span>
+          </div>
+          <p
+            v-if="sendConfirmAlreadySent > 0 || sendConfirmWithoutEmail > 0"
+            class="text-xs text-zinc-500 dark:text-zinc-400"
+          >
+            <template v-if="sendConfirmAlreadySent > 0">
+              {{ sendConfirmAlreadySent }} 位之前发过，会自动跳过；
+            </template>
+            <template v-if="sendConfirmWithoutEmail > 0">
+              {{ sendConfirmWithoutEmail }} 位没填邮箱，也会跳过。
+            </template>
+          </p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full items-center justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            label="再改改"
+            @click="sendConfirmOpen = false"
+          />
+          <UButton
+            icon="i-lucide-send"
+            label="确认发送"
+            :loading="emailSending"
+            @click="sendEmails"
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
       v-model:open="credentialsOpen"
       title="评委账号（请立即保存）"
       description="密码只在此处显示一次，关闭后无法再次查看。"
@@ -2856,6 +3023,36 @@ onBeforeUnmount(stopLiveRefresh)
             :disabled="!scoreDraftComplete"
             @click="saveScoreEdit"
           />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="accompanimentPreviewOpen"
+      :title="accompanimentPreview?.name || '伴奏'"
+      description="手机上直接点播放就能听，电脑也可以下载下来。"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
+    >
+      <template #body>
+        <div class="space-y-3">
+          <audio
+            v-if="accompanimentPreview"
+            :src="accompanimentPreview.url"
+            controls
+            preload="none"
+            class="w-full"
+          />
+          <a
+            v-if="accompanimentPreview"
+            :href="accompanimentPreview.url"
+            :download="accompanimentPreview.name"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-sm text-emerald-700 underline dark:text-emerald-300"
+          >
+            <UIcon name="i-lucide-download" class="size-4" />
+            下载这个伴奏
+          </a>
         </div>
       </template>
     </UModal>

@@ -11,8 +11,8 @@ export const GUIDE_CATEGORY_LABELS: Readonly<Record<string, string>> = {
 }
 
 export const PROCEDURE_CATEGORY_LABELS: Readonly<Record<string, string>> = {
-  arrival: '入学',
-  study: '学业',
+  'arrival': '入学',
+  'study': '学业',
   'life-service': '生活服务'
 }
 
@@ -23,8 +23,8 @@ export const PROCEDURE_METHOD_LABELS: Readonly<Record<string, string>> = {
 }
 
 export const PROCEDURE_STATE_LABELS: Readonly<Record<string, string>> = {
-  confirmed: '信息明确',
-  partial: '部分内容待确认',
+  'confirmed': '信息明确',
+  'partial': '部分内容待确认',
   'awaiting-notice': '等学校通知'
 }
 
@@ -103,11 +103,11 @@ export function formatDateLabel(value: string | null | undefined, options: { com
   return `${head}${Number(month)}月${Number(day)}日`
 }
 
-export type ContentBlock =
-  | { type: 'heading', text: string }
-  | { type: 'paragraph', text: string }
-  | { type: 'list', ordered: boolean, items: string[] }
-  | { type: 'quote', text: string }
+export type ContentBlock
+  = | { type: 'heading', text: string }
+    | { type: 'paragraph', text: string }
+    | { type: 'list', ordered: boolean, items: string[] }
+    | { type: 'quote', text: string }
 
 /**
  * 把纯文本正文切成可渲染的块：

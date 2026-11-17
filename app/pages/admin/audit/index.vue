@@ -111,7 +111,7 @@ async function loadAudit(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const payload = await adminFetch<{ items: AuditRow[]; total: number }>('/api/admin/audit', {
+    const payload = await adminFetch<{ items: AuditRow[], total: number }>('/api/admin/audit', {
       query: {
         page: page.value,
         pageSize,
@@ -265,82 +265,96 @@ onMounted(() => {
             {{ group.day }} · {{ group.items.length }} 条
           </p>
           <ul class="space-y-2">
-        <li
-          v-for="row in group.items"
-          :key="row.id"
-          class="rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-3 text-sm"
-        >
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="font-medium text-zinc-900 dark:text-zinc-100">
-                  {{ actionLabel(row.action) }}
-                </p>
-              </div>
-              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                {{ entityLabel(row.entityType) }}
-                <template v-if="row.entityId"> · 编号 {{ shortAdminId(row.entityId, 10) }}</template>
-                · {{ formatTime(row.createdAt) }}
-              </p>
-              <p class="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                操作人：{{ actorLabel(row) }}
-                · {{ formatAdminRelativeTime(row.createdAt) }}
-              </p>
-
-              <div
-                v-if="expanded[row.id]"
-                class="mt-2 rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
-              >
-                <dl class="mb-3 grid gap-1 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
-                  <div><dt class="inline font-medium">操作记录：</dt><dd class="inline">{{ shortAdminId(row.id, 12) }}</dd></div>
-                  <div v-if="row.requestId"><dt class="inline font-medium">操作记录编号：</dt><dd class="inline">{{ shortAdminId(row.requestId, 12) }}</dd></div>
-                </dl>
-                <dl
-                  v-if="prettyAdminDetails(row.details).length"
-                  class="space-y-1.5"
-                >
-                  <div
-                    v-for="item in prettyAdminDetails(row.details)"
-                    :key="item.key"
-                    class="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]"
-                  >
-                    <dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      {{ detailLabel(item.key) }}
-                    </dt>
-                    <dd class="break-all text-xs text-zinc-800 dark:text-zinc-100 whitespace-pre-wrap">
-                      {{ item.value }}
-                    </dd>
+            <li
+              v-for="row in group.items"
+              :key="row.id"
+              class="rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-3 text-sm"
+            >
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="font-medium text-zinc-900 dark:text-zinc-100">
+                      {{ actionLabel(row.action) }}
+                    </p>
                   </div>
-                </dl>
-                <p
-                  v-else
-                  class="text-xs text-zinc-400 dark:text-zinc-500"
-                >
-                  没有补充说明
-                </p>
+                  <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ entityLabel(row.entityType) }}
+                    <template v-if="row.entityId">
+                      · 编号 {{ shortAdminId(row.entityId, 10) }}
+                    </template>
+                    · {{ formatTime(row.createdAt) }}
+                  </p>
+                  <p class="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                    操作人：{{ actorLabel(row) }}
+                    · {{ formatAdminRelativeTime(row.createdAt) }}
+                  </p>
+
+                  <div
+                    v-if="expanded[row.id]"
+                    class="mt-2 rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
+                  >
+                    <dl class="mb-3 grid gap-1 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
+                      <div>
+                        <dt class="inline font-medium">
+                          操作记录：
+                        </dt><dd class="inline">
+                          {{ shortAdminId(row.id, 12) }}
+                        </dd>
+                      </div>
+                      <div v-if="row.requestId">
+                        <dt class="inline font-medium">
+                          操作记录编号：
+                        </dt><dd class="inline">
+                          {{ shortAdminId(row.requestId, 12) }}
+                        </dd>
+                      </div>
+                    </dl>
+                    <dl
+                      v-if="prettyAdminDetails(row.details).length"
+                      class="space-y-1.5"
+                    >
+                      <div
+                        v-for="item in prettyAdminDetails(row.details)"
+                        :key="item.key"
+                        class="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]"
+                      >
+                        <dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {{ detailLabel(item.key) }}
+                        </dt>
+                        <dd class="break-all text-xs text-zinc-800 dark:text-zinc-100 whitespace-pre-wrap">
+                          {{ item.value }}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p
+                      v-else
+                      class="text-xs text-zinc-400 dark:text-zinc-500"
+                    >
+                      没有补充说明
+                    </p>
+                  </div>
+                </div>
+                <div class="flex shrink-0 flex-col gap-1">
+                  <UButton
+                    v-if="entityHref(row)"
+                    size="xs"
+                    color="primary"
+                    variant="soft"
+                    :to="entityHref(row) || undefined"
+                  >
+                    查看相关内容
+                  </UButton>
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="outline"
+                    @click="toggleExpand(row.id)"
+                  >
+                    {{ expanded[row.id] ? '收起详情' : '展开详情' }}
+                  </UButton>
+                </div>
               </div>
-            </div>
-            <div class="flex shrink-0 flex-col gap-1">
-              <UButton
-                v-if="entityHref(row)"
-                size="xs"
-                color="primary"
-                variant="soft"
-                :to="entityHref(row) || undefined"
-              >
-                查看相关内容
-              </UButton>
-              <UButton
-                size="xs"
-                color="neutral"
-                variant="outline"
-                @click="toggleExpand(row.id)"
-              >
-                {{ expanded[row.id] ? '收起详情' : '展开详情' }}
-              </UButton>
-            </div>
-          </div>
-        </li>
+            </li>
           </ul>
         </div>
         <p

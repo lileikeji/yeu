@@ -70,17 +70,64 @@ export interface MailAttachment {
  * 通用邮件发送（歌手大赛结果通知等）。
  * fromName 可按业务场景定制（如「仰恩大学音乐协会」）。
  */
+/**
+ * 同一个发件账号复用一条带连接池的 SMTP 连接。
+ *
+ * 反例（曾经踩过）：每封邮件都 createTransport 一次，等于每封都重新登录一次；
+ * 30 封连发时 QQ 邮箱会在第 10 封左右开始回 `535 Login fail ... login frequency limited`，
+ * 之后整批全失败。这里按「账号+主机+端口」缓存 transporter，并把池限制成单连接顺序发。
+ */
+const transporterCache = new Map<string, ReturnType<typeof nodemailer.createTransport>>()
+
+function getTransporter(config: MailerConfig): ReturnType<typeof nodemailer.createTransport> {
+  const key = `${config.user}@${config.host}:${config.port}`
+  const cached = transporterCache.get(key)
+  if (cached) return cached
+  const created = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    pool: true,
+    maxConnections: 1,
+    maxMessages: 200,
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+    auth: { user: config.user, pass: config.pass }
+  })
+  transporterCache.set(key, created)
+  return created
+}
+
+/**
+ * 丢掉缓存的连接池，下次发送重新建连登录。
+ *
+ * 连接池里的长连接会被服务端悄悄关掉，此时再 write 就是 `EPIPE`；
+ * 而且坏连接会一直留在池里，后面每一封都跟着失败。发送失败后必须调这个。
+ */
+export function resetMailTransport(config: MailerConfig): void {
+  const key = `${config.user}@${config.host}:${config.port}`
+  const cached = transporterCache.get(key)
+  if (!cached) return
+  try {
+    cached.close()
+  } catch {
+    // 关闭失败无所谓，丢掉引用即可
+  }
+  transporterCache.delete(key)
+}
+
+/** 开批之前先探一次连接，登录不通就别开始发。 */
+export async function verifyMailTransport(config: MailerConfig): Promise<void> {
+  await getTransporter(config).verify()
+}
+
 export async function sendMailMessage(
   config: MailerConfig,
   message: { to: string, subject: string, html: string, text: string, attachments?: MailAttachment[] },
   options: { fromName?: string } = {}
 ): Promise<void> {
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.port === 465,
-    auth: { user: config.user, pass: config.pass }
-  })
+  const transporter = getTransporter(config)
   const attachments = (message.attachments ?? []).map(item => ({
     filename: item.filename,
     content: Buffer.from(item.data, 'base64'),

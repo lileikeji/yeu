@@ -203,7 +203,6 @@ function stopDistancesOnLine(stops: LngLat[], line: LngLat[], cumulative: number
   return stopDistances
 }
 
-
 /** 沿线里程取点（内部用，比 samplePolylinePoint 轻量）。 */
 function pointAtDistance(line: LngLat[], cumulative: number[], distanceAlong: number): LngLat {
   const total = cumulative[cumulative.length - 1] ?? 0

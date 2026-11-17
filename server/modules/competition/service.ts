@@ -18,6 +18,11 @@ import {
   contents
 } from '../../database/schema'
 import { hashPasswordWithMinLength } from '../../utils/password'
+import { storeUploadedAudio } from '../../utils/uploaded-audio'
+import { createZip } from '../../utils/zip-archive'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { uploadDirectory } from '../../utils/uploaded-images'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -55,6 +60,7 @@ import type {
   CompetitionResultLookup,
   CompetitionRound,
   CompetitionRoundEntry,
+  CompetitionEntryAccompaniment,
   CompetitionRoundKey,
   CompetitionRoundStatus,
   CompetitionRoundView,
@@ -444,6 +450,19 @@ export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge 
     createdAt: Number(row.createdAt ?? 0),
     scoreCount
   }
+}
+
+/** 条目上的曲目优先；只有初赛（报名登记的 song）允许回退到选手库，复赛/决赛空着就是空着。 */
+export function entrySingerPublic(
+  entry: EntryRow,
+  singer: SingerRow,
+  roundKey?: 'prelim' | 'semi' | 'final'
+): CompetitionSingerPublic {
+  const base = serializeSingerPublic(singer)
+  const song = (entry.song ?? '').trim()
+  if (song) return { ...base, song }
+  if (roundKey === 'prelim' || roundKey === undefined) return base
+  return { ...base, song: '' }
 }
 
 export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
@@ -927,12 +946,14 @@ function buildRoundRanking(
         || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
       .map(row => ({
         id: row.entry.id,
-        singer: serializeSingerPublic(row.singer),
+        singer: entrySingerPublic(row.entry, row.singer, round.key),
         sortOrder: row.entry.sortOrder,
         contestDay: row.entry.contestDay ?? null,
         checkedInAt: row.entry.checkedInAt ?? null,
         advanced: row.entry.advanced ?? null,
         advancedFromRank: row.entry.advancedFromRank,
+        song: row.entry.song ?? null,
+        accompaniment: serializeAccompaniment(row.entry),
         average: row.average,
         scoreCount: row.scoreCount,
         rank: liveRank.get(row.entry.id) ?? null,
@@ -951,12 +972,14 @@ function buildRoundRanking(
     }
     result.push({
       id: row.entry.id,
-      singer: serializeSingerPublic(row.singer),
+      singer: entrySingerPublic(row.entry, row.singer, round.key),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
+      song: row.entry.song ?? null,
+      accompaniment: serializeAccompaniment(row.entry),
       average: row.average,
       scoreCount: row.scoreCount,
       rank: lastRank,
@@ -969,12 +992,14 @@ function buildRoundRanking(
   for (const row of unscored) {
     result.push({
       id: row.entry.id,
-      singer: serializeSingerPublic(row.singer),
+      singer: entrySingerPublic(row.entry, row.singer, round.key),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
+      song: row.entry.song ?? null,
+      accompaniment: serializeAccompaniment(row.entry),
       average: null,
       scoreCount: 0,
       rank: null,
@@ -1013,6 +1038,31 @@ function formatExportTime(value: number | null | undefined): string {
  * 导出复用页面上的同一套排名算法（含去极值开关），所以导出的名次与
  * 后台看到的完全一致，不存在「导出另算一套」的偏差。
  */
+/** 多音姓氏按姓氏读音换成同音常用字，只为借用拼音排序规则定位。 */
+const COMPETITION_SURNAME_HINTS: Record<string, string> = {
+  曾: '增',
+  单: '山',
+  仇: '求',
+  解: '谢',
+  查: '扎',
+  朴: '瓢',
+  区: '欧',
+  乐: '月',
+  覃: '秦',
+  缪: '妙',
+  盖: '葛',
+  尉: '玉',
+  种: '崇'
+}
+
+function plainSortName(name: string): string {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) return ''
+  const head = trimmed.slice(0, 1)
+  const hint = COMPETITION_SURNAME_HINTS[head]
+  return hint ? `${hint}${trimmed.slice(1)}` : trimmed
+}
+
 export function buildCompetitionExport(
   client: DatabaseClient,
   round: RoundRow,
@@ -1132,12 +1182,13 @@ export function buildCompetitionExport(
       conflictError('ROSTER_NOT_CONFIRMED', '先确认晋级名单，再导出确认后的名单')
     }
     // 不带成绩的名单：按姓名首字拼音排（同首字再按整个姓名，最后按出场顺序），方便现场点名。
+    // 多音姓氏用常用同音字替换后再交给排序器，否则「曾」会被读成 céng 排到最前面。
     const plainCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
     const plainRows = ranking
       .filter(row => entryBySinger.get(row.singer.id)?.advanced === 1)
       .sort((left, right) =>
-        plainCollator.compare(left.singer.name.slice(0, 1), right.singer.name.slice(0, 1))
-        || plainCollator.compare(left.singer.name, right.singer.name)
+        plainCollator.compare(plainSortName(left.singer.name).slice(0, 1), plainSortName(right.singer.name).slice(0, 1))
+        || plainCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name))
         || (left.sortOrder - right.sortOrder)
       )
     label = '晋级名单（不带成绩）'
@@ -1334,7 +1385,7 @@ export function buildCurrentSinger(
 
   return {
     entryId: entry.id,
-    singer: serializeSingerPublic(singer),
+    singer: entrySingerPublic(entry, singer, round.key),
     index: index + 1,
     total: dayEntries.length,
     judgeTotal: judgedTotal,
@@ -1522,7 +1573,7 @@ export function getCallBoard(client: DatabaseClient, contentId: string): Competi
     rows.push({
       position: seat?.position ?? index + 1,
       name: singer.name,
-      song: singer.song ?? '',
+      song: (entry.song ?? '').trim() || singer.song || '',
       className: singer.className ?? '',
       state: seat?.state ?? 'idle',
       ahead: seat?.ahead ?? null
@@ -1795,6 +1846,32 @@ export function setRoundDay(
  * 现场签到：勾上这个人，评委与顺序评分立刻能看到；取消签到把他移出队列，
  * 如果正好是当前这位，指针一并清空。
  */
+/** 后台给某一轮的某位选手改曲目：只动这一轮的条目，其它轮不受影响。 */
+export function setEntrySong(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  song: string
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已经结束，曲目不能再改')
+  }
+  const entry = client.db.select().from(competitionRoundEntries)
+    .where(and(eq(competitionRoundEntries.id, entryId), eq(competitionRoundEntries.roundId, round.id)))
+    .get()
+  if (!entry) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '这条出场记录不存在' } })
+  }
+  const value = String(song ?? '').trim()
+  if (!value) validationError('曲目必填', 'song')
+  if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
+    validationError('曲目要填具体歌名，不能填「待定」', 'song')
+  }
+  if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
+  client.db.update(competitionRoundEntries).set({ song: value })
+    .where(eq(competitionRoundEntries.id, entryId)).run()
+}
+
 export function setEntryCheckIn(
   client: DatabaseClient,
   round: RoundRow,
@@ -2448,7 +2525,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
     .map(({ entry, singer }, index) => ({
-      ...serializeSingerPublic(singer),
+      ...entrySingerPublic(entry, singer, round.key),
       // 分天评比时给评委展示当天顺位（1 起），避免第二天从昨日总数之后接续显示。
       sortOrder: scopedByDay ? index + 1 : entry.sortOrder,
       advancedFromRank: entry.advancedFromRank,
@@ -2946,6 +3023,15 @@ function groupButtonHtml(url: string): string {
   return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto;"><tr><td align="center" bgcolor="#0f766e" style="border-radius:999px;"><a href="${href}" style="display:inline-block;padding:10px 22px;border-radius:999px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">点我加入 QQ 群</a></td></tr></table>`
 }
 
+function songButtonHtml(url: string): string {
+  return [
+    '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:16px auto;"><tr>',
+    '<td align="center" bgcolor="#0f766e" style="border-radius:999px;">',
+    `<a href="${url}" target="_blank" rel="noopener" style="display:inline-block;padding:11px 26px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">填写下一轮曲目</a>`,
+    '</td></tr></table>'
+  ].join('')
+}
+
 function receiptButtonHtml(url: string): string {
   // 用 table 做按钮：QQ 邮箱、Gmail 会剥掉 <a> 上的背景与内边距，只有 table + bgcolor 能保住样式。
   // 只给按钮、不把链接文字露在外面；点不动时学生还能在「查询结果」页用姓名+学号+QQ 自助确认。
@@ -2961,7 +3047,8 @@ export function competitionEmailBodyToHtml(
   body: string,
   images: CompetitionEmailImageBinary[] = [],
   receiptUrl = '',
-  qqGroupUrl = ''
+  qqGroupUrl = '',
+  songUrl = ''
 ): string {
   const byId = new Map(images.map(image => [image.id, image]))
   const escape = (text: string): string => text
@@ -2992,6 +3079,7 @@ export function competitionEmailBodyToHtml(
   } else {
     html = html.split('{{加群按钮}}').join('')
   }
+  html = songUrl ? html.split('{{填歌按钮}}').join(songButtonHtml(songUrl)) : html.split('{{填歌按钮}}').join('')
   return html
 }
 
@@ -2999,18 +3087,18 @@ export function buildEmailVariables(
   round: RoundRow,
   entry: CompetitionRoundEntry,
   singer: CompetitionSinger,
-  context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string } = {}
+  context: { edition?: string, receiptUrl?: string, qqGroupUrl?: string, songUrl?: string } = {}
 ): Record<string, string> {
-  void entry
   return {
     姓名: singer.name,
     班级: singer.className || '—',
     学号: singer.studentNo || '—',
-    歌曲: singer.song || '—',
+    歌曲: (entry.song ?? '').trim() || (round.key === 'prelim' ? singer.song : '') || '—',
     轮次: round.title,
     届次: context.edition || '新声歌手大赛',
     收到按钮: context.receiptUrl || '',
-    加群按钮: context.qqGroupUrl || ''
+    加群按钮: context.qqGroupUrl || '',
+    填歌按钮: context.songUrl || ''
   }
 }
 
@@ -3655,6 +3743,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
           singerId: row.singer.id,
           sortOrder: index + 1,
           advancedFromRank: row.rank ?? null,
+          // 下一轮的曲目留空：只有选手在收歌页填了才写进去，不再沿用上一轮
+          song: null,
           createdAt: now
         }).run()
       })
@@ -3712,8 +3802,20 @@ export function listReceipts(client: DatabaseClient, eventId: string, roundKey: 
   const receipts = client.db.select().from(competitionEmailReceipts)
     .where(and(eq(competitionEmailReceipts.eventId, eventId), eq(competitionEmailReceipts.roundKey, roundKey)))
     .all()
+  // 只统计真正发过邮件的选手：测试邮件也会建 token，不排除就会让「回执 5 / 31」这种分母虚高
+  const sentSingerIds = new Set(
+    client.db.select({ singerId: competitionEmailSends.singerId })
+      .from(competitionEmailSends)
+      .where(and(
+        eq(competitionEmailSends.eventId, eventId),
+        eq(competitionEmailSends.roundKey, roundKey),
+        eq(competitionEmailSends.status, 'sent')
+      ))
+      .all()
+      .map(row => row.singerId)
+  )
   const singers = new Map(listSingers(client, eventId).map(singer => [singer.id, singer]))
-  return receipts.map(row => ({
+  return receipts.filter(row => sentSingerIds.has(row.singerId)).map(row => ({
     singerId: row.singerId,
     name: singers.get(row.singerId)?.name ?? '已删除选手',
     email: singers.get(row.singerId)?.email ?? null,
@@ -3844,6 +3946,7 @@ export function confirmReceiptByToken(client: DatabaseClient, token: string): Co
 export interface CompetitionSongFormState {
   singerName: string
   song: string
+  accompaniment: CompetitionEntryAccompaniment | null
   stageTitle: string
   editable: boolean
   reason: string
@@ -3910,9 +4013,21 @@ function songStage(client: DatabaseClient, eventId: string, singerId: string) {
     if (!entry) continue
     const confirmed = current.rosterConfirmedAt !== null && entry.advanced === 1
     const next = rounds[index + 1] ?? null
+    // 填的新歌属于「下一轮」那场；晋级后下一轮已经有条目（确认晋级时建好的）
+    const targetEntry = next
+      ? client.db.select().from(competitionRoundEntries)
+          .where(and(
+            eq(competitionRoundEntries.roundId, next.id),
+            eq(competitionRoundEntries.singerId, singerId)
+          ))
+          .get()
+      : entry
     return {
       editable: confirmed,
       stageTitle: next ? next.title : current.title,
+      targetEntryId: targetEntry?.id ?? null,
+      targetSong: (targetEntry?.song ?? '').trim(),
+      targetAccompaniment: targetEntry ? serializeAccompaniment(targetEntry) : null,
       reason: confirmed
         ? ''
         : current.rosterConfirmedAt === null
@@ -3932,7 +4047,8 @@ export function getSongEditor(
   const stage = songStage(client, eventRow.id, singer.id)
   return {
     singerName: singer.name,
-    song: singer.song ?? '',
+    song: stage.targetSong || singer.song || '',
+    accompaniment: stage.targetAccompaniment ?? null,
     stageTitle: stage.stageTitle,
     editable: stage.editable,
     reason: stage.reason
@@ -3959,13 +4075,132 @@ export function submitSongByThreeFactors(
   client.db.update(competitionSingers)
     .set({ song: value, updatedAt: Date.now() })
     .where(eq(competitionSingers.id, singer.id)).run()
+  // 同时写进这一轮的条目：初赛那场的曲目记录不会被复赛改歌冲掉
+  if (stage.targetEntryId) {
+    client.db.update(competitionRoundEntries)
+      .set({ song: value })
+      .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
+  }
   return {
     singerName: singer.name,
     song: value,
+    accompaniment: stage.targetAccompaniment ?? null,
     stageTitle: stage.stageTitle,
     editable: true,
     reason: ''
   }
+}
+
+function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | null {
+  const source = (row ?? {}) as {
+    accompanimentUrl?: string | null
+    accompanimentName?: string | null
+    accompanimentSize?: number | null
+  }
+  const url = String(source.accompanimentUrl ?? '').trim()
+  if (!url) return null
+  return {
+    name: String(source.accompanimentName ?? '').trim() || url.split('/').at(-1) || '伴奏',
+    url,
+    size: source.accompanimentSize ?? null
+  }
+}
+
+/** 存伴奏：原样落盘到共享上传目录，走 /uploads/ 的 CDN 缓存；重传就换新文件名。 */
+export async function setEntryAccompaniment(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  file: { filename: string, data: Uint8Array }
+): Promise<CompetitionEntryAccompaniment> {
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
+  if (!entry) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
+  }
+  const stored = await storeUploadedAudio(file.data)
+  const name = (file.filename || '').trim().slice(0, 120) || stored.filename
+  client.db.update(competitionRoundEntries)
+    .set({
+      accompanimentUrl: stored.url,
+      accompanimentName: name,
+      accompanimentSize: stored.size
+    })
+    .where(eq(competitionRoundEntries.id, entryId))
+    .run()
+  return { name, url: stored.url, size: stored.size }
+}
+
+/** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */
+export async function submitAccompanimentByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  file: { filename: string, data: Uint8Array }
+): Promise<CompetitionSongFormState> {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  if (!stage.editable || !stage.targetEntryId) {
+    conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能传伴奏')
+  }
+  const rounds = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventRow.id)).all()
+  const round = rounds.find(item => item.id === client.db.select({ roundId: competitionRoundEntries.roundId })
+    .from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.id, stage.targetEntryId!))
+    .get()?.roundId)
+  if (!round) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
+  }
+  await setEntryAccompaniment(client, round, stage.targetEntryId, file)
+  return getSongEditor(client, contentId, input)
+}
+
+/** 后台导出伴奏：按出场顺序，一人一个文件夹（含曲目.txt）。 */
+export async function buildAccompanimentArchive(
+  client: DatabaseClient,
+  round: RoundRow
+): Promise<{ filename: string, data: Buffer }> {
+  const entries = [...listRoundEntryRows(client, round.id)].sort((left, right) => left.sortOrder - right.sortOrder)
+  const singers = listSingers(client, round.eventId)
+  const singerById = new Map(singers.map(singer => [singer.id, singer]))
+  const directory = uploadDirectory()
+  const files: { name: string, data: Uint8Array }[] = []
+  let index = 0
+  for (const entry of entries) {
+    index += 1
+    const singer = singerById.get(entry.singerId)
+    if (!singer) continue
+    // 编号用后台抽签后的出场序号，抽签完重新导出就是新顺序
+    const position = entry.sortOrder > 0 ? entry.sortOrder : index
+    const folder = `${String(position).padStart(2, '0')}-${sanitizePathPart(singer.name)}`
+    const song = ((entry.song ?? '').trim() || (singer.song ?? '').trim() || '未选曲')
+    files.push({
+      name: `${folder}/曲目.txt`,
+      data: new TextEncoder().encode(`出场序：${position}\n姓名：${singer.name}\n曲目：${song}\n班级：${singer.className ?? ''}\n`)
+    })
+    const url = (entry.accompanimentUrl ?? '').trim()
+    if (!url) continue
+    const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
+    try {
+      const data = await readFile(join(directory, url.split('/').at(-1) ?? ''))
+      files.push({ name: `${folder}/伴奏-${sanitizePathPart(song)}.${extension}`, data })
+    } catch {
+      files.push({
+        name: `${folder}/伴奏缺失.txt`,
+        data: new TextEncoder().encode('文件读取失败，让选手重新上传一次。\n')
+      })
+    }
+  }
+  return {
+    filename: `competition-${round.key}-accompaniment-${Math.floor(Date.now() / 1000)}.zip`,
+    data: createZip(files)
+  }
+}
+
+function sanitizePathPart(value: string): string {
+  const cleaned = (value || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '').slice(0, 40)
+  return cleaned || '未命名'
 }
 
 export interface CompetitionReminderRecipient {

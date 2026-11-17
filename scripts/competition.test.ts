@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import * as XLSX from '@e965/xlsx'
 import {
@@ -53,6 +56,8 @@ import {
   listSingers,
   getSongEditor,
   submitSongByThreeFactors,
+  submitAccompanimentByThreeFactors,
+  buildAccompanimentArchive,
   confirmReceiptByToken,
   createNextEdition,
   listEditions,
@@ -1705,6 +1710,12 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
   assert.equal(saved.song, '后来')
   assert.equal(listSingers(client, event.id).find(item => item.id === singer.id)?.song, '后来')
 
+  // 复赛填的新歌只落在复赛那一轮，初赛那场的曲目记录保持原样。
+  const semiRows = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
+  assert.equal(semiRows[0]?.song, '后来')
+  const prelimRows = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  assert.equal(prelimRows[0]?.song ?? null, null)
+
   // 第三要素可以用邮箱，也能对上。
   assert.equal(getSongEditor(client, musicId, { ...lookup, contact: 'a@example.com' }).song, '后来')
   // 待定/空串挡掉。
@@ -1714,6 +1725,74 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
     (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
 
   closeDatabase(':memory:')
+})
+
+test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人一个文件夹', async () => {
+  const uploadRoot = mkdtempSync(join(tmpdir(), 'yeu-accompaniment-'))
+  const previousUploadDir = process.env.NUXT_UPLOAD_DIR
+  process.env.NUXT_UPLOAD_DIR = uploadRoot
+
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singer = createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000000',
+    qq: '3651784006',
+    email: 'a@example.com'
+  })
+  checkInEntries(client, musicId)
+  const lookup = { name: '甲一', studentNo: '123456789012', contact: '3651784006' }
+
+  const prelimRound = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelimRound, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, prelimRound, 1)
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelimRound.id }, singer.id, {
+    scores: scoresForAll(8)
+  })
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+
+  // 假 mp3：ID3 头就够了，服务端按文件头认格式，不信任扩展名。
+  const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)])
+  const first = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v1.mp3', data: mp3 })
+  assert.equal(first.accompaniment?.name, '伴奏-v1.mp3')
+  assert.match(first.accompaniment?.url ?? '', /^\/uploads\/[0-9a-f-]{36}\.mp3$/)
+
+  // 再传一次就换新的，旧的地址不会复用。
+  const second = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v2.mp3', data: mp3 })
+  assert.notEqual(second.accompaniment?.url, first.accompaniment?.url)
+
+  // 非音频直接挡掉。
+  await assert.rejects(
+    submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '假的.mp3', data: Buffer.from('not audio') }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'UNSUPPORTED_AUDIO'
+  )
+
+  const semi = getRoundByKey(client, event.id, 'semi')
+  const archive = await buildAccompanimentArchive(client, semi)
+  assert.match(archive.filename, /^competition-semi-accompaniment-\d+\.zip$/)
+  assert.ok(archive.data.includes(Buffer.from('01-甲一/曲目.txt', 'utf8')))
+  assert.ok(archive.data.includes(Buffer.from('01-甲一/伴奏-晴天.mp3', 'utf8')))
+
+  closeDatabase(':memory:')
+  if (previousUploadDir === undefined) delete process.env.NUXT_UPLOAD_DIR
+  else process.env.NUXT_UPLOAD_DIR = previousUploadDir
+  rmSync(uploadRoot, { recursive: true, force: true })
 })
 
 test('数据库：确认晋级之后才能导出这份名单，导出带联系方式和名次', async () => {
@@ -1805,6 +1884,47 @@ test('数据库：确认后可以导出一份不带成绩的名单，按姓名�
   const names = lines.slice(1).map(line => line.split(',')[1])
   assert.deepEqual(names, ['安七', '陈四', '王五'])
   assert.match(plain.filename, /不带成绩/)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：不带成绩的名单里「曾」按姓氏读音排，不会挤到最前面', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const made = ['曾晨希', '陈四', '安七'].map((name, index) => createSinger(client, event.id, {
+    name,
+    song: `歌曲${index}`,
+    studentNo: `12345678907${index}`,
+    email: `q${index}@example.com`
+  }))
+  checkInEntries(client, musicId)
+
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, prelim, 1)
+  for (const singer of made) {
+    submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singer.id, {
+      scores: scoresForAll(6)
+    })
+  }
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 3 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+
+  const plain = buildCompetitionExport(client, getRoundByKey(client, event.id, 'prelim'), 'confirmed-plain')
+  const names = plain.csv.replace(/^\uFEFF/, '').split('\r\n').slice(1).map(line => line.split(',')[1])
+  assert.deepEqual(names, ['安七', '陈四', '曾晨希'])
 
   closeDatabase(':memory:')
 })

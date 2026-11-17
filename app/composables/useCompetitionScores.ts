@@ -118,7 +118,7 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
     }
   }
 
-  const exportingKind = ref<CompetitionExportKind | ''>('')
+  const exportingKind = ref<CompetitionExportKind | 'accompaniment' | ''>('')
 
   /** 导出走浏览器原生下载：服务端带 content-disposition，cookie 会自动带上。 */
   function exportRound(round: CompetitionRoundView, kind: CompetitionExportKind): void {
@@ -134,6 +134,21 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
     }, 1200)
   }
 
+  /** 导出复赛伴奏：一人一个文件夹的 zip，按出场顺序。 */
+  function exportAccompaniment(round: CompetitionRoundView): void {
+    if (exportingKind.value) return
+    exportingKind.value = 'accompaniment'
+    const link = document.createElement('a')
+    link.href = `/api/admin/competition/rounds/${round.key}/accompaniment`
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => {
+      exportingKind.value = ''
+    }, 3000)
+  }
+
   return {
     scoreEditorOpen,
     scoreEditorSinger,
@@ -147,6 +162,7 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
     closeScoreEditor,
     saveScoreEdit,
     exportingKind,
-    exportRound
+    exportRound,
+    exportAccompaniment
   }
 }

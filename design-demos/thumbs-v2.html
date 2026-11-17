@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>首页重构三方向方案对比 (v2)</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 36px 24px 60px;
+      background: #f7f8f6;
+      color: #111827;
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; }
+    .sub { margin: 0 0 28px; color: #646e68; font-size: 15px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e4e7e2;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 16px -8px rgba(16, 42, 29, 0.08);
+    }
+    .frame-wrap {
+      position: relative;
+      aspect-ratio: 16 / 10;
+      border-bottom: 1px solid #e4e7e2;
+      background: #edf2ee;
+      overflow: hidden;
+    }
+    iframe {
+      width: 1280px;
+      height: 800px;
+      border: none;
+      transform: scale(0.30);
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
+    .body { padding: 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+    .tag {
+      align-self: flex-start;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #ecf7f1;
+      color: #176f46;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    h2 { margin: 0; font-size: 18px; font-weight: 700; }
+    p { margin: 0; font-size: 14px; color: #4b5563; line-height: 1.55; flex: 1; }
+    .open-btn {
+      min-height: 44px;
+      border-radius: 10px;
+      background: #176f46;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .open-btn:hover { background: #115536; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>迎新指南首页 · v2 三方向方案对比</h1>
+    <p class="sub">全面继承线上版「#f7f8f6 浅暖灰 + #ffffff 发丝边框卡片 + #176f46 森林绿 + Lucide 细线图标」美学基因，重点解决原完整版缺实景、首屏太空与简洁版割裂的问题。</p>
+    <div class="grid">
+      <article class="card">
+        <div class="frame-wrap"><iframe src="v2-a.html" title="方向 A"></iframe></div>
+        <div class="body">
+          <span class="tag">方向 A · 湖山实景 Bento 驾驶舱</span>
+          <h2>左 AI 搜索 + 右航拍湖山视窗</h2>
+          <p>保留线上极简白色基调，用 7:5 Bento 布局让第一眼既有仰恩湖光山色，又能直接进地图/全景并保留三阶段清单与 3 张图文卡。</p>
+          <a class="open-btn" href="v2-a.html">单独预览方向 A</a>
+        </div>
+      </article>
+      <article class="card">
+        <div class="frame-wrap"><iframe src="v2-b.html" title="方向 B"></iframe></div>
+        <div class="body">
+          <span class="tag">方向 B · 沉浸画报 + 双栏工作台</span>
+          <h2>全幅森林绿航拍 Hero + 8:4 智能侧栏</h2>
+          <p>把“简洁模式”最精华的普通/舒适宿舍实拍对比、手绘地图、泉州美食全部融入桌面左主栏，重要时间/清单/110 常驻右侧不随滚动丢失。</p>
+          <a class="open-btn" href="v2-b.html">单独预览方向 B</a>
+        </div>
+      </article>
+      <article class="card">
+        <div class="frame-wrap"><iframe src="v2-c.html" title="方向 C"></iframe></div>
+        <div class="body">
+          <span class="tag">方向 C · 极简高密工具指挥中心</span>
+          <h2>Spotlight 指挥搜 + 首屏全景信息密排</h2>
+          <p>极少图片干扰，最大化首屏效率：标题、日程胶囊、指令搜、4 格入口、三阶段与清单全部首屏一次铺齐，宿舍/地图收纳为底部速览条。</p>
+          <a class="open-btn" href="v2-c.html">单独预览方向 C</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</body>
+</html>

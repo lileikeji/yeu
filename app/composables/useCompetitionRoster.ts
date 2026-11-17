@@ -12,6 +12,18 @@ import type {
 import { adminFetch } from '~~/app/utils/admin-request'
 import type { SettingsDraft } from './useCompetitionPayload'
 
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result ?? '')
+      resolve(result.slice(result.indexOf(',') + 1))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function apiErrorMessage(error: unknown, fallback: string): string {
   if (typeof error !== 'object' || error === null) return fallback
   const data = (error as { data?: { data?: { message?: string, issues?: Array<{ message?: string }> } } }).data?.data
@@ -307,6 +319,74 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
    * 现场签到开关。只有签到的人进评委名单与顺序评分队列，
    * 所以这里勾上/取消会直接改变评委看到的名单与人数。
    */
+
+  /** 各轮曲目草稿：初赛/复赛/决赛分开存，改哪轮只写哪轮条目的 song。 */
+  const entrySongBusyId = ref('')
+  const accompanimentBusyId = ref('')
+  const entrySongDraft = ref<Record<string, string>>({})
+
+  function entrySongValue(entry: CompetitionRoundEntry, roundKey?: string): string {
+    // 初赛沿用选手库登记的 song；复赛/决赛空着就是空着，等选手在收歌页填
+    const fallback = roundKey === 'prelim' ? entry.singer.song ?? '' : ''
+    return entrySongDraft.value[entry.id] ?? (entry.song ?? fallback)
+  }
+
+  function setEntrySongDraft(entry: CompetitionRoundEntry, value: string): void {
+    entrySongDraft.value = { ...entrySongDraft.value, [entry.id]: value }
+  }
+
+  async function saveEntrySong(round: CompetitionRoundView, entry: CompetitionRoundEntry): Promise<void> {
+    if (round.status === 'closed' || entrySongBusyId.value) return
+    const value = entrySongValue(entry).trim()
+    if (!value) {
+      toast.add({ title: '曲目不能为空', color: 'warning' })
+      return
+    }
+    if (value === (entry.song ?? entry.singer.song ?? '')) return
+    entrySongBusyId.value = entry.id
+    try {
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/entry-song`,
+        { method: 'POST', body: { entryId: entry.id, song: value } }
+      )
+      payload.value = result.payload
+      const { [entry.id]: _saved, ...rest } = entrySongDraft.value
+      entrySongDraft.value = rest
+      toast.add({ title: `${entry.singer.name} 的${round.title}曲目已保存`, description: value, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '保存曲目失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      entrySongBusyId.value = ''
+    }
+  }
+
+  /** 后台代传伴奏：选手自己传不上来时（iOS 微信选不到聊天文件）由工作人员补。 */
+  async function uploadEntryAccompaniment(
+    round: CompetitionRoundView,
+    entry: CompetitionRoundEntry,
+    file: File
+  ): Promise<void> {
+    if (round.status === 'closed' || accompanimentBusyId.value) return
+    if (file.size > 30 * 1024 * 1024) {
+      toast.add({ title: '伴奏不能超过 30MB', color: 'warning' })
+      return
+    }
+    accompanimentBusyId.value = entry.id
+    try {
+      const data = await readFileAsBase64(file)
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/entry-accompaniment`,
+        { method: 'POST', body: { entryId: entry.id, filename: file.name, data } }
+      )
+      payload.value = result.payload
+      toast.add({ title: `${entry.singer.name} 的伴奏已上传`, description: file.name, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '上传伴奏失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      accompanimentBusyId.value = ''
+    }
+  }
+
   async function toggleEntryCheckIn(
     round: CompetitionRoundView,
     entry: CompetitionRoundEntry
@@ -514,6 +594,13 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     changeEntryDay,
     checkInBusyId,
     toggleEntryCheckIn,
+    entrySongBusyId,
+    accompanimentBusyId,
+    uploadEntryAccompaniment,
+    entrySongDraft,
+    entrySongValue,
+    setEntrySongDraft,
+    saveEntrySong,
     changeJudgeDay,
     redrawRound,
     clearRoster,

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const contentId = resolveCompetitionContentId(client, session)
   // 图片按活动维护，与轮次无关；仍校验路由，避免半截地址写出脏数据。
   void requireCompetitionRoundKey(event)
-  const input = await parseBody(event, competitionEmailImageUploadSchema)
+  const input = await parseBody(event, competitionEmailImageUploadSchema, { maxBytes: 8 * 1024 * 1024 })
 
   const competition = ensureCompetitionEvent(client, contentId)
   const image = createEmailImage(client, competition.id, input)

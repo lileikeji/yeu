@@ -61,7 +61,7 @@ const securityLast24h = reactive({
   auditEvents: null as number | null,
   adminLogins: null as number | null
 })
-const securityTopPaths = ref<Array<{ path: string; count: number }>>([])
+const securityTopPaths = ref<Array<{ path: string, count: number }>>([])
 const securityRecentMutes = ref<Array<{
   id: string
   userId: string
@@ -73,11 +73,11 @@ const securityRecentMutes = ref<Array<{
   displayName: string | null
   roomTitle: string | null
 }>>([])
-const securityTopActions = ref<Array<{ action: string; count: number }>>([])
-const securityTopIps = ref<Array<{ ip: string; count: number }>>([])
-const securityTopBanReasons = ref<Array<{ reason: string; count: number }>>([])
-const securityHourlyEvents = ref<Array<{ hour: string; count: number }>>([])
-const securityRiskHints = ref<Array<{ level: string; code: string; message: string; href: string }>>([])
+const securityTopActions = ref<Array<{ action: string, count: number }>>([])
+const securityTopIps = ref<Array<{ ip: string, count: number }>>([])
+const securityTopBanReasons = ref<Array<{ reason: string, count: number }>>([])
+const securityHourlyEvents = ref<Array<{ hour: string, count: number }>>([])
+const securityRiskHints = ref<Array<{ level: string, code: string, message: string, href: string }>>([])
 const securitySnapshotBans = ref<Array<{
   id: string
   scope: string
@@ -117,7 +117,7 @@ const securityPulse = reactive({
   multiVisitorIps: null as number | null,
   staleActiveBans: null as number | null
 })
-const securityAdminActors = ref<Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>>([])
+const securityAdminActors = ref<Array<{ adminId: string, username: string | null, displayName: string | null, actions: number }>>([])
 const securityOpsTimeline = ref<Array<{
   id: string
   kind: string
@@ -135,8 +135,8 @@ const securityResponseQueue = ref<Array<{
   href: string
   score: number
 }>>([])
-const securityPathTransitions = ref<Array<{ from: string; to: string; transition: string; count: number }>>([])
-const securityBurstWindows = ref<Array<{ startAt: string; endAt: string; count: number }>>([])
+const securityPathTransitions = ref<Array<{ from: string, to: string, transition: string, count: number }>>([])
+const securityBurstWindows = ref<Array<{ startAt: string, endAt: string, count: number }>>([])
 const securityBanCoverage = reactive({
   topIpCount: null as number | null,
   bannedTopIps: null as number | null,
@@ -277,25 +277,24 @@ async function loadDashboard(): Promise<void> {
     return { key: 'recent-visitors', ...normalizeAdminDashboardResponse(response) }
   })())
 
-  
   requests.push((async () => {
     const response = await adminFetch<{
       generatedAt?: string
       counts?: Record<string, number>
       last24h?: Record<string, number>
-      topPaths?: Array<{ path: string; count: number }>
-      topActions?: Array<{ action: string; count: number }>
-      topIps?: Array<{ ip: string; count: number }>
-      topBanReasons?: Array<{ reason: string; count: number }>
-      hourlyEvents?: Array<{ hour: string; count: number }>
-      riskHints?: Array<{ level: string; code: string; message: string; href: string }>
+      topPaths?: Array<{ path: string, count: number }>
+      topActions?: Array<{ action: string, count: number }>
+      topIps?: Array<{ ip: string, count: number }>
+      topBanReasons?: Array<{ reason: string, count: number }>
+      hourlyEvents?: Array<{ hour: string, count: number }>
+      riskHints?: Array<{ level: string, code: string, message: string, href: string }>
       previous24h?: Record<string, number>
       deltas24h?: Record<string, number>
       banHygiene?: Record<string, number>
       pulse?: Record<string, number>
-      adminActors?: Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>
-      opsTimeline?: Array<{ id: string; kind: string; title: string; subtitle: string; createdAt: string; href: string }>
-      recentBans?: Array<{ id: string; scope: string; value: string; reason: string; createdAt: string }>
+      adminActors?: Array<{ adminId: string, username: string | null, displayName: string | null, actions: number }>
+      opsTimeline?: Array<{ id: string, kind: string, title: string, subtitle: string, createdAt: string, href: string }>
+      recentBans?: Array<{ id: string, scope: string, value: string, reason: string, createdAt: string }>
       recentMutes?: Array<{
         id: string
         userId: string
@@ -379,11 +378,11 @@ async function loadDashboard(): Promise<void> {
       securityPulse.staleActiveBans = Number(pulse.staleActiveBans ?? 0)
       securityAdminActors.value = Array.isArray(snap.adminActors)
         ? snap.adminActors.map((row: any) => ({
-          adminId: row.adminId,
-          username: row.username ?? null,
-          displayName: row.displayName ?? null,
-          actions: Number(row.actions ?? row.auditCount ?? 0)
-        }))
+            adminId: row.adminId,
+            username: row.username ?? null,
+            displayName: row.displayName ?? null,
+            actions: Number(row.actions ?? row.auditCount ?? 0)
+          }))
         : []
       securityOpsTimeline.value = Array.isArray(snap.opsTimeline) ? snap.opsTimeline : []
       securityResponseQueue.value = Array.isArray(snap.responseQueue) ? snap.responseQueue : []
@@ -481,7 +480,10 @@ onMounted(() => {
       >
         <p class="text-xs font-medium text-red-700 dark:text-red-300">生效封禁</p>
         <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
-          <USkeleton v-if="loading && securitySnapshot.activeBans == null" class="h-7 w-12" />
+          <USkeleton
+            v-if="loading && securitySnapshot.activeBans == null"
+            class="h-7 w-12"
+          />
           <template v-else>{{ securitySnapshot.activeBans ?? '—' }}</template>
         </p>
         <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">IP / 访客 / 账号</p>
@@ -492,7 +494,10 @@ onMounted(() => {
       >
         <p class="text-xs font-medium text-rose-700 dark:text-rose-300">命中封禁访客</p>
         <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
-          <USkeleton v-if="loading && securitySnapshot.bannedVisitors == null" class="h-7 w-12" />
+          <USkeleton
+            v-if="loading && securitySnapshot.bannedVisitors == null"
+            class="h-7 w-12"
+          />
           <template v-else>{{ securitySnapshot.bannedVisitors ?? '—' }}</template>
         </p>
         <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">当前列表命中封禁策略</p>
@@ -503,7 +508,10 @@ onMounted(() => {
       >
         <p class="text-xs font-medium text-amber-800 dark:text-amber-300">个人禁言</p>
         <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
-          <USkeleton v-if="loading && securitySnapshot.activeMutes == null" class="h-7 w-12" />
+          <USkeleton
+            v-if="loading && securitySnapshot.activeMutes == null"
+            class="h-7 w-12"
+          />
           <template v-else>{{ securitySnapshot.activeMutes ?? '—' }}</template>
         </p>
         <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">生效中的用户禁言</p>
@@ -514,7 +522,10 @@ onMounted(() => {
       >
         <p class="text-xs font-medium text-orange-800 dark:text-orange-300">全员禁言房间</p>
         <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
-          <USkeleton v-if="loading && securitySnapshot.mutedRooms == null" class="h-7 w-12" />
+          <USkeleton
+            v-if="loading && securitySnapshot.mutedRooms == null"
+            class="h-7 w-12"
+          />
           <template v-else>{{ securitySnapshot.mutedRooms ?? '—' }}</template>
         </p>
         <p class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">已开启全员禁言</p>
@@ -527,10 +538,20 @@ onMounted(() => {
     >
       <div class="flex items-center justify-between gap-2">
         <div>
-          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">风险提示</h2>
-          <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">需要管理员留意的异常情况</p>
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            风险提示
+          </h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            需要管理员留意的异常情况
+          </p>
         </div>
-        <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
+        <UButton
+          to="/admin/audit"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          trailing-icon="i-lucide-arrow-right"
+        >
           操作记录
         </UButton>
       </div>
@@ -571,10 +592,20 @@ onMounted(() => {
     >
       <div class="flex items-center justify-between gap-2">
         <div>
-          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">待处理事项</h2>
-          <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">按紧急程度汇总需要检查的访问与封禁情况</p>
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            待处理事项
+          </h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            按紧急程度汇总需要检查的访问与封禁情况
+          </p>
         </div>
-        <UButton to="/admin/visitors" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
+        <UButton
+          to="/admin/visitors"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          trailing-icon="i-lucide-arrow-right"
+        >
           访客
         </UButton>
       </div>
@@ -615,52 +646,93 @@ onMounted(() => {
       </ul>
     </section>
 
-    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="近期情况与封禁覆盖">
+    <section
+      class="mt-4 grid gap-3 lg:grid-cols-3"
+      aria-label="近期情况与封禁覆盖"
+    >
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">近期变化</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">1 小时、今天与近 7 天</p>
+        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+          近期变化
+        </h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          1 小时、今天与近 7 天
+        </p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">近 1 小时访问</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.h1Events ?? '—' }}</p>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              近 1 小时访问
+            </p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">
+              {{ securityWindows.h1Events ?? '—' }}
+            </p>
           </div>
           <div class="rounded-lg bg-amber-50/60 dark:bg-amber-950/60 px-3 py-2">
-            <p class="text-[11px] text-amber-800 dark:text-amber-300">10 分钟峰值</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.peakBurst10m ?? '—' }}</p>
+            <p class="text-[11px] text-amber-800 dark:text-amber-300">
+              10 分钟峰值
+            </p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">
+              {{ securityWindows.peakBurst10m ?? '—' }}
+            </p>
           </div>
           <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">近 7 天活跃访客</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.d7Visitors ?? '—' }}</p>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              近 7 天活跃访客
+            </p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">
+              {{ securityWindows.d7Visitors ?? '—' }}
+            </p>
           </div>
           <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">近 7 天访问 / 封禁</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.d7Events ?? '—' }} / {{ securityWindows.d7Bans ?? '—' }}</p>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              近 7 天访问 / 封禁
+            </p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">
+              {{ securityWindows.d7Events ?? '—' }} / {{ securityWindows.d7Bans ?? '—' }}
+            </p>
           </div>
         </div>
       </div>
 
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">封禁覆盖</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">高频 IP 是否已封禁</p>
+        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+          封禁覆盖
+        </h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          高频 IP 是否已封禁
+        </p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-lg bg-emerald-50/60 dark:bg-emerald-950/60 px-3 py-2">
-            <p class="text-[11px] text-emerald-800 dark:text-emerald-300">封禁比例</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityBanCoverage.coverageRate ?? '—' }}%</p>
+            <p class="text-[11px] text-emerald-800 dark:text-emerald-300">
+              封禁比例
+            </p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">
+              {{ securityBanCoverage.coverageRate ?? '—' }}%
+            </p>
           </div>
           <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">已封 / 记录</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityBanCoverage.bannedTopIps ?? '—' }} / {{ securityBanCoverage.topIpCount ?? '—' }}</p>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              已封 / 记录
+            </p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">
+              {{ securityBanCoverage.bannedTopIps ?? '—' }} / {{ securityBanCoverage.topIpCount ?? '—' }}
+            </p>
           </div>
         </div>
         <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
           地理集中：{{ securityGeoConcentration.topCity || '—' }}
-          <template v-if="securityGeoConcentration.topCityShare != null"> · {{ securityGeoConcentration.topCityShare }}%</template>
-          <template v-if="securityGeoConcentration.distinctCities != null"> · {{ securityGeoConcentration.distinctCities }} 城</template>
+          <template v-if="securityGeoConcentration.topCityShare != null">
+            · {{ securityGeoConcentration.topCityShare }}%
+          </template>
+          <template v-if="securityGeoConcentration.distinctCities != null">
+            · {{ securityGeoConcentration.distinctCities }} 城
+          </template>
         </p>
       </div>
 
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">访问高峰</h2>
+        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+          访问高峰
+        </h2>
         <ul
           class="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs"
           tabindex="0"
@@ -674,22 +746,37 @@ onMounted(() => {
             <span class="truncate text-zinc-600 dark:text-zinc-300">{{ formatAdminRelativeTime(row.startAt) }}</span>
             <span class="shrink-0 tabular-nums font-medium text-amber-800 dark:text-amber-300">{{ row.count }}</span>
           </li>
-          <li v-if="!securityBurstWindows.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无明显高峰</li>
+          <li
+            v-if="!securityBurstWindows.length"
+            class="py-4 text-center text-zinc-400 dark:text-zinc-500"
+          >
+            暂无明显高峰
+          </li>
         </ul>
       </div>
 
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-3">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见访问顺序 · 今天</h2>
+        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+          常见访问顺序 · 今天
+        </h2>
         <ul class="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 text-xs">
           <li
             v-for="(row, idx) in securityPathTransitions"
             :key="'pt-' + idx"
             class="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-1.5"
           >
-            <span class="truncate text-zinc-700 dark:text-zinc-200" :title="row.transition">{{ adminPathTransitionLabel(row.from, row.to) }}</span>
+            <span
+              class="truncate text-zinc-700 dark:text-zinc-200"
+              :title="row.transition"
+            >{{ adminPathTransitionLabel(row.from, row.to) }}</span>
             <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
           </li>
-          <li v-if="!securityPathTransitions.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500 sm:col-span-2 lg:col-span-3">暂无连续访问记录</li>
+          <li
+            v-if="!securityPathTransitions.length"
+            class="py-4 text-center text-zinc-400 dark:text-zinc-500 sm:col-span-2 lg:col-span-3"
+          >
+            暂无连续访问记录
+          </li>
         </ul>
       </div>
     </section>
@@ -699,46 +786,60 @@ onMounted(() => {
         <span>更多访问分析</span>
         <span class="flex items-center gap-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
           网络来源与访问过程
-          <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 transition-transform group-open:rotate-180"
+          />
         </span>
       </summary>
-    <section class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 p-3 lg:grid-cols-3" aria-label="更多访问分析">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">今天与平时相比</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">参考最近 14 天访问量</p>
+      <section
+        class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 p-3 lg:grid-cols-3"
+        aria-label="更多访问分析"
+      >
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                今天与平时相比
+              </h2>
+              <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                参考最近 14 天访问量
+              </p>
+            </div>
+            <span
+              class="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              :class="securityAnomalyBaseline.status === 'critical'
+                ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'
+                : securityAnomalyBaseline.status === 'elevated'
+                  ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300'
+                  : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'"
+            >
+              {{ adminLabel(adminAnomalyStatusLabels, securityAnomalyBaseline.status, '—') }}
+            </span>
           </div>
-          <span
-            class="rounded-full px-2 py-0.5 text-[10px] font-medium"
-            :class="securityAnomalyBaseline.status === 'critical'
-              ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'
-              : securityAnomalyBaseline.status === 'elevated'
-                ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300'
-                : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'"
-          >
-            {{ adminLabel(adminAnomalyStatusLabels, securityAnomalyBaseline.status, '—') }}
-          </span>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                今天 / 平均每天
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityAnomalyBaseline.current ?? '—' }} / {{ securityAnomalyBaseline.average ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                变化幅度
+              </p>
+              <p class="mt-1 text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                {{ anomalyComparisonText() }}
+              </p>
+            </div>
+          </div>
+          <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            已参考 {{ securityAnomalyBaseline.sampleSize ?? '—' }} 天数据
+          </p>
         </div>
-        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">今天 / 平均每天</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
-              {{ securityAnomalyBaseline.current ?? '—' }} / {{ securityAnomalyBaseline.average ?? '—' }}
-            </p>
-          </div>
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">变化幅度</p>
-            <p class="mt-1 text-sm font-semibold text-zinc-950 dark:text-zinc-100">{{ anomalyComparisonText() }}</p>
-          </div>
-        </div>
-        <p class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-          已参考 {{ securityAnomalyBaseline.sampleSize ?? '—' }} 天数据
-        </p>
-      </div>
-
-
-    </section>
+      </section>
     </details>
 
     <details class="group mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
@@ -746,265 +847,419 @@ onMounted(() => {
         <span>更多安全数据</span>
         <span class="flex items-center gap-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
           访问趋势、封禁与管理记录
-          <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 transition-transform group-open:rotate-180"
+          />
         </span>
       </summary>
-    <section class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 p-3 lg:grid-cols-3" aria-label="更多安全数据">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">今天的动态</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              访客活跃、封禁禁言与管理员操作
-              <template v-if="securityGeneratedAt"> · 更新 {{ formatAdminRelativeTime(securityGeneratedAt) }}</template>
-            </p>
-          </div>
-          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">操作记录</UButton>
-        </div>
-        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">活跃访客</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.visitorsActive ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">新访客</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.visitorsNew ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">访客操作</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.visitorEvents ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">聊天消息</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.messages ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-red-50/60 dark:bg-red-950/60 px-3 py-2">
-            <p class="text-[11px] text-red-700 dark:text-red-300">新建封禁</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.bansCreated ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-amber-50/60 dark:bg-amber-950/60 px-3 py-2">
-            <p class="text-[11px] text-amber-800 dark:text-amber-300">新建禁言</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.mutesCreated ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-indigo-50/50 px-3 py-2">
-            <p class="text-[11px] text-indigo-700">操作记录</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.auditEvents ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-emerald-50/50 dark:bg-emerald-950/50 px-3 py-2">
-            <p class="text-[11px] text-emerald-700 dark:text-emerald-300">管理员登录</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityLast24h.adminLogins ?? '—' }}</p>
-          </div>
-        </div>
-        <p class="mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-          总量：账号 {{ securitySnapshot.totalUsers ?? '—' }} · 访客 {{ securitySnapshot.totalVisitors ?? '—' }} · 消息 {{ securitySnapshot.totalMessages ?? '—' }}
-          （已删 {{ securitySnapshot.deletedMessages ?? '—' }}）
-        </p>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">生效禁言</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">根据近期安全情况整理 · 最多 6 条</p>
-        <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
-          <li
-            v-for="mute in securityRecentMutes"
-            :key="mute.id"
-            class="rounded-lg border border-zinc-100 dark:border-zinc-800 px-2.5 py-2 text-xs"
-          >
-            <p class="font-medium text-zinc-900 dark:text-zinc-100">
-              {{ mute.displayName || mute.username || shortAdminId(mute.userId) }}
-            </p>
-            <p class="mt-0.5 text-zinc-500 dark:text-zinc-400">
-              {{ mute.roomTitle || '全站' }} · {{ formatAdminRelativeTime(mute.createdAt) }}
-            </p>
-            <p class="mt-1 line-clamp-2 text-amber-800 dark:text-amber-300">原因：{{ mute.reason || '—' }}</p>
-          </li>
-          <li v-if="!securityRecentMutes.length" class="py-6 text-center text-zinc-400 dark:text-zinc-500">暂无生效禁言</li>
-        </ul>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见访问页面 · 近 7 天</h2>
-        <ul class="mt-3 space-y-1.5">
-          <li
-            v-for="row in securityTopPaths"
-            :key="row.path"
-            class="flex items-center justify-between gap-2 text-xs"
-          >
-            <span class="truncate text-zinc-700 dark:text-zinc-200" :title="row.path">{{ adminPathLabel(row.path) }}</span>
-            <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
-          </li>
-          <li v-if="!securityTopPaths.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无数据</li>
-        </ul>
-      </div>
-
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见操作 · 近 7 天</h2>
-        <ul class="mt-3 space-y-1.5">
-          <li
-            v-for="row in securityTopActions"
-            :key="row.action"
-            class="flex items-center justify-between gap-2 text-xs"
-          >
-            <span class="truncate text-zinc-700 dark:text-zinc-200">{{ visitorActionLabel(row.action) }}</span>
-            <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
-          </li>
-          <li v-if="!securityTopActions.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无数据</li>
-        </ul>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">高频网络地址 · 今天</h2>
-        <ul class="mt-3 space-y-1.5">
-          <li
-            v-for="row in securityTopIps"
-            :key="row.ip"
-            class="flex items-center justify-between gap-2 text-xs"
-          >
-            <NuxtLink
-              :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
-              class="truncate text-sky-700 dark:text-sky-300 hover:underline"
+      <section
+        class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 p-3 lg:grid-cols-3"
+        aria-label="更多安全数据"
+      >
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                今天的动态
+              </h2>
+              <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                访客活跃、封禁禁言与管理员操作
+                <template v-if="securityGeneratedAt">
+                  · 更新 {{ formatAdminRelativeTime(securityGeneratedAt) }}
+                </template>
+              </p>
+            </div>
+            <UButton
+              to="/admin/audit"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              trailing-icon="i-lucide-arrow-right"
             >
-              {{ row.ip }}
-            </NuxtLink>
-            <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
-          </li>
-          <li v-if="!securityTopIps.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无数据</li>
-        </ul>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见封禁原因</h2>
-        <ul class="mt-3 space-y-1.5">
-          <li
-            v-for="row in securityTopBanReasons"
-            :key="row.reason"
-            class="flex items-start justify-between gap-2 text-xs"
-          >
-            <span class="line-clamp-2 text-zinc-700 dark:text-zinc-200">{{ row.reason }}</span>
-            <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
-          </li>
-          <li v-if="!securityTopBanReasons.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无生效原因</li>
-        </ul>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">24 小时操作趋势</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">按小时汇总访客操作</p>
+              操作记录
+            </UButton>
           </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                活跃访客
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.visitorsActive ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                新访客
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.visitorsNew ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                访客操作
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.visitorEvents ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                聊天消息
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.messages ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-red-50/60 dark:bg-red-950/60 px-3 py-2">
+              <p class="text-[11px] text-red-700 dark:text-red-300">
+                新建封禁
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.bansCreated ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-amber-50/60 dark:bg-amber-950/60 px-3 py-2">
+              <p class="text-[11px] text-amber-800 dark:text-amber-300">
+                新建禁言
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.mutesCreated ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-indigo-50/50 px-3 py-2">
+              <p class="text-[11px] text-indigo-700">
+                操作记录
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.auditEvents ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-emerald-50/50 dark:bg-emerald-950/50 px-3 py-2">
+              <p class="text-[11px] text-emerald-700 dark:text-emerald-300">
+                管理员登录
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityLast24h.adminLogins ?? '—' }}
+              </p>
+            </div>
+          </div>
+          <p class="mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+            总量：账号 {{ securitySnapshot.totalUsers ?? '—' }} · 访客 {{ securitySnapshot.totalVisitors ?? '—' }} · 消息 {{ securitySnapshot.totalMessages ?? '—' }}
+            （已删 {{ securitySnapshot.deletedMessages ?? '—' }}）
+          </p>
         </div>
-        <div class="mt-3 flex h-24 items-end gap-0.5">
-          <div
-            v-for="(row, idx) in securityHourlyEvents"
-            :key="row.hour + '-' + idx"
-            class="group relative min-w-0 flex-1 rounded-t bg-sky-400/80 transition hover:bg-sky-500"
-            :style="{ height: Math.max(4, Math.round((Number(row.count) / securityHourlyMax) * 100)) + '%' }"
-            :title="formatAdminDateTime(row.hour) + ' · ' + row.count"
-          />
-        </div>
-        <p v-if="!securityHourlyEvents.length" class="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">暂无节奏数据</p>
-      </div>
 
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">封禁状态检查</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">过期未清理 / 即将到期 / 永久与临时</p>
-        <div class="mt-3 grid grid-cols-2 gap-2">
-          <div class="rounded-lg bg-red-50/70 dark:bg-red-950/70 px-3 py-2">
-            <p class="text-[11px] text-red-700 dark:text-red-300">过期仍生效</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityBanHygiene.activeExpired ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-amber-50/70 dark:bg-amber-950/70 px-3 py-2">
-            <p class="text-[11px] text-amber-800 dark:text-amber-300">24h 内到期</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityBanHygiene.expiringSoon24h ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">永久生效</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityBanHygiene.permanentActive ?? '—' }}</p>
-          </div>
-          <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
-            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">临时生效</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">{{ securityBanHygiene.temporaryActive ?? '—' }}</p>
-          </div>
-        </div>
-        <UButton to="/admin/bans?active=true" size="xs" color="neutral" variant="soft" class="mt-3" trailing-icon="i-lucide-arrow-right">
-          清理封禁
-        </UButton>
-      </div>
-
-
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">管理员操作 · 今天</h2>
-        <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
-          <li
-            v-for="row in securityAdminActors"
-            :key="'actor-' + row.adminId"
-            class="flex items-center justify-between gap-2 text-xs"
-          >
-            <span class="truncate text-zinc-800 dark:text-zinc-100">{{ row.displayName || row.username || shortAdminId(row.adminId) }}</span>
-            <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.actions }} 次</span>
-          </li>
-          <li v-if="!securityAdminActors.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无管理员动作</li>
-        </ul>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">最近管理记录</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">最近的封禁、禁言、管理员和登录操作</p>
-          </div>
-          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">操作记录</UButton>
-        </div>
-        <ul class="mt-3 max-h-64 space-y-2 overflow-y-auto">
-          <li
-            v-for="item in securityOpsTimeline"
-            :key="item.id"
-          >
-            <NuxtLink
-              :to="item.href"
-              class="block rounded-lg border border-zinc-100 dark:border-zinc-800 px-2.5 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-            >
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span class="rounded-full bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">
-                  {{ adminLabel(adminOpsTimelineKindLabels, item.kind, item.kind) }}
-                </span>
-                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ item.title }}</span>
-                <span class="text-zinc-400 dark:text-zinc-500">{{ formatAdminRelativeTime(item.createdAt) }}</span>
-              </div>
-              <p class="mt-1 line-clamp-2 text-zinc-500 dark:text-zinc-400">{{ item.subtitle }}</p>
-            </NuxtLink>
-          </li>
-          <li v-if="!securityOpsTimeline.length" class="py-6 text-center text-zinc-400 dark:text-zinc-500">暂无管理记录</li>
-        </ul>
-      </div>
-
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">最近生效封禁</h2>
-        <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
-          <li
-            v-for="ban in securitySnapshotBans"
-            :key="ban.id"
-          >
-            <NuxtLink
-              :to="'/admin/bans?banId=' + encodeURIComponent(ban.id)"
-              class="block rounded-lg border border-zinc-100 dark:border-zinc-800 px-2.5 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            生效禁言
+          </h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            根据近期安全情况整理 · 最多 6 条
+          </p>
+          <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
+            <li
+              v-for="mute in securityRecentMutes"
+              :key="mute.id"
+              class="rounded-lg border border-zinc-100 dark:border-zinc-800 px-2.5 py-2 text-xs"
             >
               <p class="font-medium text-zinc-900 dark:text-zinc-100">
-                {{ adminLabel(adminBanScopeLabels, ban.scope, ban.scope) }} · {{ ban.value }}
+                {{ mute.displayName || mute.username || shortAdminId(mute.userId) }}
               </p>
-              <p class="mt-0.5 line-clamp-2 text-zinc-500 dark:text-zinc-400">{{ ban.reason || '—' }}</p>
-              <p class="mt-1 text-zinc-400 dark:text-zinc-500">{{ formatAdminRelativeTime(ban.createdAt) }}</p>
-            </NuxtLink>
-          </li>
-          <li v-if="!securitySnapshotBans.length" class="py-6 text-center text-zinc-400 dark:text-zinc-500">暂无生效封禁</li>
-        </ul>
-      </div>
+              <p class="mt-0.5 text-zinc-500 dark:text-zinc-400">
+                {{ mute.roomTitle || '全站' }} · {{ formatAdminRelativeTime(mute.createdAt) }}
+              </p>
+              <p class="mt-1 line-clamp-2 text-amber-800 dark:text-amber-300">
+                原因：{{ mute.reason || '—' }}
+              </p>
+            </li>
+            <li
+              v-if="!securityRecentMutes.length"
+              class="py-6 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无生效禁言
+            </li>
+          </ul>
+        </div>
 
-    </section>
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            常见访问页面 · 近 7 天
+          </h2>
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="row in securityTopPaths"
+              :key="row.path"
+              class="flex items-center justify-between gap-2 text-xs"
+            >
+              <span
+                class="truncate text-zinc-700 dark:text-zinc-200"
+                :title="row.path"
+              >{{ adminPathLabel(row.path) }}</span>
+              <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
+            </li>
+            <li
+              v-if="!securityTopPaths.length"
+              class="py-4 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无数据
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            常见操作 · 近 7 天
+          </h2>
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="row in securityTopActions"
+              :key="row.action"
+              class="flex items-center justify-between gap-2 text-xs"
+            >
+              <span class="truncate text-zinc-700 dark:text-zinc-200">{{ visitorActionLabel(row.action) }}</span>
+              <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
+            </li>
+            <li
+              v-if="!securityTopActions.length"
+              class="py-4 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无数据
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            高频网络地址 · 今天
+          </h2>
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="row in securityTopIps"
+              :key="row.ip"
+              class="flex items-center justify-between gap-2 text-xs"
+            >
+              <NuxtLink
+                :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
+                class="truncate text-sky-700 dark:text-sky-300 hover:underline"
+              >
+                {{ row.ip }}
+              </NuxtLink>
+              <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
+            </li>
+            <li
+              v-if="!securityTopIps.length"
+              class="py-4 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无数据
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            常见封禁原因
+          </h2>
+          <ul class="mt-3 space-y-1.5">
+            <li
+              v-for="row in securityTopBanReasons"
+              :key="row.reason"
+              class="flex items-start justify-between gap-2 text-xs"
+            >
+              <span class="line-clamp-2 text-zinc-700 dark:text-zinc-200">{{ row.reason }}</span>
+              <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
+            </li>
+            <li
+              v-if="!securityTopBanReasons.length"
+              class="py-4 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无生效原因
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                24 小时操作趋势
+              </h2>
+              <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                按小时汇总访客操作
+              </p>
+            </div>
+          </div>
+          <div class="mt-3 flex h-24 items-end gap-0.5">
+            <div
+              v-for="(row, idx) in securityHourlyEvents"
+              :key="row.hour + '-' + idx"
+              class="group relative min-w-0 flex-1 rounded-t bg-sky-400/80 transition hover:bg-sky-500"
+              :style="{ height: Math.max(4, Math.round((Number(row.count) / securityHourlyMax) * 100)) + '%' }"
+              :title="formatAdminDateTime(row.hour) + ' · ' + row.count"
+            />
+          </div>
+          <p
+            v-if="!securityHourlyEvents.length"
+            class="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500"
+          >
+            暂无节奏数据
+          </p>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            封禁状态检查
+          </h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            过期未清理 / 即将到期 / 永久与临时
+          </p>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <div class="rounded-lg bg-red-50/70 dark:bg-red-950/70 px-3 py-2">
+              <p class="text-[11px] text-red-700 dark:text-red-300">
+                过期仍生效
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityBanHygiene.activeExpired ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-amber-50/70 dark:bg-amber-950/70 px-3 py-2">
+              <p class="text-[11px] text-amber-800 dark:text-amber-300">
+                24h 内到期
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityBanHygiene.expiringSoon24h ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                永久生效
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityBanHygiene.permanentActive ?? '—' }}
+              </p>
+            </div>
+            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                临时生效
+              </p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
+                {{ securityBanHygiene.temporaryActive ?? '—' }}
+              </p>
+            </div>
+          </div>
+          <UButton
+            to="/admin/bans?active=true"
+            size="xs"
+            color="neutral"
+            variant="soft"
+            class="mt-3"
+            trailing-icon="i-lucide-arrow-right"
+          >
+            清理封禁
+          </UButton>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            管理员操作 · 今天
+          </h2>
+          <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
+            <li
+              v-for="row in securityAdminActors"
+              :key="'actor-' + row.adminId"
+              class="flex items-center justify-between gap-2 text-xs"
+            >
+              <span class="truncate text-zinc-800 dark:text-zinc-100">{{ row.displayName || row.username || shortAdminId(row.adminId) }}</span>
+              <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.actions }} 次</span>
+            </li>
+            <li
+              v-if="!securityAdminActors.length"
+              class="py-4 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无管理员动作
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+                最近管理记录
+              </h2>
+              <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                最近的封禁、禁言、管理员和登录操作
+              </p>
+            </div>
+            <UButton
+              to="/admin/audit"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              trailing-icon="i-lucide-arrow-right"
+            >
+              操作记录
+            </UButton>
+          </div>
+          <ul class="mt-3 max-h-64 space-y-2 overflow-y-auto">
+            <li
+              v-for="item in securityOpsTimeline"
+              :key="item.id"
+            >
+              <NuxtLink
+                :to="item.href"
+                class="block rounded-lg border border-zinc-100 dark:border-zinc-800 px-2.5 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+              >
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="rounded-full bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">
+                    {{ adminLabel(adminOpsTimelineKindLabels, item.kind, item.kind) }}
+                  </span>
+                  <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ item.title }}</span>
+                  <span class="text-zinc-400 dark:text-zinc-500">{{ formatAdminRelativeTime(item.createdAt) }}</span>
+                </div>
+                <p class="mt-1 line-clamp-2 text-zinc-500 dark:text-zinc-400">{{ item.subtitle }}</p>
+              </NuxtLink>
+            </li>
+            <li
+              v-if="!securityOpsTimeline.length"
+              class="py-6 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无管理记录
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
+          <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
+            最近生效封禁
+          </h2>
+          <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
+            <li
+              v-for="ban in securitySnapshotBans"
+              :key="ban.id"
+            >
+              <NuxtLink
+                :to="'/admin/bans?banId=' + encodeURIComponent(ban.id)"
+                class="block rounded-lg border border-zinc-100 dark:border-zinc-800 px-2.5 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+              >
+                <p class="font-medium text-zinc-900 dark:text-zinc-100">
+                  {{ adminLabel(adminBanScopeLabels, ban.scope, ban.scope) }} · {{ ban.value }}
+                </p>
+                <p class="mt-0.5 line-clamp-2 text-zinc-500 dark:text-zinc-400">{{ ban.reason || '—' }}</p>
+                <p class="mt-1 text-zinc-400 dark:text-zinc-500">{{ formatAdminRelativeTime(ban.createdAt) }}</p>
+              </NuxtLink>
+            </li>
+            <li
+              v-if="!securitySnapshotBans.length"
+              class="py-6 text-center text-zinc-400 dark:text-zinc-500"
+            >
+              暂无生效封禁
+            </li>
+          </ul>
+        </div>
+      </section>
     </details>
 
     <section

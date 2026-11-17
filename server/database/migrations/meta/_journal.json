@@ -456,6 +456,34 @@
       "when": 1794814122313,
       "tag": "0064_competition_qq_group",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1794870000000,
+      "tag": "0065_competition_entry_song",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "6",
+      "when": 1794880000000,
+      "tag": "0066_competition_entry_accompaniment",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1794890000000,
+      "tag": "0067_computer_association",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1794900000000,
+      "tag": "0068_yeuca_extras",
+      "breakpoints": true
     }
   ]
 }

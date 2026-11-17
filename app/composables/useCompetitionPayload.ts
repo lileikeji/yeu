@@ -57,6 +57,29 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
   const maxTotal = computed(() => event.value?.maxTotal ?? 0)
   const singers = computed(() => payload.value?.singers ?? [])
 
+  /** 「轮次:选手 id」→ 该轮条目，只有真正进了这一轮的人才会有。 */
+  const stageEntryMap = computed(() => {
+    const map = new Map<string, CompetitionRoundView['entries'][number]>()
+    for (const round of payload.value?.rounds ?? []) {
+      for (const entry of round.entries) map.set(`${round.key}:${entry.singer.id}`, entry)
+    }
+    return map
+  })
+
+  /** 该选手有没有进这一轮（复赛/决赛只对晋级的人显示）。 */
+  function singerJoinedRound(singerId: string, roundKey: CompetitionRoundKey): boolean {
+    return stageEntryMap.value.has(`${roundKey}:${singerId}`)
+  }
+
+  /** 该选手在这一轮唱的歌；初赛没写条目曲目时回落到选手库里登记的曲目。 */
+  function singerRoundSong(singer: { id: string, song: string | null }, roundKey: CompetitionRoundKey): string {
+    const entry = stageEntryMap.value.get(`${roundKey}:${singer.id}`)
+    if (!entry) return ''
+    const song = (entry.song ?? '').trim()
+    if (song) return song
+    return roundKey === 'prelim' ? (singer.song ?? '').trim() : ''
+  }
+
   const activeRound = computed<CompetitionRoundView | null>(() => {
     const key = activeSection.value
     if (key === 'settings' || key === 'singers' || key === 'email' || key === 'materials') return null
@@ -296,6 +319,8 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
     event,
     maxTotal,
     singers,
+    singerJoinedRound,
+    singerRoundSong,
     activeRound,
     settingsWeightSum,
     hasAnyScores,
