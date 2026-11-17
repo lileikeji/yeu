@@ -174,28 +174,28 @@ function addFaq(): void {
       <div class="flex flex-wrap gap-1.5">
         <UButton
           size="xs"
-          label="1. 首页结构 / 公告 / 导航开关 / 友链"
+          label="首页与导航"
           :variant="subSection === 'home' ? 'solid' : 'ghost'"
           :color="subSection === 'home' ? 'primary' : 'neutral'"
           @click="subSection = 'home'"
         />
         <UButton
           size="xs"
-          label="2. AI 演示步骤 / 练手题 / 活动节奏"
+          label="AI 与练手题"
           :variant="subSection === 'ai_rhythm' ? 'solid' : 'ghost'"
           :color="subSection === 'ai_rhythm' ? 'primary' : 'neutral'"
           @click="subSection = 'ai_rhythm'"
         />
         <UButton
           size="xs"
-          label="3. 镜像源站 / 一键脚本 / 外链推荐"
+          label="镜像与脚本"
           :variant="subSection === 'mirrors_links' ? 'solid' : 'ghost'"
           :color="subSection === 'mirrors_links' ? 'primary' : 'neutral'"
           @click="subSection = 'mirrors_links'"
         />
         <UButton
           size="xs"
-          label="4. 发展沿革 / 核对清单 / 竞赛 / Q&A"
+          label="沿革与竞赛"
           :variant="subSection === 'about_archive' ? 'solid' : 'ghost'"
           :color="subSection === 'about_archive' ? 'primary' : 'neutral'"
           @click="subSection = 'about_archive'"
@@ -207,13 +207,13 @@ function addFaq(): void {
           size="xs"
           variant="outline"
           color="neutral"
-          label="补全官方预设"
+          label="补预设"
           @click="seedAllDefaults"
         />
         <UButton
           size="sm"
           icon="i-lucide-save"
-          label="保存全站模块"
+          label="保存"
           class="!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
           :loading="saving"
           @click="handleSave"
@@ -230,10 +230,10 @@ function addFaq(): void {
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
-              官网顶部公告条 & 首屏引导文案
+              顶部公告与首屏文案
             </h3>
             <p class="text-xs text-zinc-500">
-              无需改前端代码，直接调整首页顶部公告提示与首屏按钮文案。
+              改这里就行，不用动前端代码。
             </p>
           </div>
           <label class="inline-flex items-center gap-2 text-xs cursor-pointer">
@@ -305,10 +305,10 @@ function addFaq(): void {
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-semibold">
-              首页核心入口卡片（默认 3 个核心板块）
+              首页入口卡片
             </h3>
             <p class="text-xs text-zinc-500">
-              可随时调整卡片角标、标题、简介、跳转路线或临时关闭显示。
+              角标、标题、简介、跳转都能改。
             </p>
           </div>
           <UButton
@@ -383,7 +383,7 @@ function addFaq(): void {
       <div class="grid gap-4 lg:grid-cols-2">
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <h3 class="text-sm font-semibold">
-            导航模块显隐与 Git / 镜像提示文案
+            导航开关与提示文案
           </h3>
           <div class="grid grid-cols-2 gap-2 text-xs">
             <label class="flex items-center gap-2 cursor-pointer">
@@ -415,7 +415,7 @@ function addFaq(): void {
               <span>显示「小工具」入口</span>
             </label>
           </div>
-          <UFormField label="Git 站门禁提示文案（会员未登录或查看项目时显示）">
+          <UFormField label="Git 门禁提示">
             <UTextarea
               v-model="local.featureFlags.gitGateHint"
               :rows="2"
@@ -445,7 +445,7 @@ function addFaq(): void {
               @click="addFriendLink"
             />
           </div>
-          <UFormField label="页脚附加说明（工信部备案号始终锁定保留）">
+          <UFormField label="页脚附加说明">
             <UTextarea
               v-model="local.footerNote"
               :rows="2"
@@ -493,10 +493,10 @@ function addFaq(): void {
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-semibold">
-              AI 部工作流四步交互演示卡片
+              AI 部四步演示
             </h3>
             <p class="text-xs text-zinc-500">
-              对应官网 `/departments/` 中 AI 部的分步切换卡片，可编辑每一步职责、逻辑、防错原则和样例代码。
+              对应部门页 AI 部的分步卡片。
             </p>
           </div>
           <UButton
@@ -681,10 +681,10 @@ function addFaq(): void {
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-sm font-semibold">
-              开源镜像加速源站目录 (`/mirrors/`)
+              镜像源目录
             </h3>
             <p class="text-xs text-zinc-500">
-              支持维护协会自建 PyPI/npm 代理与清华 TUNA、HuggingFace 等校内常用命令源。
+              自建 PyPI/npm 代理和常用命令源。
             </p>
           </div>
           <UButton
@@ -829,7 +829,7 @@ function addFaq(): void {
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">
-              各部门常用学习外链与工具文档
+              各部门外链
             </h3>
             <UButton
               size="xs"
@@ -900,7 +900,7 @@ function addFaq(): void {
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">
-              协会发展沿革时间线 (`/about/#archive`)
+              发展沿革
             </h3>
             <UButton
               size="xs"
@@ -955,7 +955,7 @@ function addFaq(): void {
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">
-              变动信息核对表 (`/about/#checklist`)
+              变动核对表
             </h3>
             <UButton
               size="xs"
@@ -1006,7 +1006,7 @@ function addFaq(): void {
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">
-              常规参加学科竞赛清单
+              竞赛清单
             </h3>
             <UButton
               size="xs"
@@ -1061,7 +1061,7 @@ function addFaq(): void {
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">
-              常见问题 Q&A (`/about/#qa`)
+              常见问题
             </h3>
             <UButton
               size="xs"

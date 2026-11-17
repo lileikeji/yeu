@@ -406,7 +406,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
             name="i-lucide-git-branch"
             class="size-4 text-[#a8121e]"
           />
-          <span>计协 Git 代码站连通与成员授权状态</span>
+          <span>Git 代码站状态</span>
           <UBadge
             :label="gitea.reachable ? `在线 v${gitea.version || '28.4'}` : (gitea.configured ? '连接异常' : '未配令牌')"
             :color="gitea.reachable ? 'success' : 'warning'"
@@ -414,14 +414,14 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
             size="xs"
           />
           <UBadge
-            label="全站登录门禁已启（仅名单内激活成员可访问）"
+            label="门禁已启"
             color="neutral"
             variant="outline"
             size="xs"
           />
         </div>
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          只有「已导入成员名录」的同学才能到主站会员入口核验激活，后台自动开通同账密 Git 账号；停用或未激活人员无法访问 {{ gitea.publicGitUrl }}。
+          只有名录内成员能在主站会员入口激活，同时开通同账密 Git 账号。停用或未激活进不了 {{ gitea.publicGitUrl }}。
           <span
             v-if="gitea.error"
             class="text-rose-600 dark:text-rose-400 font-medium"
@@ -454,7 +454,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
         <UInput
           v-model="searchKeyword"
           icon="i-lucide-search"
-          placeholder="搜索学号、姓名、班级、Git 账号或 QQ..."
+          placeholder="搜学号、姓名、班级、Git 或 QQ"
           size="sm"
           class="w-full sm:w-64"
         />
@@ -514,7 +514,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
           color="neutral"
           variant="subtle"
           icon="i-lucide-upload"
-          label="批量导入名单"
+          label="导入"
           @click="openImportModal"
         />
         <UButton
@@ -533,7 +533,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
         v-if="filteredMembers.length === 0"
         class="p-10 text-center text-sm text-zinc-500"
       >
-        暂无符合条件的成员记录。点击右上角「批量导入名单」或「新增成员」，即可开放对应同学的白名单注册权限。
+        没有匹配的成员。右上角可以导入或新增，通过后对方就能注册。
       </div>
 
       <div
@@ -679,7 +679,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
     <!-- 弹窗 1：新增 / 编辑成员 -->
     <UModal
       v-model:open="memberModalOpen"
-      :title="editingMemberId ? '编辑协会成员信息' : '新增协会成员到白名单'"
+      :title="editingMemberId ? '编辑成员' : '新增成员'"
       :ui="{ content: 'max-w-2xl' }"
     >
       <template #body>
@@ -705,7 +705,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="专业年级班级">
+            <UFormField label="年级班级">
               <UInput
                 v-model="memberForm.gradeMajorClass"
                 placeholder="如 25电子专升本1班"
@@ -746,7 +746,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
                 </option>
               </select>
             </UFormField>
-            <UFormField label="届别 / 学年">
+            <UFormField label="学年">
               <UInput
                 v-model="memberForm.term"
                 placeholder="2025-2026学年"
@@ -778,7 +778,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
           </div>
 
           <div class="grid gap-3 sm:grid-cols-2">
-            <UFormField label="Git 用户名（留空则成员自己填写）">
+            <UFormField label="Git 用户名（留空由本人填）">
               <UInput
                 v-model="memberForm.gitUsername"
                 placeholder="字母/数字，留空由本人注册时设"
@@ -805,12 +805,12 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
 
           <UFormField
             v-if="!editingMemberId"
-            label="初始密码（选填；若留空则录入为待激活白名单，由本人到注册页自设密码）"
+            label="初始密码（留空由本人注册时设）"
           >
             <UInput
               v-model="memberForm.initialPassword"
               type="password"
-              placeholder="如需管理员代开通，请填入 >=8 位初始密码"
+              placeholder="至少 8 位"
               class="w-full"
             />
           </UFormField>
@@ -851,7 +851,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
       <template #body>
         <div class="space-y-3 text-sm">
           <p class="text-xs text-zinc-500">
-            此操作将更新「{{ resetTarget?.name }} ({{ resetTarget?.studentNo }})」的官网与 Git 代码站统一登录密码；如原未开通 Git 账号将自动补建。
+            会改掉「{{ resetTarget?.name }} ({{ resetTarget?.studentNo }})」官网和 Git 的密码。没开过 Git 账号的一并补建。
           </p>
           <UFormField
             label="新密码（至少 8 位）"
@@ -873,7 +873,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
               type="checkbox"
               class="rounded border-zinc-300"
             >
-            <span>同步将其状态激活并立即开通 Git 账号（Git 账号默认取学号）</span>
+            <span>顺带激活并开通 Git 账号（默认用学号）</span>
           </label>
         </div>
       </template>

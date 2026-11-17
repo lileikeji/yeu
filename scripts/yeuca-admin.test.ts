@@ -32,9 +32,11 @@ import {
   getAdminYeucaOverview,
   getPublicYeucaSnapshot,
   isComputerAssociationContent,
+  resolveRecruitDepartmentOptions,
   updateYeucaPost,
   updateYeucaSettings
 } from '../server/modules/yeuca/service'
+import { validateSubmissionInput } from '../server/modules/recruit/service'
 import { resolveYeucaAdminScope } from '../server/utils/yeuca-admin'
 import type { AdminSessionContext } from '../server/utils/auth'
 import {
@@ -438,4 +440,31 @@ test('yeuca member import, whitelist registration, gitea sync, disable, recruit 
   } finally {
     cleanup()
   }
+})
+
+test('报名表按站点部门名单校验意向部门，部门改名后也不会被拒', () => {
+  const fieldsJson = JSON.stringify([
+    { key: 'name', label: '姓名', type: 'text', required: true },
+    { key: 'departments', label: '意向部门', type: 'multiselect', required: true, options: [] }
+  ])
+  const departments = [
+    { name: 'AI 部', acceptingRecruit: true },
+    { name: '宣传部', acceptingRecruit: true },
+    { name: '运维部', acceptingRecruit: false }
+  ]
+
+  const resolved = JSON.parse(resolveRecruitDepartmentOptions(fieldsJson, departments)) as {
+    key: string
+    required?: boolean
+    options?: string[]
+  }[]
+  const deptField = resolved.find(item => item.key === 'departments')!
+  assert.equal(deptField.required, false)
+  assert.deepEqual(deptField.options, ['暂未确定（进群后再定）', 'AI 部', '宣传部'])
+
+  const normalized = validateSubmissionInput(
+    resolved as Parameters<typeof validateSubmissionInput>[0],
+    { name: '张三', departments: ['宣传部'] }
+  )
+  assert.equal(normalized.departments, '宣传部')
 })

@@ -240,7 +240,7 @@ async function loadOverview(): Promise<void> {
       : []
     siteContentState.value = createEditableExtrasState(extras)
   } catch (error) {
-    errorMessage.value = '计算机协会管理数据加载失败，请确认当前账号权限。'
+    errorMessage.value = '管理数据加载失败，先看账号权限。'
     showApiError(error, '加载失败')
   } finally {
     loading.value = false
@@ -299,7 +299,7 @@ function buildExtrasPayload(): YeucaSiteExtras {
   }
 }
 
-async function persistSiteSettings(successMessage = '主站配置与部门架构已保存并实时生效'): Promise<boolean> {
+async function persistSiteSettings(successMessage = '已保存'): Promise<boolean> {
   savingSettings.value = true
   try {
     await adminFetch('/api/admin/yeuca/settings', {
@@ -330,7 +330,7 @@ async function persistSiteSettings(successMessage = '主站配置与部门架构
 
 async function saveSiteContentState(nextState: EditableYeucaExtrasState): Promise<void> {
   siteContentState.value = nextState
-  await persistSiteSettings('全站各页扩展配置已保存并实时同步到官网')
+  await persistSiteSettings('已保存')
 }
 
 /* ---------- 部门 CRUD（所有操作即时写库） ---------- */
@@ -744,7 +744,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 主站：yeuca.huiliyill.cn
               </span>
               <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 text-zinc-300">
-                yeuca.huiliyill.cn/admin ⇄ yx.huiliyill.cn/admin 互通
+                与 yx.huiliyill.cn 打通
               </span>
               <span
                 v-if="lastSavedAt"
@@ -765,7 +765,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   仰恩大学计算机协会 · 主站、成员与 Git 控制台
                 </h1>
                 <p class="mt-0.5 max-w-3xl text-sm leading-6 text-zinc-300">
-                  管理协会成员名录与批量导入、招新转正审批、活动排期与签到、全站各页文案配置，以及会员同步登录 Git 代码站。
+                  成员名录、招新审批、活动签到、各页文案，还有会员的 Git 代码站账号。
                 </p>
               </div>
             </div>
@@ -817,7 +817,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="absolute inset-x-0 top-0 h-0.5 bg-[#a8121e]" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              协会成员白名单 / Git 同步
+              成员
             </p>
             <UIcon
               name="i-lucide-users-round"
@@ -834,7 +834,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="absolute inset-x-0 top-0 h-0.5 bg-sky-600/80" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              线上纳新 / 活动排期
+              招新 / 活动
             </p>
             <UIcon
               name="i-lucide-calendar-days"
@@ -859,7 +859,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="absolute inset-x-0 top-0 h-0.5 bg-emerald-600/80" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              已发布动态 / 笔记资料
+              动态 / 资料
             </p>
             <UIcon
               name="i-lucide-newspaper"
@@ -876,7 +876,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="absolute inset-x-0 top-0 h-0.5 bg-amber-600/80" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              部门 ({{ departmentsDraft.length }}) / 项目 / 实景图
+              部门 {{ departmentsDraft.length }} · 项目
             </p>
             <UIcon
               name="i-lucide-layers"
@@ -893,7 +893,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       <!-- 主功能导航标签（8 个全景工作台 Tab） -->
       <div class="flex flex-wrap items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-1.5 shadow-2xs">
         <UButton
-          :label="`成员名录与 Git (${overview.members.length})`"
+          :label="`成员与 Git (${overview.members.length})`"
           icon="i-lucide-users-round"
           color="neutral"
           :variant="activeTab === 'members' ? 'solid' : 'ghost'"
@@ -917,7 +917,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'activities'"
         />
         <UButton
-          label="全站页面与镜像配置"
+          label="页面与镜像"
           icon="i-lucide-layout-grid"
           color="neutral"
           :variant="activeTab === 'sitecontent' ? 'solid' : 'ghost'"
@@ -925,7 +925,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'sitecontent'"
         />
         <UButton
-          :label="`部门架构 (${departmentsDraft.length})`"
+          :label="`部门 (${departmentsDraft.length})`"
           icon="i-lucide-layers"
           color="neutral"
           :variant="activeTab === 'departments' ? 'solid' : 'ghost'"
@@ -941,7 +941,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'posts'"
         />
         <UButton
-          :label="`项目实验室 (${overview.projects.length})`"
+          :label="`项目 (${overview.projects.length})`"
           icon="i-lucide-folder-git-2"
           color="neutral"
           :variant="activeTab === 'projects' ? 'solid' : 'ghost'"
@@ -949,7 +949,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'projects'"
         />
         <UButton
-          label="标语、群码与图片上传"
+          label="文案与图片"
           icon="i-lucide-sliders-horizontal"
           color="neutral"
           :variant="activeTab === 'studio' ? 'solid' : 'ghost'"
@@ -998,8 +998,8 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200/80 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/40 px-4 py-3">
           <div class="text-sm text-zinc-700 dark:text-zinc-200">
-            <strong class="font-semibold">主站同步：</strong>
-            此处操作（新增、编辑、删除、排序、设为主展）点击后<strong>自动写入数据库</strong>，同步更新「部门」页交互展台、首页部门直达胶囊及报名选择清单。
+            <strong class="font-semibold">改完即时入库。</strong>
+            前台部门页、首页入口和报名选项一起更新。
           </div>
           <UButton
             icon="i-lucide-plus"
@@ -1064,7 +1064,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               </div>
 
               <div class="rounded-md bg-zinc-50 dark:bg-zinc-800/50 px-2.5 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                实践重点 {{ dept.focusList.length }} 条 · {{ dept.lead ? `负责人：${dept.lead}` : '未填负责人（页不写死）' }}
+                实践重点 {{ dept.focusList.length }} 条 · {{ dept.lead ? `负责人：${dept.lead}` : '未填负责人' }}
               </div>
             </div>
 
@@ -1175,7 +1175,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             />
             <UButton
               icon="i-lucide-book-open"
-              label="新增笔记资料"
+              label="新增资料"
               color="neutral"
               variant="outline"
               @click="openNewPost('resource')"
@@ -1187,7 +1187,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           v-if="filteredPosts.length === 0"
           class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
         >
-          暂无匹配内容，点击右上角「发布动态」或「新增笔记资料」创作第一条记录（编辑器支持直接上传正文图片）。
+          还没有内容。右上角可以发动态或笔记。
         </div>
 
         <div
@@ -1293,7 +1293,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-zinc-500">
-            管理主站首页「03 · 项目与 Git 仓库」和项目档案墙展现的项目成果（支持上传项目封面截图与填写演示链接）。
+            首页项目区和项目档案墙展示的内容。
           </p>
           <div class="flex flex-wrap gap-2">
             <UButton
@@ -1316,7 +1316,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           v-if="overview.projects.length === 0"
           class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
         >
-          后台项目展示列表暂无自定义记录（主站当前默认展示自建 Git 仓库与重点联动项目「YeU 迎新平台」）；可点击右上角新增项目卡片。
+          还没有项目。前台先显示 Git 仓库和 YeU 迎新平台。
         </div>
 
         <div
@@ -1405,14 +1405,14 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
           <span class="text-sm text-zinc-600 dark:text-zinc-300">
-            修改下方文案、上传图片或调整竞赛 / Q&amp;A 后，点击右侧「保存并发布全站设置」即可同步至官网。
+            改完点右侧保存，官网即时生效。
           </span>
           <UButton
-            label="保存并发布全站设置"
+            label="保存"
             icon="i-lucide-save"
             color="primary"
             :loading="savingSettings"
-            @click="persistSiteSettings('全站文案、上传图片与扩展配置已保存并生效')"
+            @click="persistSiteSettings('已保存')"
           />
         </div>
 
@@ -1420,7 +1420,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4">
             <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-              主站核心文案与招新提示
+              站名、标语与招新
             </h2>
 
             <div class="grid gap-4 sm:grid-cols-2">
@@ -1430,7 +1430,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="值班 / 迎新群位置提示">
+              <UFormField label="迎新群位置">
                 <UInput
                   v-model="settingsForm.contactNote"
                   placeholder="如：图信中心机房 / 迎新群安排"
@@ -1446,7 +1446,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
 
-            <UFormField label="协会简介（首屏导语）">
+            <UFormField label="协会简介">
               <UTextarea
                 v-model="settingsForm.intro"
                 :rows="3"
@@ -1454,7 +1454,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
 
-            <UFormField label="招新说明补充（展示在「加入我们」页右侧）">
+            <UFormField label="招新说明">
               <UTextarea
                 v-model="settingsForm.recruitNote"
                 :rows="2"
@@ -1463,11 +1463,11 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
 
-            <UFormField label="YeU 迎新联动项目副注（显示在主站项目区）">
+            <UFormField label="YeU 项目副注">
               <UTextarea
                 v-model="extrasForm.flagshipNote"
                 :rows="2"
-                placeholder="留空则展示默认说明：由协会核心成员主导设计与日常运维..."
+                placeholder="留空用默认说明"
                 class="w-full"
               />
             </UFormField>
@@ -1479,10 +1479,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <div class="flex items-center justify-between gap-2">
                 <div>
                   <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                    首页首屏右图（支持替换上传）
+                    首页右图
                   </h2>
                   <p class="text-xs text-zinc-500">
-                    不上传则使用默认俯瞰图；建议 16:10 横屏照片（≤ 5MB）。
+                    16:10 横屏，5MB 以内，留空用默认图。
                   </p>
                 </div>
                 <input
@@ -1521,7 +1521,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               </div>
               <UInput
                 v-model="extrasForm.heroImageUrl"
-                placeholder="留空用默认图，或上传后自动填入 /uploads/..."
+                placeholder="留空用默认图"
                 size="sm"
                 class="w-full font-mono text-xs"
               />
@@ -1531,10 +1531,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <div class="flex items-center justify-between gap-2">
                 <div>
                   <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                    迎新交流群二维码上传
+                    迎新群二维码
                   </h2>
                   <p class="text-xs text-zinc-500">
-                    直接上传微信/QQ 迎新群二维码，实时同步至「加入我们」联络卡。
+                    会出现在「加入我们」的联络卡。
                   </p>
                 </div>
                 <input
@@ -1581,12 +1581,12 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 <div class="flex-1 space-y-2">
                   <UInput
                     v-model="settingsForm.groupQrUrl"
-                    placeholder="/uploads/... 或留空隐藏"
+                    placeholder="留空隐藏"
                     size="sm"
                     class="w-full font-mono text-xs"
                   />
                   <p class="text-xs text-zinc-500">
-                    二维码过期换群后直接重新点击「上传二维码」替换即可。
+                    换群后重新上传。
                   </p>
                 </div>
               </div>
@@ -1599,10 +1599,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                实景与器材风采相册（上传即呈现于首页）
+                实景相册
               </h2>
               <p class="text-xs text-zinc-500">
-                可上传机房实验设备、比赛实拍或分享会现场照片（未上传时不显示空相册，不占页面空间）。
+                机房、比赛、分享会的照片，传完出现在首页。
               </p>
             </div>
             <input
@@ -1626,7 +1626,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             v-if="extrasForm.gallery.length === 0"
             class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-6 text-center text-xs text-zinc-500"
           >
-            当前暂无上传实景图片，点击右上角即可上传真实照片。
+            还没上传照片。
           </div>
 
           <div
@@ -1670,12 +1670,12 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
 
         <div class="flex justify-end">
           <UButton
-            label="保存基础文案、二维码与相册"
+            label="保存"
             icon="i-lucide-save"
             size="lg"
             color="primary"
             :loading="savingSettings"
-            @click="persistSiteSettings('基础文案、二维码与上传图片已保存并生效')"
+            @click="persistSiteSettings('已保存')"
           />
         </div>
       </div>
@@ -1689,7 +1689,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         <template #body>
           <div class="space-y-4">
             <div class="grid gap-4 sm:grid-cols-3">
-              <UFormField label="序号编号">
+              <UFormField label="编号">
                 <UInput
                   v-model="deptEditor.code"
                   placeholder="如：01 / AI"
@@ -1706,16 +1706,16 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="负责人（选填）">
+              <UFormField label="负责人">
                 <UInput
                   v-model="deptEditor.lead"
-                  placeholder="留空不写死姓名"
+                  placeholder="留空不显示"
                   class="w-full"
                 />
               </UFormField>
             </div>
             <UFormField
-              label="部门一句话定位与职责介绍"
+              label="部门介绍"
               required
             >
               <UTextarea
@@ -1724,7 +1724,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="日常训练与实践要点（每行一条，将在首页上方大窗口详细拆解展示）">
+            <UFormField label="实践要点（每行一条）">
               <UTextarea
                 v-model="deptEditor.focusText"
                 :rows="4"
@@ -1733,7 +1733,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
             <div class="grid gap-4 sm:grid-cols-2">
-              <UFormField label="常用技术与工具（逗号分隔）">
+              <UFormField label="常用工具（逗号分隔）">
                 <UInput
                   v-model="deptEditor.toolsText"
                   placeholder="Python, TypeScript, LLM API"
@@ -1748,7 +1748,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 />
               </UFormField>
             </div>
-            <UFormField label="新人入门与纳新要求">
+            <UFormField label="入门与要求">
               <UTextarea
                 v-model="deptEditor.recruitDesc"
                 :rows="2"
@@ -1758,11 +1758,11 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             <div class="flex flex-wrap items-center gap-6">
               <UCheckbox
                 v-model="deptEditor.isFeatured"
-                label="设为默认首展部门（首页优先展示在上方大窗口）"
+                label="首页默认首展"
               />
               <UCheckbox
                 v-model="deptEditor.acceptingRecruit"
-                label="在报名页开放此部门招新"
+                label="报名页开放招新"
               />
             </div>
             <div class="flex justify-end gap-2 pt-2">
@@ -1773,7 +1773,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 @click="deptModalOpen = false"
               />
               <UButton
-                label="保存并同步主站"
+                label="保存"
                 color="primary"
                 :loading="savingSettings"
                 @click="confirmDepartmentEdit"
@@ -1860,7 +1860,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   >
                   <UButton
                     icon="i-lucide-image-plus"
-                    label="上传图片插进正文"
+                    label="正文插图"
                     size="xs"
                     variant="outline"
                     color="neutral"
@@ -1868,7 +1868,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                     @click="postInlineImageInput?.click()"
                   />
                   <UButton
-                    :label="postPreviewMode ? '切回编辑' : '查看文本概况'"
+                    :label="postPreviewMode ? '切回编辑' : '预览'"
                     size="xs"
                     variant="ghost"
                     color="neutral"
@@ -1900,7 +1900,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <div class="flex items-end pb-1.5">
                 <UCheckbox
                   v-model="postForm.pinned"
-                  label="置顶展示在动态列表首位"
+                  label="置顶"
                 />
               </div>
             </div>
@@ -1989,7 +1989,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="排序权重（数字越小越靠前）">
+              <UFormField label="排序（小在前）">
                 <UInput
                   v-model.number="projectForm.sortOrder"
                   type="number"
@@ -2013,7 +2013,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 />
               </UFormField>
             </div>
-            <UFormField label="展示封面图（支持上传）">
+            <UFormField label="封面图">
               <div class="space-y-2.5">
                 <div class="flex flex-wrap items-center gap-2.5">
                   <UInput
@@ -2056,7 +2056,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             <div class="flex items-center justify-between pt-1">
               <UCheckbox
                 v-model="projectForm.isPublished"
-                label="在计协主站公开展示"
+                label="主站公开"
               />
               <div class="flex gap-2">
                 <UButton
@@ -2066,7 +2066,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   @click="projectModalOpen = false"
                 />
                 <UButton
-                  label="保存项目"
+                  label="保存"
                   color="primary"
                   :loading="savingProject"
                   @click="submitProject"

@@ -10,6 +10,7 @@ import {
   updateSubmission,
   validateSubmissionInput
 } from '../../../modules/recruit/service'
+import { ensureYeucaSettings, resolveRecruitDepartmentOptions } from '../../../modules/yeuca/service'
 import { getClientIpAddress } from '../../../utils/client-ip'
 import { useAppDatabase } from '../../../utils/database'
 import { assertRateLimit } from '../../../utils/rate-limit'
@@ -36,7 +37,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const input = await parseBody(event, publicRecruitSubmissionSchema)
-  const fields = JSON.parse(found.form.fieldsJson) as Parameters<typeof validateSubmissionInput>[0]
+  const form = {
+    ...found.form,
+    fieldsJson: resolveRecruitDepartmentOptions(found.form.fieldsJson, ensureYeucaSettings(client).departments)
+  }
+  const fields = JSON.parse(form.fieldsJson) as Parameters<typeof validateSubmissionInput>[0]
   const normalized = validateSubmissionInput(fields, input.data)
 
   const paymentEnabled = Boolean(found.form.paymentEnabled)
@@ -59,19 +64,19 @@ export default defineEventHandler(async (event) => {
     ipAddress,
     getHeader(event, 'user-agent') ?? ''
   )
-  const draftState = getRecruitDraft(client, found.form.id, draftKey)
+  const draftState = getRecruitDraft(client, form.id, draftKey)
   const submission = draftState?.submissionId
-    ? updateSubmission(client, found.form, draftState.submissionId, input.data)
+    ? updateSubmission(client, form, draftState.submissionId, input.data)
     : createSubmission(
         client,
-        found.form,
+        form,
         normalized,
         hashOpaqueToken(security.secret, 'recruit-ip', ipAddress),
         null,
         paymentEnabled ? input.paymentConfirmed === true : null
       )
 
-  markDraftSubmitted(client, found.form.id, draftKey, submission.id, normalized.data)
+  markDraftSubmitted(client, form.id, draftKey, submission.id, normalized.data)
   setResponseStatus(event, 201)
   return {
     id: submission.id,

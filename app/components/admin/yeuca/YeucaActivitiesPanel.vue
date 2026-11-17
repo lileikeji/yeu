@@ -218,7 +218,7 @@ function exportRegCsv(): void {
   <div class="space-y-4">
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 flex flex-wrap items-center justify-between gap-3">
       <div class="text-xs text-zinc-600 dark:text-zinc-300">
-        此处发布的活动直通官网 `/activities/` 与首页时间线，登录后的会员可一键报名参加，现场可直接核验签到。
+        发布后同步到官网活动页和首页时间线，会员可报名，现场核验签到。
       </div>
       <div class="flex gap-2">
         <UButton
@@ -227,12 +227,12 @@ function exportRegCsv(): void {
           variant="outline"
           color="neutral"
           icon="i-lucide-calendar-days"
-          label="校内总平台联动活动"
+          label="总平台活动"
         />
         <UButton
           size="sm"
           icon="i-lucide-plus"
-          label="发布计协新活动"
+          label="新建活动"
           class="!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
           @click="openCreate"
         />
@@ -243,7 +243,7 @@ function exportRegCsv(): void {
       v-if="activities.length === 0"
       class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
     >
-      暂无计协直管活动。点击右上角「发布计协新活动」，新增宣讲、培训、集训或破冰分享排期。
+      还没有活动。右上角可以新建。
     </div>
 
     <div
@@ -335,7 +335,7 @@ function exportRegCsv(): void {
     <!-- 新建 / 编辑活动弹窗 -->
     <UModal
       v-model:open="modalOpen"
-      :title="editingId ? '编辑计协活动排期' : '发布计协新活动'"
+      :title="editingId ? '编辑活动' : '新建活动'"
       :ui="{ content: 'max-w-2xl' }"
     >
       <template #body>
@@ -346,7 +346,7 @@ function exportRegCsv(): void {
           >
             <UInput
               v-model="form.title"
-              placeholder="例如：AI 部 Agent 工作流与工具调用实战分享"
+              placeholder="例：Agent 工作流实战分享"
               class="w-full"
             />
           </UFormField>
@@ -412,7 +412,7 @@ function exportRegCsv(): void {
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="结束时间（选填）">
+            <UFormField label="结束时间">
               <UInput
                 v-model="form.endsAtLocal"
                 type="datetime-local"
@@ -439,17 +439,17 @@ function exportRegCsv(): void {
           </div>
 
           <UFormField
-            label="活动一句话摘要"
+            label="摘要"
             required
           >
             <UInput
               v-model="form.summary"
-              placeholder="简短写清讲什么、需要带什么电脑或软件"
+              placeholder="讲什么、要带什么"
               class="w-full"
             />
           </UFormField>
 
-          <UFormField label="详细议程 / 注意事项（支持 Markdown）">
+          <UFormField label="议程与注意事项（Markdown）">
             <UTextarea
               v-model="form.body"
               :rows="4"
@@ -487,7 +487,7 @@ function exportRegCsv(): void {
             @click="modalOpen = false"
           />
           <UButton
-            label="保存活动排期"
+            label="保存"
             class="!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
             :loading="saving"
             @click="submitActivity"

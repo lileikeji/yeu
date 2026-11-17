@@ -56,7 +56,7 @@ function getErrDesc(err: unknown): string {
 
 async function saveRecruitConfig(): Promise<void> {
   if (!form.title.trim()) {
-    toast.add({ title: '招新表标题不能为空', color: 'warning' })
+    toast.add({ title: '表单标题不能为空', color: 'warning' })
     return
   }
   savingConfig.value = true
@@ -73,7 +73,7 @@ async function saveRecruitConfig(): Promise<void> {
     toast.add({ title: form.open ? '已开放官网招新报名通道' : '已关闭线上招新通道', color: 'success' })
     emit('changed')
   } catch (error) {
-    toast.add({ title: '保存招新配置失败', description: getErrDesc(error), color: 'error' })
+    toast.add({ title: '保存失败', description: getErrDesc(error), color: 'error' })
   } finally {
     savingConfig.value = false
   }
@@ -147,10 +147,10 @@ function exportRecruitCsv(): void {
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-            招新通道开关与表单说明
+            招新通道
           </h2>
           <p class="text-xs text-zinc-500">
-            控制官网 `/join/` 是否开放线上招新申请表，审核通过的同学可直接在下方「一键入档」转为正式成员白名单。
+            开关控制官网「加入我们」的报名表。审核通过后可在下面一键入档。
           </p>
         </div>
 
@@ -167,13 +167,13 @@ function exportRecruitCsv(): void {
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2">
-        <UFormField label="招新表标题">
+        <UFormField label="表单标题">
           <UInput
             v-model="form.title"
             class="w-full"
           />
         </UFormField>
-        <UFormField label="宣传短口号">
+        <UFormField label="口号">
           <UInput
             v-model="form.slogan"
             placeholder="例如：第一天先加群，逛逛再选组"
@@ -182,7 +182,7 @@ function exportRecruitCsv(): void {
         </UFormField>
       </div>
 
-      <UFormField label="报名页引导说明">
+      <UFormField label="引导说明">
         <UTextarea
           v-model="form.intro"
           :rows="2"
@@ -197,12 +197,12 @@ function exportRecruitCsv(): void {
           variant="outline"
           color="neutral"
           icon="i-lucide-file-text"
-          label="高级字段/Word模板设置"
+          label="字段与 Word 模板"
         />
         <UButton
           size="sm"
           icon="i-lucide-save"
-          label="保存招新配置"
+          label="保存"
           class="!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
           :loading="savingConfig"
           @click="saveRecruitConfig"
@@ -217,7 +217,7 @@ function exportRecruitCsv(): void {
           <UInput
             v-model="searchKw"
             icon="i-lucide-search"
-            placeholder="搜索姓名、学号、班级、部门..."
+            placeholder="搜姓名、学号、班级、部门"
             size="sm"
             class="w-56"
           />
@@ -226,7 +226,7 @@ function exportRecruitCsv(): void {
             class="h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2 text-xs"
           >
             <option value="">
-              入档时优先取报名意向部门
+              按报名意向部门
             </option>
             <option
               v-for="d in departments"
@@ -239,7 +239,7 @@ function exportRecruitCsv(): void {
           <UInput
             v-model="defaultTerm"
             size="sm"
-            placeholder="入档届别"
+            placeholder="届别"
             class="w-32"
           />
         </div>
@@ -257,7 +257,7 @@ function exportRecruitCsv(): void {
             size="xs"
             color="primary"
             icon="i-lucide-user-check"
-            :label="`选中转入成员白名单 (${selectedIds.length})`"
+            :label="`转入白名单 (${selectedIds.length})`"
             :disabled="selectedIds.length === 0"
             :loading="approving"
             @click="approveSubmissions(selectedIds)"

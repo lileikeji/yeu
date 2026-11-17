@@ -146,6 +146,39 @@ function serializeSettings(row: typeof yeucaSiteSettings.$inferSelect): YeucaSit
   }
 }
 
+export const DEPARTMENT_UNSURE_OPTION = '暂未确定（进群后再定）'
+
+const DEPARTMENT_FIELD_KEYS = new Set(['department', 'departments', 'dept'])
+
+/**
+ * 主站「加入我们」把意向部门的选项画成站点部门表里的名单，表单字段自身只留空数组。
+ * 校验时按同一份名单补齐，避免后台改了部门名之后报名被拒。
+ */
+export function resolveRecruitDepartmentOptions(
+  fieldsJson: string,
+  departments: { name: string; acceptingRecruit: boolean }[]
+): string {
+  const names = departments.filter(item => item.acceptingRecruit).map(item => item.name)
+  const fields = JSON.parse(fieldsJson) as {
+    key: string
+    label?: string
+    type?: string
+    required?: boolean
+    options?: string[]
+  }[]
+  return JSON.stringify(fields.map(field => {
+    const isDepartmentField = DEPARTMENT_FIELD_KEYS.has(field.key)
+      || String(field.label ?? '').includes('部门')
+    if (!isDepartmentField || field.type !== 'multiselect') return field
+    const base = names.length > 0 ? names : (field.options ?? [])
+    return {
+      ...field,
+      required: false,
+      options: [...new Set([DEPARTMENT_UNSURE_OPTION, ...base])]
+    }
+  }))
+}
+
 export function ensureYeucaSettings(client: DatabaseClient): YeucaSiteSettings {
   const club = findComputerAssociationContent(client)
   const existing = club
