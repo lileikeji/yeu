@@ -118,6 +118,15 @@ const {
   onCanvasMove, onCanvasUp, undoLastPatch, clearPatches, downloadQr, downloadPoster
 } = useCompetitionPoster()
 
+const accompanimentPreview = ref<{ name: string, url: string } | null>(null)
+const accompanimentPreviewOpen = ref(false)
+
+function openAccompaniment(entry: CompetitionRoundEntry): void {
+  if (!entry.accompaniment) return
+  accompanimentPreview.value = { name: entry.accompaniment.name, url: entry.accompaniment.url }
+  accompanimentPreviewOpen.value = true
+}
+
 const liveRefreshing = ref(false)
 let liveTimer: ReturnType<typeof setInterval> | null = null
 
@@ -1548,6 +1557,17 @@ onBeforeUnmount(stopLiveRefresh)
               >
                 叫号台
               </a>
+              <UButton
+                v-if="activeRound && activeRound.key !== 'prelim'"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-folder-down"
+                :loading="exportingKind === 'accompaniment'"
+                @click="exportAccompaniment(activeRound)"
+              >
+                下载全部伴奏
+              </UButton>
             </div>
           </div>
 
@@ -1646,10 +1666,18 @@ onBeforeUnmount(stopLiveRefresh)
                         >
                         {{ entry.accompaniment ? '换伴奏' : '传伴奏' }}
                       </label>
-                      <span
-                        v-if="entry.accompaniment"
-                        class="ml-1 text-[11px]"
-                      >{{ entry.accompaniment.name }}</span>
+                      <template v-if="entry.accompaniment">
+                        <button
+                          type="button"
+                          class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                          aria-label="试听伴奏"
+                          @click="openAccompaniment(entry)"
+                        >
+                          <UIcon name="i-lucide-play" class="size-3" />
+                          试听
+                        </button>
+                        <span class="ml-1 text-[11px]">{{ entry.accompaniment.name }}</span>
+                      </template>
                     </template>
                     <span v-else>—</span>
                   </td>
@@ -1752,16 +1780,6 @@ onBeforeUnmount(stopLiveRefresh)
                   名单（不带成绩）
                 </UButton>
 
-                <UButton
-                  v-if="activeRound?.key === 'semi'"
-                  color="neutral"
-                  variant="soft"
-                  icon="i-lucide-folder-down"
-                  :loading="exportingKind === 'accompaniment'"
-                  @click="activeRound && exportAccompaniment(activeRound)"
-                >
-                  导出伴奏（每人一个文件夹）
-                </UButton>
                 <UButton
                   v-if="advanceConfirmed"
                   size="xs"
@@ -3005,6 +3023,36 @@ onBeforeUnmount(stopLiveRefresh)
             :disabled="!scoreDraftComplete"
             @click="saveScoreEdit"
           />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="accompanimentPreviewOpen"
+      :title="accompanimentPreview?.name || '伴奏'"
+      description="手机上直接点播放就能听，电脑也可以下载下来。"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
+    >
+      <template #body>
+        <div class="space-y-3">
+          <audio
+            v-if="accompanimentPreview"
+            :src="accompanimentPreview.url"
+            controls
+            preload="none"
+            class="w-full"
+          />
+          <a
+            v-if="accompanimentPreview"
+            :href="accompanimentPreview.url"
+            :download="accompanimentPreview.name"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-sm text-emerald-700 underline dark:text-emerald-300"
+          >
+            <UIcon name="i-lucide-download" class="size-4" />
+            下载这个伴奏
+          </a>
         </div>
       </template>
     </UModal>
