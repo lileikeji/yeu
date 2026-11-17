@@ -144,6 +144,9 @@ function alignArrow(): void {
     : (overflowLeft > 0 ? Math.round(overflowLeft) : 0)
   el.style.translate = shift === 0 ? '' : shift + 'px 0'
   if (shift !== 0) rect = el.getBoundingClientRect()
+  // 卡片落到锚点下方即视为 flip-block（替代 lightningcss 不支持的 anchored() 容器查询）
+  el.toggleAttribute('data-flipped', rect.top > anchor.y)
+
   const offset = anchor.x - rect.left
   const limit = Math.max(0, rect.width / 2 - 8)
   const clamped = Math.min(Math.max(offset, Math.min(ARROW_INSET, limit)), rect.width - Math.min(ARROW_INSET, limit))
@@ -479,16 +482,14 @@ function onToggle(event: Event): void {
   background: inherit;
 }
 
-/* 翻到下方时箭头换到上沿 */
-@container anchored(fallback: flip-block) {
-  .pin-popover__arrow {
-    inset-block-end: auto;
-    inset-block-start: -5px;
-    border-inline-end: 0;
-    border-block-end: 0;
-    border-inline-start: 1px solid var(--color-zinc-200, #e4e4e7);
-    border-block-start: 1px solid var(--color-zinc-200, #e4e4e7);
-  }
+/* 翻到下方时箭头换到上沿。lightningcss 1.33 解析不了 anchored() 容器查询（会直接打断生产构建），改由 alignArrow 写 data-flipped */
+.pin-popover[data-flipped] .pin-popover__arrow {
+  inset-block-end: auto;
+  inset-block-start: -5px;
+  border-inline-end: 0;
+  border-block-end: 0;
+  border-inline-start: 1px solid var(--color-zinc-200, #e4e4e7);
+  border-block-start: 1px solid var(--color-zinc-200, #e4e4e7);
 }
 
 .pin-popover__close {

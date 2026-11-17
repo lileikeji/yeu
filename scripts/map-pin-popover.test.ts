@@ -24,7 +24,11 @@ test('pin popover uses native popover with css anchor positioning', () => {
   assert.match(popoverSource, /position-area: block-start/)
   assert.match(popoverSource, /position-try-fallbacks: flip-block, shift-inline/)
   assert.match(popoverSource, /container-type: anchored/)
-  assert.match(popoverSource, /@container anchored\(fallback: flip-block\)/)
+  // 箭头换向不靠 @container anchored()：lightningcss 1.33 解析不了这条，
+  // 会让 nuxt build 直接失败（CI「Verify code and production build」红过），改由脚本写 data-flipped。
+  assert.match(popoverSource, /toggleAttribute\('data-flipped'/)
+  assert.match(popoverSource, /\.pin-popover\[data-flipped\] \.pin-popover__arrow/)
+  assert.doesNotMatch(popoverSource, /@container anchored\(/)
   // 浮窗不抢焦点：不做 aria-expanded 的触发器语义。
   assert.doesNotMatch(popoverSource, /aria-expanded/)
 })
