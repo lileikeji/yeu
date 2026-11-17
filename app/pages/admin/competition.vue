@@ -45,7 +45,7 @@ const rankedEntries = computed(() => {
 
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
-  sections, event, maxTotal, singers, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
+  sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
   load, saveSettings, addDimension, removeDimension, moveDimension, restoreDefaultDimensions,
   saveRound, setRoundStatus
 } = useCompetitionPayload({ toast })
@@ -706,7 +706,7 @@ onBeforeUnmount(stopLiveRefresh)
           v-else
           class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
         >
-          <table class="w-full min-w-[1180px] text-sm">
+          <table class="w-full min-w-[1360px] text-sm">
             <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
               <tr>
                 <th class="w-16 px-3 py-2 font-medium">
@@ -716,7 +716,13 @@ onBeforeUnmount(stopLiveRefresh)
                   姓名
                 </th>
                 <th class="px-3 py-2 font-medium">
-                  参赛歌曲
+                  初赛曲目
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  复赛曲目
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  决赛曲目
                 </th>
                 <th class="px-3 py-2 font-medium">
                   班级
@@ -757,7 +763,19 @@ onBeforeUnmount(stopLiveRefresh)
                   {{ singer.name }}
                 </td>
                 <td class="px-3 py-2">
-                  {{ singer.song || '待定' }}
+                  {{ singerRoundSong(singer, 'prelim') || singer.song || '待定' }}
+                </td>
+                <td class="px-3 py-2 text-xs">
+                  <template v-if="singerJoinedRound(singer.id, 'semi')">
+                    {{ singerRoundSong(singer, 'semi') || '待填' }}
+                  </template>
+                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                </td>
+                <td class="px-3 py-2 text-xs">
+                  <template v-if="singerJoinedRound(singer.id, 'final')">
+                    {{ singerRoundSong(singer, 'final') || '待填' }}
+                  </template>
+                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
                 </td>
                 <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ singer.className || '—' }}
