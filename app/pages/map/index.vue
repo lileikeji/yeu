@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MapArea, MapPoi } from '~~/map/core/types'
+import type { GeoPoint, MapArea, MapPoi } from '~~/map/core/types'
 import type {
   MapBaseStyle,
   MapDisplayOptions,
@@ -8,6 +8,8 @@ import type {
   MapProviderId
 } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
+import { haversineMeters } from '~~/shared/utils/bus-route-progress'
+import { gcj02ToWgs84 } from '~~/shared/utils/coordinate-convert'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import type { GlassTarget } from '~/composables/useMapGlassRefraction'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
@@ -267,6 +269,8 @@ const MAP_GLASS_LOW_FPS = 40
 const glassLayerElement = ref<HTMLElement | null>(null)
 // T-033：搜索入口搬进底部合成块（ShellDock），本页不再持有独立搜索胶囊元素。
 const glassChipsElement = ref<HTMLElement | null>(null)
+/** 点位浮窗自己也是折射 target：组件暴露根元素，卡不在时 ref 为 null（target 列表自然少一项）。 */
+const pinPopoverElement = ref<{ rootElement?: HTMLElement | null } | null>(null)
 const glassSourceElement = ref<HTMLElement | null>(null)
 const glassEnabled = ref(true)
 /** 低帧降级档：1 → 0.4 → 0（0 = 停渲染，回退 CSS blur）。 */
@@ -290,6 +294,8 @@ function resolveGlassTargets(): GlassTarget[] {
   // radius 收到 0.008，band 交给 bandEdges='top' 只由上边驱动：左右是屏幕边，没有水切面语义。
   // 圆角的裁切在外壳 CSS，rim 仍为 0；顶边高光与折射保留。
   push(mobileSheetElement.value, 0.008, 2.2, 0.18, 0, 'top')
+  // 点位浮窗：262 宽卡、圆角 14（14/262 ≈ 0.055），四边都有水切面所以 bandEdges='all' + rim 1。
+  push(pinPopoverElement.value?.rootElement ?? null, 0.055, 2.2, 0.16, 1, 'all')
   // T-033：搜索胶囊已并入底部合成块，这里不再单独注册 target。
   return targets
 }
@@ -798,6 +804,478 @@ const { mountMap } = useMapProviderLifecycle({
   }
 })
 
+/* ---- 地图点位浮窗（T-028）----
+ * 图钉 / 车辆 / 站点都在 canvas 图层里，没有 DOM 可挂 anchor-name：
+ * 用 projectToScreen(point) 把业务坐标换成容器像素，喂给 MapPinPopover 的 0 尺寸锚点宿主。
+ * guide: hovercard / position-aware-tooltips（不抢焦点、light dismiss、翻转换箭头）。
+ */
+interface PinSelection {
+  kind: 'poi' | 'cluster' | 'bus' | 'bus-stop' | 'bus-terminal' | 'transit-terminal' | 'transit-vehicle'
+  id: string
+  /** 要素自带显示名（provider 从图层属性带出来），标题优先用它。 */
+  name?: string
+  /** 平面图编号地点没有坐标：这时不指图钉，贴着地图下沿居中显示。 */
+  point?: GeoPoint
+  count?: number
+}
+
+const pinSelection = shallowRef<PinSelection | null>(null)
+const pinAnchor = shallowRef<{ x: number, y: number } | null>(null)
+/** 锚点是合成的（地点没有坐标 / 地图未就绪）：不画箭头。 */
+const pinDetached = shallowRef(false)
+let pinAnchorRaf = 0
+
+/** 图钉是按 WGS84 画上去的（provider 建 feature 前统一换算），投影也必须先归一化。 */
+function pinProjectionPoint(point: GeoPoint): GeoPoint {
+  if (point.crs !== 'GCJ-02') return point
+  const wgs = gcj02ToWgs84(point.lng, point.lat)
+  return { lng: wgs.longitude, lat: wgs.latitude, crs: 'WGS84' }
+}
+
+function refreshPinAnchor(): void {
+  const selection = pinSelection.value
+  if (!selection) {
+    pinAnchor.value = null
+    pinDetached.value = false
+    return
+  }
+  const projected = selection.point
+    ? mapProvider.value?.projectToScreen?.(pinProjectionPoint(selection.point)) ?? null
+    : null
+  const box = mapElement.value?.getBoundingClientRect()
+  // 投影点落在可视地图之外（相机没跟过去）时不能把卡片甩到屏幕外，退回贴底居中。
+  const onScreen = projected && box
+    ? projected.x >= 0 && projected.y >= 0 && projected.x <= box.width && projected.y <= box.height
+    : false
+  if (projected && onScreen) {
+    pinDetached.value = false
+    pinAnchor.value = projected
+    return
+  }
+  // 没有坐标、地图还没就绪或锚点在图外：卡片贴着地图下沿居中，箭头隐藏
+  pinDetached.value = true
+  pinAnchor.value = box
+    ? { x: Math.round(box.width / 2), y: Math.round(box.height - 108) }
+    : { x: 180, y: 560 }
+}
+
+/** 地图在动（飞相机 / 拖拽 / 缩放）时锚点必须跟着重投影，否则卡片会停在老位置。 */
+let pinFollowRaf = 0
+function stopPinFollow(): void {
+  if (!pinFollowRaf) return
+  cancelAnimationFrame(pinFollowRaf)
+  pinFollowRaf = 0
+}
+function startPinFollow(): void {
+  if (pinFollowRaf) return
+  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return
+  const step = (): void => {
+    if (!pinSelection.value) {
+      pinFollowRaf = 0
+      return
+    }
+    refreshPinAnchor()
+    pinFollowRaf = window.requestAnimationFrame(step)
+  }
+  pinFollowRaf = window.requestAnimationFrame(step)
+}
+watch(pinSelection, (selection) => {
+  if (selection) startPinFollow()
+  else stopPinFollow()
+})
+
+function schedulePinAnchorRefresh(): void {
+  if (pinAnchorRaf) return
+  pinAnchorRaf = requestAnimationFrame(() => {
+    pinAnchorRaf = 0
+    refreshPinAnchor()
+  })
+}
+
+function closePinPopover(): void {
+  pinSelection.value = null
+  pinAnchor.value = null
+}
+
+function handlePinFeatureSelected(selection: PinSelection | null): void {
+  // 桌面沿用左下详情卡与两块大面板：点位浮窗只在手机分支出现。
+  if (panelIsDesktop.value) {
+    closePinPopover()
+    return
+  }
+  if (!selection) {
+    closePinPopover()
+    return
+  }
+  const current = pinSelection.value
+  if (current && current.kind === selection.kind && current.id === selection.id) {
+    closePinPopover()
+    return
+  }
+  pinSelection.value = selection
+  refreshPinAnchor()
+}
+
+watch(pinSelection, () => {
+  void nextTick(refreshPinAnchor)
+})
+watch(mapProvider, (provider) => {
+  if (!provider) {
+    closePinPopover()
+    return
+  }
+  provider.onFeatureSelect?.((selection) => {
+    handlePinFeatureSelected(selection as unknown as PinSelection | null)
+  })
+  provider.onViewportChange?.(() => {
+    schedulePinAnchorRefresh()
+  })
+}, { immediate: true })
+
+// POI 走原有 selectedPoi 通道：选中即弹窗，清空即关窗
+watch(selectedPoi, (poi) => {
+  // 桌面保留左下详情卡，浮窗只在手机分支出现。
+  if (panelIsDesktop.value) {
+    if (pinSelection.value) closePinPopover()
+    return
+  }
+  if (!poi) {
+    if (pinSelection.value?.kind === 'poi') closePinPopover()
+    return
+  }
+  pinSelection.value = { kind: 'poi', id: poi.id, point: poi.point ?? undefined }
+  refreshPinAnchor()
+})
+
+// 窗口拉宽到桌面分支时浮窗退场，桌面侧栏接管详情。
+watch(() => panelIsDesktop.value, (desktop) => {
+  if (desktop) closePinPopover()
+})
+
+// 面板一抬起来就收浮窗（进 sheet / 看全线 / 看实时都走这条路）
+watch(mobileSheetState, (state) => {
+  if (state !== 'collapsed') closePinPopover()
+})
+
+interface PinCardModel {
+  kind: string
+  tone: 'place' | 'gate' | 'cluster' | 'bus' | 'transit'
+  icon: string
+  title: string
+  subtitle?: string
+  chips: { label: string, icon?: string }[]
+  rows: { badge?: string, label: string, meta?: string }[]
+  eta?: { value: string, caption: string, progress?: number, from?: string, to?: string } | null
+  actions: { key: string, label: string, icon?: string, variant?: 'primary' | 'ghost' | 'icon' }[]
+  meta?: string
+  metaAction?: string
+}
+
+/** 米数：<1 km 用整数米，超出用一位小数公里。 */
+function pinMetersText(meters: number): string {
+  return meters >= 1000 ? (meters / 1000).toFixed(1) + ' km' : Math.round(meters) + ' m'
+}
+
+/** 距我多远：没有定位就不写，不猜。 */
+function pinDistanceText(point?: { lng: number, lat: number } | null): string {
+  const origin = userLocation.value
+  if (!origin || !point) return ''
+  return pinMetersText(haversineMeters(origin, point))
+}
+
+/** GPS 年龄：校外公交是拉取时间，校内校车是快照时间。 */
+function pinAgeText(iso?: string | null): string {
+  const at = Date.parse(iso ?? '')
+  if (!Number.isFinite(at)) return ''
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000))
+  return seconds < 60 ? seconds + ' 秒前定位' : Math.round(seconds / 60) + ' 分钟前定位'
+}
+
+// 地图点位（MapPoi）没有 usageChecklist 字段，这里补空数组走兜底文案，
+// 否则 buildMapPoiUseChecklist 会读 undefined.length 直接抛错。
+function pinPoiChecklist(poi: object): string[] {
+  const usage = (poi as { usageChecklist?: string[] }).usageChecklist
+  const checklist = Array.isArray(usage) ? usage : []
+  return poiUseChecklist({ ...poi, usageChecklist: checklist } as unknown as PublicMapPlace)
+}
+
+const pinCard = computed<PinCardModel | null>(() => {
+  const selection = pinSelection.value
+  if (!selection) return null
+
+  if (selection.kind === 'poi') {
+    const poi = filteredMapPois.value.find(item => item.id === selection.id)
+    if (!poi) {
+      return { kind: 'poi', tone: 'place', icon: 'i-lucide-map-pin', title: '地点', chips: [], rows: [], actions: [], meta: '' }
+    }
+    const distance = pinDistanceText(poi.point)
+    return {
+      kind: 'poi',
+      tone: poi.category === 'gate' ? 'gate' : 'place',
+      icon: categoryIcon(poi.category),
+      title: poi.name,
+      subtitle: [
+        categoryLabel(poi.category),
+        distance,
+        // 有图钉就不写「暂时没有地图位置」，否则和箭头所指的图钉自相矛盾。
+        poi.point ? '' : poiStatusText(poi as unknown as PublicMapPlace)
+      ].filter(Boolean).join(' · '),
+      chips: pinPoiChecklist(poi).slice(0, 3).map(label => ({ label })),
+      rows: [],
+      actions: [
+        { key: 'route', label: '导航', icon: 'i-lucide-navigation', variant: 'primary' },
+        { key: 'favorite', label: '', icon: 'i-lucide-star', variant: 'icon' }
+      ],
+      meta: '详情',
+      metaAction: 'details'
+    }
+  }
+
+  if (selection.kind === 'cluster') {
+    const count = selection.count ?? 0
+    return {
+      kind: 'cluster',
+      tone: 'cluster',
+      icon: 'i-lucide-layers',
+      title: count ? '这一带 ' + count + ' 个地点' : '这一带的地点',
+      subtitle: '点开放大后逐个查看',
+      chips: [],
+      rows: [],
+      actions: [
+        { key: 'cluster-all', label: count ? '查看这 ' + count + ' 个' : '查看全部', icon: 'i-lucide-list', variant: 'primary' },
+        { key: 'cluster-zoom', label: '', icon: 'i-lucide-zoom-in', variant: 'icon' }
+      ]
+    }
+  }
+
+  if (selection.kind === 'bus') {
+    const bus = busVehicles.value.find(item => item.busId === selection.id)
+    const route = bus?.routeId ? busRoutes.value.find(item => item.routeId === bus.routeId) : undefined
+    const stops = route?.stops ?? []
+    const stopIndex = bus ? stops.findIndex(stop => stop.siteId === bus.siteId) : -1
+    const remaining = stopIndex >= 0 ? Math.max(0, stops.length - 1 - stopIndex) : null
+    const pill = busEtaPills.value.find(item => item.id === bus?.busId)
+    const etaMinutes = pill?.etaMinutes ?? 0
+    return {
+      kind: 'bus',
+      tone: 'bus',
+      icon: 'i-lucide-tram-front',
+      title: bus?.busName || '叮叮车',
+      subtitle: [
+        bus?.routeName || route?.routeName || '',
+        bus?.isAtSite ? '已到站' : '在途',
+        remaining !== null ? '还剩 ' + remaining + ' 站' : ''
+      ].filter(Boolean).join(' · '),
+      chips: [],
+      rows: [],
+      eta: etaMinutes > 0
+        ? {
+            value: '约 ' + etaMinutes + ' 分',
+            caption: pill?.label ? '到 ' + pill.label.replace(/^到/, '') : '到下一站',
+            progress: stopIndex >= 0 && stops.length > 1 ? stopIndex / (stops.length - 1) : undefined,
+            from: stops[0]?.siteName,
+            to: stops[stops.length - 1]?.siteName
+          }
+        : null,
+      actions: [{ key: 'bus-route', label: '看全线', icon: 'i-lucide-route', variant: 'primary' }],
+      meta: pinAgeText(bus?.updatedAt)
+    }
+  }
+
+  if (selection.kind === 'bus-stop' || selection.kind === 'bus-terminal') {
+    const matched = busRoutes.value
+      .map(route => ({ route, index: route.stops.findIndex(stop => stop.siteId === selection.id) }))
+      .filter(item => item.index >= 0)
+    const first = matched[0]
+    const stop = first ? first.route.stops[first.index] : undefined
+    return {
+      kind: selection.kind,
+      tone: 'bus',
+      icon: 'i-lucide-tram-front',
+      title: stop?.siteName || selection.name || selection.id,
+      subtitle: [
+        first ? '第 ' + (first.index + 1) + ' 站 / 共 ' + first.route.stops.length + ' 站' : '',
+        stop ? pinDistanceText({ lng: stop.lng, lat: stop.lat }) : ''
+      ].filter(Boolean).join(' · '),
+      chips: [],
+      rows: matched.slice(0, 2).map(({ route, index }) => ({
+        badge: route.isBack ? '回程' : '去程',
+        label: '往 ' + (route.stops[route.stops.length - 1]?.siteName || route.routeName),
+        meta: '第 ' + (index + 1) + ' 站'
+      })),
+      actions: [{ key: 'bus-route', label: '看全线', icon: 'i-lucide-route', variant: 'primary' }],
+      meta: stop?.isOrigin ? '起点站' : stop?.isDestination ? '终点站' : ''
+    }
+  }
+
+  if (selection.kind === 'transit-terminal') {
+    const terminalName = selection.name || selection.id
+    const matched = transitDirections.value.filter(direction => direction.stops.some(stop => stop.name === terminalName))
+    const name = terminalName
+    return {
+      kind: 'transit-terminal',
+      tone: 'transit',
+      icon: 'i-lucide-bus-front',
+      title: name + ' · 校外公交',
+      subtitle: matched.length + ' 条线路',
+      chips: [],
+      rows: matched.slice(0, 2).map(direction => ({
+        badge: direction.line,
+        label: '往 ' + direction.to
+      })),
+      actions: [{ key: 'transit-live', label: '看实时', icon: 'i-lucide-activity', variant: 'primary' }],
+      meta: ''
+    }
+  }
+
+  const live = transitLive.value
+  for (const direction of live?.directions ?? []) {
+    const vehicle = (direction.vehicles as unknown as { id?: string, plate?: string, nextStation?: string, distanceToNext?: number }[])
+      .find(item => item.id === selection.id || item.plate === selection.id)
+    if (vehicle) {
+      return {
+        kind: 'transit-vehicle',
+        tone: 'transit',
+        icon: 'i-lucide-bus',
+        title: direction.line + ' · ' + (vehicle.plate || selection.id),
+        subtitle: [
+          '开往 ' + direction.to,
+          vehicle.nextStation ? '下一站 ' + vehicle.nextStation : ''
+        ].filter(Boolean).join(' · '),
+        chips: [],
+        rows: vehicle.nextStation
+          ? [{
+              badge: direction.line,
+              label: '距 ' + vehicle.nextStation + (vehicle.distanceToNext ? ' 还有 ' + pinMetersText(vehicle.distanceToNext) : ''),
+              meta: pinAgeText(live?.fetchedAt)
+            }]
+          : [],
+        actions: [{ key: 'transit-live', label: '看线路', icon: 'i-lucide-route', variant: 'primary' }],
+        meta: vehicle.nextStation || ''
+      }
+    }
+  }
+
+  // 车辆没匹配到实时帧（刚开走 / 还没定位）：只给标题与在途状态。
+  if (selection.kind === 'transit-vehicle') {
+    return {
+      kind: 'transit-vehicle',
+      tone: 'transit',
+      icon: 'i-lucide-bus',
+      title: selection.id || '车辆',
+      subtitle: '在途',
+      chips: [],
+      rows: [],
+      actions: [{ key: 'transit-live', label: '看线路', variant: 'primary' }],
+      meta: ''
+    }
+  }
+
+  return null
+})
+
+function handlePinAction(key: string): void {
+  const selection = pinSelection.value
+  if (!selection) return
+
+  if (key === 'details' && selection.kind === 'poi') {
+    mobileSheetState.value = 'half'
+    mapSheetView.value = 'sections'
+    return
+  }
+  if (key === 'cluster-all') {
+    mobileSheetState.value = 'half'
+    mapSheetView.value = 'all'
+    return
+  }
+  if (key === 'cluster-zoom') {
+    const zoom = mapProvider.value?.getZoom?.() ?? 12
+    if (selection.point) mapProvider.value?.flyToPoint(selection.point, zoom + 2)
+    closePinPopover()
+    return
+  }
+  if (key === 'bus-route') {
+    openBusSheet()
+    return
+  }
+  if (key === 'transit-live') {
+    mapSheetView.value = 'transit'
+    mobileSheetState.value = 'half'
+    return
+  }
+  if (key === 'route' && selection.kind === 'poi') {
+    const poi = filteredMapPois.value.find(item => item.id === selection.id)
+    if (poi?.point) startWalkingRoute(poi.name, poi.point)
+    return
+  }
+  if (key === 'favorite' && selection.kind === 'poi') {
+    toggleFavorite(selection.id)
+  }
+}
+
+/** 关窗后把焦点收回地图容器（tabindex=-1）：卡片里的按钮还在就不抢。 */
+function restoreMapFocus(): void {
+  if (typeof document === 'undefined') return
+  const active = document.activeElement as HTMLElement | null
+  // 卡片里的按钮（关闭叉、动作按钮）随之卸载，焦点不能留在原地；其余触发者还在原位时不抢焦点。
+  const insideCard = Boolean(active?.closest?.('.pin-popover'))
+  const lostFocus = !active || active === document.body || active.offsetParent === null || insideCard
+  if (!lostFocus) return
+  // 原生 popover 关闭后浏览器会把焦点还给「打开前」的元素，晚一帧再收焦点到地图容器。
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => mapElement.value?.focus({ preventScroll: true }))
+  })
+}
+
+/** 浮窗被 Esc / 点空白关掉时，焦点不回任何按钮。 */
+function handlePinPopoverClosed(): void {
+  closePinPopover()
+  restoreMapFocus()
+}
+
+/** Esc 只关浮窗：先收起卡片并把焦点交回地图，面板三态保持原样。 */
+function dismissPinPopover(): void {
+  if (!pinSelection.value) return
+  closePinPopover()
+  restoreMapFocus()
+}
+
+/** 手机列表点行：先把面板收起来，再选中并弹浮窗（桌面照旧）。 */
+function selectPoiFromSheet(poi: PublicMapPlace): void {
+  if (panelIsDesktop.value) {
+    selectPoi(poi)
+    return
+  }
+  mobileSheetState.value = 'collapsed'
+  const applySelection = () => {
+    if (selectedPoiId.value !== poi.id) selectPoi(poi)
+  }
+  // 面板收起时地图容器在变尺寸，首帧投影可能拿不到值；补齐几次重投影，箭头才对得准。
+  for (const delay of [120, 300, 700, 1200]) {
+    window.setTimeout(() => {
+      if (pinSelection.value && pinDetached.value) refreshPinAnchor()
+    }, delay)
+  }
+  void nextTick(applySelection)
+  window.setTimeout(applySelection, 160)
+  window.setTimeout(applySelection, 360)
+}
+
+/** 面板里点车：面板收到半屏，浮窗贴到车上（桌面面板保持原行为）。 */
+function handleTransitVehicleFocusFromPanel(payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }): void {
+  focusTransitVehicleFromPanel(payload)
+  if (panelIsDesktop.value) return
+  mobileSheetState.value = 'half'
+  void nextTick(() => {
+    pinSelection.value = {
+      kind: 'transit-vehicle',
+      id: payload.plate,
+      point: { lng: payload.point[0], lat: payload.point[1], crs: 'WGS84' }
+    }
+    refreshPinAnchor()
+  })
+}
+
 const { cancelMapRouteSync } = useMapRouteSync({
   categoryIds,
   places,
@@ -830,7 +1308,6 @@ const {
   transitLiveError,
   transitSelectedDirection,
   transitVehicleFocus,
-  transitGpsAge,
   transitMyLocation,
   speedBumpsVisible,
   basemapLabelsVisible,
@@ -839,10 +1316,8 @@ const {
   toggleTransitLines,
   changeTransitLine,
   changeTransitDirection,
-  distanceLabel,
   focusTransitStop,
   focusTransitVehicleFromPanel,
-  closeVehicleDetails,
   startTransitLive,
   stopTransitLive
 } = useMapTransit({
@@ -890,6 +1365,7 @@ watch(busEtaLayerVisible, (visible) => {
   })
 }, { immediate: true })
 onBeforeUnmount(() => busEtaPositioner.stop())
+onBeforeUnmount(() => stopPinFollow())
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
@@ -1160,6 +1636,12 @@ function handleSheetKeydown(event: KeyboardEvent): void {
   // 别的控件（手动起点弹层、显示设置、输入法组词）先吃掉 Esc 时不再连带收面板。
   if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return
   if (manualStartOpen.value || displaySettingsOpen.value) return
+  // 点位浮窗优先吃掉 Esc：否则面板会被抬回半屏，卡片随 watcher 直接消失且焦点丢在 body。
+  if (pinSelection.value) {
+    event.preventDefault()
+    dismissPinPopover()
+    return
+  }
   handleSheetBack()
 }
 
@@ -1357,7 +1839,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                 <button
                   type="button"
                   class="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] text-zinc-900 dark:text-zinc-100"
-                  @click="selectPoi(place)"
+                  @click="selectPoiFromSheet(place)"
                 >
                   <UIcon
                     name="i-lucide-map-pin"
@@ -1489,7 +1971,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               <button
                 type="button"
                 class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-green-50 dark:hover:bg-green-950/60 hover:text-green-800 dark:hover:text-green-200"
-                @click="selectPoi(place)"
+                @click="selectPoiFromSheet(place)"
               >
                 <UIcon
                   name="i-lucide-map-pin"
@@ -1616,7 +2098,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                   type="button"
                   class="flex min-h-11 w-full items-center gap-2 rounded-md border border-[var(--line)] px-2 text-left active:bg-zinc-50 dark:active:bg-zinc-800"
                   :aria-label="'打开收藏地点 ' + poi.name"
-                  @click="selectPoi(poi)"
+                  @click="selectPoiFromSheet(poi)"
                 >
                   <UIcon
                     :name="categoryIcon(poi.category)"
@@ -1668,7 +2150,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                   type="button"
                   class="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left active:bg-zinc-50 dark:active:bg-zinc-800"
                   :aria-label="'打开最近地点 ' + poi.name"
-                  @click="selectPoi(poi)"
+                  @click="selectPoiFromSheet(poi)"
                 >
                   <UIcon
                     :name="categoryIcon(poi.category)"
@@ -1731,7 +2213,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             type="button"
             class="flex w-full items-center gap-2.5 border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
             :class="selectedPoiId === poi.id ? 'bg-green-50 dark:bg-green-950' : 'bg-[var(--surface)] dark:bg-zinc-900'"
-            @click="selectPoi(poi)"
+            @click="selectPoiFromSheet(poi)"
           >
             <span
               class="grid size-8 shrink-0 place-items-center rounded-md md:size-9"
@@ -1786,26 +2268,37 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           @back="handleSheetBack()"
           @update:drawer-open="handleTransitDrawerChange($event)"
           @focus-stop="focusTransitStop($event)"
-          @focus-vehicle="focusTransitVehicleFromPanel($event)"
+          @focus-vehicle="handleTransitVehicleFocusFromPanel($event)"
           @select-direction="changeTransitDirection($event)"
           @change-line="changeTransitLine"
         />
       </div>
-      <LazyMapBusRoutePanel
-        v-if="mapSheetView === 'bus'"
-        variant="sheet"
-        :state="mobileSheetState"
-        :open="false"
-        :routes="busRoutes"
-        :buses="busVehicles"
-        :fetched-at="busFetchedAt"
-        class="md:hidden"
-        @sheet-raise="mobileSheetState = 'half'"
-        @sheet-expand="mobileSheetState = 'expanded'"
-        @sheet-collapse="mobileSheetState = 'half'"
-        @sheet-back="mapSheetView = 'sections'"
-        @sheet-drag-start="handleMobileSheetPointerDown($event)"
-      />
+      <template v-if="mapSheetView === 'bus'">
+        <LazyMapBusRoutePanel
+          v-if="mapSheetView === 'bus'"
+          variant="sheet"
+          :state="mobileSheetState"
+          :open="false"
+          :routes="busRoutes"
+          :buses="busVehicles"
+          :fetched-at="busFetchedAt"
+          class="md:hidden"
+          @sheet-raise="mobileSheetState = 'half'"
+          @sheet-expand="mobileSheetState = 'expanded'"
+          @sheet-collapse="mobileSheetState = 'half'"
+          @sheet-back="mapSheetView = 'sections'"
+          @sheet-drag-start="handleMobileSheetPointerDown($event)"
+        />
+        <div
+          v-if="transitVehicleFocus?.source === 'campus'"
+          class="shrink-0 border-t border-zinc-100 px-4 pb-2 pt-2 dark:border-zinc-800"
+        >
+          <MapBusMomentsSection
+            :bus-name="transitVehicleFocus.plate"
+            :route-name="transitVehicleFocus.routeName ?? ''"
+          />
+        </div>
+      </template>
     </aside>
 
     <section
@@ -1819,7 +2312,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       >
         <div
           ref="mapElement"
-          class="h-full w-full"
+          tabindex="-1"
+          class="h-full w-full outline-none"
         />
       </div>
       <!-- 玻璃折射画布：由 useMapGlassRefraction.attach() 在这里建 canvas。
@@ -1846,6 +2340,28 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         />
       </div>
 
+      <!-- 点位浮窗：原生 popover + CSS anchor positioning，压在 ETA 胶囊与玻璃层之上 -->
+      <MapPinPopover
+        v-if="pinCard"
+        ref="pinPopoverElement"
+        :open="Boolean(pinAnchor)"
+        :glass="mapGlassActive"
+        :anchor="pinAnchor"
+        :arrow="!pinDetached"
+        :kind="pinSelection?.kind"
+        :tone="pinCard.tone"
+        :icon="pinCard.icon"
+        :title="pinCard.title"
+        :subtitle="pinCard.subtitle"
+        :chips="pinCard.chips"
+        :rows="pinCard.rows"
+        :eta="pinCard.eta"
+        :actions="pinCard.actions"
+        :meta="pinCard.meta"
+        :meta-action="pinCard.metaAction"
+        @action="handlePinAction"
+        @close="handlePinPopoverClosed"
+      />
       <!-- 移动端浮层（<768px）：搜索胶囊 / 分类 chips / 底图来源条 / 右侧定位与列表。
            桌面端整块 md:hidden，侧栏保持原样。 -->
       <div
@@ -2359,8 +2875,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       </section>
 
       <MapPlaceDetailsPanel
-        v-if="selectedPoi"
-        :variant="panelIsDesktop ? 'desktop' : 'mobile'"
+        v-if="selectedPoi && panelIsDesktop"
+        variant="desktop"
         :place="selectedPoi"
         :category-label="categoryLabel(selectedPoi.category)"
         :category-icon="categoryIcon(selectedPoi.category)"
@@ -2394,67 +2910,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
     <!-- 校外公交面板：K2/K6 方向可展开看站序 -->
 
-    <!-- 车辆详情：点车后镜头跟住它，这里显示下一站与 GPS 新鲜度 -->
-    <div
-      v-if="transitVehicleFocus"
-      class="app-bar pointer-events-auto fixed bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+0.5rem+env(safe-area-inset-bottom))] right-3 z-50 w-60 rounded-xl border border-zinc-200 p-3 shadow-lg md:bottom-6 md:right-6 dark:border-zinc-700"
-    >
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <p class="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            {{ transitVehicleFocus.plate }}
-          </p>
-          <p class="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-            <span
-              v-if="transitVehicleFocus.routeName"
-              class="mr-1 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-            >
-              {{ transitVehicleFocus.routeName }}
-            </span>
-            下一站 {{ transitVehicleFocus.nextStation || '在途' }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="shrink-0 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-          aria-label="关闭车辆详情"
-          @click="closeVehicleDetails"
-        >
-          <UIcon
-            name="i-lucide-x"
-            class="size-4"
-          />
-        </button>
-      </div>
-      <dl class="mt-2 space-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-        <div class="flex items-center justify-between gap-2">
-          <dt class="text-zinc-400">
-            距下一站
-          </dt>
-          <dd class="tabular-nums font-medium">
-            {{ distanceLabel(transitVehicleFocus.distanceToNext) }}
-          </dd>
-        </div>
-        <div class="flex items-center justify-between gap-2">
-          <dt class="text-zinc-400">
-            GPS 更新
-          </dt>
-          <dd
-            class="tabular-nums font-medium"
-            :class="transitGpsAge > 40 ? 'text-amber-600' : 'text-emerald-600'"
-          >
-            {{ transitGpsAge }} 秒前
-          </dd>
-        </div>
-      </dl>
-
-      <!-- 车上留言（按车号分区）：只给校内校车，校外公交是线路无稳定车号 -->
-      <MapBusMomentsSection
-        v-if="transitVehicleFocus.source === 'campus'"
-        :bus-name="transitVehicleFocus.plate"
-        :route-name="transitVehicleFocus.routeName ?? ''"
-      />
-    </div>
     <LazyMapTransitPanel
       v-if="transitLinesOpen && panelIsDesktop"
       v-model:open="transitPanelOpen"

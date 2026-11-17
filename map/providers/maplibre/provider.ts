@@ -10,6 +10,8 @@ import type {
 import { campusBoundary } from '../../../data/seeds/osm-campus-boundary-encoded'
 import type {
   AreaSelectHandler,
+  FeatureSelectHandler,
+  MapFeatureSelection,
   MapErrorHandler,
   MapBaseStyle,
   MapDisplayOptions,
@@ -17,6 +19,7 @@ import type {
   MapUserLocation,
   PoiSelectHandler,
   PointPickedHandler,
+  ViewportChangeHandler,
   RouteSummary
 } from '../../core/provider'
 import {
@@ -78,6 +81,11 @@ const TRANSIT_VEHICLES_SOURCE_ID = 'yeu-transit-vehicles'
 const TRANSIT_VEHICLES_LAYER_ID = 'yeu-transit-vehicle-dots'
 const TRANSIT_ROUTE_COLOR = '#1a6cf5'
 const INTERACTIVE_LAYER_IDS = [
+  BUS_STOP_DOTS_LAYER_ID,
+  BUS_TERMINALS_LAYER_ID,
+  BUSES_ICON_LAYER_ID,
+  TRANSIT_TERMINALS_LAYER_ID,
+  TRANSIT_VEHICLES_LAYER_ID,
   CLUSTER_LAYER_ID,
   POI_LAYER_ID,
   POI_LABEL_LAYER_ID,
@@ -169,6 +177,8 @@ export class MapLibrePreviewProvider implements MapProvider {
   private pointPickedHandler: PointPickedHandler | null = null
   private poiSelectHandler: PoiSelectHandler | null = null
   private areaSelectHandler: AreaSelectHandler | null = null
+  private featureSelectHandler: FeatureSelectHandler | null = null
+  private viewportChangeHandler: ViewportChangeHandler | null = null
   private mapErrorHandler: MapErrorHandler | null = null
   private labelOverlapAllowed = false
   private eventsAttached = false
@@ -370,6 +380,24 @@ export class MapLibrePreviewProvider implements MapProvider {
         this.poiSelectHandler = null
       }
     }
+  }
+
+  onFeatureSelect(handler: FeatureSelectHandler): () => void {
+    this.featureSelectHandler = handler
+    return () => {
+      if (this.featureSelectHandler === handler) this.featureSelectHandler = null
+    }
+  }
+
+  onViewportChange(handler: ViewportChangeHandler): () => void {
+    this.viewportChangeHandler = handler
+    return () => {
+      if (this.viewportChangeHandler === handler) this.viewportChangeHandler = null
+    }
+  }
+
+  private readonly handleViewportChange = (): void => {
+    this.viewportChangeHandler?.()
   }
 
   onAreaSelect(handler: AreaSelectHandler): () => void {
@@ -1121,6 +1149,9 @@ export class MapLibrePreviewProvider implements MapProvider {
     map.on('click', this.handleMapClick)
     map.on('mousemove', this.handleMouseMove)
     map.on('mouseout', this.handleMouseOut)
+    map.on('move', this.handleViewportChange)
+    map.on('zoom', this.handleViewportChange)
+    map.on('resize', this.handleViewportChange)
     this.eventsAttached = true
     this.updateCursor()
   }
@@ -1133,6 +1164,9 @@ export class MapLibrePreviewProvider implements MapProvider {
     map.off('click', this.handleMapClick)
     map.off('mousemove', this.handleMouseMove)
     map.off('mouseout', this.handleMouseOut)
+    map.off('move', this.handleViewportChange)
+    map.off('zoom', this.handleViewportChange)
+    map.off('resize', this.handleViewportChange)
     this.eventsAttached = false
   }
 
@@ -1165,12 +1199,52 @@ export class MapLibrePreviewProvider implements MapProvider {
       return
     }
 
+    const featureSelection = this.selectionFromFeature(feature)
+
+    if (featureSelection) {
+      this.poiSelectHandler?.(null)
+      this.featureSelectHandler?.(featureSelection)
+      return
+    }
+
     const poiId = feature.properties?.poiId
     const poi = typeof poiId === 'string'
       ? this.pois.find(candidate => candidate.id === poiId) ?? null
       : null
 
     this.poiSelectHandler?.(poi)
+  }
+
+  /** 非 POI 图层的点击分发：由命中要素拼出 kind/id/point/count，认不出的图层返回 null。 */
+  private selectionFromFeature(feature: MapGeoJSONFeature): MapFeatureSelection | null {
+    const layerId = feature.layer.id
+    const props = feature.properties ?? {}
+    const rawId = props.id
+    const id = typeof rawId === 'string' ? rawId : rawId === undefined ? '' : String(rawId)
+    const name = typeof props.name === 'string' ? props.name : ''
+    const geometry = feature.geometry
+
+    if (!geometry || geometry.type !== 'Point') return null
+
+    const [lng, lat] = geometry.coordinates as [number, number]
+    const point: GeoPoint = { lng, lat, crs: 'WGS84' }
+
+    if (layerId === CLUSTER_LAYER_ID) {
+      const clusterId = Number(props.cluster_id)
+      if (!Number.isFinite(clusterId)) return null
+      const count = Number(props.point_count)
+      return { kind: 'cluster', id: String(clusterId), point, count: Number.isFinite(count) ? count : undefined }
+    }
+
+    if (!id) return null
+
+    if (layerId === BUSES_ICON_LAYER_ID || layerId === BUSES_LAYER_ID) return { kind: 'bus', id, point, name }
+    if (layerId === BUS_STOP_DOTS_LAYER_ID) return { kind: 'bus-stop', id, point, name }
+    if (layerId === BUS_TERMINALS_LAYER_ID) return { kind: 'bus-terminal', id, point, name }
+    if (layerId === TRANSIT_TERMINALS_LAYER_ID) return { kind: 'transit-terminal', id, point, name }
+    if (layerId === TRANSIT_VEHICLES_LAYER_ID) return { kind: 'transit-vehicle', id, point, name }
+
+    return null
   }
 
   private readonly handleMouseMove = (event: MapMouseEvent): void => {
