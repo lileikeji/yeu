@@ -201,7 +201,7 @@ watch(() => props.records, (records) => {
     >
       <template #body>
         <p class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                    删除后无法从设备上暂存的记录恢复。仅当这条记录确定无效或已经通过其他方式提交时执行此操作。
+          删除后无法从设备上暂存的记录恢复。仅当这条记录确定无效或已经通过其他方式提交时执行此操作。
         </p>
       </template>
       <template #footer>

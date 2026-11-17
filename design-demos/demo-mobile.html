@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>移动端双模式预览 | 迎新指南</title>
+  <style>
+    :root {
+      --page-bg: #f4f6f4;
+      --surface: #ffffff;
+      --line: #e4e8e3;
+      --ink: #090d0b;
+      --ink-2: #37413c;
+      --ink-3: #57625c;
+      --green: #176f46;
+      --green-soft: #eef6f1;
+      --green-line: #d4e6dc;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page-bg);
+      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    .shell {
+      width: min(100% - 2rem, 1120px);
+      margin-inline: auto;
+    }
+
+    .topbar {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .topbar-row {
+      min-height: 64px;
+      padding: 10px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand img { width: 32px; height: 32px; object-fit: contain; }
+    .brand h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .brand p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--ink-3);
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .nav-pill {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-2);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color .16s, color .16s;
+    }
+    .nav-pill:hover { border-color: var(--green); color: var(--green); }
+    .nav-pill.primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .summary-strip {
+      padding: 20px 0 16px;
+    }
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .note-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 15px;
+    }
+    .note-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .note-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--green-soft);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .note-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .note-card p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--ink-3);
+      line-height: 1.48;
+    }
+
+    .stage-wrap {
+      padding: 10px 0 42px;
+    }
+    .phones-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 412px));
+      justify-content: center;
+      gap: 36px;
+      align-items: start;
+    }
+    .phone-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .phone-meta {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 4px;
+    }
+    .phone-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .phone-badge {
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      border: 1px solid var(--green-line);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .phone-open {
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .phone-open:hover { background: var(--green-soft); }
+
+    .phone-bezel {
+      width: 100%;
+      max-width: 412px;
+      padding: 10px;
+      border-radius: 34px;
+      background: #1b221e;
+      box-shadow: 0 24px 52px -20px rgba(9, 13, 11, 0.28), 0 4px 12px rgba(9, 13, 11, 0.08);
+    }
+    .phone-screen {
+      width: 100%;
+      border-radius: 24px;
+      overflow: hidden;
+      background: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .phone-notch-bar {
+      height: 26px;
+      background: #ffffff;
+      border-bottom: 1px solid #eef0ed;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-2);
+    }
+    .phone-pill {
+      width: 72px;
+      height: 14px;
+      border-radius: 999px;
+      background: #1b221e;
+    }
+    .phone-frame {
+      display: block;
+      width: 100%;
+      height: 750px;
+      border: 0;
+      background: #f7f8f6;
+    }
+
+    @media (max-width: 960px) {
+      .notes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .phones-grid { grid-template-columns: minmax(0, 412px); gap: 28px; }
+    }
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 1.5rem, 1120px); }
+      .notes-grid { grid-template-columns: 1fr; }
+      .phone-bezel { padding: 6px; border-radius: 26px; }
+      .phone-screen { border-radius: 20px; }
+      .phone-frame { height: 680px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-row">
+      <div class="brand">
+        <img src="../public/images/brand/system-logo-mark.png" alt="迎新指南标志" />
+        <div>
+          <h1>移动端双模式重构对比预览</h1>
+          <p>真实 390px 视口 · 左侧完整模式，右侧简洁模式</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <a href="demo-minimal.html" class="nav-pill primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+          <span>回桌面极简版</span>
+        </a>
+        <a href="demo-custom.html" class="nav-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          <span>对比刊物交互版</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="summary-strip" aria-label="移动端重构要点">
+      <div class="notes-grid">
+        <article class="note-card">
+          <div class="note-head">
+            <span class="note-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg></span>
+            <h2>顶栏双模直切</h2>
+          </div>
+          <p>保留线上第二行切换胶囊，窗内直接点击互切模式</p>
+        </article>
+        <article class="note-card">
+          <div class="note-head">
+            <span class="note-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+            <h2>单行搜与全展示</h2>
+          </div>
+          <p>搜索框与 AI 按钮同行，重要日程完整显示不截断</p>
+        </article>
+        <article class="note-card">
+          <div class="note-head">
+            <span class="note-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></span>
+            <h2>消孤字与单列清单</h2>
+          </div>
+          <p>四格查询严格等高对齐，十项服务窄屏自动转单列</p>
+        </article>
+        <article class="note-card">
+          <div class="note-head">
+            <span class="note-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+            <h2>固定底栏与横滑卡</h2>
+          </div>
+          <p>补全五项底部导航，简洁模式整合轮播与宿舍对比</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="stage-wrap" aria-label="两台真实宽度手机实时预览">
+      <div class="phones-grid">
+        <div class="phone-column">
+          <div class="phone-meta">
+            <div class="phone-label">
+              <span>完整模式 · 移动端</span>
+              <span class="phone-badge">390px 视口</span>
+            </div>
+            <a href="demo-minimal.html" target="_blank" class="phone-open">
+              <span>单独打开</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+          </div>
+          <div class="phone-bezel">
+            <div class="phone-screen">
+              <div class="phone-notch-bar" aria-hidden="true">
+                <span>09:41</span>
+                <span class="phone-pill"></span>
+                <span>5G</span>
+              </div>
+              <iframe class="phone-frame" src="demo-minimal.html" title="完整模式移动端预览"></iframe>
+            </div>
+          </div>
+        </div>
+
+        <div class="phone-column">
+          <div class="phone-meta">
+            <div class="phone-label">
+              <span>简洁模式 · 移动端</span>
+              <span class="phone-badge">口袋轻量版</span>
+            </div>
+            <a href="demo-minimal.html?mode=compact" target="_blank" class="phone-open">
+              <span>单独打开</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+          </div>
+          <div class="phone-bezel">
+            <div class="phone-screen">
+              <div class="phone-notch-bar" aria-hidden="true">
+                <span>09:41</span>
+                <span class="phone-pill"></span>
+                <span>5G</span>
+              </div>
+              <iframe class="phone-frame" src="demo-minimal.html?mode=compact" title="简洁模式移动端预览"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

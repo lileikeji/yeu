@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026级新生入学指南 — 仰恩校园迎新</title>
+  <style>
+    :root {
+      --paper: #f6f5f0;
+      --paper-2: #efede6;
+      --white: #ffffff;
+      --ink: #161b18;
+      --ink-2: #3c4640;
+      --ink-3: #555f59;
+      --line: #dedbd2;
+      --line-soft: #e9e7e0;
+      --pine: #0f3d2e;
+      --pine-mid: #1a5c45;
+      --pine-soft: #e3efe9;
+      --terracotta: #b84a2e;
+      --terracotta-soft: #faeae5;
+      --serif-num: Georgia, "Times New Roman", "Noto Serif CJK SC", serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; color: inherit; }
+    button { border: none; background: transparent; cursor: pointer; }
+
+    .wrap {
+      width: min(100% - 2.5rem, 1220px);
+      margin-inline: auto;
+    }
+
+    /* 顶栏：通透融入纸白画布，无多余盒子感 */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(246, 245, 240, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .topbar-inner {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      flex-shrink: 0;
+    }
+    .brand img { width: 32px; height: 32px; object-fit: contain; }
+    .brand-name { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand-note {
+      font-size: 13px;
+      color: var(--ink-3);
+      padding-left: 10px;
+      border-left: 1px solid var(--line);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+    .nav a {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-2);
+      position: relative;
+      transition: color .2s;
+    }
+    .nav a:hover, .nav a.on { color: var(--pine); }
+    .nav a.on { font-weight: 700; }
+    .nav a.on::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 10px;
+      height: 1.5px;
+      background: var(--pine);
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .mode-switch {
+      display: inline-flex;
+      border-bottom: 1px solid var(--line);
+      gap: 4px;
+    }
+    .mode-switch button {
+      min-height: 38px;
+      padding: 0 8px;
+      font-size: 13px;
+      color: var(--ink-3);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .mode-switch button.on {
+      color: var(--pine);
+      font-weight: 700;
+      border-bottom-color: var(--pine);
+    }
+    .contact-link {
+      min-height: 44px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--pine);
+      transition: all .2s;
+    }
+    .contact-link:hover {
+      background: var(--pine);
+      border-color: var(--pine);
+      color: #fff;
+    }
+
+    /* 第一屏：不对称刊物首屏（左侧文本+AI搜索+无框4捷径，右侧双态可切换实景/地图舞台） */
+    .hero {
+      padding: 36px 0 42px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 5.6fr) minmax(0, 6.4fr);
+      gap: 40px;
+      align-items: center;
+    }
+
+    .schedule-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--ink-2);
+      margin-bottom: 18px;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--terracotta);
+      box-shadow: 0 0 0 4px rgba(184, 74, 46, 0.14);
+      flex-shrink: 0;
+    }
+    .schedule-line strong { color: var(--terracotta); font-weight: 700; }
+    .schedule-sep { color: #b8b4aa; }
+
+    .hero h1 {
+      margin: 0 0 14px;
+      font-size: clamp(32px, 3.8vw, 46px);
+      line-height: 1.15;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--pine-mid);
+    }
+    .hero-lead {
+      margin: 0 0 26px;
+      font-size: 16px;
+      color: var(--ink-2);
+      max-width: 44ch;
+    }
+
+    /* 搜索器：独立悬浮纯白精密条，无僵硬外框套娃 */
+    .omni-search {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 6px 6px 6px 16px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 28px -14px rgba(15, 61, 46, 0.14), 0 2px 6px rgba(0, 0, 0, 0.03);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .omni-search:focus-within {
+      border-color: var(--pine-mid);
+      box-shadow: 0 14px 32px -12px rgba(15, 61, 46, 0.2), 0 0 0 3px rgba(26, 92, 69, 0.1);
+    }
+    .omni-search svg { color: var(--ink-3); }
+    .omni-search input {
+      width: 100%;
+      min-height: 44px;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 15px;
+    }
+    .omni-search input::placeholder { color: #8c948e; }
+    .omni-btn {
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 10px;
+      background: var(--pine);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+      transition: background .18s;
+    }
+    .omni-btn:hover { background: var(--pine-mid); }
+
+    .ask-hints {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 14px;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .ask-hint-btn {
+      min-height: 38px;
+      padding: 2px 0;
+      display: inline-flex;
+      align-items: center;
+      color: var(--ink-2);
+      text-decoration: underline;
+      text-decoration-style: dashed;
+      text-underline-offset: 4px;
+      text-decoration-color: #b7b3a6;
+      transition: color .18s, text-decoration-color .18s;
+    }
+    .ask-hint-btn:hover { color: var(--pine); text-decoration-color: var(--pine); }
+
+    /* 四大核心入口：发丝分割的刊物索引横条，彻底告别 AI 盒子感 */
+    .core-shortcuts {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 28px;
+    }
+    .shortcut-row {
+      min-height: 48px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 4px 0;
+      transition: transform .18s;
+    }
+    .shortcut-row:hover { transform: translateX(3px); }
+    .shortcut-idx {
+      font-family: var(--serif-num);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--pine-mid);
+      padding-top: 2px;
+      flex-shrink: 0;
+    }
+    .shortcut-row strong {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .shortcut-row:hover strong { color: var(--pine); }
+    .shortcut-row span {
+      display: block;
+      font-size: 13px;
+      color: var(--ink-3);
+      margin-top: 2px;
+    }
+
+    /* 右侧独创双态视觉舞台：航拍实景 ⇄ 手绘校园地图 */
+    .campus-stage {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      background: #142a21;
+      border: 1px solid rgba(22, 27, 24, 0.12);
+      box-shadow: 0 24px 48px -20px rgba(15, 61, 46, 0.28);
+    }
+    .stage-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity .45s ease, transform .6s cubic-bezier(.22, 1, .36, 1);
+    }
+    .stage-layer.hidden { opacity: 0; pointer-events: none; transform: scale(1.03); }
+    .stage-scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(12, 26, 20, 0.16) 0%, rgba(12, 26, 20, 0.04) 45%, rgba(12, 26, 20, 0.84) 100%);
+      pointer-events: none;
+    }
+
+    .stage-switcher {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 4;
+      display: inline-flex;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(16, 28, 23, 0.78);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      gap: 4px;
+    }
+    .stage-switcher button {
+      min-height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.78);
+      transition: all .2s;
+    }
+    .stage-switcher button.on {
+      background: #ffffff;
+      color: var(--pine);
+    }
+
+    /* 可点地标针脚 */
+    .landmark-pin {
+      position: absolute;
+      z-index: 3;
+      min-height: 38px;
+      padding: 4px 11px 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+      transition: transform .2s, background .2s, color .2s;
+    }
+    .landmark-pin::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--pine);
+    }
+    .landmark-pin:hover, .landmark-pin.on {
+      background: var(--pine);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+    .landmark-pin.on::before, .landmark-pin:hover::before { background: #a7f3d0; }
+
+    .stage-caption {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 16px;
+      z-index: 3;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      color: #fff;
+    }
+    .stage-caption h2 { margin: 0 0 3px; font-size: 18px; font-weight: 700; }
+    .stage-caption p { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.86); }
+    .stage-go {
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--pine);
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .stage-go:hover { background: var(--pine-soft); }
+
+    /* 第二屏：沉浸式「宿舍对比体验窗 + 专业住宿片区速查」 */
+    .band {
+      padding: 52px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .band-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 26px;
+    }
+    .kicker {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--pine-mid);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .band-head h2 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .band-head p {
+      margin: 4px 0 0;
+      font-size: 15px;
+      color: var(--ink-2);
+    }
+
+    .dorm-showcase {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 34px;
+      align-items: center;
+    }
+    /* 左右拖拽对比窗 */
+    .compare-box {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      aspect-ratio: 16 / 10;
+      background: #1b221e;
+      border: 1px solid var(--line);
+      user-select: none;
+    }
+    .compare-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .compare-top-wrap {
+      position: absolute;
+      inset: 0;
+      width: 52%;
+      overflow: hidden;
+      border-right: 2px solid #ffffff;
+    }
+    .compare-top-wrap img {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      object-fit: cover;
+    }
+    .compare-badge {
+      position: absolute;
+      top: 14px;
+      z-index: 4;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(16, 24, 20, 0.94);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .compare-badge.left { left: 14px; }
+    .compare-badge.right { right: 14px; }
+    .compare-handle {
+      position: absolute;
+      top: 50%;
+      left: 52%;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: var(--pine);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+      pointer-events: none;
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .compare-range {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: ew-resize;
+      z-index: 6;
+      margin: 0;
+    }
+
+    .dorm-controls {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+
+    .dorm-panel h3 { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+    .dorm-panel p { margin: 0 0 18px; color: var(--ink-2); font-size: 15px; }
+    .dorm-table {
+      border-top: 1px solid var(--line);
+      margin-bottom: 20px;
+    }
+    .dorm-row {
+      display: grid;
+      grid-template-columns: 96px 1fr 1fr;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 14px;
+    }
+    .dorm-row strong { color: var(--ink-3); font-weight: 600; }
+
+    .major-picker {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .major-picker-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink-2);
+      margin-bottom: 10px;
+      display: block;
+    }
+    .major-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .major-btn {
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+      transition: all .15s;
+    }
+    .major-btn.on, .major-btn:hover {
+      background: var(--pine-soft);
+      border-color: var(--pine-mid);
+      color: var(--pine);
+    }
+    .major-result {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--pine);
+      font-weight: 600;
+    }
+
+    /* 第三屏：横向入学时间轴 + 实时圆环清单 + 沉稳墨绿急救卡 */
+    .journey-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 7.5fr) minmax(0, 4.5fr);
+      gap: 36px;
+      align-items: start;
+    }
+    .timeline-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid var(--line);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .t-tab {
+      min-height: 48px;
+      padding: 10px 4px;
+      text-align: left;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      color: var(--ink-3);
+      transition: color .2s, border-color .2s;
+    }
+    .t-tab strong { font-size: 15px; color: inherit; }
+    .t-tab span { font-size: 12px; }
+    .t-tab.on {
+      color: var(--pine);
+      border-bottom-color: var(--pine);
+    }
+
+    .todo-item {
+      width: 100%;
+      min-height: 54px;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+      transition: background .15s;
+    }
+    .todo-item:hover { background: rgba(255, 255, 255, 0.55); }
+    .todo-left { display: flex; align-items: center; gap: 14px; }
+    .todo-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1.5px solid #9ea6a0;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      color: #fff;
+      transition: all .18s;
+    }
+    .todo-item.done .todo-check {
+      background: var(--pine);
+      border-color: var(--pine);
+    }
+    .todo-item.done .todo-title {
+      color: var(--ink-3);
+      text-decoration: line-through;
+    }
+    .todo-title { font-size: 15px; font-weight: 500; color: var(--ink); }
+    .todo-tag { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+
+    /* 右侧：进度圆环卡 + 墨绿急救压阵卡 */
+    .side-stack { display: grid; gap: 18px; }
+    .ring-card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .ring-meta h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+    .ring-meta p { margin: 0; font-size: 14px; color: var(--ink-2); }
+    .ring-wrap {
+      position: relative;
+      width: 76px;
+      height: 76px;
+      flex-shrink: 0;
+    }
+    .ring-num {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-family: var(--serif-num);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--pine);
+    }
+
+    .sos-card {
+      background: var(--pine);
+      color: #f4f7f5;
+      border-radius: 16px;
+      padding: 22px;
+    }
+    .sos-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .sos-head h3 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sos-head span { font-size: 12px; color: #b7d7c8; }
+    .sos-list { display: grid; gap: 8px; }
+    .sos-row {
+      min-height: 44px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      transition: background .16s;
+    }
+    .sos-row:hover { background: rgba(255, 255, 255, 0.16); }
+    .sos-row span { font-size: 13px; color: #c7e0d3; }
+
+    /* 第四屏：刊物目录式 10 项全站服务 + 泉州三联切片 */
+    .directory-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 32px;
+    }
+    .dir-col h3 {
+      margin: 0 0 12px;
+      padding-bottom: 10px;
+      border-bottom: 1.5px solid var(--ink);
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .dir-link {
+      min-height: 50px;
+      padding: 10px 2px;
+      border-bottom: 1px solid var(--line-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: padding-left .18s, color .18s;
+    }
+    .dir-link:hover { padding-left: 6px; color: var(--pine); }
+    .dir-link strong { font-size: 15px; font-weight: 600; display: block; }
+    .dir-link small { font-size: 13px; color: var(--ink-3); }
+
+    /* 泉州生活三联摄影切片 */
+    .life-triptych {
+      margin-top: 38px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .life-slice {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid var(--line);
+      transition: border-color .2s, background .2s;
+    }
+    .life-slice:hover { background: #fff; border-color: var(--pine-mid); }
+    .life-slice img {
+      width: 112px;
+      height: 82px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    .life-slice strong { display: block; font-size: 15px; font-weight: 700; }
+    .life-slice span { display: block; font-size: 13px; color: var(--ink-3); margin-top: 3px; }
+
+    /* 声明与页脚 */
+    .trust-strip {
+      padding: 36px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--ink-2);
+    }
+    .trust-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-size: 14px;
+      color: var(--pine);
+      font-weight: 600;
+    }
+    .trust-links a { min-height: 44px; display: inline-flex; align-items: center; }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 20px 0 32px;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .footer-flex { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+    @media (max-width: 960px) {
+      .nav, .brand-note { display: none; }
+      .hero-layout, .dorm-showcase, .journey-grid, .directory-grid, .life-triptych {
+        grid-template-columns: 1fr;
+      }
+      .hero { padding: 24px 0 32px; }
+      .band { padding: 36px 0; }
+    }
+    @media (max-width: 640px) {
+      .wrap { width: min(100% - 1.75rem, 1220px); }
+      .mode-switch { display: none; }
+      .omni-search {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 10px;
+      }
+      .omni-search svg { display: none; }
+      .omni-btn { width: 100%; justify-content: center; }
+      .core-shortcuts { grid-template-columns: 1fr; }
+      .landmark-pin { display: none; }
+      .dorm-row { grid-template-columns: 78px 1fr 1fr; gap: 8px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a href="#top" class="brand">
+        <img src="../public/images/brand/system-logo-mark-light.png" alt="迎新指南" />
+        <span class="brand-name">迎新指南</span>
+        <span class="brand-note">仰恩校园 · 学生整理</span>
+      </a>
+
+      <nav class="nav" aria-label="主导航">
+        <a href="#top" class="on">首页</a>
+        <a href="#dorm">住宿实拍</a>
+        <a href="#journey">报到清单</a>
+        <a href="#directory">服务目录</a>
+        <a href="#life">泉州生活</a>
+      </nav>
+
+      <div class="top-right">
+        <div class="mode-switch" aria-label="版式切换">
+          <button type="button" class="on">完整</button>
+          <button type="button">简洁</button>
+        </div>
+        <a href="#sos" class="contact-link">联系整理者</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- 第一屏：不对称刊物开窗 -->
+    <section class="hero">
+      <div class="wrap hero-layout">
+        <div>
+          <div class="schedule-line">
+            <span class="live-dot"></span>
+            <span><strong>09.05–06</strong> 注册报到</span>
+            <span class="schedule-sep">/</span>
+            <span>09.07–09 入学教育</span>
+            <span class="schedule-sep">/</span>
+            <span>09.10 正式开课</span>
+          </div>
+
+          <h1>2026级新生<em>入学指南</em></h1>
+          <p class="hero-lead">不用在群聊里零散翻消息。把学校报到、宿舍实拍、手绘校门路线和应急电话整理在一页里，到校前就能心里有底。</p>
+
+          <form class="omni-search" onsubmit="event.preventDefault(); document.getElementById('searchEcho').textContent='为你定位到「' + (document.getElementById('q').value || '报到材料') + '」'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="q" type="search" placeholder="查专业宿舍、报到要带什么、校园网或 110..." />
+            <button type="submit" class="omni-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+              <span>AI 搜索</span>
+            </button>
+          </form>
+
+          <div class="ask-hints">
+            <span id="searchEcho">学长常被问：</span>
+            <button type="button" class="ask-hint-btn" data-fill="报到现场要带哪些原件">「报到带什么」</button>
+            <button type="button" class="ask-hint-btn" data-fill="泉州站坐车到仰恩校门">「泉州站怎么坐车」</button>
+            <button type="button" class="ask-hint-btn" data-fill="校园网宽带与一卡通充值">「校园网怎么连」</button>
+          </div>
+
+          <div class="core-shortcuts">
+            <a href="#journey" class="shortcut-row">
+              <span class="shortcut-idx">1.</span>
+              <div>
+                <strong>报到安排</strong>
+                <span>9月5–6日批次与核验材料</span>
+              </div>
+            </a>
+            <a href="#stage" class="shortcut-row">
+              <span class="shortcut-idx">2.</span>
+              <div>
+                <strong>校园地图</strong>
+                <span>教学楼、宿舍区与校门公交</span>
+              </div>
+            </a>
+            <a href="#directory" class="shortcut-row">
+              <span class="shortcut-idx">3.</span>
+              <div>
+                <strong>一卡通与校园网</strong>
+                <span>领卡充值、宽带与故障排查</span>
+              </div>
+            </a>
+            <a href="#directory" class="shortcut-row">
+              <span class="shortcut-idx">4.</span>
+              <div>
+                <strong>快递与外卖边界</strong>
+                <span>提前寄行李站点与取餐点</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- 独创交互舞台：航拍湖山 ⇄ 手绘校园地图 双态探索 -->
+        <aside class="campus-stage" id="stage" aria-label="校园实景与手绘地图探索">
+          <img id="imgAerial" class="stage-layer" src="../public/images/intro/yeu-campus-hero.webp" alt="仰恩湖山校区航拍实景" />
+          <img id="imgMap" class="stage-layer hidden" src="../public/images/posters/freshman-guide-campus-map.png" alt="仰恩大学手绘校园地图" />
+          <div class="stage-scrim"></div>
+
+          <div class="stage-switcher" role="tablist" aria-label="视图切换">
+            <button type="button" class="on" data-view="aerial">湖山航拍</button>
+            <button type="button" data-view="map">手绘地图</button>
+          </div>
+
+          <button type="button" class="landmark-pin on" style="top: 34%; left: 20%;" data-title="旧区与核心教学楼" data-desc="图书馆、校史馆与主教学楼沿湖排布，步行为主，记得穿好走的鞋。">教学核心区</button>
+          <button type="button" class="landmark-pin" style="top: 26%; left: 56%;" data-title="学生宿舍片区" data-desc="分普通型与舒适型楼栋，报到当天直接按学院对应楼号办理入住。">宿舍生活区</button>
+          <button type="button" class="landmark-pin" style="top: 62%; left: 60%;" data-title="校门与迎新接驳点" data-desc="泉州站、晋江机场方向公交及迎新大巴停靠校门口外侧，下车即是迎新引导点。">校门公交站</button>
+
+          <div class="stage-caption">
+            <div>
+              <h2 id="pinTitle">仰恩湖山校区全景</h2>
+              <p id="pinDesc">点画面上的地标先认方位，或切换右上角查看手绘校园分布图。</p>
+            </div>
+            <a href="#dorm" class="stage-go">
+              <span>看宿舍实拍</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </a>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 第二屏：真实对比滑块 — 普通型 vs 舒适型宿舍 + 专业速查 -->
+    <section class="band" id="dorm">
+      <div class="wrap">
+        <div class="band-head">
+          <div>
+            <span class="kicker">到校前最关心的问题</span>
+            <h2>宿舍到底什么样？左右拉动直接看对比</h2>
+          </div>
+          <p>实拍图来自校内实景留档，拒绝文字盲猜</p>
+        </div>
+
+        <div class="dorm-showcase">
+          <div>
+            <div class="compare-box" id="compareBox">
+              <img class="compare-img" src="../public/images/panorama/comfort-dorm-poster.jpg" alt="舒适型宿舍实拍" />
+              <div class="compare-top-wrap" id="compareTop">
+                <img id="compareLeftImg" src="../public/images/panorama/ordinary-dorm-poster.jpg" alt="普通型宿舍实拍" />
+              </div>
+              <span class="compare-badge left">普通型宿舍</span>
+              <span class="compare-badge right">舒适型宿舍</span>
+              <div class="compare-handle" id="compareHandle">&harr;</div>
+              <input id="compareRange" class="compare-range" type="range" min="10" max="90" value="52" aria-label="拖动对比普通型和舒适型宿舍实拍" />
+            </div>
+            <div class="dorm-controls">
+              <span>左右拖动中间白线对比房型布局</span>
+              <span>已有普通/舒适实拍短视频可看</span>
+            </div>
+          </div>
+
+          <div class="dorm-panel">
+            <h3>别靠传言，看清床位与片区对应关系</h3>
+            <p>本科与专升本不同学院对应不同楼栋。除了空调、独立卫浴和书桌尺度差异，更重要的是知道自己专业大概率分在新区还是旧区。</p>
+
+            <div class="dorm-table">
+              <div class="dorm-row">
+                <strong>家具结构</strong>
+                <span>普通：上下铺/组合桌</span>
+                <span>舒适：上床下桌格局</span>
+              </div>
+              <div class="dorm-row">
+                <strong>空调网络</strong>
+                <span>空调全覆盖 · 校园宽带</span>
+                <span>空调全覆盖 · 独立阳台</span>
+              </div>
+            </div>
+
+            <div class="major-picker">
+              <span class="major-picker-label">点一个常见学院/专业试查参考片区：</span>
+              <div class="major-btns">
+                <button type="button" class="major-btn on" data-res="工程技术学院（如软件工程、计算机）多对应新区宿舍片区，临近工科实验楼与北区食堂。">工程技术学院</button>
+                <button type="button" class="major-btn" data-res="经济与管理类专业主要分布在中部及湖畔宿舍片区，步行可达主教学区与图书馆。">经济 / 管理学院</button>
+                <button type="button" class="major-btn" data-res="人文学院及部分专升本专业以学校当年分班公告为准，请同步核对录取通知书内页。">人文学院 / 专升本</button>
+              </div>
+              <div class="major-result" id="majorResult">工程技术学院（如软件工程、计算机）多对应新区宿舍片区，临近工科实验楼与北区食堂。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第三屏：阶段时间轴 + 实时 SVG 进度环清单 + 深墨绿校内求助卡 -->
+    <section class="band" id="journey">
+      <div class="wrap">
+        <div class="band-head">
+          <div>
+            <span class="kicker">分三步把入学理顺</span>
+            <h2>按阶段推进行程，顺手打勾备忘</h2>
+          </div>
+        </div>
+
+        <div class="journey-grid">
+          <div>
+            <div class="timeline-tabs" role="tablist">
+              <button type="button" class="t-tab on" data-stage="before">
+                <strong>到校前</strong>
+                <span>现在 ~ 9月4日</span>
+              </button>
+              <button type="button" class="t-tab" data-stage="arrival">
+                <strong>报到当天</strong>
+                <span>9月5日 – 6日</span>
+              </button>
+              <button type="button" class="t-tab" data-stage="week1">
+                <strong>入学第一周</strong>
+                <span>9月7日 – 13日</span>
+              </button>
+            </div>
+            <div id="todoContainer"></div>
+          </div>
+
+          <aside class="side-stack">
+            <div class="ring-card">
+              <div class="ring-meta">
+                <h3>当前准备进度</h3>
+                <p id="ringHint">已勾选 1 / 4 项，继续勾选左侧即可同步。</p>
+              </div>
+              <div class="ring-wrap">
+                <svg width="76" height="76" viewBox="0 0 76 76" aria-hidden="true">
+                  <circle cx="38" cy="38" r="31" fill="none" stroke="#e5e8e2" stroke-width="6" />
+                  <circle id="ringArc" cx="38" cy="38" r="31" fill="none" stroke="#1a5c45" stroke-width="6" stroke-linecap="round" stroke-dasharray="194.78" stroke-dashoffset="146" transform="rotate(-90 38 38)" style="transition: stroke-dashoffset .35s ease;" />
+                </svg>
+                <div class="ring-num" id="ringNum">25%</div>
+              </div>
+            </div>
+
+            <div class="sos-card" id="sos">
+              <div class="sos-head">
+                <h3>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  校内求助与常用电话
+                </h3>
+                <span>医务室 24h 值班</span>
+              </div>
+              <div class="sos-list">
+                <a href="tel:110" class="sos-row"><strong>拨打校园 110</strong><span>紧急求助 / 设施报修</span></a>
+                <a href="#directory" class="sos-row"><strong>心理健康中心</strong><span>咨询与入学适应支持</span></a>
+                <a href="#directory" class="sos-row"><strong>教务部</strong><span>学籍注册 / 课表查询</span></a>
+                <a href="#directory" class="sos-row"><strong>学生资助中心</strong><span>生源地贷款 / 助学金</span></a>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- 第四屏：刊物索引服务目录 + 泉州三联切片 -->
+    <section class="band" id="directory">
+      <div class="wrap">
+        <div class="band-head">
+          <div>
+            <span class="kicker">全站常用入口索引</span>
+            <h2>所有办事、校园工具与吃喝出行</h2>
+          </div>
+        </div>
+
+        <div class="directory-grid">
+          <div class="dir-col">
+            <h3>开学与学业</h3>
+            <a href="#journey" class="dir-link"><div><strong>新生准备清单</strong><small>勾选进度可本地保存</small></div><span>&rsaquo;</span></a>
+            <a href="#directory" class="dir-link"><div><strong>学生手册与资助</strong><small>综测、奖助学金与学分规则</small></div><span>&rsaquo;</span></a>
+            <a href="#directory" class="dir-link"><div><strong>WeLearn 学习工具</strong><small>外语课程工具指引</small></div><span>&rsaquo;</span></a>
+            <a href="#directory" class="dir-link"><div><strong>校内部门联络</strong><small>招生、教务与后勤入口</small></div><span>&rsaquo;</span></a>
+          </div>
+
+          <div class="dir-col">
+            <h3>校园实景与安全</h3>
+            <a href="#stage" class="dir-link"><div><strong>全景云游校园</strong><small>校门、图书馆与校史馆</small></div><span>&rsaquo;</span></a>
+            <a href="#dorm" class="dir-link"><div><strong>普通与舒适宿舍实拍</strong><small>房型视频与床桌对照</small></div><span>&rsaquo;</span></a>
+            <a href="#sos" class="dir-link"><div><strong>安全、医疗与心理支持</strong><small>校园 110 与 24h 医务室</small></div><span>&rsaquo;</span></a>
+          </div>
+
+          <div class="dir-col">
+            <h3>校外生活与社团</h3>
+            <a href="#life" class="dir-link"><div><strong>吃喝玩乐与泉州周边</strong><small>马甲镇与泉州古城参考</small></div><span>&rsaquo;</span></a>
+            <a href="#directory" class="dir-link"><div><strong>到校与离校交通</strong><small>泉州站 / 晋江机场返校</small></div><span>&rsaquo;</span></a>
+            <a href="#directory" class="dir-link"><div><strong>学生社团</strong><small>百团招新方向介绍</small></div><span>&rsaquo;</span></a>
+          </div>
+        </div>
+
+        <div class="life-triptych" id="life">
+          <a href="#directory" class="life-slice">
+            <img src="../public/images/nearby/city-food.webp" alt="泉州味道" />
+            <div><strong>泉州味道清单</strong><span>石花膏、面线糊与古城小店</span></div>
+          </a>
+          <a href="#directory" class="life-slice">
+            <img src="../public/images/nearby/citywalk.webp" alt="周末城市漫步" />
+            <div><strong>周末进城漫步</strong><span>西街、洛阳桥与公交班次</span></div>
+          </a>
+          <a href="#directory" class="life-slice">
+            <img src="../public/images/nearby/qingyuan.webp" alt="清源山周边" />
+            <div><strong>山海周边去处</strong><span>清源山与沿海半日出行参考</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap trust-strip">
+      <div>
+        <strong>学生整理 · 非学校官网</strong> — 报到、缴费、住宿与资助等要求，最终请以录取通知书和学校官方通知为准（最近核对 2026年7月23日 · 已有 46 人看过）。
+      </div>
+      <div class="trust-links">
+        <a href="#top">学校官网</a>
+        <a href="#top">招生官网</a>
+        <a href="#top">学生资助</a>
+        <a href="#top">信息来源</a>
+        <a href="#top">反馈纠错</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-flex">
+      <div>本网站为个人公益整理，非学校官方发布；重要事项以学校最新通知为准。</div>
+      <div style="display:flex; gap:18px;">
+        <a href="#top">关于本站</a>
+        <a href="#top">隐私说明</a>
+        <a href="#top">工信部备案查询</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // 1. 搜索词快速填入
+    document.querySelectorAll('.ask-hint-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('q');
+        input.value = btn.dataset.fill;
+        input.focus();
+      });
+    });
+
+    // 2. 航拍 ⇄ 手绘地图 切换 & 地标点击
+    document.querySelectorAll('.stage-switcher button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.stage-switcher button').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        const isMap = btn.dataset.view === 'map';
+        document.getElementById('imgAerial').classList.toggle('hidden', isMap);
+        document.getElementById('imgMap').classList.toggle('hidden', !isMap);
+      });
+    });
+
+    document.querySelectorAll('.landmark-pin').forEach(pin => {
+      pin.addEventListener('click', () => {
+        document.querySelectorAll('.landmark-pin').forEach(p => p.classList.remove('on'));
+        pin.classList.add('on');
+        document.getElementById('pinTitle').textContent = pin.dataset.title;
+        document.getElementById('pinDesc').textContent = pin.dataset.desc;
+      });
+    });
+
+    // 3. 宿舍对比滑块同步宽度（保证左侧图始终对齐全框尺寸不缩放变形）
+    const range = document.getElementById('compareRange');
+    const topWrap = document.getElementById('compareTop');
+    const handle = document.getElementById('compareHandle');
+    const leftImg = document.getElementById('compareLeftImg');
+    const compareBox = document.getElementById('compareBox');
+
+    function syncCompareWidth() {
+      leftImg.style.width = compareBox.clientWidth + 'px';
+      leftImg.style.height = compareBox.clientHeight + 'px';
+    }
+    window.addEventListener('resize', syncCompareWidth);
+    syncCompareWidth();
+
+    range.addEventListener('input', () => {
+      const v = range.value + '%';
+      topWrap.style.width = v;
+      handle.style.left = v;
+    });
+
+    // 4. 学院/专业参考片区切换
+    document.querySelectorAll('.major-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.major-btn').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        document.getElementById('majorResult').textContent = btn.dataset.res;
+      });
+    });
+
+    // 5. 三阶段清单与实时 SVG 圆环
+    const TODOS = {
+      before: [
+        { text: '保存录取通知书与官方报到通知原文', tag: '必带材料', done: true },
+        { text: '按学院专业核对所在宿舍片区（普通/舒适型）', tag: '住宿确认', done: false },
+        { text: '准备身份证复印件、证件照与团档案材料', tag: '档案准备', done: false },
+        { text: '存好泉州站/晋江机场到校大巴与校园手绘地图', tag: '路线确认', done: false }
+      ],
+      arrival: [
+        { text: '按现场引导核验身份证与通知书完成院系注册', tag: '现场报到', done: false },
+        { text: '前往宿舍楼栋领钥匙、核对一卡通与门禁卡', tag: '办理入住', done: false },
+        { text: '测试宿舍校园网宽带与空调/电费充值通道', tag: '设备核对', done: false },
+        { text: '去快递驿站核对并领取提前寄到学校的行李', tag: '行李取件', done: false }
+      ],
+      week1: [
+        { text: '9月7–9日参加新生入学教育，熟悉校纪校规', tag: '日程提醒', done: false },
+        { text: '登录教务系统确认 9月10日开课课表与教学楼', tag: '学业准备', done: false },
+        { text: '在通讯录存下校园 110 与医务室 24h 值班电话', tag: '安全备忘', done: false },
+        { text: '关注社团招新与学生资助政策宣讲时间', tag: '校园生活', done: false }
+      ]
+    };
+
+    let activeStage = 'before';
+    function renderTodos() {
+      const box = document.getElementById('todoContainer');
+      const list = TODOS[activeStage];
+      box.innerHTML = list.map((item, idx) => `
+        <button type="button" class="todo-item ${item.done ? 'done' : ''}" data-idx="${idx}">
+          <span class="todo-left">
+            <span class="todo-check">${item.done ? '✓' : ''}</span>
+            <span class="todo-title">${item.text}</span>
+          </span>
+          <span class="todo-tag">${item.tag}</span>
+        </button>
+      `).join('');
+
+      box.querySelectorAll('.todo-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = Number(btn.dataset.idx);
+          TODOS[activeStage][i].done = !TODOS[activeStage][i].done;
+          renderTodos();
+          updateRing();
+        });
+      });
+    }
+
+    function updateRing() {
+      const list = TODOS[activeStage];
+      const done = list.filter(x => x.done).length;
+      const pct = Math.round((done / list.length) * 100);
+      const circ = 194.78;
+      document.getElementById('ringArc').style.strokeDashoffset = String(circ * (1 - pct / 100));
+      document.getElementById('ringNum').textContent = pct + '%';
+      document.getElementById('ringHint').textContent = `当前阶段已勾选 ${done} / ${list.length} 项，点击左侧清单可同步更新。`;
+    }
+
+    document.querySelectorAll('.t-tab').forEach(t => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.t-tab').forEach(x => x.classList.remove('on'));
+        t.classList.add('on');
+        activeStage = t.dataset.stage;
+        renderTodos();
+        updateRing();
+      });
+    });
+
+    renderTodos();
+    updateRing();
+  </script>
+</body>
+</html>

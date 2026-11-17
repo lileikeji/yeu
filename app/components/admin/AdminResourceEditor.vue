@@ -277,197 +277,197 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                 :required="field.required"
                 :class="getAdminResourceFieldSpan(field)"
               >
-              <div
-                v-if="field.type === 'image-list'"
-                class="space-y-3"
-              >
                 <div
-                  v-if="listValues(field.key).length"
-                  class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                  v-if="field.type === 'image-list'"
+                  class="space-y-3"
                 >
-                  <figure
-                    v-for="(url, index) in listValues(field.key)"
-                    :key="url"
-                    class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
+                  <div
+                    v-if="listValues(field.key).length"
+                    class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
                   >
-                    <ImagePreviewButton
-                      :src="url"
-                      :alt="`${field.label}第 ${index + 1} 张预览`"
-                      button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
-                      image-class="size-full object-contain"
+                    <figure
+                      v-for="(url, index) in listValues(field.key)"
+                      :key="url"
+                      class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
+                    >
+                      <ImagePreviewButton
+                        :src="url"
+                        :alt="`${field.label}第 ${index + 1} 张预览`"
+                        button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
+                        image-class="size-full object-contain"
+                      />
+                      <div class="mt-2 flex items-center justify-between gap-2">
+                        <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          第 {{ index + 1 }} 张
+                        </span>
+                        <UButton
+                          icon="i-lucide-trash-2"
+                          label="删除"
+                          color="error"
+                          variant="ghost"
+                          size="xs"
+                          :disabled="imageState(field.key).uploading"
+                          @click="removeImageListItem(field.key, index)"
+                        />
+                      </div>
+                    </figure>
+                  </div>
+                  <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
+                    <UIcon
+                      :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-images'"
+                      class="size-4"
+                      :class="imageState(field.key).uploading ? 'animate-spin' : ''"
                     />
-                    <div class="mt-2 flex items-center justify-between gap-2">
-                      <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        第 {{ index + 1 }} 张
-                      </span>
+                    <span>{{ imageState(field.key).uploading ? '正在上传' : '选择多张二维码' }}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      class="sr-only"
+                      :disabled="imageState(field.key).uploading || listValues(field.key).length >= 8"
+                      @change="uploadImageList(field.key, $event)"
+                    >
+                  </label>
+                  <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                    已上传 {{ listValues(field.key).length }} / 8 张
+                  </p>
+                  <p
+                    v-if="imageState(field.key).error"
+                    class="text-xs leading-5 text-red-700 dark:text-red-300"
+                    role="alert"
+                  >
+                    {{ imageState(field.key).error }}
+                  </p>
+                </div>
+                <div
+                  v-else-if="field.type === 'image'"
+                  class="space-y-3"
+                >
+                  <div
+                    v-if="inputValue(field.key)"
+                    class="flex items-start gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
+                  >
+                    <img
+                      :src="inputValue(field.key)"
+                      :alt="`${field.label}预览`"
+                      class="size-28 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 object-contain"
+                    >
+                    <div class="min-w-0 flex-1">
+                      <p class="break-all text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                        {{ inputValue(field.key) }}
+                      </p>
                       <UButton
-                        icon="i-lucide-trash-2"
-                        label="删除"
-                        color="error"
-                        variant="ghost"
-                        size="xs"
+                        icon="i-lucide-x"
+                        label="清除图片"
+                        color="neutral"
+                        variant="outline"
+                        size="sm"
+                        class="mt-3"
                         :disabled="imageState(field.key).uploading"
-                        @click="removeImageListItem(field.key, index)"
+                        @click="emit('updateField', field.key, '')"
                       />
                     </div>
-                  </figure>
-                </div>
-                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
-                  <UIcon
-                    :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-images'"
-                    class="size-4"
-                    :class="imageState(field.key).uploading ? 'animate-spin' : ''"
-                  />
-                  <span>{{ imageState(field.key).uploading ? '正在上传' : '选择多张二维码' }}</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    class="sr-only"
-                    :disabled="imageState(field.key).uploading || listValues(field.key).length >= 8"
-                    @change="uploadImageList(field.key, $event)"
-                  >
-                </label>
-                <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  已上传 {{ listValues(field.key).length }} / 8 张
-                </p>
-                <p
-                  v-if="imageState(field.key).error"
-                  class="text-xs leading-5 text-red-700 dark:text-red-300"
-                  role="alert"
-                >
-                  {{ imageState(field.key).error }}
-                </p>
-              </div>
-              <div
-                v-else-if="field.type === 'image'"
-                class="space-y-3"
-              >
-                <div
-                  v-if="inputValue(field.key)"
-                  class="flex items-start gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
-                >
-                  <img
-                    :src="inputValue(field.key)"
-                    :alt="`${field.label}预览`"
-                    class="size-28 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 object-contain"
-                  >
-                  <div class="min-w-0 flex-1">
-                    <p class="break-all text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                      {{ inputValue(field.key) }}
-                    </p>
-                    <UButton
-                      icon="i-lucide-x"
-                      label="清除图片"
-                      color="neutral"
-                      variant="outline"
-                      size="sm"
-                      class="mt-3"
+                  </div>
+                  <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
+                    <UIcon
+                      :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
+                      class="size-4"
+                      :class="imageState(field.key).uploading ? 'animate-spin' : ''"
+                    />
+                    <span>{{ imageState(field.key).uploading ? '正在上传' : (inputValue(field.key) ? '替换图片' : '上传图片') }}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      class="sr-only"
                       :disabled="imageState(field.key).uploading"
-                      @click="emit('updateField', field.key, '')"
+                      @change="uploadImage(field.key, $event)"
+                    >
+                  </label>
+                  <p
+                    v-if="imageState(field.key).error"
+                    class="text-xs leading-5 text-red-700 dark:text-red-300"
+                    role="alert"
+                  >
+                    {{ imageState(field.key).error }}
+                  </p>
+                </div>
+                <div
+                  v-else-if="field.type === 'tel-list'"
+                  class="space-y-2"
+                >
+                  <div
+                    v-for="(phone, index) in phoneListValues(field.key)"
+                    :key="index"
+                    class="flex items-center gap-2"
+                  >
+                    <UInput
+                      :model-value="phone"
+                      type="tel"
+                      :placeholder="field.placeholder || '请输入联系电话'"
+                      class="min-w-0 flex-1"
+                      @update:model-value="updateListItem(field.key, index, String($event ?? ''))"
+                    />
+                    <UButton
+                      v-if="phoneListValues(field.key).length > 1 || phone"
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="ghost"
+                      :aria-label="`删除第 ${index + 1} 个联系电话`"
+                      @click="removeListItem(field.key, index)"
                     />
                   </div>
-                </div>
-                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
-                  <UIcon
-                    :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
-                    class="size-4"
-                    :class="imageState(field.key).uploading ? 'animate-spin' : ''"
-                  />
-                  <span>{{ imageState(field.key).uploading ? '正在上传' : (inputValue(field.key) ? '替换图片' : '上传图片') }}</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    class="sr-only"
-                    :disabled="imageState(field.key).uploading"
-                    @change="uploadImage(field.key, $event)"
-                  >
-                </label>
-                <p
-                  v-if="imageState(field.key).error"
-                  class="text-xs leading-5 text-red-700 dark:text-red-300"
-                  role="alert"
-                >
-                  {{ imageState(field.key).error }}
-                </p>
-              </div>
-              <div
-                v-else-if="field.type === 'tel-list'"
-                class="space-y-2"
-              >
-                <div
-                  v-for="(phone, index) in phoneListValues(field.key)"
-                  :key="index"
-                  class="flex items-center gap-2"
-                >
-                  <UInput
-                    :model-value="phone"
-                    type="tel"
-                    :placeholder="field.placeholder || '请输入联系电话'"
-                    class="min-w-0 flex-1"
-                    @update:model-value="updateListItem(field.key, index, String($event ?? ''))"
-                  />
                   <UButton
-                    v-if="phoneListValues(field.key).length > 1 || phone"
-                    icon="i-lucide-trash-2"
-                    color="error"
-                    variant="ghost"
-                    :aria-label="`删除第 ${index + 1} 个联系电话`"
-                    @click="removeListItem(field.key, index)"
+                    icon="i-lucide-plus"
+                    label="添加联系电话"
+                    color="neutral"
+                    variant="outline"
+                    size="sm"
+                    :disabled="phoneListValues(field.key).length >= 12"
+                    @click="addListItem(field.key)"
                   />
                 </div>
-                <UButton
-                  icon="i-lucide-plus"
-                  label="添加联系电话"
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  :disabled="phoneListValues(field.key).length >= 12"
-                  @click="addListItem(field.key)"
+                <AdminNoticeActionsField
+                  v-else-if="field.type === 'link-list'"
+                  :model-value="inputValue(field.key)"
+                  @update:model-value="emit('updateField', field.key, $event)"
                 />
-              </div>
-              <AdminNoticeActionsField
-                v-else-if="field.type === 'link-list'"
-                :model-value="inputValue(field.key)"
-                @update:model-value="emit('updateField', field.key, $event)"
-              />
-              <UTextarea
-                v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'text-list'"
-                :model-value="inputValue(field.key)"
-                :placeholder="field.placeholder"
-                :rows="field.rows ?? (field.type === 'json' ? 10 : 4)"
-                autoresize
-                :class="field.type === 'json' ? 'w-full font-mono text-xs' : 'w-full'"
-                @update:model-value="emit('updateField', field.key, $event)"
-              />
-              <USelect
-                v-else-if="field.type === 'select'"
-                :model-value="selectValue(field.key)"
-                :items="field.options ?? []"
-                value-key="value"
-                label-key="label"
-                :placeholder="field.placeholder || `请选择${field.label}`"
-                class="w-full"
-                @update:model-value="emit('updateField', field.key, $event)"
-              />
-              <UCheckbox
-                v-else-if="field.type === 'checkbox'"
-                :model-value="checkboxValue(field.key)"
-                :label="field.label"
-                :description="field.description"
-                @update:model-value="emit('updateField', field.key, $event === true)"
-              />
-              <UInput
-                v-else
-                :model-value="inputValue(field.key)"
-                :type="getAdminResourceFieldInputType(field)"
-                :placeholder="field.placeholder"
-                :min="field.min"
-                :max="field.max"
-                :step="field.step"
-                class="w-full"
-                @update:model-value="emit('updateField', field.key, $event)"
-              />
+                <UTextarea
+                  v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'text-list'"
+                  :model-value="inputValue(field.key)"
+                  :placeholder="field.placeholder"
+                  :rows="field.rows ?? (field.type === 'json' ? 10 : 4)"
+                  autoresize
+                  :class="field.type === 'json' ? 'w-full font-mono text-xs' : 'w-full'"
+                  @update:model-value="emit('updateField', field.key, $event)"
+                />
+                <USelect
+                  v-else-if="field.type === 'select'"
+                  :model-value="selectValue(field.key)"
+                  :items="field.options ?? []"
+                  value-key="value"
+                  label-key="label"
+                  :placeholder="field.placeholder || `请选择${field.label}`"
+                  class="w-full"
+                  @update:model-value="emit('updateField', field.key, $event)"
+                />
+                <UCheckbox
+                  v-else-if="field.type === 'checkbox'"
+                  :model-value="checkboxValue(field.key)"
+                  :label="field.label"
+                  :description="field.description"
+                  @update:model-value="emit('updateField', field.key, $event === true)"
+                />
+                <UInput
+                  v-else
+                  :model-value="inputValue(field.key)"
+                  :type="getAdminResourceFieldInputType(field)"
+                  :placeholder="field.placeholder"
+                  :min="field.min"
+                  :max="field.max"
+                  :step="field.step"
+                  class="w-full"
+                  @update:model-value="emit('updateField', field.key, $event)"
+                />
               </UFormField>
             </template>
           </div>

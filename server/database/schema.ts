@@ -1283,6 +1283,12 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   contestDay: integer('contest_day'),
   /** 现场签到时间；空 = 还没到场，评委看不到、不占排队位置。 */
   checkedInAt: integer('checked_in_at'),
+  // 这一轮实际要唱的歌：晋级后选手自己填，空 = 沿用选手库里的 song
+  song: text('song'),
+  /** 这一轮上传的伴奏文件（/uploads/<uuid>.<ext>，走 CDN 缓存）；空 = 还没传。 */
+  accompanimentUrl: text('accompaniment_url'),
+  accompanimentName: text('accompaniment_name'),
+  accompanimentSize: integer('accompaniment_size'),
   /** 1 = 已确认晋级下一轮，0 = 未晋级，空 = 还没确认（按排名自动判定）。 */
   advanced: integer('advanced'),
   createdAt: timestamp('created_at')
@@ -1537,3 +1543,72 @@ export const activityComments = sqliteTable('activity_comments', {
   index('activity_comments_status_created_idx').on(table.status, table.createdAt),
   check('activity_comments_status_check', sql`${table.status} in ('approved', 'hidden')`)
 ])
+
+/**
+ * 计算机协会独立官网全局配置与部门配置。
+ * 关联 contents.id（computer-association）以便与现有组织身份与活动/纳新联动，
+ * 但表内仅存储计协官网自主发布的文案、部门架构和联系信息。
+ */
+export const yeucaSiteSettings = sqliteTable('yeuca_site_settings', {
+  id: text('id').primaryKey(),
+  contentId: text('content_id').references(() => contents.id, { onDelete: 'set null' }),
+  campus: text('campus').notNull().default('福建泉州 · 仰恩大学洛江校区'),
+  tagline: text('tagline').notNull(),
+  intro: text('intro').notNull(),
+  recruitNote: text('recruit_note').notNull().default(''),
+  contactNote: text('contact_note').notNull().default(''),
+  groupQrUrl: text('group_qr_url').notNull().default(''),
+  departmentsJson: text('departments_json').notNull().default('[]'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('yeuca_site_settings_content_unique').on(table.contentId)
+])
+
+/** 计算机协会官网动态与技术笔记（由计协独立后台直接发布，无死数据）。 */
+export const yeucaPosts = sqliteTable('yeuca_posts', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull(),
+  kind: text('kind', { enum: ['news', 'resource'] }).notNull().default('news'),
+  deptName: text('dept_name').notNull().default('AI 部'),
+  category: text('category').notNull().default(''),
+  title: text('title').notNull(),
+  summary: text('summary').notNull(),
+  body: text('body').notNull().default(''),
+  tagsJson: text('tags_json').notNull().default('[]'),
+  pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+  status: text('status', { enum: ['draft', 'published', 'archived'] }).notNull().default('draft'),
+  publishedAt: integer('published_at'),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('yeuca_posts_slug_unique').on(table.slug),
+  index('yeuca_posts_kind_status_idx').on(table.kind, table.status, table.publishedAt),
+  check('yeuca_posts_kind_check', sql`${table.kind} in ('news', 'resource')`),
+  check('yeuca_posts_status_check', sql`${table.status} in ('draft', 'published', 'archived')`)
+])
+
+/** 计算机协会官网实战项目展示。 */
+export const yeucaProjects = sqliteTable('yeuca_projects', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  deptName: text('dept_name').notNull().default('AI 部'),
+  track: text('track').notNull().default('AI / Agent'),
+  status: text('status', { enum: ['active', 'maintaining', 'planning'] }).notNull().default('active'),
+  summary: text('summary').notNull(),
+  highlightsJson: text('highlights_json').notNull().default('[]'),
+  stackJson: text('stack_json').notNull().default('[]'),
+  previewImage: text('preview_image').notNull().default(''),
+  repoUrl: text('repo_url').notNull().default(''),
+  demoUrl: text('demo_url').notNull().default(''),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isPublished: integer('is_published', { mode: 'boolean' }).notNull().default(true),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('yeuca_projects_pub_order_idx').on(table.isPublished, table.sortOrder),
+  check('yeuca_projects_status_check', sql`${table.status} in ('active', 'maintaining', 'planning')`)
+])
+

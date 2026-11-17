@@ -1,0 +1,1114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>方向 1 · 湖山实景画报导览 | 迎新指南 2026</title>
+<style>
+  :root {
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --surface-soft: #F2F4F0;
+    --ink: #17221E;
+    --ink-2: #4B5751;
+    --line: #DDE3DC;
+    --brand: #0F5C4D;
+    --brand-deep: #0B4338;
+    --brand-tint: #E9F3F0;
+    --warm: #B9441E;
+    --warm-tint: #FDF1EC;
+    --radius-lg: 16px;
+    --radius-md: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+  img { display: block; max-width: 100%; }
+  .shell { width: min(100% - 32px, 1220px); margin-inline: auto; }
+
+  /* 顶部重要时间条 */
+  .notice-bar {
+    background: #14221D;
+    color: #F4EFE6;
+    font-size: 13px;
+  }
+  .notice-btn {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    text-align: left;
+  }
+  .notice-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  .notice-pill {
+    background: #B03914;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .notice-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #EAE5DC;
+    font-size: 14px;
+  }
+  .notice-action {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #9EE2CC;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(158, 226, 204, 0.35);
+  }
+
+  /* 站点导航 */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(250, 250, 247, 0.94);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .header-inner {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    flex-shrink: 0;
+  }
+  .brand img { width: 34px; height: 34px; object-fit: contain; }
+  .brand-name { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+  .brand-tag {
+    font-size: 12px;
+    color: var(--ink-2);
+    background: var(--surface-soft);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .main-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .main-nav a {
+    min-height: 44px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-2);
+    border-radius: 8px;
+  }
+  .main-nav a.active {
+    color: var(--brand);
+    background: var(--brand-tint);
+    font-weight: 700;
+  }
+  .header-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mode-switch {
+    display: inline-flex;
+    background: var(--surface-soft);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+  .mode-switch button {
+    min-height: 36px;
+    padding: 0 11px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 6px;
+    color: var(--ink-2);
+  }
+  .mode-switch button.on {
+    background: var(--surface);
+    color: var(--brand);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+  .tool-link {
+    min-height: 44px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand);
+    border: 1px solid #C8DAD3;
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  /* 第 1 屏：山水校园大图 Hero */
+  .hero-wrap { padding-top: 18px; }
+  .hero-stage {
+    position: relative;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    min-height: 410px;
+    display: flex;
+    align-items: flex-end;
+    background: #142D26;
+    box-shadow: 0 16px 40px rgba(18, 36, 30, 0.12);
+  }
+  .hero-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 28% 35%;
+    transform: scale(1.06);
+  }
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(14, 31, 26, 0.22) 0%, rgba(14, 31, 26, 0.52) 48%, rgba(12, 26, 22, 0.90) 100%);
+  }
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    padding: 36px 36px 34px;
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 28px;
+    align-items: end;
+    color: #FFFFFF;
+  }
+  .hero-kicker {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #B4EFE0;
+    margin-bottom: 10px;
+  }
+  .hero-title {
+    font-size: clamp(28px, 3.6vw, 46px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .hero-sub {
+    margin-top: 10px;
+    font-size: 15px;
+    color: #E3ECE8;
+    max-width: 34em;
+  }
+  .search-box {
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.97);
+    border-radius: 12px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+  }
+  .search-box input {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    border: 0;
+    outline: 0;
+    padding: 0 12px;
+    font-size: 15px;
+    color: var(--ink);
+    background: transparent;
+  }
+  .search-box button {
+    min-height: 44px;
+    padding: 0 22px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .search-hints {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .search-hints span { font-size: 12px; color: #CBE0D8; }
+  .hint-chip {
+    min-height: 32px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .hero-card {
+    background: rgba(16, 36, 30, 0.78);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .hero-card-title { font-size: 14px; font-weight: 700; color: #9EE2CC; margin-bottom: 10px; }
+  .hero-dates { display: grid; gap: 10px; }
+  .hero-date-row {
+    display: grid;
+    grid-template-columns: 74px 1fr;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 8px;
+  }
+  .hero-date-row:first-child { border-top: 0; padding-top: 0; }
+  .hero-date-row strong { color: #FFD0AE; font-weight: 700; }
+  .hero-date-row span { color: #EEF5F2; }
+
+  /* 4 项高频入口条 */
+  .quick-strip {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .quick-item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 104px;
+    transition: border-color .15s, transform .15s;
+  }
+  .quick-item:hover { border-color: var(--brand); transform: translateY(-2px); }
+  .quick-tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--brand);
+    background: var(--brand-tint);
+    padding: 2px 8px;
+    border-radius: 4px;
+    width: fit-content;
+  }
+  .quick-title { margin-top: 10px; font-size: 16px; font-weight: 800; color: var(--ink); }
+  .quick-desc { margin-top: 3px; font-size: 13px; color: var(--ink-2); }
+
+  /* 第 2 屏：杂志不对称双栏 */
+  .editorial-grid {
+    margin-top: 36px;
+    display: grid;
+    grid-template-columns: 1.55fr 0.95fr;
+    gap: 28px;
+    align-items: start;
+  }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .sec-title { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+  .sec-link { font-size: 13px; font-weight: 700; color: var(--brand); min-height: 44px; display: inline-flex; align-items: center; }
+
+  .feed-panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .feed-subhead {
+    background: var(--surface-soft);
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+  }
+  .feed-list { list-style: none; }
+  .feed-list li + li { border-top: 1px solid var(--line); }
+  .feed-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 18px;
+    min-height: 54px;
+  }
+  .feed-row:hover { background: #F7F9F7; }
+  .feed-badge {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .fb-hot { background: var(--warm-tint); color: var(--warm); }
+  .fb-new { background: var(--brand-tint); color: var(--brand); }
+  .feed-main { flex: 1; min-width: 0; }
+  .feed-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .feed-meta { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+
+  .activity-row {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 18px;
+  }
+  .act-date {
+    background: #FDF4E7;
+    border: 1px solid #F3D19E;
+    border-radius: 8px;
+    text-align: center;
+    padding: 7px 4px;
+    color: #824107;
+  }
+  .act-date b { display: block; font-size: 14px; line-height: 1.1; }
+  .act-date span { font-size: 12px; }
+  .act-btn {
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: 1px solid #C8DAD3;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--brand);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* 三阶段入学指南 */
+  .stage-panel {
+    margin-top: 26px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .stage-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    background: var(--surface-soft);
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .stage-tab {
+    min-height: 44px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-2);
+  }
+  .stage-tab.on {
+    background: var(--brand);
+    color: #FFFFFF;
+  }
+  .stage-body { margin-top: 18px; }
+  .stage-heading { font-size: 17px; font-weight: 800; color: var(--ink); }
+  .stage-ul {
+    list-style: none;
+    margin-top: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .stage-ul li {
+    padding: 10px 14px;
+    background: var(--surface-soft);
+    border-radius: 8px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .stage-ul li::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand);
+    flex-shrink: 0;
+  }
+  .stage-cta {
+    margin-top: 16px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 8px;
+    background: var(--brand-tint);
+    color: var(--brand);
+    font-size: 14px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* 右侧边栏：清单 + 求助电话 */
+  .side-col { display: grid; gap: 20px; }
+  .checklist-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .prog-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 10px;
+  }
+  .prog-num { font-size: 30px; font-weight: 900; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .prog-track {
+    height: 9px;
+    background: var(--surface-soft);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .prog-fill {
+    height: 100%;
+    background: var(--brand);
+    transition: width .25s ease;
+  }
+  .check-demo-list {
+    margin-top: 14px;
+    display: grid;
+    gap: 8px;
+  }
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .check-item input { width: 18px; height: 18px; accent-color: var(--brand); }
+  .check-item.done span { text-decoration: line-through; color: var(--ink-2); }
+
+  .hotline-card {
+    background: #103A30;
+    color: #F4F8F6;
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .hotline-card h2 { font-size: 18px; font-weight: 800; }
+  .hotline-warn { font-size: 13px; color: #F9CCA6; margin-top: 4px; font-weight: 600; }
+  .hotline-list { margin-top: 14px; display: grid; gap: 8px; }
+  .hotline-item {
+    min-height: 48px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .hotline-item strong { color: #FFFFFF; }
+  .hotline-item span { font-size: 12px; color: #BCE0D4; }
+  .hotline-note { margin-top: 12px; font-size: 12px; color: #BCE0D4; }
+
+  /* 第 3 屏：校园实拍与手绘图鉴带 */
+  .visual-band { margin-top: 42px; }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr 1fr;
+    gap: 14px;
+  }
+  .gal-card {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    transition: border-color .15s, transform .15s;
+  }
+  .gal-card:hover { border-color: var(--brand); transform: translateY(-2px); }
+  .gal-media {
+    height: 196px;
+    overflow: hidden;
+    background: #EFECE4;
+    border-bottom: 1px solid var(--line);
+  }
+  .gal-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .gal-cap {
+    padding: 15px 18px 17px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .gal-cap h3 { font-size: 17px; font-weight: 800; color: var(--ink); }
+  .gal-cap p { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
+
+  /* 第 4 屏：全站服务目录 + 诚实声明 */
+  .services-sec { margin-top: 42px; }
+  .service-matrix {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .svc-cell {
+    padding: 18px 16px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    min-height: 104px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .svc-cell:nth-child(5n) { border-right: 0; }
+  .svc-cell:nth-child(n+6) { border-bottom: 0; }
+  .svc-cell:hover { background: var(--brand-tint); }
+  .svc-cell h3 { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .svc-cell p { font-size: 12px; color: var(--ink-2); margin-top: 6px; line-height: 1.45; }
+
+  .trust-footer {
+    margin-top: 42px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    padding: 36px 0 42px;
+  }
+  .trust-inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+  }
+  .trust-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--warm);
+    background: var(--warm-tint);
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .trust-title { font-size: 18px; font-weight: 800; margin-top: 8px; }
+  .trust-desc { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
+  .trust-links { display: flex; flex-wrap: wrap; gap: 8px; }
+  .trust-links a {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .trust-links a:hover { border-color: var(--brand); color: var(--brand); }
+
+  /* 弹窗 */
+  .modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 24, 21, 0.56);
+    display: none;
+    place-items: center;
+    padding: 16px;
+    z-index: 60;
+  }
+  .modal-mask.open { display: grid; }
+  .modal-box {
+    width: min(100%, 520px);
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h2 { font-size: 18px; font-weight: 800; }
+  .modal-close { min-width: 44px; min-height: 44px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+  .modal-list { list-style: none; margin-top: 14px; }
+  .modal-list li {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .modal-list li:first-child { border-top: 0; }
+  .modal-list strong { color: var(--brand); }
+
+  /* 手机端底栏 */
+  .mobile-bar { display: none; }
+
+  @media (max-width: 960px) {
+    .main-nav { display: none; }
+    .hero-inner { grid-template-columns: 1fr; padding: 24px 20px; }
+    .quick-strip { grid-template-columns: repeat(2, 1fr); }
+    .editorial-grid { grid-template-columns: 1fr; }
+    .gallery-grid { grid-template-columns: 1fr; }
+    .service-matrix { grid-template-columns: repeat(2, 1fr); }
+    .svc-cell { border-right: 1px solid var(--line) !important; border-bottom: 1px solid var(--line) !important; }
+    .svc-cell:nth-child(2n) { border-right: 0 !important; }
+  }
+  @media (max-width: 600px) {
+    body { padding-bottom: 72px; }
+    .brand-tag, .tool-link { display: none; }
+    .hero-stage { min-height: 310px; }
+    .hero-inner { padding: 18px 16px; gap: 16px; }
+    .hero-card { padding: 14px 16px; }
+    .search-box { flex-direction: column; align-items: stretch; padding: 8px; }
+    .search-box button { width: 100%; }
+    .activity-row { grid-template-columns: 54px 1fr; }
+    .act-btn { display: none; }
+    .mobile-bar {
+      position: fixed;
+      inset: auto 0 0 0;
+      height: 64px;
+      background: rgba(250, 250, 247, 0.96);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      z-index: 40;
+    }
+    .mobile-bar a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink-2);
+    }
+    .mobile-bar a.active { color: var(--brand); }
+  }
+</style>
+</head>
+<body>
+<!--
+Design decisions (Dir-1 湖山实景画报导览):
+- 配色：从仰恩航拍湖山与Logo采色——纸白 #FAFAF7、湖绿 #0F5C4D、瓦檐赤陶 #B9441E、深松墨 #17221E
+- 字体：中文无衬线系统栈（15px 正文，display 46px 流式缩放）
+- 骨架：实景大图首屏 + 4联横条 + 不对称双栏（在发/阶段 vs 清单/急用电话） + 实景图鉴带 + 5x2服务索引
+-->
+<div class="notice-bar">
+  <div class="shell">
+    <button type="button" class="notice-btn" id="openNoticeModal">
+      <span class="notice-left">
+        <span class="notice-pill">2026级重要时间</span>
+        <span class="notice-text">9月5–6日注册报到（看录取通知书） / 9月7–9日入学教育 / 9月10日开始上课</span>
+      </span>
+      <span class="notice-action">查看时间表</span>
+    </button>
+  </div>
+</div>
+
+<header class="site-header">
+  <div class="shell header-inner">
+    <a href="#top" class="brand">
+      <img src="../public/images/brand/system-logo-mark-light.png" alt="迎新指南标志">
+      <span class="brand-name">迎新指南</span>
+      <span class="brand-tag">学生整理 / 非学校官网</span>
+    </a>
+    <nav class="main-nav" aria-label="主导航">
+      <a href="#top" class="active">首页</a>
+      <a href="#gallery">地图</a>
+      <a href="#stages">办事</a>
+      <a href="#services">生活</a>
+      <a href="#feed">热点</a>
+      <a href="#checklist">我的</a>
+    </nav>
+    <div class="header-tools">
+      <div class="mode-switch" role="group" aria-label="显示模式">
+        <button type="button" class="on" data-mode="full">完整</button>
+        <button type="button" data-mode="compact">简洁</button>
+      </div>
+      <a href="#hotlines" class="tool-link">联系求助</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="shell hero-wrap">
+    <div class="hero-stage">
+      <img src="../public/images/intro/yeu-campus-hero.webp" alt="仰恩大学仙公山麓环湖校区航拍全景" class="hero-img">
+      <div class="hero-scrim"></div>
+      <div class="hero-inner">
+        <div>
+          <span class="hero-kicker">仰恩大学新生校园导览</span>
+          <h1 class="hero-title">2026级新生入学指南</h1>
+          <p class="hero-sub">报到安排、宿舍片区、校园地图、一卡通网络与泉州周边生活，按入学当天的顺序排好。</p>
+          <form class="search-box" id="searchForm">
+            <input type="text" id="searchInput" placeholder="搜索校园信息，或输入你的问题" aria-label="搜索校园信息">
+            <button type="submit">AI 搜索</button>
+          </form>
+          <div class="search-hints">
+            <span>常见提问：</span>
+            <button type="button" class="hint-chip" data-q="新生报到要带什么材料">报到带什么</button>
+            <button type="button" class="hint-chip" data-q="泉州站到仰恩怎么坐公交">泉州站公交</button>
+            <button type="button" class="hint-chip" data-q="校园网怎么连接认证">校园网连接</button>
+          </div>
+          <p id="searchFeedback" style="margin-top:8px;font-size:13px;color:#B4EFE0;min-height:20px;"></p>
+        </div>
+
+        <aside class="hero-card" aria-label="开学关键日程">
+          <div class="hero-card-title">本学期关键日程速览</div>
+          <div class="hero-dates">
+            <div class="hero-date-row"><strong>9月5–6日</strong><span>注册报到（看录取通知书）</span></div>
+            <div class="hero-date-row"><strong>9月7–9日</strong><span>入学教育（看学院通知）</span></div>
+            <div class="hero-date-row"><strong>9月10日</strong><span>正式上课（看教务系统）</span></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="quick-strip" aria-label="常用查询">
+      <a href="#stages" class="quick-item">
+        <span class="quick-tag">入学前先看</span>
+        <div>
+          <div class="quick-title">报到安排</div>
+          <div class="quick-desc">报到时间、携带材料与入校指引</div>
+        </div>
+      </a>
+      <a href="#gallery" class="quick-item">
+        <span class="quick-tag">到校后常用</span>
+        <div>
+          <div class="quick-title">校园地图</div>
+          <div class="quick-desc">宿舍区、教学楼与医务所定位</div>
+        </div>
+      </a>
+      <a href="#feed" class="quick-item">
+        <span class="quick-tag">入校后办理</span>
+        <div>
+          <div class="quick-title">一卡通与网络</div>
+          <div class="quick-desc">校园网统一认证与一卡通充值</div>
+        </div>
+      </a>
+      <a href="#services" class="quick-item">
+        <span class="quick-tag">校园生活</span>
+        <div>
+          <div class="quick-title">快递与外卖</div>
+          <div class="quick-desc">校内取件站点与外卖送达说明</div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="shell editorial-grid">
+    <div>
+      <div id="feed">
+        <div class="sec-head">
+          <h2 class="sec-title">最近在发</h2>
+          <a href="#services" class="sec-link">全部校园热点</a>
+        </div>
+        <div class="feed-panel">
+          <div class="feed-subhead">
+            <span>学校公开通知整理</span>
+            <span>每日校对更新</span>
+          </div>
+          <ul class="feed-list">
+            <li>
+              <a href="#stages" class="feed-row">
+                <span class="feed-badge fb-hot">重要</span>
+                <span class="feed-main">
+                  <div class="feed-name">2026级新生报到及泉州站接站安排说明</div>
+                  <div class="feed-meta">报到指引 / 校外交通 / 核验自招生与迎新通知</div>
+                </span>
+              </a>
+            </li>
+            <li>
+              <a href="#services" class="feed-row">
+                <span class="feed-badge fb-new">实用</span>
+                <span class="feed-main">
+                  <div class="feed-name">仰恩大学校园网使用指南与统一认证开通</div>
+                  <div class="feed-meta">校园网络 / 宿舍宽带 / 教务选课入口</div>
+                </span>
+              </a>
+            </li>
+            <li>
+              <a href="#hotlines" class="feed-row">
+                <span class="feed-badge fb-new">生活</span>
+                <span class="feed-main">
+                  <div class="feed-name">学生宿舍空调使用规定与水电家具报修通道</div>
+                  <div class="feed-meta">宿舍生活 / 总务报修电话 0595-22076110</div>
+                </span>
+              </a>
+            </li>
+          </ul>
+          <div class="feed-subhead" style="border-top:1px solid var(--line);">
+            <span>校园近期活动</span>
+            <span>可留言交流</span>
+          </div>
+          <ul class="feed-list">
+            <li class="activity-row">
+              <div class="act-date"><b>9/06</b><span>全天</span></div>
+              <div>
+                <div class="feed-name">各学院迎新报到服务点现场指引</div>
+                <div class="feed-meta">第一教学区与新区宿舍楼下志愿者导引</div>
+              </div>
+              <a href="#stages" class="act-btn">看流程</a>
+            </li>
+            <li class="activity-row">
+              <div class="act-date"><b>9/08</b><span>19:00</span></div>
+              <div>
+                <div class="feed-name">百团纳新宣讲与社团方向开放咨询</div>
+                <div class="feed-meta">学生活动中心广场 / 查看已入驻社团</div>
+              </div>
+              <a href="#services" class="act-btn">看社团</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="stage-panel" id="stages">
+        <div class="sec-head" style="margin-bottom:10px;">
+          <h2 class="sec-title">按入学阶段查看</h2>
+        </div>
+        <div class="stage-tabs" role="tablist">
+          <button type="button" class="stage-tab on" data-stage="0">到校前</button>
+          <button type="button" class="stage-tab" data-stage="1">报到当天</button>
+          <button type="button" class="stage-tab" data-stage="2">入学第一周</button>
+        </div>
+        <div class="stage-body" id="stageContent">
+          <h3 class="stage-heading">先确认报到安排，不要凭群聊猜</h3>
+          <ul class="stage-ul">
+            <li>确认报到时间和要带的材料</li>
+            <li>查专业对应的住宿片区</li>
+            <li>收藏校园地图认方向</li>
+          </ul>
+          <a href="#gallery" class="stage-cta">查看报到准备</a>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side-col">
+      <div class="checklist-card" id="checklist">
+        <h2 class="sec-title">新生准备清单</h2>
+        <div class="prog-row">
+          <span style="font-size:14px;color:var(--ink-2);">当前完成进度</span>
+          <strong class="prog-num" id="progText">35%</strong>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="progFill" style="width:35%;"></div></div>
+        <div class="check-demo-list" id="checkItems">
+          <label class="check-item done"><input type="checkbox" checked><span>核对录取通知书报到时间</span></label>
+          <label class="check-item"><input type="checkbox"><span>准备身份证、档案与一寸照</span></label>
+          <label class="check-item"><input type="checkbox"><span>查清宿舍片区与被褥尺寸</span></label>
+          <label class="check-item"><input type="checkbox"><span>保存校园地图与校巴站点</span></label>
+        </div>
+        <p style="margin-top:12px;font-size:12px;color:var(--ink-2);">勾选实时保存于当前设备</p>
+      </div>
+
+      <div class="hotline-card" id="hotlines">
+        <h2>校内求助与常用电话</h2>
+        <p class="hotline-warn">紧急先拨校园 110</p>
+        <div class="hotline-list">
+          <a href="tel:059522076110" class="hotline-item"><strong>拨打校园 110</strong><span>报修 / 求助</span></a>
+          <a href="tel:059522099033" class="hotline-item"><strong>心理健康中心</strong><span>咨询 / 适应支持</span></a>
+          <a href="tel:059522082006" class="hotline-item"><strong>教务部</strong><span>学籍 / 课表</span></a>
+          <a href="tel:059522099018" class="hotline-item"><strong>学生资助中心</strong><span>贷款 / 助学金</span></a>
+        </div>
+        <p class="hotline-note">医务室 24 小时值班，定位请在校园地图搜「医务所」。</p>
+      </div>
+    </aside>
+  </section>
+
+  <section class="shell visual-band" id="gallery">
+    <div class="sec-head">
+      <h2 class="sec-title">先看清校园与生活环境</h2>
+      <a href="#services" class="sec-link">更多实景与攻略</a>
+    </div>
+    <div class="gallery-grid">
+      <a href="#top" class="gal-card">
+        <div class="gal-media">
+          <img src="../public/images/posters/freshman-guide-campus-map.png" alt="仰恩大学校园手绘地形图">
+        </div>
+        <div class="gal-cap">
+          <h3>校园地形与建筑分布</h3>
+          <p>手绘等距导览，教学区、宿舍区与湖心路桥一眼看清</p>
+        </div>
+      </a>
+      <a href="#services" class="gal-card">
+        <div class="gal-media">
+          <img src="../public/images/panorama/comfort-dorm-poster.jpg" alt="宿舍实拍">
+        </div>
+        <div class="gal-cap">
+          <h3>宿舍实拍对照</h3>
+          <p>普通型与舒适型宿舍实景及空调指南</p>
+        </div>
+      </a>
+      <a href="#services" class="gal-card">
+        <div class="gal-media">
+          <img src="../public/images/nearby/city-food.webp" alt="泉州与马甲周边吃喝玩乐">
+        </div>
+        <div class="gal-cap">
+          <h3>马甲与泉州吃喝玩乐</h3>
+          <p>学生街夜宵、市区美食与周末出行攻略</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="shell services-sec" id="services">
+    <div class="sec-head">
+      <h2 class="sec-title">服务导航</h2>
+      <span style="font-size:13px;color:var(--ink-2);">共 10 项校园实用入口</span>
+    </div>
+    <div class="service-matrix">
+      <a href="#checklist" class="svc-cell"><h3>新生清单</h3><p>勾选到校前和第一周事项</p></a>
+      <a href="#hotlines" class="svc-cell"><h3>安全医疗与心理</h3><p>保存校园 110 与医务室位置</p></a>
+      <a href="#services" class="svc-cell"><h3>学生手册与资助</h3><p>校内规则、奖助学金和学习要求</p></a>
+      <a href="#services" class="svc-cell"><h3>学生社团</h3><p>社团方向与本学期招新</p></a>
+      <a href="#services" class="svc-cell"><h3>校内部门</h3><p>招生、教务、学生事务入口</p></a>
+      <a href="#gallery" class="svc-cell"><h3>吃喝玩乐</h3><p>学生街、马甲与泉州市区攻略</p></a>
+      <a href="#services" class="svc-cell"><h3>到校与离校交通</h3><p>泉州站、东站、机场到校公交</p></a>
+      <a href="#gallery" class="svc-cell"><h3>全景云游校园</h3><p>大门、教学楼和校史馆实景</p></a>
+      <a href="#gallery" class="svc-cell"><h3>宿舍实拍</h3><p>普通型、舒适型宿舍实拍</p></a>
+      <a href="https://dz.lileikeji.top/uploads/releases/download.php" target="_blank" rel="noopener noreferrer" class="svc-cell"><h3>WeLearn 学习工具</h3><p>第三方工具，下载页取最新版</p></a>
+    </div>
+  </section>
+</main>
+
+<footer class="trust-footer">
+  <div class="shell trust-inner">
+    <div>
+      <span class="trust-badge">学生整理 / 非学校官网</span>
+      <h2 class="trust-title">重要事项，再到学校原文确认一次</h2>
+      <p class="trust-desc">报到、缴费、住宿和资助等要求，最终看录取通知书和学校通知。最近核对：2026年7月23日。</p>
+    </div>
+    <div class="trust-links">
+      <a href="https://www.yeu.edu.cn/" target="_blank" rel="noopener noreferrer">学校官网</a>
+      <a href="https://zhaosheng.yeu.edu.cn/" target="_blank" rel="noopener noreferrer">招生官网</a>
+      <a href="https://xsb.yeu.edu.cn/xszz/list.htm" target="_blank" rel="noopener noreferrer">学生资助</a>
+      <a href="#top">看信息从哪来</a>
+      <a href="#hotlines">反馈纠错</a>
+    </div>
+  </div>
+</footer>
+
+<nav class="mobile-bar" aria-label="移动端主导航">
+  <a href="#top" class="active">首页</a>
+  <a href="#gallery">地图</a>
+  <a href="#stages">办事</a>
+  <a href="#services">生活</a>
+  <a href="#checklist">我的</a>
+</nav>
+
+<div class="modal-mask" id="noticeModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="modalTitle">2026级新生重要时间</h2>
+      <button type="button" class="modal-close" id="closeNoticeModal">关闭</button>
+    </div>
+    <ul class="modal-list">
+      <li><strong>9月5–6日</strong><div><b>注册报到</b><p style="font-size:13px;color:var(--ink-2);">看录取通知书与报到须知</p></div></li>
+      <li><strong>9月7–9日</strong><div><b>入学教育</b><p style="font-size:13px;color:var(--ink-2);">具体时间地点看学院通知</p></div></li>
+      <li><strong>9月10日</strong><div><b>开始上课</b><p style="font-size:13px;color:var(--ink-2);">以教务系统个人课表为准</p></div></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  const stages = [
+    { heading: '先确认报到安排，不要凭群聊猜', items: ['确认报到时间和要带的材料', '查专业对应的住宿片区', '收藏校园地图认方向'], cta: '查看报到准备' },
+    { heading: '先看清报到方位，再按步骤办理', items: ['按现场指引完成报到', '到宿舍确认入住', '核对一卡通和网络'], cta: '打开校园地图' },
+    { heading: '补齐学习和生活入口', items: ['确认课表和教学楼', '办理一卡通和网络', '保存安全和办事入口'], cta: '查看全部指南' }
+  ];
+  document.querySelectorAll('.stage-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.stage-tab').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const s = stages[Number(btn.dataset.stage)];
+      const box = document.getElementById('stageContent');
+      box.innerHTML = `<h3 class="stage-heading">${s.heading}</h3><ul class="stage-ul">${s.items.map(i => `<li>${i}</li>`).join('')}</ul><a href="#services" class="stage-cta">${s.cta}</a>`;
+    });
+  });
+
+  const modal = document.getElementById('noticeModal');
+  document.getElementById('openNoticeModal').addEventListener('click', () => modal.classList.add('open'));
+  document.getElementById('closeNoticeModal').addEventListener('click', () => modal.classList.remove('open'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+  document.querySelectorAll('.hint-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById('searchInput');
+      input.value = btn.dataset.q;
+      document.getElementById('searchFeedback').textContent = `已填入提问：「${btn.dataset.q}」，点击 AI 搜索即可直达检索结果。`;
+    });
+  });
+  document.getElementById('searchForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const q = document.getElementById('searchInput').value.trim();
+    document.getElementById('searchFeedback').textContent = q ? `原型演示：将带问题「${q}」跳转至 /search?q=${encodeURIComponent(q)}&mode=ai` : '请输入想查询的校园事项或问题';
+  });
+
+  function updateProgress() {
+    const inputs = [...document.querySelectorAll('#checkItems input')];
+    const done = inputs.filter(i => i.checked).length;
+    const pct = Math.round((done / inputs.length) * 100);
+    document.getElementById('progText').textContent = pct + '%';
+    document.getElementById('progFill').style.width = pct + '%';
+    inputs.forEach(i => i.closest('.check-item').classList.toggle('done', i.checked));
+  }
+  document.querySelectorAll('#checkItems input').forEach(i => i.addEventListener('change', updateProgress));
+
+  document.querySelectorAll('.mode-switch button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.mode-switch button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

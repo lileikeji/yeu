@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>方向 C · 极简高密工具指挥中心 — 2026级新生入学指南</title>
+  <style>
+    :root {
+      --bg: #f7f8f6;
+      --surface: #ffffff;
+      --muted: #f2f4f1;
+      --line: #e4e7e2;
+      --line-hover: rgba(23, 111, 70, 0.34);
+      --ink: #111827;
+      --ink-2: #374151;
+      --ink-3: #646d67;
+      --brand: #176f46;
+      --brand-hover: #115536;
+      --brand-soft: #ecf7f1;
+      --radius: 12px;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+      --shadow-hover: 0 10px 24px -10px rgba(23, 111, 70, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: none; background: transparent; color: inherit; }
+    .container { width: min(100% - 2rem, 1180px); margin-inline: auto; }
+
+    /* 顶栏 */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .header-inner {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; flex-shrink: 0; }
+    .brand img { width: 32px; height: 32px; object-fit: contain; }
+    .brand-title { font-size: 16px; font-weight: 700; }
+    .brand-sub { font-size: 12px; color: var(--ink-3); padding-left: 8px; border-left: 1px solid #d4d9d2; }
+
+    .nav-links { display: flex; align-items: center; gap: 2px; }
+    .nav-link {
+      min-height: 44px;
+      padding: 0 11px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink-2);
+      border-radius: 8px;
+      position: relative;
+    }
+    .nav-link:hover { color: var(--brand); background: var(--muted); }
+    .nav-link.active { color: var(--brand); font-weight: 700; }
+    .nav-link.active::after {
+      content: "";
+      position: absolute;
+      left: 11px;
+      right: 11px;
+      bottom: 6px;
+      height: 2px;
+      background: var(--brand);
+    }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .mode-pill {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 9px;
+      background: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .mode-pill span {
+      min-height: 30px;
+      padding: 0 11px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      border-radius: 6px;
+      color: var(--ink-3);
+    }
+    .mode-pill span.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+    .contact-btn {
+      min-height: 44px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brand);
+      border-radius: 8px;
+    }
+    .contact-btn:hover { background: var(--brand-soft); }
+
+    /* Spotlight 搜索指挥区（紧凑但极高质感） */
+    .command-hero {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      padding: 20px 0 22px;
+    }
+    .command-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .command-top h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .date-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .date-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: #fffaf0;
+      border: 1px solid #f0dfb9;
+      color: #854d0e;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .date-pill.green {
+      background: var(--brand-soft);
+      border-color: rgba(23, 111, 70, 0.2);
+      color: var(--brand);
+    }
+
+    .spotlight-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      background: var(--bg);
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+    .spotlight-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      min-height: 44px;
+      background: #ffffff;
+      border-radius: 9px;
+      border: 1px solid var(--line);
+    }
+    .spotlight-input-wrap:focus-within {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(23, 111, 70, 0.1);
+    }
+    .spotlight-input-wrap input {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      color: var(--ink);
+      background: transparent;
+    }
+    .kbd-hint {
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--muted);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--ink-3);
+      white-space: nowrap;
+    }
+    .ai-btn {
+      min-height: 44px;
+      padding: 0 20px;
+      border-radius: 9px;
+      background: var(--brand);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+    .ai-btn:hover { background: var(--brand-hover); }
+
+    .quick-cmd-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--ink-3);
+    }
+    .cmd-chip {
+      min-height: 36px;
+      padding: 4px 10px;
+      border-radius: 7px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--ink-2);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cmd-chip:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+
+    /* 主网格 */
+    .main-wrap { padding: 20px 0 36px; display: grid; gap: 18px; }
+
+    /* 4 格高频卡 */
+    .quick-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .q-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 15px 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all .18s;
+    }
+    .q-card:hover {
+      border-color: var(--line-hover);
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-1px);
+    }
+    .q-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .c-emerald { background: #ecfdf5; color: #176f46; }
+    .c-blue { background: #eff6ff; color: #1d4ed8; }
+    .c-violet { background: #f5f3ff; color: #6d28d9; }
+    .c-amber { background: #fffbeb; color: #b45309; }
+    .q-card h2 { margin: 0; font-size: 15px; font-weight: 700; }
+    .q-card p { margin: 2px 0 0; font-size: 12px; color: var(--ink-3); }
+
+    /* 首屏核心双栏：阶段 + 清单 */
+    .core-split {
+      display: grid;
+      grid-template-columns: 7fr 5fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #fcfdfc;
+    }
+    .panel-header h2 { margin: 0; font-size: 16px; font-weight: 700; }
+    .seg-tabs {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 8px;
+      background: var(--muted);
+      border: 1px solid var(--line);
+      gap: 2px;
+    }
+    .seg-tab {
+      min-height: 34px;
+      padding: 0 11px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-3);
+    }
+    .seg-tab.active { background: #fff; color: var(--brand); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+    .task-list { padding: 6px 18px 14px; }
+    .task-row {
+      min-height: 48px;
+      padding: 10px 4px;
+      border-bottom: 1px solid #f1f3f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--ink-2);
+    }
+    .task-row:last-child { border-bottom: none; }
+    .task-row-l { display: flex; align-items: center; gap: 10px; }
+    .task-row-l svg { color: var(--brand); flex-shrink: 0; }
+
+    /* 清单进度面板 */
+    .check-body { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .bar-track { height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+    .bar-fill { height: 100%; width: 25%; background: var(--brand); transition: width .25s; }
+    .c-row {
+      min-height: 44px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+      font-size: 13px;
+      color: var(--ink-2);
+      background: #fafbfa;
+    }
+    .c-row:hover { border-color: var(--brand); background: var(--brand-soft); }
+    .c-row.done { color: var(--ink-3); text-decoration: line-through; }
+    .c-box {
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
+      border: 1.5px solid #b8c0ba;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .c-row.done .c-box { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+    /* 热线横条 */
+    .hotline-strip {
+      background: #edf5f0;
+      border: 1px solid #d5e6db;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: auto repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+    .hot-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #13442c;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 8px;
+      white-space: nowrap;
+    }
+    .hot-btn {
+      min-height: 44px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      background: #ffffff;
+      border: 1px solid #d5e6db;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .hot-btn:hover { border-color: var(--brand); }
+    .hot-btn strong { color: var(--ink); }
+    .hot-btn span { color: var(--ink-3); font-size: 12px; }
+
+    /* 10项工具网格 + 实景速览条 */
+    .svc-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .svc-item {
+      min-height: 54px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+      transition: all .16s;
+    }
+    .svc-item:hover { border-color: var(--brand); color: var(--brand); background: #f8fbf9; }
+    .svc-item svg { color: var(--brand); flex-shrink: 0; }
+
+    /* 收纳式校园实景速览条 */
+    .gallery-strip {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+    .gallery-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .g-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      background: #fcfdfc;
+    }
+    .g-card:hover { border-color: var(--brand); background: var(--brand-soft); }
+    .g-card img {
+      width: 68px;
+      height: 50px;
+      border-radius: 7px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .g-card strong { display: block; font-size: 13px; }
+    .g-card span { display: block; font-size: 12px; color: var(--ink-3); }
+
+    .site-footer {
+      border-top: 1px solid var(--line);
+      background: #fff;
+      padding: 18px 0 24px;
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+    .footer-inner { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+    @media (max-width: 960px) {
+      .nav-links, .brand-sub { display: none; }
+      .quick-4, .gallery-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .core-split, .hotline-strip { grid-template-columns: 1fr; }
+      .svc-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .header-actions .mode-pill, .kbd-hint { display: none; }
+      .quick-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .q-card { flex-direction: column; align-items: flex-start; gap: 8px; padding: 13px; }
+      .panel-header { flex-direction: column; align-items: stretch; gap: 10px; }
+      .seg-tabs { display: grid; grid-template-columns: repeat(3, 1fr); }
+      .seg-tab { white-space: nowrap; }
+      .gallery-row, .svc-5, .spotlight-bar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#top" class="brand">
+        <img src="../public/images/brand/system-logo-mark-light.png" alt="迎新指南" />
+        <span class="brand-title">迎新指南</span>
+        <span class="brand-sub">学生整理 · 非官方</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#top" class="nav-link active">首页</a>
+        <a href="#gallery" class="nav-link">地图</a>
+        <a href="#stages" class="nav-link">办事</a>
+        <a href="#services" class="nav-link">生活</a>
+        <a href="#gallery" class="nav-link">热点</a>
+        <a href="#checklist" class="nav-link">我的</a>
+      </nav>
+      <div class="header-actions">
+        <div class="mode-pill"><span class="on">完整</span><span>简洁</span></div>
+        <button type="button" class="contact-btn"><i data-icon="phone"></i> 联系我们</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="command-hero" id="top">
+    <div class="container">
+      <div class="command-top">
+        <h1>2026级新生入学指南</h1>
+        <div class="date-pills">
+          <span class="date-pill green">方向 C · 高密工具指挥中心</span>
+          <span class="date-pill">9月5–6日 注册报到 · 9月10日 上课</span>
+        </div>
+      </div>
+
+      <form class="spotlight-bar" onsubmit="event.preventDefault(); document.getElementById('cmdTip').textContent='检索：「' + (document.getElementById('cq').value || '报到材料') + '」'">
+        <label class="spotlight-input-wrap" for="cq">
+          <i data-icon="search"></i>
+          <input id="cq" type="search" placeholder="直达检索：专业宿舍 / 报到材料 / 校车时刻 / 校园110..." />
+          <span class="kbd-hint">回车搜全站</span>
+        </label>
+        <button type="submit" class="ai-btn"><i data-icon="sparkles"></i> AI 搜索</button>
+      </form>
+
+      <div class="quick-cmd-row">
+        <span id="cmdTip">高频直达：</span>
+        <button type="button" class="cmd-chip" data-fill="报到材料清单">/报到材料</button>
+        <button type="button" class="cmd-chip" data-fill="新区和旧区宿舍实拍">/宿舍对比</button>
+        <button type="button" class="cmd-chip" data-fill="校园网宽带办理">/校园网</button>
+        <button type="button" class="cmd-chip" data-fill="泉州站到仰恩乘车">/到校交通</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="container main-wrap">
+    <section class="quick-4">
+      <a href="#stages" class="q-card">
+        <div class="q-icon c-emerald"><i data-icon="calendar-check"></i></div>
+        <div><h2>报到安排</h2><p>9月5–6日流程与材料</p></div>
+      </a>
+      <a href="#gallery" class="q-card">
+        <div class="q-icon c-blue"><i data-icon="map-pin"></i></div>
+        <div><h2>校园地图</h2><p>楼栋与服务点定位</p></div>
+      </a>
+      <a href="#services" class="q-card">
+        <div class="q-icon c-violet"><i data-icon="wifi"></i></div>
+        <div><h2>一卡通与网络</h2><p>办卡、充值与宽带</p></div>
+      </a>
+      <a href="#services" class="q-card">
+        <div class="q-icon c-amber"><i data-icon="package"></i></div>
+        <div><h2>快递与外卖</h2><p>收件地址与取餐范围</p></div>
+      </a>
+    </section>
+
+    <section class="core-split" id="stages">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>按入学阶段查看</h2>
+          <div class="seg-tabs">
+            <button type="button" class="seg-tab active" data-stage="before">到校前</button>
+            <button type="button" class="seg-tab" data-stage="arrival">报到当天</button>
+            <button type="button" class="seg-tab" data-stage="week1">入学第一周</button>
+          </div>
+        </div>
+        <div class="task-list" id="cStageList"></div>
+      </div>
+
+      <div class="panel" id="checklist">
+        <div class="panel-header">
+          <h2>新生准备清单</h2>
+          <span id="cPct" style="font-size: 16px; font-weight: 800; color: var(--brand);">25%</span>
+        </div>
+        <div class="check-body">
+          <div class="bar-track"><div class="bar-fill" id="cBar"></div></div>
+          <button type="button" class="c-row done"><span class="c-box">✓</span><span>保存录取通知书与官方报到通知</span></button>
+          <button type="button" class="c-row"><span class="c-box"></span><span>查专业对应的宿舍片区与楼栋</span></button>
+          <button type="button" class="c-row"><span class="c-box"></span><span>备好证件照、团档案与身份证复印件</span></button>
+          <button type="button" class="c-row"><span class="c-box"></span><span>收藏校园手绘地图与泉州站乘车路线</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="hotline-strip">
+      <div class="hot-title"><i data-icon="phone"></i> 校内求助热线</div>
+      <a href="tel:110" class="hot-btn"><strong>校园 110</strong><span>24h 报修/求助</span></a>
+      <a href="#services" class="hot-btn"><strong>心理健康中心</strong><span>咨询支持</span></a>
+      <a href="#services" class="hot-btn"><strong>教务部</strong><span>学籍课表</span></a>
+      <a href="#services" class="hot-btn"><strong>学生资助中心</strong><span>贷款助学</span></a>
+    </section>
+
+    <section id="services">
+      <div class="svc-5">
+        <a href="#checklist" class="svc-item"><i data-icon="list-checks"></i> 新生清单</a>
+        <a href="#services" class="svc-item"><i data-icon="shield-plus"></i> 安全与心理支持</a>
+        <a href="#services" class="svc-item"><i data-icon="book-open"></i> 学生手册与资助</a>
+        <a href="#services" class="svc-item"><i data-icon="users"></i> 学生社团</a>
+        <a href="#services" class="svc-item"><i data-icon="building"></i> 校内部门</a>
+        <a href="#gallery" class="svc-item"><i data-icon="utensils"></i> 吃喝玩乐</a>
+        <a href="#services" class="svc-item"><i data-icon="bus"></i> 到校离校交通</a>
+        <a href="#gallery" class="svc-item"><i data-icon="camera"></i> 全景云游校园</a>
+        <a href="#gallery" class="svc-item"><i data-icon="bed"></i> 宿舍实拍</a>
+        <a href="#services" class="svc-item"><i data-icon="download"></i> WeLearn 工具</a>
+      </div>
+    </section>
+
+    <section class="gallery-strip" id="gallery">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <strong style="font-size: 15px;">实景速览（点开查看大图与视频）</strong>
+        <span style="font-size: 12px; color: var(--ink-3);">航拍 / 宿舍对比 / 手绘地图 / 泉州美食</span>
+      </div>
+      <div class="gallery-row">
+        <a href="#top" class="g-card">
+          <img src="../public/images/intro/yeu-campus-hero.webp" alt="校园全景" />
+          <div><strong>校园湖山全景</strong><span>720° 实景云游</span></div>
+        </a>
+        <a href="#top" class="g-card">
+          <img src="../public/images/panorama/comfort-dorm-poster.jpg" alt="宿舍实拍" />
+          <div><strong>宿舍实拍对比</strong><span>普通型 &amp; 舒适型</span></div>
+        </a>
+        <a href="#top" class="g-card">
+          <img src="../public/images/posters/freshman-guide-campus-map.png" alt="手绘地图" />
+          <div><strong>手绘校园地图</strong><span>楼栋与坡道指引</span></div>
+        </a>
+        <a href="#top" class="g-card">
+          <img src="../public/images/nearby/city-food.webp" alt="泉州美食" />
+          <div><strong>泉州吃喝逛</strong><span>周末返校参考</span></div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>学生整理 · 非学校官网；重要事项以录取通知书与学校最新通知为准 · 已有 46 人看过</div>
+      <div style="display:flex; gap:16px;">
+        <a href="#top">学校官网</a>
+        <a href="#top">招生官网</a>
+        <a href="#top">信息来源</a>
+        <a href="#top">反馈纠错</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const ICONS = {
+      'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"/>',
+      'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+      'sparkles': '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+      'calendar-check': '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>',
+      'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+      'wifi': '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>',
+      'package': '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+      'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+      'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+      'list-checks': '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+      'shield-plus': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/><path d="M12 9v6"/>',
+      'book-open': '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+      'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+      'building': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>',
+      'utensils': '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+      'bus': '<path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+      'camera': '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+      'bed': '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
+      'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'
+    };
+    document.querySelectorAll('[data-icon]').forEach(el => {
+      const k = el.getAttribute('data-icon');
+      if (ICONS[k]) el.outerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
+    });
+
+    const DATA = {
+      before: ['确认 9 月 5–6 日报到批次与应带证明原件', '查所属学院专业对应的宿舍区与室内配置', '保存手绘地图，提前规划校外抵达交通'],
+      arrival: ['现场核验身份完成注册并领取宿舍钥匙与校园卡', '前往宿舍办理入住、检查水电与门禁状态', '测试校园宽带接入，确认快递驿站收发时间'],
+      week1: ['9 月 7–9 日参与入学教育，9 月 10 日正式开课', '熟悉教务系统、WeLearn 课程与资助政策', '保存校园 110 与医务室 24 小时值班方式']
+    };
+    function showStage(k) {
+      document.getElementById('cStageList').innerHTML = DATA[k].map(txt => `
+        <div class="task-row">
+          <div class="task-row-l">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS['check-circle']}</svg>
+            <span>${txt}</span>
+          </div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS['chevron-right']}</svg>
+        </div>
+      `).join('');
+    }
+    document.querySelectorAll('.seg-tab').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.seg-tab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      showStage(b.dataset.stage);
+    }));
+    showStage('before');
+
+    document.querySelectorAll('.cmd-chip').forEach(c => c.addEventListener('click', () => {
+      document.getElementById('cq').value = c.dataset.fill;
+      document.getElementById('cq').focus();
+    }));
+
+    document.querySelectorAll('.c-row').forEach(r => r.addEventListener('click', () => {
+      r.classList.toggle('done');
+      r.querySelector('.c-box').textContent = r.classList.contains('done') ? '✓' : '';
+      const all = [...document.querySelectorAll('.c-row')];
+      const pct = Math.round(all.filter(x => x.classList.contains('done')).length / all.length * 100);
+      document.getElementById('cPct').textContent = pct + '%';
+      document.getElementById('cBar').style.width = pct + '%';
+    }));
+  </script>
+</body>
+</html>

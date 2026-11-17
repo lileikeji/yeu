@@ -1431,6 +1431,11 @@ export const setCompetitionEntryDaySchema = z.object({
   day: z.number().int().min(1).max(2).nullable()
 }).strict()
 
+export const setCompetitionEntrySongSchema = z.object({
+  entryId: z.string().min(1).max(64),
+  song: z.string().trim().min(1).max(100)
+}).strict()
+
 export const setCompetitionEntryCheckInSchema = z.object({
   entryId: z.string().min(1).max(64),
   checkedIn: z.boolean()
@@ -1480,6 +1485,20 @@ export const competitionSongLookupSchema = z.object({
   name: z.string().trim().min(1).max(60),
   studentNo: z.string().trim().min(1).max(40),
   contact: z.string().trim().min(4).max(120)
+}).strict()
+
+export const setCompetitionEntryAccompanimentSchema = z.object({
+  entryId: z.string().min(1).max(64),
+  filename: z.string().trim().max(120).optional(),
+  data: z.string().min(1).max(60 * 1024 * 1024)
+}).strict()
+
+export const competitionSongAccompanimentSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  studentNo: z.string().trim().min(1).max(30),
+  contact: z.string().trim().min(4).max(120),
+  filename: z.string().trim().max(160).optional(),
+  data: z.string().min(16)
 }).strict()
 
 export const competitionSongSubmitSchema = z.object({

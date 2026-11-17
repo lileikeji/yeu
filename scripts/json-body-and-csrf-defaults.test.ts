@@ -5,7 +5,8 @@ import test from 'node:test'
 import {
   isAllowedJsonContentType,
   isJsonBodyWithinLimit,
-  MAX_JSON_BODY_BYTES
+  MAX_JSON_BODY_BYTES,
+  MAX_UPLOAD_JSON_BODY_BYTES
 } from '../server/utils/validation'
 import { BASE_SECURITY_HEADERS } from '../server/utils/request-context'
 
@@ -28,6 +29,9 @@ test('JSON body size helper enforces 256 KiB cap', () => {
   assert.equal(isJsonBodyWithinLimit(-1), false)
   assert.equal(isJsonBodyWithinLimit(Number.NaN), false)
   assert.equal(MAX_JSON_BODY_BYTES, 262_144)
+  // 上传类接口（伴奏 / 邮件图片）走单独的上限，否则 15MB 伴奏 base64 后必被 413。
+  assert.ok(MAX_UPLOAD_JSON_BODY_BYTES > MAX_JSON_BODY_BYTES)
+  assert.equal(isJsonBodyWithinLimit(20 * 1024 * 1024, MAX_UPLOAD_JSON_BODY_BYTES), true)
 })
 
 test('parseBody source measures raw body and rejects non-JSON content types', () => {
