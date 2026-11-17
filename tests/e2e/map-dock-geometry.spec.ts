@@ -32,7 +32,7 @@ test('其他页是 52px 悬浮胶囊，/map 是 100px 合成块，两态互斥�
   expect(await block.evaluate(el => el.querySelector('.shell-dock-glass') === null), 'dock 里不该有折射画布').toBe(true)
   expect(await block.evaluate(el => el.classList.contains('shell-dock--glass')), 'dock 不该挂玻璃类').toBe(false)
   const blockBox = await block.boundingBox()
-  expect(blockBox?.height ?? 0, '/map 合成块高 114px').toBeCloseTo(100, 0)
+  expect(blockBox?.height ?? 0, '/map 合成块高 100px').toBeCloseTo(100, 0)
   expect(await page.locator('nav.shell-dock:not(.shell-dock--map)').count(), '胶囊不该同时出现').toBe(0)
 
   const mapHeaderBox = await page.locator('header').first().boundingBox()
@@ -45,4 +45,29 @@ test('其他页是 52px 悬浮胶囊，/map 是 100px 合成块，两态互斥�
   // 搜索行 40px：只在 /map 出现
   const searchRow = await block.locator('.shell-dock-search').boundingBox()
   expect(searchRow?.height ?? 0, '搜索行 36px').toBeCloseTo(36, 0)
+})
+
+test('浮层让位量与合成块实际高度一致（不多留空档）', async ({ page }) => {
+  test.skip(!isNarrow(page.viewportSize()?.width), 'dock 只在窄屏断点以下渲染')
+
+  await page.goto('/map')
+  const block = page.locator('nav.shell-dock--map')
+  await expect(block).toHaveCount(1)
+  const blockBox = await block.boundingBox()
+  expect(blockBox).not.toBeNull()
+
+  // 用与页面浮层相同的表达式量一条基准线：底边距 = nav + inset + extra
+  const reserved = await page.evaluate(() => {
+    const probe = document.createElement('div')
+    probe.style.cssText = 'position:fixed;bottom:calc(var(--mobile-nav-height) + var(--mobile-dock-inset) + var(--mobile-dock-extra, 0rem));left:0;width:1px;height:1px'
+    document.body.append(probe)
+    const y = probe.getBoundingClientRect().top
+    probe.remove()
+    return y
+  })
+
+  const dockTop = blockBox!.y
+  const gap = dockTop - reserved
+  expect(gap, `浮层基准线应紧贴 dock 上沿（dockTop=${dockTop}, reserved=${reserved}）`).toBeGreaterThanOrEqual(0)
+  expect(gap, `让位量不该多留空档（dockTop=${dockTop}, reserved=${reserved}）`).toBeLessThanOrEqual(12)
 })

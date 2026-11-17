@@ -121,10 +121,18 @@ function clearSearch(): void {
   searchIsComposing.value = false
 }
 
-/** T-033：/map 合成块比胶囊多出 62px（114 - 52），页面里的浮动元素据此让开底栏；其他页 0。 */
+/**
+ * T-033：/map 合成块比胶囊多出的高度（搜索行 + 内边距），页面里的浮动元素据此让开底栏；其他页 0。
+ * 用两个变量相减而不是写死 3.875rem：块高从 114 收到 100 后常量没跟着改，浮层会多留 14–18px 空档。
+ */
 function syncDockExtra(): void {
   if (typeof document === 'undefined') return
-  document.documentElement.style.setProperty('--mobile-dock-extra', isMapDock.value ? '3.875rem' : '0rem')
+  document.documentElement.style.setProperty(
+    '--mobile-dock-extra',
+    isMapDock.value
+      ? 'calc(var(--shell-dock-map-height, 6.25rem) - var(--mobile-nav-height, 3.25rem))'
+      : '0rem'
+  )
 }
 
 onMounted(syncDockExtra)

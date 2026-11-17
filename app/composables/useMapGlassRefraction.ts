@@ -353,7 +353,7 @@ export function collectGlassQuads(
       frost: clamp(target.frost, 0, 1),
       rim: clamp(target.rim ?? 1, 0, 2),
       bandEdges: target.bandEdges === 'top' ? 'top' : 'all',
-    band: clamp((target.band ?? 0) / viewport.height, 0, 1)
+      band: clamp((target.band ?? 0) / viewport.height, 0, 1)
     })
   }
   return quads
