@@ -68,7 +68,9 @@ let latestSubmittedQuery = activeQuery.value
 let latestSubmittedType = activeType.value
 let previousAssistantQuery = ''
 let pendingSearchNavigations = 0
-const requestFetch = useRequestFetch()
+// Nitro 端点联合类型增长后，POST + AbortSignal 这条分支会让 TS 实例化过深（TS2589），
+// 与后台布局同样的做法：把请求器收窄成显式签名，调用方仍拿到 Promise<T>。
+const requestFetch = useRequestFetch() as unknown as <T = unknown>(url: string, options?: Record<string, unknown>) => Promise<T>
 const listMessages = searchListMessages
 const needShortcuts = searchNeedShortcuts
 const isNeedShortcutActive = isSearchNeedShortcutActive
