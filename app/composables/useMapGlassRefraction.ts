@@ -48,6 +48,12 @@ export interface GlassTarget {
   bandEdges?: 'all' | 'top'
   /** T-033：边带高度（CSS px）。给了就按它算，不给沿用默认的短边 0.55 比例。 */
   band?: number
+  /**
+   * T-035：真实圆角（CSS px）。给了就按「圆角 / 短边」换算——shader 里
+   * rpx = min(半宽, 半高) * radius * 2，所以 radius 恒等于「圆角 / 短边」。
+   * 按宽度比例猜（14/262）在长方形卡片上会明显偏小，四角露出白月牙。
+   */
+  radiusPx?: number
 }
 
 export interface MapGlassOptions {
@@ -255,7 +261,8 @@ void main() {
   // vParams.w 是逐目标的 rim 倍率（默认 1）：大面板上这条 2px 亮边会变成一道白线，
   // 面板把倍率设 0，边缘只留模糊与折射。
   float rim = (1.0 - smoothstep(0.0, 2.0 * uDpr, -d)) * clamp(vParams.w, 0.0, 2.0);
-  col += vec3(1.0) * rim * 0.35;
+  // T-035：乘 inside。圆角外侧不该有亮边，去掉 DOM 边框后这一圈残余白线就是「白月牙」。
+  col += vec3(1.0) * rim * 0.35 * inside;
 
   // 16~34 CSS px 内侧 gloss：一道很软的内高光。12→16 淡入、34→40 淡出，
   // 中间 16~34 保持满强度；这个区间来自对比截图，整段收窄到 16px 以内就会像描边。
@@ -348,7 +355,10 @@ export function collectGlassQuads(
       y: 1 - (top + rect.height) / viewport.height,
       w: rect.width / viewport.width,
       h: rect.height / viewport.height,
-      radius: clamp(target.radius, 0, 0.5),
+      // T-035：有真实圆角就按短边换算，没有才回落到旧的比例语义。
+      radius: target.radiusPx
+        ? clamp(target.radiusPx / Math.min(rect.width, rect.height), 0, 0.5)
+        : clamp(target.radius, 0, 0.5),
       strengthMul: clamp(target.strengthMul, 0, 4),
       frost: clamp(target.frost, 0, 1),
       rim: clamp(target.rim ?? 1, 0, 2),
