@@ -774,6 +774,9 @@ onBeforeUnmount(stopLiveRefresh)
                   邮箱
                 </th>
                 <th class="px-3 py-2 font-medium">
+                  QQ
+                </th>
+                <th class="px-3 py-2 font-medium">
                   来源
                 </th>
                 <th class="px-3 py-2 font-medium">
@@ -825,6 +828,9 @@ onBeforeUnmount(stopLiveRefresh)
                 </td>
                 <td class="max-w-44 truncate px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ singer.email || '—' }}
+                </td>
+                <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <span class="select-all tabular-nums">{{ singer.qq || '—' }}</span>
                 </td>
                 <td class="px-3 py-2">
                   <span
@@ -954,6 +960,9 @@ onBeforeUnmount(stopLiveRefresh)
                     电话
                   </th>
                   <th class="px-3 py-2 font-medium">
+                    QQ
+                  </th>
+                  <th class="px-3 py-2 font-medium">
                     歌曲
                   </th>
                   <th class="px-3 py-2 text-left">
@@ -983,6 +992,9 @@ onBeforeUnmount(stopLiveRefresh)
                   </td>
                   <td class="px-3 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                     {{ item.phone || '—' }}
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span class="select-all tabular-nums">{{ item.qq || '—' }}</span>
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ item.song || '待定' }}
