@@ -44,10 +44,23 @@ REL="$(node -p "require('$OUT/release.json').release")"
 [[ "$REL" =~ ^[0-9]{8}-[a-z0-9-]+$ ]] || { echo "[$(ts)] release 名非法：$REL"; exit 1; }
 echo "[$(ts)] commit=$COMMIT release=$REL"
 
+# 来源闸门：只接受 CI（GitHub Actions）出的制品。本机是 win32 + node 26，
+# 原生模块和 node 版本都跟生产不一致，本机构建只作冒烟验证，不直接上线。
+CI_ORIGIN="$(node -e "try{const r=require('$OUT/release.json');process.stdout.write(r.ci&&r.ci.runId?'ci':'local')}catch(e){process.stdout.write('local')}" 2>/dev/null || echo local)"
+if [[ "$CI_ORIGIN" != "ci" && "${ALLOW_LOCAL_BUILD:-0}" != "1" ]]; then
+  echo "[$(ts)] 拒绝部署：这份制品不是 CI 产出的（release.json 没有 ci.runId）"
+  echo "           正确路径：推 deploy/theme-on-competition → build-artifact 出制品 → gh run download"
+  echo "           确认要装本机构建的包，设 ALLOW_LOCAL_BUILD=1"
+  exit 1
+fi
+if [[ "$CI_ORIGIN" == "ci" ]]; then
+  echo "[$(ts)] 制品来源：GitHub Actions run $(node -e "process.stdout.write(require('$OUT/release.json').ci.runId)" 2>/dev/null)"
+fi
+
 # 防回退闸门：线上正在跑的 commit 必须已包含在本次制品里。
-# 多个会话并行发版时，最常见的事故就是「我拿 master 出了制品，发之前别人又发了一版」，
-# 一发布就把对方刚上的功能顶回去（2026-11-18 一夜发生四次）。
-# 祖先清单由 scripts/release-tools.mjs 写进 release.json；老制品没有就只告警不拦。
+# 多个会话并行发版时最常见的事故是「我出制品后别人又发了一版」，一发布就把对方刚上的功能顶回去
+# （2026-11-18 一夜发生四次）。祖先清单由 scripts/release-tools.mjs 写进 release.json。
+
 CURRENT_LINK="$BASE/current"
 LIVE_COMMIT="$(node -e "try{process.stdout.write(require('$CURRENT_LINK/.output/release.json').commit||'')}catch(e){}" 2>/dev/null || true)"
 if [[ -n "$LIVE_COMMIT" && "$LIVE_COMMIT" != "$COMMIT" ]]; then
