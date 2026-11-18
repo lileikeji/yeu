@@ -1771,7 +1771,8 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
   // 假 mp3：ID3 头就够了，服务端按文件头认格式，不信任扩展名。
   const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)])
   const first = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v1.mp3', data: mp3 })
-  assert.equal(first.accompaniment?.name, '伴奏-v1.mp3')
+  // 展示名统一成「姓名《曲目》.扩展名」，选手原始文件名不再透出
+  assert.equal(first.accompaniment?.name, '甲一《晴天》.mp3')
   assert.match(first.accompaniment?.url ?? '', /^\/uploads\/[0-9a-f-]{36}\.mp3$/)
 
   // 再传一次就换新的，旧的地址不会复用。
