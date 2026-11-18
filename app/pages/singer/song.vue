@@ -136,7 +136,8 @@ async function uploadAccompaniment(event: Event) {
           studentNo: studentNo.value.trim(),
           contact: contact.value.trim(),
           filename: file.name,
-          mime: file.type || 'audio/mpeg'
+          mime: file.type || 'audio/mpeg',
+          song: songValue
         }
       }
     ).catch(() => null)
