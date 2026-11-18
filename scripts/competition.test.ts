@@ -1796,7 +1796,8 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
   const archive = await buildAccompanimentArchive(client, semi)
   assert.match(archive.filename, /^competition-semi-accompaniment-\d+\.zip$/)
   assert.ok(archive.data.includes(Buffer.from('01-甲一/曲目.txt', 'utf8')))
-  assert.ok(archive.data.includes(Buffer.from('01-甲一/伴奏-后来.mp3', 'utf8')))
+  // 导出统一用「姓名《曲目》.扩展名」，拷到设备上不用再改名
+  assert.ok(archive.data.includes(Buffer.from('01-甲一/甲一《后来》.mp3', 'utf8')))
 
   closeDatabase(':memory:')
   if (previousUploadDir === undefined) delete process.env.NUXT_UPLOAD_DIR
