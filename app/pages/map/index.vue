@@ -1586,8 +1586,22 @@ const mapSheetSearching = computed(() => searchQuery.value.trim().length > 0)
 // CR-11：手机 dock 里的搜索框不在面板内，搜索有词了就把面板抬到半屏，结果块才有地方显示。
 // CR-14：只认提交后的 searchQuery —— 中文输入法组词期间 searchQuery 不变，若跟着原始 input 抬面板，
 // 半屏会把 dock（连同正在组词的输入框）按 v-show 一起隐藏，组词就断了。
+/**
+ * T-036 D2：dock 的 × 或退格把词清干净后，把手机面板收回折叠（T-026 定下的「清空搜索回折叠」）。
+ * 只认「非空 → 空」这一次跃迁：初始空串不触发，组词期间 searchQuery 本就不更新，无关重渲染也不触发。
+ */
+let lastDockSearchQuery = ''
+function collapseSheetOnClearedSearch(query: string): boolean {
+  const previous = lastDockSearchQuery
+  lastDockSearchQuery = query
+  if (query.trim()) return false
+  if (previous.trim()) mobileSheetState.value = 'collapsed'
+  return true
+}
+
 watch(searchQuery, (query) => {
-  if (!query.trim() || panelIsDesktop.value) return
+  if (panelIsDesktop.value) return
+  if (collapseSheetOnClearedSearch(query)) return
   mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
 })
 function onMobileDockSearchInput(value: string): void {
