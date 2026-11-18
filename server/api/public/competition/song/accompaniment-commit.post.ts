@@ -37,11 +37,16 @@ export default defineEventHandler(async (event) => {
   if (head.size <= 0 || head.size > MAX_UPLOADED_AUDIO_BYTES) {
     throw createError({ statusCode: 413, statusMessage: 'Audio is too large', data: { code: 'PAYLOAD_TOO_LARGE', message: '伴奏超过 400MB' } })
   }
-  if (head.contentType && !head.contentType.startsWith('audio/') && head.contentType !== 'application/octet-stream') {
+  // m4a 常被存成 video/mp4 容器，按音频放行
+  const contentTypeOk = !head.contentType
+    || head.contentType.startsWith('audio/')
+    || head.contentType === 'application/octet-stream'
+    || /^video\/(mp4|quicktime)$/.test(head.contentType)
+  if (!contentTypeOk) {
     throw createError({ statusCode: 422, statusMessage: 'Unsupported audio type', data: { code: 'UNSUPPORTED_AUDIO', message: '只收音频文件' } })
   }
   const name = (input.filename || '').trim().slice(0, 120) || input.key.split('/').at(-1) || '伴奏'
-  const saved = commitAccompanimentKey(
+  const saved = await commitAccompanimentKey(
     client,
     target.round,
     target.entryId,

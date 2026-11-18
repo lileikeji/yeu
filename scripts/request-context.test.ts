@@ -29,6 +29,7 @@ test('baseline security headers prevent sniffing and framing without blocking fi
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /frame-ancestors 'none'/)
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /object-src 'none'/)
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /form-action 'self'/)
+  assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /media-src 'self' blob: https:/)
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /https:\/\/res\.wx\.qq\.com/)
   assert.match(BASE_SECURITY_HEADERS['Permissions-Policy'], /geolocation=\(self\)/)
   assert.match(BASE_SECURITY_HEADERS['Permissions-Policy'], /camera=\(\)/)

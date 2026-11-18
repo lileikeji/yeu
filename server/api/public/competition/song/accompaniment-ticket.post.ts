@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { entrySongOf, findMusicAssociationContent, resolveAccompanimentTarget } from '../../../../modules/competition/service'
+import { entrySongOf, findMusicAssociationContent, resolveAccompanimentTarget, submitSongByThreeFactors } from '../../../../modules/competition/service'
 import { useAppDatabase } from '../../../../utils/database'
 import { cosConfig, newAccompanimentKey, presignCosPut } from '../../../../utils/cos-storage'
 import { assertTrustedOrigin } from '../../../../utils/security'
@@ -10,7 +10,8 @@ const schema = z.object({
   studentNo: z.string().trim().min(1).max(40),
   contact: z.string().trim().min(4).max(120),
   filename: z.string().trim().max(120).optional(),
-  mime: z.string().trim().max(60).optional()
+  mime: z.string().trim().max(60).optional(),
+  song: z.string().trim().max(100).optional()
 }).strict()
 
 const EXTENSIONS = ['mp3', 'm4a', 'wav', 'aac', 'ogg', 'flac'] as const
@@ -27,6 +28,10 @@ export default defineEventHandler(async (event) => {
   const input = await parseBody(event, schema)
   const contentId = findMusicAssociationContent(client).id
   const target = resolveAccompanimentTarget(client, contentId, input)
+  // 页面上刚敲进去、还没点「提交曲目」的新歌，这里顺带存下，免得传伴奏被判「没曲目」
+  if (!entrySongOf(client, target.entryId) && (input.song ?? '').trim()) {
+    submitSongByThreeFactors(client, contentId, input, input.song!.trim())
+  }
   if (!entrySongOf(client, target.entryId)) {
     throw createError({ statusCode: 409, statusMessage: 'Song required', data: { code: 'SONG_REQUIRED', message: '先把这一轮的曲目填上，再选伴奏文件' } })
   }
@@ -34,7 +39,17 @@ export default defineEventHandler(async (event) => {
   const rawExtension = (input.filename || '').split('.').at(-1)?.toLowerCase() || 'mp3'
   const extension = (EXTENSIONS as readonly string[]).includes(rawExtension) ? rawExtension : 'mp3'
   const key = newAccompanimentKey(config, extension)
-  const mime = (input.mime || '').startsWith('audio/') ? input.mime! : 'audio/mpeg'
+  // 以扩展名定 mime（前端也按同一规则算），保证签名里的 content-type 和浏览器 PUT 的一致
+  const MIME_BY_EXTENSION: Record<string, string> = {
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    mp4: 'audio/mp4',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac'
+  }
+  const mime = MIME_BY_EXTENSION[extension] ?? ((input.mime || '').startsWith('audio/') ? input.mime! : 'audio/mpeg')
   const uploadUrl = presignCosPut(config, key, mime, 900)
   return { key, uploadUrl, expiresIn: 900 }
 })
