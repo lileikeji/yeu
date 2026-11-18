@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { relative, resolve, sep } from 'node:path'
 import test from 'node:test'
 import {
@@ -82,6 +82,7 @@ function concretePageRoutes(): Set<string> {
 }
 
 function routeIsDynamicButBacked(path: string): boolean {
+  if (path === '/activities/treasure') return existsSync('server/routes/activities/treasure.get.ts')
   if (/^\/admin\/[a-z0-9-]+$/.test(path)) return true
   if (/^\/guides\/[a-z0-9-]+$/.test(path)) return true
   if (/^\/departments\/[a-z0-9-]+$/.test(path)) return true

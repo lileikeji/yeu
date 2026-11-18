@@ -486,6 +486,14 @@ export const users = sqliteTable('users', {
   check('users_status_check', sql`${table.status} in ('active', 'disabled', 'banned')`)
 ])
 
+export const treasureStamps = sqliteTable('treasure_stamps', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  pointId: text('point_id').notNull(),
+  collectedAt: integer('collected_at').notNull()
+}, table => [
+  primaryKey({ columns: [table.userId, table.pointId] })
+])
+
 export const userSessions = sqliteTable('user_sessions', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
