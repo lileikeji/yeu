@@ -4456,19 +4456,30 @@ export async function buildAccompanimentArchive(
       name: `${folder}/曲目.txt`,
       data: new TextEncoder().encode(`出场序：${position}\n姓名：${singer.name}\n曲目：${song}\n班级：${singer.className ?? ''}\n`)
     })
-    const originalRow = entry as { originalUrl?: string | null, originalName?: string | null }
+    const originalRow = entry as {
+      originalUrl?: string | null
+      originalName?: string | null
+    }
     const originalUrl = (originalRow.originalUrl ?? '').trim()
-    const url = (useOriginal && originalUrl ? originalUrl : (entry.accompanimentUrl ?? '')).trim()
+    const usingOriginal = useOriginal && Boolean(originalUrl)
+    const url = (usingOriginal ? originalUrl : (entry.accompanimentUrl ?? '')).trim()
     if (!url) continue
     const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
     const cosKey = url.startsWith('cos:') ? url.slice(4) : ''
     const config = cosConfig()
+    // 文件统一按 `姓名《曲目》.扩展名` 命名，原件与 mp3 都一样，拷到设备上无需再改。
+    const storedName = (usingOriginal
+      ? (originalRow.originalName ?? '').trim()
+      : (entry.accompanimentName ?? '').trim())
+    const displayName = storedName && !storedName.toLowerCase().endsWith(`.${extension}`)
+      ? storedName.replace(/\.[a-z0-9]{2,5}$/i, '') + `.${extension}`
+      : storedName
+    const fileName = displayName || accompanimentDisplayName(singer.name, song, extension)
     try {
       const data = cosKey && config
         ? new Uint8Array(await (await fetch(presignCosGet(config, cosKey, 900))).arrayBuffer())
         : await readFile(join(directory, url.split('/').at(-1) ?? ''))
-      const suffix = useOriginal && originalUrl ? '原文件' : '伴奏'
-      files.push({ name: `${folder}/${suffix}-${sanitizePathPart(song)}.${extension}`, data })
+      files.push({ name: `${folder}/${sanitizeFileName(fileName)}`, data })
     } catch {
       files.push({
         name: `${folder}/伴奏缺失.txt`,
@@ -4485,6 +4496,12 @@ export async function buildAccompanimentArchive(
 function sanitizePathPart(value: string): string {
   const cleaned = (value || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '').slice(0, 40)
   return cleaned || '未命名'
+}
+
+/** 只去掉文件系统不认的字符，保留空格与书名号，文件名不动歌名原样。 */
+function sanitizeFileName(value: string): string {
+  const cleaned = (value || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120)
+  return cleaned || '伴奏.mp3'
 }
 
 export interface CompetitionReminderRecipient {
