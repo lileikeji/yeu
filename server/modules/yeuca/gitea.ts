@@ -1,5 +1,9 @@
 import { createError } from 'h3'
-import type { YeucaGiteaAdminOverview, YeucaMemberGitRepo } from '../../../shared/types/yeuca'
+import type {
+  YeucaGiteaAdminOverview,
+  YeucaGiteaProbeResult,
+  YeucaMemberGitRepo
+} from '../../../shared/types/yeuca'
 
 export interface GiteaConfig {
   configured: boolean
@@ -134,6 +138,59 @@ export async function inspectGiteaHealth(syncedMemberCount: number): Promise<Yeu
     publicGitUrl: config.publicGitUrl,
     syncedMemberCount,
     error: versionRes.rawMessage || `HTTP ${versionRes.status}`
+  }
+}
+
+/** 实测 Gitea 连通、Admin Token 身份和用户管理目录权限（用于后台开户诊断测试）。 */
+export async function probeGiteaService(): Promise<YeucaGiteaProbeResult> {
+  const config = readGiteaConfig()
+  const checkedAt = new Date().toISOString()
+  if (!config.configured) {
+    return {
+      configured: false,
+      reachable: false,
+      adminTokenValid: false,
+      adminLogin: '',
+      version: '',
+      requireSigninView: true,
+      disableRegistration: true,
+      totalGiteaUsers: null,
+      checkedAt,
+      error: '服务端尚未配置 NUXT_YEUCA_GITEA_ADMIN_TOKEN'
+    }
+  }
+
+  const [versionRes, userRes, adminUsersRes] = await Promise.all([
+    callGitea<{ version?: string }>(config, '/api/v1/version', { timeoutMs: 4000 }),
+    callGitea<GiteaApiUser>(config, '/api/v1/user', { timeoutMs: 4000 }),
+    callGitea<GiteaApiUser[]>(config, '/api/v1/admin/users?limit=200', { timeoutMs: 4000 })
+  ])
+
+  const reachable = versionRes.status >= 200 && versionRes.status < 300
+  const adminTokenValid = userRes.status === 200 && adminUsersRes.status === 200
+  const adminLogin = userRes.data?.login || userRes.data?.username || ''
+  const totalGiteaUsers = Array.isArray(adminUsersRes.data) ? adminUsersRes.data.length : null
+
+  let error = ''
+  if (!reachable) {
+    error = versionRes.rawMessage || `Gitea 服务不可达 (${versionRes.status})`
+  } else if (userRes.status !== 200) {
+    error = `Admin Token 鉴权失败 (HTTP ${userRes.status}): ${userRes.rawMessage}`
+  } else if (adminUsersRes.status !== 200) {
+    error = `无权读取用户管理接口 /api/v1/admin/users (HTTP ${adminUsersRes.status})，请检查令牌是否为管理员权限`
+  }
+
+  return {
+    configured: true,
+    reachable,
+    adminTokenValid,
+    adminLogin,
+    version: versionRes.data?.version || '',
+    requireSigninView: true,
+    disableRegistration: true,
+    totalGiteaUsers,
+    checkedAt,
+    error
   }
 }
 

@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const client = useAppDatabase(event)
   const session = requireYeucaMemberSession(event, client)
   const input = await parseBody(event, memberChangePasswordSchema)
-  const res = await changeMemberPassword(client, session.member.id, input.currentPassword, input.newPassword)
+  const res = await changeMemberPassword(client, session.member.id, input.currentPassword, input.newPassword, {}, event)
   return {
     ok: true,
     gitSynced: res.gitSynced,

@@ -384,3 +384,42 @@ export const yeucaVisitBanSchema = z.object({
   reason: z.string().trim().max(200).default(''),
   hours: z.number().int().min(1).max(24 * 365).optional()
 })
+
+/* ---------------- 计协部长分权账号与本部门自管理 ---------------- */
+
+export const yeucaMinisterUsernameSchema = z.string()
+  .trim()
+  .min(2, '登录账号至少 2 个字符')
+  .max(40, '登录账号不超过 40 个字符')
+  .refine(value => !/\s/.test(value), '登录账号不能包含空格')
+
+export const createYeucaMinisterSchema = z.object({
+  departmentName: z.string().trim().min(1, '请选择所属部门').max(40),
+  username: yeucaMinisterUsernameSchema.optional(),
+  displayName: z.string().trim().min(1).max(40).optional(),
+  title: z.enum(['部长', '副部长']).default('部长')
+})
+
+export const updateYeucaMinisterSchema = z.object({
+  isActive: z.boolean().optional(),
+  resetPassword: z.boolean().optional(),
+  departmentName: z.string().trim().min(1).max(40).optional(),
+  title: z.enum(['部长', '副部长']).optional(),
+  displayName: z.string().trim().min(1).max(40).optional()
+}).refine(
+  value => Object.keys(value).length > 0,
+  { message: '至少需要提供一个更新字段' }
+)
+
+export const updateYeucaOwnDepartmentSchema = z.object({
+  lead: z.string().trim().max(40).optional(),
+  summary: z.string().trim().min(1, '请填写部门简介').max(240).optional(),
+  focusList: z.array(z.string().trim().min(1).max(120)).min(1).max(6).optional(),
+  tools: z.array(z.string().trim().min(1).max(40)).min(1).max(12).optional(),
+  recentTopic: z.string().trim().max(120).optional(),
+  acceptingRecruit: z.boolean().optional(),
+  recruitDesc: z.string().trim().max(240).optional()
+}).refine(
+  value => Object.keys(value).length > 0,
+  { message: '至少需要修改一个部门字段' }
+)

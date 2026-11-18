@@ -396,7 +396,59 @@ export interface YeucaPublicSnapshot {
   recruit: YeucaRecruitPublicStatus
 }
 
+export interface YeucaAdminScopePayload {
+  role: 'chief' | 'minister'
+  departmentName: string | null
+  title: string
+}
+
+export interface YeucaMinisterAdminItem {
+  id: string
+  username: string
+  displayName: string
+  departmentName: string
+  title: string
+  isActive: boolean
+  mustChangePassword: boolean
+  lastLoginAt: string | null
+  createdAt: string
+}
+
+export interface YeucaAuditLogItem {
+  id: string
+  actorAdminId: string | null
+  actorUsername: string | null
+  actorDisplayName: string | null
+  action: string
+  entityType: string
+  entityId: string | null
+  requestId: string | null
+  details: Record<string, unknown>
+  createdAt: string
+}
+
+export interface YeucaAuditLogsPayload {
+  items: YeucaAuditLogItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface YeucaGiteaProbeResult {
+  configured: boolean
+  reachable: boolean
+  adminTokenValid: boolean
+  adminLogin: string
+  version: string
+  requireSigninView: boolean
+  disableRegistration: boolean
+  totalGiteaUsers: number | null
+  checkedAt: string
+  error: string
+}
+
 export interface YeucaAdminOverviewPayload {
+  adminScope: YeucaAdminScopePayload
   settings: YeucaSiteSettings
   posts: YeucaPostItem[]
   projects: YeucaProjectItem[]

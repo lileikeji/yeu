@@ -7,15 +7,24 @@ import { resolveYeucaAdminScope } from '../../../../utils/yeuca-admin'
 
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event, true)
-  resolveYeucaAdminScope(client, session)
+  const scope = resolveYeucaAdminScope(client, session)
   const input = await parseBody(event, importYeucaMembersSchema)
-  const summary = importYeucaMembersAdmin(client, session.admin.id, input.mode, input.items)
+  const summary = importYeucaMembersAdmin(
+    client,
+    session.admin.id,
+    input.mode,
+    input.items,
+    scope.isChief ? null : scope.departmentName
+  )
   writeAudit(client, event, {
     actorAdminId: session.admin.id,
     action: 'yeuca.member.import',
     entityType: 'yeuca_member',
     entityId: 'batch',
-    details: summary
+    details: {
+      ...summary,
+      department: scope.isChief ? 'all' : (scope.departmentName || '')
+    }
   })
   return summary
 })

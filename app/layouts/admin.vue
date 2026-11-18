@@ -19,6 +19,8 @@ const adminCapabilities = ref<AdminCapability[]>([])
 const organizationTitle = ref('')
 const organizationSlug = ref('')
 const organizationPublicPath = ref('/')
+const yeucaRole = ref<'chief' | 'minister'>('chief')
+const yeucaDepartmentName = ref('')
 const mustChangePassword = ref(false)
 const mobileNavigationOpen = ref(false)
 const mobileNavigationDialog = ref<HTMLDialogElement | null>(null)
@@ -37,27 +39,38 @@ const isMusicAssociation = computed(() =>
 const isComputerAssociation = computed(() =>
   organizationSlug.value === 'computer-association' || organizationTitle.value === '计算机协会')
 
+const isYeucaMinister = computed(() =>
+  adminRole.value === 'organization' && isComputerAssociation.value && yeucaRole.value === 'minister')
+
 const organizationNavigation = computed(() => [{
   key: 'organization',
-  label: isComputerAssociation.value ? '计算机协会' : '组织后台',
+  label: isYeucaMinister.value
+    ? `${yeucaDepartmentName.value || '分部'}工作台`
+    : (isComputerAssociation.value ? '计算机协会' : '组织后台'),
   items: isComputerAssociation.value
-    ? [{
-        label: '计协主站工作台',
-        to: '/admin/yeuca',
-        icon: 'i-lucide-cpu'
-      }, {
-        label: '纳新管理',
-        to: '/admin/recruit',
-        icon: 'i-lucide-clipboard-list'
-      }, {
-        label: '活动管理',
-        to: '/admin/activities',
-        icon: 'i-lucide-calendar-days'
-      }, {
-        label: '社团名片（迎新站）',
-        to: '/admin/organization',
-        icon: 'i-lucide-panels-top-left'
-      }]
+    ? (isYeucaMinister.value
+        ? [{
+            label: `${yeucaDepartmentName.value || '部门'}管理台`,
+            to: '/admin/yeuca',
+            icon: 'i-lucide-cpu'
+          }]
+        : [{
+            label: '计协主站工作台',
+            to: '/admin/yeuca',
+            icon: 'i-lucide-cpu'
+          }, {
+            label: '纳新管理',
+            to: '/admin/recruit',
+            icon: 'i-lucide-clipboard-list'
+          }, {
+            label: '活动管理',
+            to: '/admin/activities',
+            icon: 'i-lucide-calendar-days'
+          }, {
+            label: '社团名片（迎新站）',
+            to: '/admin/organization',
+            icon: 'i-lucide-panels-top-left'
+          }])
     : [{
         label: organizationTitle.value || '我的组织页面',
         to: '/admin/organization',
@@ -153,6 +166,9 @@ function applyAdminScope(payload: Record<string, unknown>): void {
   adminCapabilities.value = capabilities
   adminRole.value = user.role === 'organization' ? 'organization' : 'super'
   mustChangePassword.value = user.mustChangePassword === true
+  const yeucaScope = isObject(user.yeucaScope) ? user.yeucaScope : null
+  yeucaRole.value = yeucaScope?.role === 'minister' ? 'minister' : 'chief'
+  yeucaDepartmentName.value = typeof yeucaScope?.departmentName === 'string' ? yeucaScope.departmentName : ''
   const organization = isObject(user.organization) ? user.organization : null
   if (!organization) return
 
@@ -173,13 +189,15 @@ async function redirectToLogin(): Promise<void> {
 async function applySessionPayload(payload: Record<string, unknown>): Promise<void> {
   adminLabel.value = resolveAdminLabel(payload)
   applyAdminScope(payload)
-  const organizationRouteAllowed = route.path === '/admin/organization'
-    || route.path === '/admin/recruit'
-    || route.path === '/admin/activities'
-    || route.path.startsWith('/admin/content/')
-    || (route.path === '/admin/competition' && isMusicAssociation.value)
-    || (route.path === '/admin/yeuca' && isComputerAssociation.value)
-    || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))
+  const organizationRouteAllowed = isYeucaMinister.value
+    ? route.path === '/admin/yeuca'
+    : (route.path === '/admin/organization'
+      || route.path === '/admin/recruit'
+      || route.path === '/admin/activities'
+      || route.path.startsWith('/admin/content/')
+      || (route.path === '/admin/competition' && isMusicAssociation.value)
+      || (route.path === '/admin/yeuca' && isComputerAssociation.value)
+      || (route.path === '/admin/miniapp' && canUseCapability('analytics.view')))
   if (adminRole.value === 'organization' && !organizationRouteAllowed) {
     const landingPath = isComputerAssociation.value ? '/admin/yeuca' : '/admin/organization'
     await navigateTo({

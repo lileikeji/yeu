@@ -1,11 +1,11 @@
 import { getYeucaVisitOverview } from '../../../modules/yeuca/visit-service'
 import { useAdminRequest } from '../../../utils/http'
-import { resolveYeucaAdminScope } from '../../../utils/yeuca-admin'
+import { requireYeucaChiefScope } from '../../../utils/yeuca-admin'
 
 /** 后台「访问记录」：概览聚合 + 明细分页一次返回。 */
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event)
-  resolveYeucaAdminScope(client, session)
+  requireYeucaChiefScope(client, session)
 
   const query = getQuery(event) as Record<string, string | undefined>
   return getYeucaVisitOverview(client, {

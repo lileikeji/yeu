@@ -8,7 +8,7 @@ import test from 'node:test'
 import { createEvent } from 'h3'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { adminUsers, contents, recruitForms, recruitSubmissions } from '../server/database/schema'
+import { adminUsers, auditLogs, contents, recruitForms, recruitSubmissions } from '../server/database/schema'
 import {
   createYeucaActivityAdmin,
   listActivityRegistrationsAdmin,
@@ -27,17 +27,28 @@ import {
   verifyMemberEligibility
 } from '../server/modules/yeuca/member-service'
 import {
+  createYeucaMinister,
+  listYeucaAuditLogs,
+  listYeucaMinisters,
+  updateYeucaMinister
+} from '../server/modules/yeuca/minister-service'
+import {
   createYeucaPost,
   createYeucaProject,
   getAdminYeucaOverview,
   getPublicYeucaSnapshot,
   isComputerAssociationContent,
   resolveRecruitDepartmentOptions,
+  updateYeucaOwnDepartment,
   updateYeucaPost,
   updateYeucaSettings
 } from '../server/modules/yeuca/service'
 import { validateSubmissionInput } from '../server/modules/recruit/service'
-import { resolveYeucaAdminScope } from '../server/utils/yeuca-admin'
+import {
+  assertYeucaDepartmentAccess,
+  requireYeucaChiefScope,
+  resolveYeucaAdminScope
+} from '../server/utils/yeuca-admin'
 import type { AdminSessionContext } from '../server/utils/auth'
 import {
   parseMatrixToMemberImportRows,
@@ -467,4 +478,231 @@ test('报名表按站点部门名单校验意向部门，部门改名后也不�
     { name: '张三', departments: ['宣传部'] }
   )
   assert.equal(normalized.departments, '宣传部')
+})
+
+test('总管创建部门部长、部长严格按部门隔离且开户/登录全链路写审计', async () => {
+  const { client, cleanup } = createTempClient()
+
+  try {
+    const now = Date.now()
+    client.db.insert(adminUsers).values({
+      id: 'chief-ca',
+      username: '计算机协会',
+      passwordHash: 'hash',
+      displayName: '计算机协会管理员',
+      role: 'organization',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+
+    const chiefSession = {
+      admin: {
+        id: 'chief-ca',
+        role: 'organization',
+        organization: { contentId: 'club-yeuca', slug: 'computer-association', title: '计算机协会', kind: 'club' },
+        yeucaScope: { role: 'chief', departmentName: null, title: '计协总管' }
+      }
+    } as unknown as AdminSessionContext
+
+    const chiefScope = requireYeucaChiefScope(client, chiefSession)
+    assert.equal(chiefScope.isChief, true)
+
+    // 1. 总管创建 AI 部部长账号
+    const created = await createYeucaMinister(client, 'chief-ca', {
+      departmentName: 'AI 部',
+      username: 'ai-minister',
+      title: '部长'
+    })
+    assert.equal(created.account.departmentName, 'AI 部')
+    assert.equal(created.account.mustChangePassword, true)
+    assert.ok(created.initialPassword.length >= 16)
+    assert.equal(listYeucaMinisters(client).length, 1)
+
+    const ministerSession = {
+      admin: {
+        id: created.account.id,
+        role: 'organization',
+        organization: { contentId: 'club-yeuca', slug: 'computer-association', title: '计算机协会', kind: 'club' },
+        yeucaScope: { role: 'minister', departmentName: 'AI 部', title: '部长' }
+      }
+    } as unknown as AdminSessionContext
+
+    const ministerScope = resolveYeucaAdminScope(client, ministerSession)
+    assert.equal(ministerScope.isChief, false)
+    assert.equal(ministerScope.departmentName, 'AI 部')
+    assert.throws(
+      () => requireYeucaChiefScope(client, ministerSession),
+      (err: { statusCode?: number }) => err?.statusCode === 403
+    )
+    assert.throws(
+      () => assertYeucaDepartmentAccess(ministerScope, '编程部', '成员'),
+      (err: { statusCode?: number }) => err?.statusCode === 403
+    )
+
+    // 2. 跨部门成员/招新/动态/项目与导入隔离
+    importYeucaMembersAdmin(client, 'chief-ca', 'update_existing', [
+      {
+        studentNo: '20250002',
+        name: '网络部同学',
+        gradeMajorClass: '计科2班',
+        department: '网络安全部',
+        roleTitle: '会员',
+        term: '2025',
+        phone: '',
+        qq: '',
+        email: '',
+        gitUsername: '',
+        notes: ''
+      }
+    ])
+
+    // 部长导入名录：同校已属其他部门学号跳过，新学号强制归本部门，会长职务自动降为会员
+    const ministerImport = importYeucaMembersAdmin(client, created.account.id, 'update_existing', [
+      {
+        studentNo: '20250002',
+        name: '抢占测试',
+        gradeMajorClass: '计科2班',
+        department: 'AI 部',
+        roleTitle: '会员',
+        term: '2025',
+        phone: '',
+        qq: '',
+        email: '',
+        gitUsername: '',
+        notes: ''
+      },
+      {
+        studentNo: '20250001',
+        name: 'AI 部新同学',
+        gradeMajorClass: 'AI 1班',
+        department: '编程部',
+        roleTitle: '会长',
+        term: '2025',
+        phone: '',
+        qq: '',
+        email: '',
+        gitUsername: '',
+        notes: ''
+      }
+    ], 'AI 部')
+    assert.equal(ministerImport.skipped, 1)
+    assert.equal(ministerImport.inserted, 1)
+
+    createYeucaPost(client, 'chief-ca', {
+      kind: 'news',
+      deptName: '网络安全部',
+      category: '',
+      title: '安全部动态',
+      summary: '安全分享',
+      body: '正文',
+      tags: [],
+      pinned: false,
+      status: 'published'
+    })
+    createYeucaPost(client, created.account.id, {
+      kind: 'news',
+      deptName: 'AI 部',
+      category: '',
+      title: 'AI部动态',
+      summary: 'RAG实战',
+      body: '正文',
+      tags: [],
+      pinned: false,
+      status: 'published'
+    })
+
+    const ministerView = await getAdminYeucaOverview(client, ministerScope)
+    assert.equal(ministerView.members.length, 1)
+    assert.equal(ministerView.members[0]?.department, 'AI 部')
+    assert.equal(ministerView.members[0]?.roleTitle, '会员')
+    assert.equal(ministerView.posts.length, 1)
+    assert.equal(ministerView.posts[0]?.deptName, 'AI 部')
+
+    // 3. 部长招新审批仅能处理含本部门意向的报名
+    client.db.insert(recruitForms).values({
+      id: 'rf-scope',
+      contentId: 'club-yeuca',
+      title: '招新',
+      slogan: '',
+      intro: '',
+      status: 'open',
+      createdAt: now,
+      updatedAt: now
+    }).run()
+    client.db.insert(recruitSubmissions).values([
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        formId: 'rf-scope',
+        name: '报名网络部',
+        studentNo: '20250099',
+        departments: '网络安全部',
+        createdAt: now
+      },
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        formId: 'rf-scope',
+        name: '报名AI部',
+        studentNo: '20250088',
+        departments: 'AI 部、编程部',
+        createdAt: now
+      }
+    ]).run()
+
+    assert.throws(
+      () => approveRecruitSubmissionsToMembers(client, 'club-yeuca', created.account.id, ['22222222-2222-4222-8222-222222222222'], 'AI 部', '2025', 'AI 部'),
+      (err: { statusCode?: number }) => err?.statusCode === 403
+    )
+    const okApprove = approveRecruitSubmissionsToMembers(client, 'club-yeuca', created.account.id, ['33333333-3333-4333-8333-333333333333'], '编程部', '2025', 'AI 部')
+    assert.equal(okApprove.imported, 1)
+
+    // 4. 公开端白名单核验、Gitea 开户失败/成功、登录失败/成功全写入 audit_logs 且部长仅见本部门
+    verifyMemberEligibility(makeTestEvent(), client, '00000000', '不存在')
+    const failSync = async () => {
+      throw new Error('Gitea offline test')
+    }
+    await assert.rejects(
+      () => registerYeucaMember(makeTestEvent(), client, {
+        studentNo: '20250001',
+        name: 'AI 部新同学',
+        gitUsername: 'ai_stu_01',
+        email: '',
+        password: 'Password123'
+      }, { giteaSync: failSync })
+    )
+    await registerYeucaMember(makeTestEvent(), client, {
+      studentNo: '20250001',
+      name: 'AI 部新同学',
+      gitUsername: 'ai_stu_01',
+      email: '',
+      password: 'Password123'
+    }, {
+      giteaSync: async () => ({ synced: true, gitUserId: 99, error: '' })
+    })
+    await assert.rejects(
+      () => loginYeucaMember(makeTestEvent(), client, 'ai_stu_01', 'WrongPwd123')
+    )
+    await loginYeucaMember(makeTestEvent(), client, 'ai_stu_01', 'Password123')
+
+    const allAudit = client.db.select().from(auditLogs).all()
+    assert.ok(allAudit.some(a => a.action === 'yeuca.member.verify_rejected'))
+    assert.ok(allAudit.some(a => a.action === 'yeuca.member.gitea_sync_failed'))
+    assert.ok(allAudit.some(a => a.action === 'yeuca.member.register'))
+    assert.ok(allAudit.some(a => a.action === 'yeuca.member.login_failed'))
+    assert.ok(allAudit.some(a => a.action === 'yeuca.member.login'))
+
+    const ministerAudit = listYeucaAuditLogs(client, ministerScope, created.account.id, { category: 'all' })
+    assert.ok(ministerAudit.items.some(a => a.action === 'yeuca.member.register'))
+    assert.ok(ministerAudit.items.every(a => a.action !== 'yeuca.member.verify_rejected'))
+
+    // 5. 部长只修改自己部门详情、总管重设部长密码
+    const updatedDept = updateYeucaOwnDepartment(client, 'AI 部', { recentTopic: '多 Agent 工具调用周赛' })
+    assert.equal(updatedDept.recentTopic, '多 Agent 工具调用周赛')
+
+    const resetRes = await updateYeucaMinister(client, created.account.id, { resetPassword: true })
+    assert.equal(resetRes.passwordReset, true)
+    assert.ok(resetRes.initialPassword && resetRes.initialPassword !== created.initialPassword)
+  } finally {
+    cleanup()
+  }
 })

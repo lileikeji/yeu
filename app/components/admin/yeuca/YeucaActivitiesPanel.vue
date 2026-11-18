@@ -4,6 +4,7 @@ import type {
   YeucaActivityRegStatus,
   YeucaActivityStatus,
   YeucaAdminActivityItem,
+  YeucaAdminScopePayload,
   YeucaDepartment
 } from '~~/shared/types/yeuca'
 import { adminFetch } from '~~/app/utils/admin-request'
@@ -11,6 +12,7 @@ import { adminFetch } from '~~/app/utils/admin-request'
 const props = defineProps<{
   activities: YeucaAdminActivityItem[]
   departments: YeucaDepartment[]
+  adminScope?: YeucaAdminScopePayload
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const isMinister = computed(() => props.adminScope?.role === 'minister')
+const scopedDepartment = computed(() => props.adminScope?.departmentName || '')
 
 const categories = ['技术培训', '竞赛备赛', '分享交流', '招新迎新']
 
@@ -58,7 +62,9 @@ function openCreate(): void {
   const nextEvening = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
   nextEvening.setHours(19, 0, 0, 0)
   form.title = ''
-  form.deptName = props.departments[0]?.name || '协会全体'
+  form.deptName = isMinister.value && scopedDepartment.value
+    ? scopedDepartment.value
+    : (props.departments[0]?.name || '协会全体')
   form.category = '技术培训'
   form.summary = ''
   form.body = ''
@@ -355,13 +361,17 @@ function exportRegCsv(): void {
             <UFormField label="牵头部门">
               <select
                 v-model="form.deptName"
-                class="h-9 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2.5 text-sm"
+                :disabled="isMinister"
+                class="h-9 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2.5 text-sm disabled:opacity-70"
               >
-                <option value="协会全体">
+                <option
+                  v-if="!isMinister"
+                  value="协会全体"
+                >
                   协会全体
                 </option>
                 <option
-                  v-for="d in departments"
+                  v-for="d in (isMinister && scopedDepartment ? [{ id: 'scoped', name: scopedDepartment }] : departments)"
                   :key="d.id"
                   :value="d.name"
                 >
