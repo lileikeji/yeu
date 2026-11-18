@@ -18,12 +18,13 @@ import {
   contents
 } from '../../database/schema'
 import { hashPasswordWithMinLength } from '../../utils/password'
+import { transcodeToMp3 } from '../../utils/audio-transcode'
 import { detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
 import { createZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
-import { contentTypeForName, cosConfig, presignCosGet } from '../../utils/cos-storage'
+import { contentTypeForName, cosConfig, newAccompanimentKey, presignCosGet, putCosObject, type CosConfig } from '../../utils/cos-storage'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -4150,11 +4151,16 @@ export async function setEntryAccompaniment(
   if (!entry) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
   }
-  const stored = await storeUploadedAudio(file.data)
+  let data = file.data
+  let sniffed = detectUploadedAudioType(data)
+  // 微信里 m4a / wav / flac 常放不出来，后台代传也统一转 mp3。
+  if (sniffed && sniffed !== 'mp3') {
+    const mp3 = await transcodeToMp3(data, sniffed)
+    if (mp3) { data = mp3; sniffed = 'mp3' }
+  }
+  const stored = await storeUploadedAudio(data)
   const singer = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, entry.singerId)).get()
-  // 以文件头为准：用户把 .m4a 改名成 .mp3 上传时，只有嗅探能拿到真实容器。
-  const sniffed = detectUploadedAudioType(file.data)
   const fromFilename = songTitleFromFilename(file.filename)
   const currentSong = (entry.song ?? '').trim()
   const songValue = currentSong || fromFilename || (singer?.song ?? '').trim()
@@ -4238,6 +4244,23 @@ export function resolveAccompanimentTarget(
 }
 
 /** 直传完成后把 object key 记到出场记录上（url 存 cos:<key>，读时换成临时地址）。 */
+/** 从 COS 取回 → 转 mp3 → 传回同一个桶，返回新的 key 与大小；失败回 null。 */
+async function transcodeCosObjectToMp3(config: CosConfig, key: string): Promise<{ key: string, size: number } | null> {
+  try {
+    const response = await fetch(presignCosGet(config, key, 600))
+    if (!response.ok) return null
+    const source = new Uint8Array(await response.arrayBuffer())
+    const extension = (key.split('.').at(-1) || 'bin').toLowerCase()
+    const mp3 = await transcodeToMp3(source, extension)
+    if (!mp3 || mp3.byteLength === 0) return null
+    const nextKey = newAccompanimentKey(config, 'mp3')
+    await putCosObject(config, nextKey, mp3, 'audio/mpeg')
+    return { key: nextKey, size: mp3.byteLength }
+  } catch {
+    return null
+  }
+}
+
 /** 读 COS 对象前 16 字节判断真实容器（客户端给的扩展名不可信）。 */
 async function sniffCosAudioExtension(key: string): Promise<string | null> {
   const config = cosConfig()
@@ -4271,7 +4294,21 @@ export async function commitAccompanimentKey(
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
   }
   const songValue = incoming || entrySong
-  const sniffed = await sniffCosAudioExtension(file.key)
+  let sourceKey = file.key
+  let sourceSize = file.size
+  let sniffed = await sniffCosAudioExtension(file.key)
+  // 微信内置浏览器放不出 m4a / wav / flac，统一转成 mp3 再存（ffmpeg 不在就保留原文件）。
+  if (sniffed && sniffed !== 'mp3') {
+    const config = cosConfig()
+    if (config) {
+      const normalized = await transcodeCosObjectToMp3(config, file.key)
+      if (normalized) {
+        sourceKey = normalized.key
+        sourceSize = normalized.size
+        sniffed = 'mp3'
+      }
+    }
+  }
   const name = accompanimentDisplayName(
     singer?.name ?? '',
     songValue || singer?.song || '',
@@ -4280,9 +4317,9 @@ export async function commitAccompanimentKey(
   client.db.update(competitionRoundEntries)
     .set({
       song: songValue,
-      accompanimentUrl: `cos:${file.key}`,
+      accompanimentUrl: `cos:${sourceKey}`,
       accompanimentName: name,
-      accompanimentSize: file.size
+      accompanimentSize: sourceSize
     })
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
@@ -4290,7 +4327,7 @@ export async function commitAccompanimentKey(
     client.db.update(competitionSingers).set({ song: incoming }).where(eq(competitionSingers.id, entry.singerId)).run()
   }
   const config = cosConfig()
-  return { name, url: config ? presignCosGet(config, file.key) : `cos:${file.key}`, size: file.size }
+  return { name, url: config ? presignCosGet(config, sourceKey) : `cos:${sourceKey}`, size: sourceSize }
 }
 
 /** 某一轮出场记录上已经填的曲目（去掉首尾空格，空串表示还没填）。 */
