@@ -423,17 +423,17 @@
       "breakpoints": true
     },
     {
-      "idx": 61,
-      "version": "6",
-      "when": 1794655000000,
-      "tag": "0061_competition_sequential_mode",
-      "breakpoints": true
-    },
-    {
       "idx": 60,
       "version": "6",
       "when": 1794630000000,
       "tag": "0060_competition_entry_checkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1794655000000,
+      "tag": "0061_competition_sequential_mode",
       "breakpoints": true
     },
     {
@@ -511,6 +511,13 @@
       "version": "6",
       "when": 1795200000000,
       "tag": "0072_treasure_stamps",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1795240000000,
+      "tag": "0073_competition_accompaniment_original",
       "breakpoints": true
     }
   ]

@@ -4124,6 +4124,9 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
     accompanimentUrl?: string | null
     accompanimentName?: string | null
     accompanimentSize?: number | null
+    originalUrl?: string | null
+    originalName?: string | null
+    originalSize?: number | null
   }
   const url = String(source.accompanimentUrl ?? '').trim()
   if (!url) return null
@@ -4132,10 +4135,22 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
   const key = url.startsWith('cos:') ? url.slice(4) : ''
   const displayName = String(source.accompanimentName ?? '').trim()
   const playable = key && config ? presignCosGet(config, key, 6 * 60 * 60, contentTypeForName(displayName, key)) : url
+  const originalUrl = String(source.originalUrl ?? '').trim()
+  const originalName = String(source.originalName ?? '').trim()
+  let original: CompetitionEntryAccompaniment['original'] = null
+  if (originalUrl && originalName) {
+    const originalKey = originalUrl.startsWith('cos:') ? originalUrl.slice(4) : ''
+    original = {
+      name: originalName,
+      url: originalKey && config ? presignCosGet(config, originalKey, 6 * 60 * 60, contentTypeForName(originalName, originalKey)) : originalUrl,
+      size: source.originalSize ?? null
+    }
+  }
   return {
     name: displayName || url.split('/').at(-1) || '伴奏',
     url: playable,
-    size: source.accompanimentSize ?? null
+    size: source.accompanimentSize ?? null,
+    original
   }
 }
 
@@ -4153,10 +4168,17 @@ export async function setEntryAccompaniment(
   }
   let data = file.data
   let sniffed = detectUploadedAudioType(data)
-  // 微信里 m4a / wav / flac 常放不出来，后台代传也统一转 mp3。
+  const originalData = data
+  const originalExtension = sniffed || 'bin'
+  // 微信里 m4a / wav / flac 常放不出来，后台代传也统一转 mp3；原件另存一份给导调用。
+  let keptOriginal = false
   if (sniffed && sniffed !== 'mp3') {
     const mp3 = await transcodeToMp3(data, sniffed)
-    if (mp3) { data = mp3; sniffed = 'mp3' }
+    if (mp3) {
+      data = mp3
+      keptOriginal = true
+      sniffed = 'mp3'
+    }
   }
   const stored = await storeUploadedAudio(data)
   const singer = client.db.select().from(competitionSingers)
@@ -4169,17 +4191,41 @@ export async function setEntryAccompaniment(
     songValue,
     sniffed || accompanimentExtension(stored.url)
   )
+  let originalUrl: string | null = null
+  let originalName: string | null = null
+  let originalSize: number | null = null
+  if (keptOriginal) {
+    const config = cosConfig()
+    if (config) {
+      const key = newAccompanimentKey(config, originalExtension)
+      await putCosObject(config, key, originalData, contentTypeForKey(key))
+      originalUrl = `cos:${key}`
+    } else {
+      const fallback = await storeUploadedAudio(originalData)
+      originalUrl = fallback.url
+    }
+    originalName = accompanimentDisplayName(singer?.name ?? '', songValue, originalExtension)
+    originalSize = originalData.byteLength
+  }
   client.db.update(competitionRoundEntries)
     .set({
       // 后台代传时如果这一轮还没曲目，就用文件名里的歌名补上，避免「有伴奏没歌」。
       song: currentSong || fromFilename || null,
       accompanimentUrl: stored.url,
       accompanimentName: name,
-      accompanimentSize: stored.size
+      accompanimentSize: stored.size,
+      originalUrl,
+      originalName,
+      originalSize
     })
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
-  return { name, url: stored.url, size: stored.size }
+  return {
+    name,
+    url: stored.url,
+    size: stored.size,
+    original: originalUrl && originalName ? { name: originalName, url: originalUrl, size: originalSize } : null
+  }
 }
 
 /**
@@ -4205,7 +4251,7 @@ export function accompanimentDisplayName(singerName: string, song: string, exten
 export function songTitleFromFilename(filename: string): string {
   const base = String(filename || '').split('/').at(-1) || ''
   let title = base.replace(/\.[a-z0-9]{2,5}$/i, '')
-  title = title.replace(/[（(【\[]\s*(伴奏|纯音乐|消音|和声|karaoke|instrumental)[^）)】\]]*[）)】\]]/gi, '')
+  title = title.replace(/[（(【[]\s*(伴奏|纯音乐|消音|和声|karaoke|instrumental)[^）)】\]]*[）)】\]]/gi, '')
   title = title.replace(/(伴奏|纯音乐|消音版|和声版|karaoke|instrumental)/gi, '')
   title = title.replace(/[_]+/g, ' ').replace(/\s{2,}/g, ' ').trim()
   title = title.replace(/^[\s\-–—.、]+|[\s\-–—.、]+$/g, '').trim()
@@ -4296,6 +4342,9 @@ export async function commitAccompanimentKey(
   const songValue = incoming || entrySong
   let sourceKey = file.key
   let sourceSize = file.size
+  const originalKey = file.key
+  const originalSize = file.size
+  const originalExtension = accompanimentExtension(file.key)
   let sniffed = await sniffCosAudioExtension(file.key)
   // 微信内置浏览器放不出 m4a / wav / flac，统一转成 mp3 再存（ffmpeg 不在就保留原文件）。
   if (sniffed && sniffed !== 'mp3') {
@@ -4314,12 +4363,19 @@ export async function commitAccompanimentKey(
     songValue || singer?.song || '',
     sniffed || accompanimentExtension(file.key)
   )
+  // 转码前的原始文件单独留档：导出伴奏包时按「原来上传的」给现场用。
+  const keptOriginal = sourceKey !== originalKey
   client.db.update(competitionRoundEntries)
     .set({
       song: songValue,
       accompanimentUrl: `cos:${sourceKey}`,
       accompanimentName: name,
-      accompanimentSize: sourceSize
+      accompanimentSize: sourceSize,
+      originalUrl: keptOriginal ? `cos:${originalKey}` : null,
+      originalName: keptOriginal
+        ? accompanimentDisplayName(singer?.name ?? '', songValue || singer?.song || '', originalExtension)
+        : null,
+      originalSize: keptOriginal ? originalSize : null
     })
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
@@ -4378,8 +4434,10 @@ export async function submitAccompanimentByThreeFactors(
 /** 后台导出伴奏：按出场顺序，一人一个文件夹（含曲目.txt）。 */
 export async function buildAccompanimentArchive(
   client: DatabaseClient,
-  round: RoundRow
+  round: RoundRow,
+  options: { useOriginal?: boolean } = {}
 ): Promise<{ filename: string, data: Buffer }> {
+  const useOriginal = options.useOriginal === true
   const entries = [...listRoundEntryRows(client, round.id)].sort((left, right) => left.sortOrder - right.sortOrder)
   const singers = listSingers(client, round.eventId)
   const singerById = new Map(singers.map(singer => [singer.id, singer]))
@@ -4398,7 +4456,9 @@ export async function buildAccompanimentArchive(
       name: `${folder}/曲目.txt`,
       data: new TextEncoder().encode(`出场序：${position}\n姓名：${singer.name}\n曲目：${song}\n班级：${singer.className ?? ''}\n`)
     })
-    const url = (entry.accompanimentUrl ?? '').trim()
+    const originalRow = entry as { originalUrl?: string | null, originalName?: string | null }
+    const originalUrl = (originalRow.originalUrl ?? '').trim()
+    const url = (useOriginal && originalUrl ? originalUrl : (entry.accompanimentUrl ?? '')).trim()
     if (!url) continue
     const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
     const cosKey = url.startsWith('cos:') ? url.slice(4) : ''
@@ -4407,7 +4467,8 @@ export async function buildAccompanimentArchive(
       const data = cosKey && config
         ? new Uint8Array(await (await fetch(presignCosGet(config, cosKey, 900))).arrayBuffer())
         : await readFile(join(directory, url.split('/').at(-1) ?? ''))
-      files.push({ name: `${folder}/伴奏-${sanitizePathPart(song)}.${extension}`, data })
+      const suffix = useOriginal && originalUrl ? '原文件' : '伴奏'
+      files.push({ name: `${folder}/${suffix}-${sanitizePathPart(song)}.${extension}`, data })
     } catch {
       files.push({
         name: `${folder}/伴奏缺失.txt`,
@@ -4416,7 +4477,7 @@ export async function buildAccompanimentArchive(
     }
   }
   return {
-    filename: `competition-${round.key}-accompaniment-${Math.floor(Date.now() / 1000)}.zip`,
+    filename: `competition-${round.key}-accompaniment${useOriginal ? '-original' : ''}-${Math.floor(Date.now() / 1000)}.zip`,
     data: createZip(files)
   }
 }

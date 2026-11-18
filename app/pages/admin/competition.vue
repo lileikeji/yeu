@@ -109,7 +109,7 @@ function editDetailScore(): void {
 const {
   scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
   savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
-  saveScoreEdit, exportingKind, exportRound, exportAccompaniment
+  saveScoreEdit, exportingKind, exportRound, exportAccompaniment, exportOriginalAccompaniment
 } = useCompetitionScores({
   dimensions: computed(() => settings.value?.dimensions ?? []),
   load,
@@ -1607,6 +1607,15 @@ onBeforeUnmount(stopLiveRefresh)
                 @click="exportAccompaniment(activeRound)"
               >
                 下载全部伴奏
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-folder-down"
+                :loading="exportingKind === 'accompaniment-original'"
+                @click="exportOriginalAccompaniment(activeRound)"
+              >
+                下载全部原件
               </UButton>
             </div>
           </div>

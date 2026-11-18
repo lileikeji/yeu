@@ -9,7 +9,8 @@ export default defineEventHandler(async (event) => {
   const roundKey = requireCompetitionRoundKey(event)
   const competition = ensureCompetitionEvent(client, contentId)
   const round = getRoundByKey(client, competition.id, roundKey)
-  const archive = await buildAccompanimentArchive(client, round)
+  const useOriginal = getQuery(event).original === '1'
+  const archive = await buildAccompanimentArchive(client, round, { useOriginal })
 
   setHeader(event, 'Content-Type', 'application/zip')
   setHeader(event, 'Content-Disposition', `attachment; filename="${archive.filename}"`)
