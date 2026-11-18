@@ -1,6 +1,7 @@
 import type {
   AreaSelectHandler,
   BusSelectHandler,
+  FeatureSelectHandler,
   MapErrorHandler,
   MapBaseStyle,
   MapDisplayOptions,
@@ -172,6 +173,7 @@ export class AMapProvider implements MapProvider {
   /** 上次位置与车头朝向（度，正北 0° 顺时针），用于按位移方向推朝向、过弯时平滑。 */
   private busHeadings = new Map<string, { lng: number, lat: number, heading: number }>()
   private busSelectHandler: BusSelectHandler | null = null
+  private featureSelectHandler: FeatureSelectHandler | null = null
   private transitVehicleHeadings = new Map<string, { lng: number, lat: number, heading: number }>()
   /** 公交 GPS 跳点闸门：记录上次认账的位置与连续跳点次数。 */
   private transitVehicleAnchors = new Map<string, { lng: number, lat: number, rejects: number, at: number }>()
@@ -433,6 +435,18 @@ export class AMapProvider implements MapProvider {
     }
   }
 
+  /**
+   * 与 maplibre 同一套非 POI 选择通道：手机浮窗只认这个事件。
+   * AMap 的校车 / 公交车辆原本只发 onBusSelect（那是桌面侧栏的入口），
+   * 少了这条通道，生产 AMap 模式下点车、点站都没有卡片。
+   */
+  onFeatureSelect(handler: FeatureSelectHandler): () => void {
+    this.featureSelectHandler = handler
+    return () => {
+      if (this.featureSelectHandler === handler) this.featureSelectHandler = null
+    }
+  }
+
   onAreaSelect(handler: AreaSelectHandler): () => void {
     this.areaSelectHandler = handler
     return () => {
@@ -683,12 +697,19 @@ export class AMapProvider implements MapProvider {
     // 图标中心必须压在坐标上（marker anchor=center），所以整块固定 40×40，
     // 车名用绝对定位挂到图标下方，不参与盒模型居中。
     element.style.cssText = 'position:relative;width:40px;height:40px;cursor:pointer;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
+    const selectBus = (): void => {
+      this.busSelectHandler?.(bus.id)
+      // 浮窗通道：点车既要开侧栏（桌面），也要出卡片（手机）。
+      this.featureSelectHandler?.({ kind: 'bus', id: bus.id, name: bus.name, point: bus.point })
+    }
     element.addEventListener('click', (event) => {
       event.stopPropagation()
-      this.busSelectHandler?.(bus.id)
+      selectBus()
     })
     element.addEventListener('mousedown', event => event.stopPropagation())
     element.addEventListener('pointerdown', event => event.stopPropagation())
+    // 车标盖在 canvas 上：手指按在车上拖地图时不能弹出卡片，与 POI 图钉同一套 tap 判定。
+    attachTapGesture(element, selectBus)
     const icon = document.createElement('span')
     icon.dataset.busIcon = ''
     icon.style.cssText = 'position:absolute;inset:0;display:grid;place-items:center;'
@@ -745,7 +766,9 @@ export class AMapProvider implements MapProvider {
           const marker = new amapNow.Marker({
             position,
             anchor: 'center',
-            content: isTerminal ? this.createBusTerminalChip(stop, color) : this.createBusStopDot(color),
+            content: isTerminal
+              ? this.createBusTerminalChip(stop, color, 'bus-terminal')
+              : this.createBusStopDot(stop, color),
             zIndex: isTerminal ? 910 : 850
           })
           this.busStopMarkers.push(marker)
@@ -816,7 +839,7 @@ export class AMapProvider implements MapProvider {
           const marker = new amapNow.Marker({
             position,
             anchor: 'center',
-            content: this.createBusTerminalChip(stop, color),
+            content: this.createBusTerminalChip(stop, color, 'transit-terminal'),
             zIndex: 905
           })
           this.transitStopMarkers.push(marker)
@@ -958,12 +981,23 @@ export class AMapProvider implements MapProvider {
     element.title = `${vehicle.plate} · 下一站 ${vehicle.nextStation}`
     element.setAttribute('aria-label', element.title)
     element.style.cursor = 'pointer'
+    const selectVehicle = (): void => {
+      this.busSelectHandler?.(`transit:${vehicle.plate}`)
+      this.featureSelectHandler?.({
+        kind: 'transit-vehicle',
+        id: vehicle.id || vehicle.plate,
+        name: vehicle.line ? `${vehicle.line} · ${vehicle.plate}` : vehicle.plate,
+        point: vehicle.point
+      })
+    }
     element.addEventListener('click', (event) => {
       event.stopPropagation()
-      this.busSelectHandler?.(`transit:${vehicle.plate}`)
+      selectVehicle()
     })
     element.addEventListener('mousedown', event => event.stopPropagation())
     element.addEventListener('pointerdown', event => event.stopPropagation())
+    // 在途车胶囊同样压在 canvas 上：拖动地图经过它时不该出卡片。
+    attachTapGesture(element, selectVehicle)
     element.style.cssText = [
       'display:flex',
       'align-items:center',
@@ -999,7 +1033,20 @@ export class AMapProvider implements MapProvider {
     this.transitStopMarkers = []
   }
 
-  private createBusTerminalChip(stop: { name: string, isOrigin: boolean }, routeColor: string): HTMLElement {
+  /** 站类要素的选择事件：缺坐标就不发，免得浮窗算不出锚点。 */
+  private emitStopSelection(
+    kind: 'bus-stop' | 'bus-terminal' | 'transit-terminal',
+    stop: { id?: string, name: string, point?: GeoPoint }
+  ): void {
+    if (!stop.point) return
+    this.featureSelectHandler?.({ kind, id: stop.id || stop.name, name: stop.name, point: stop.point })
+  }
+
+  private createBusTerminalChip(
+    stop: { id?: string, name: string, isOrigin: boolean, point?: GeoPoint },
+    routeColor: string,
+    kind: 'bus-terminal' | 'transit-terminal'
+  ): HTMLElement {
     const element = document.createElement('div')
     element.title = `${stop.isOrigin ? '起点站' : '终点站'}：${stop.name}`
     element.setAttribute('aria-label', element.title)
@@ -1023,13 +1070,25 @@ export class AMapProvider implements MapProvider {
     badge.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${routeColor};color:#fff;font-size:11px;line-height:1;`
     const label = document.createElement('span')
     label.textContent = stop.name
+    element.style.cursor = 'pointer'
+    const selectTerminal = (): void => this.emitStopSelection(kind, stop)
+    element.addEventListener('click', (event) => {
+      event.stopPropagation()
+      selectTerminal()
+    })
+    element.addEventListener('mousedown', event => event.stopPropagation())
+    // 首末站徽标同样可点：拖动经过时按 tap 判定，不误开详情。
+    attachTapGesture(element, selectTerminal)
     element.append(badge, label)
     return element
   }
 
-  private createBusStopDot(routeColor: string): HTMLElement {
+  private createBusStopDot(
+    stop: { id?: string, name: string, point?: GeoPoint },
+    routeColor: string
+  ): HTMLElement {
     const element = document.createElement('div')
-    element.title = '校车站点'
+    element.title = `校车站点：${stop.name}`
     element.style.cssText = [
       'box-sizing:border-box',
       'width:10px',
@@ -1038,8 +1097,17 @@ export class AMapProvider implements MapProvider {
       'border-radius:50%',
       `background:${routeColor}`,
       'box-shadow:0 1px 3px rgb(0 0 0 / 30%)',
-      'cursor:default'
+      'cursor:pointer'
     ].join(';')
+    const selectStopDot = (): void => this.emitStopSelection('bus-stop', stop)
+    element.addEventListener('click', (event) => {
+      event.stopPropagation()
+      selectStopDot()
+    })
+    element.addEventListener('mousedown', event => event.stopPropagation())
+    element.addEventListener('pointerdown', event => event.stopPropagation())
+    // 直径 10px 的圆点：拖动地图时手指极容易蹭到，未达 tap 阈值一律不开卡片。
+    attachTapGesture(element, selectStopDot)
     return element
   }
 
