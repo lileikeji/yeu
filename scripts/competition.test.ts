@@ -18,6 +18,7 @@ import {
   deleteEmailImage,
   createSinger,
   ensureCompetitionEvent,
+  commitAccompanimentKey,
   findMusicAssociationContent,
   confirmAdvanceRoster,
   listRoundEntryRows,
@@ -1769,8 +1770,16 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
 
   // 假 mp3：ID3 头就够了，服务端按文件头认格式，不信任扩展名。
   const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)])
-  const first = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v1.mp3', data: mp3 })
-  assert.equal(first.accompaniment?.name, '伴奏-v1.mp3')
+  // 这一轮还没填曲目时不许传伴奏，否则名单里会出现「有伴奏没歌」
+  await assert.rejects(
+    submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v0.mp3', data: mp3 }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'SONG_REQUIRED'
+  )
+
+  // 传伴奏时一并交曲目，落库后展示名统一成「姓名《曲目》.扩展名」
+  const first = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v1.mp3', data: mp3 }, '后来')
+  assert.equal(first.song, '后来')
+  assert.equal(first.accompaniment?.name, '甲一《后来》.mp3')
   assert.match(first.accompaniment?.url ?? '', /^\/uploads\/[0-9a-f-]{36}\.mp3$/)
 
   // 再传一次就换新的，旧的地址不会复用。
@@ -1787,7 +1796,7 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
   const archive = await buildAccompanimentArchive(client, semi)
   assert.match(archive.filename, /^competition-semi-accompaniment-\d+\.zip$/)
   assert.ok(archive.data.includes(Buffer.from('01-甲一/曲目.txt', 'utf8')))
-  assert.ok(archive.data.includes(Buffer.from('01-甲一/伴奏-晴天.mp3', 'utf8')))
+  assert.ok(archive.data.includes(Buffer.from('01-甲一/伴奏-后来.mp3', 'utf8')))
 
   closeDatabase(':memory:')
   if (previousUploadDir === undefined) delete process.env.NUXT_UPLOAD_DIR
@@ -1885,6 +1894,57 @@ test('数据库：确认后可以导出一份不带成绩的名单，按姓名�
   assert.deepEqual(names, ['安七', '陈四', '王五'])
   assert.match(plain.filename, /不带成绩/)
 
+  closeDatabase(':memory:')
+})
+
+test('数据库：曲目名单按姓名拼音排，伴奏一栏分清传没传', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '曾晨希', song: '星辰大海' })
+  createSinger(client, event.id, { name: '安琪', song: '鹿 be free' })
+  checkInEntries(client, musicId, 'prelim')
+  let round = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, round, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, round, 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const zeng = roster.find(entry => entry.singer.name === '曾晨希')!
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, zeng.singer.id, { scores: scoresForAll(8) })
+  const anqi = roster.find(entry => entry.singer.name === '安琪')!
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, anqi.singer.id, { scores: scoresForAll(6) })
+  round = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, round, { status: 'closed', advanceCount: 2 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+
+  const semi = getRoundByKey(client, event.id, 'semi')
+  const semiEntries = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
+  const target = semiEntries.find(entry => entry.singer.name === '安琪')!
+  commitAccompanimentKey(client, semi, target.id, {
+    key: 'competition/accompaniment/x.mp3',
+    name: '鹿 be free.mp3',
+    size: 5 * 1024 * 1024
+  }, '鹿 be free')
+
+  const exported = buildCompetitionExport(client, semi, 'songs')
+  const lines = exported.csv.split('\n')
+  assert.match(lines[0]!, /姓名/)
+  assert.match(lines[0]!, /伴奏/)
+  // 拼音序：安(a) 在 曾(z) 前面，即使「曾」被手动排在前面也要被纠正
+  assert.match(lines[1]!, /^1,安琪,/)
+  assert.match(lines[1]!, /已传（5\.0 MB）/)
+  assert.match(lines[2]!, /^2,曾晨希,/)
+  assert.match(lines[2]!, /未传/)
   closeDatabase(':memory:')
 })
 

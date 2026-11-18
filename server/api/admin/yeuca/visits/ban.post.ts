@@ -3,12 +3,12 @@ import { banYeucaIp, unbanYeucaIp } from '../../../../modules/yeuca/visit-servic
 import { writeAudit } from '../../../../utils/audit'
 import { useAdminRequest } from '../../../../utils/http'
 import { parseBody } from '../../../../utils/validation'
-import { resolveYeucaAdminScope } from '../../../../utils/yeuca-admin'
+import { requireYeucaChiefScope } from '../../../../utils/yeuca-admin'
 
 /** 封禁 / 解封一个来源 IP。封禁默认 24 小时，过期自动失效。 */
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event, true)
-  resolveYeucaAdminScope(client, session)
+  requireYeucaChiefScope(client, session)
 
   const input = await parseBody(event, yeucaVisitBanSchema)
 

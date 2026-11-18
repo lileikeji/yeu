@@ -8,7 +8,7 @@ import { resolveYeucaAdminScope } from '../../../../utils/yeuca-admin'
 
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event, true)
-  resolveYeucaAdminScope(client, session)
+  const scope = resolveYeucaAdminScope(client, session)
   const settings = ensureYeucaSettings(client)
   if (!settings.contentId) {
     throw createError({ statusCode: 409, statusMessage: 'Computer association content record missing' })
@@ -20,14 +20,18 @@ export default defineEventHandler(async (event) => {
     session.admin.id,
     input.submissionIds,
     input.defaultDepartment,
-    input.defaultTerm
+    input.defaultTerm,
+    scope.isChief ? null : scope.departmentName
   )
   writeAudit(client, event, {
     actorAdminId: session.admin.id,
     action: 'yeuca.recruit.approve_to_members',
     entityType: 'yeuca_member',
     entityId: 'batch',
-    details: summary
+    details: {
+      ...summary,
+      department: scope.isChief ? (input.defaultDepartment || '') : (scope.departmentName || '')
+    }
   })
   return summary
 })

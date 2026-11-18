@@ -1754,3 +1754,17 @@ export const yeucaIpBans = sqliteTable('yeuca_ip_bans', {
 }, table => [
   index('yeuca_ip_bans_active_idx').on(table.isActive, table.expiresAt)
 ])
+
+/** 计协分部部长后台账号绑定表：由计协总管或平台超管创建，按所属部门隔离管理范围。 */
+export const yeucaDepartmentAdmins = sqliteTable('yeuca_department_admins', {
+  adminUserId: text('admin_user_id').primaryKey().references(() => adminUsers.id, { onDelete: 'cascade' }),
+  contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
+  departmentName: text('department_name').notNull(),
+  title: text('title').notNull().default('部长'),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('yeuca_dept_admins_content_idx').on(table.contentId),
+  index('yeuca_dept_admins_dept_idx').on(table.departmentName)
+])

@@ -21,13 +21,16 @@ import { listYeucaMembersAdmin } from './member-service'
 import type {
   createYeucaPostSchema,
   createYeucaProjectSchema,
+  updateYeucaOwnDepartmentSchema,
   updateYeucaPostSchema,
   updateYeucaProjectSchema,
   updateYeucaRecruitConfigSchema,
   updateYeucaSettingsSchema
 } from '../../../shared/schemas/yeuca'
+import type { YeucaAdminScope } from '../../utils/yeuca-admin'
 import type {
   YeucaAdminOverviewPayload,
+  YeucaAdminScopePayload,
   YeucaDepartment,
   YeucaPostItem,
   YeucaProjectItem,
@@ -364,7 +367,31 @@ export function updateYeucaRecruitConfig(
   return getYeucaRecruitAdminConfig(client, contentId)
 }
 
-export async function getAdminYeucaOverview(client: DatabaseClient): Promise<YeucaAdminOverviewPayload> {
+function matchesDepartmentTagList(departmentsText: string, departmentName: string): boolean {
+  return departmentsText
+    .split(/[,，/、]/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .includes(departmentName.trim())
+}
+
+export async function getAdminYeucaOverview(
+  client: DatabaseClient,
+  scope?: YeucaAdminScope
+): Promise<YeucaAdminOverviewPayload> {
+  const adminScope: YeucaAdminScopePayload = scope
+    ? {
+        role: scope.role,
+        departmentName: scope.departmentName,
+        title: scope.title
+      }
+    : {
+        role: 'chief',
+        departmentName: null,
+        title: '计协总管'
+      }
+  const scopedDept = adminScope.role === 'minister' ? (adminScope.departmentName || '').trim() : null
+
   const settings = ensureYeucaSettings(client)
   const postRows = client.db
     .select()
@@ -377,14 +404,27 @@ export async function getAdminYeucaOverview(client: DatabaseClient): Promise<Yeu
     .orderBy(yeucaProjects.sortOrder, desc(yeucaProjects.updatedAt))
     .all()
 
-  const posts = postRows.map(serializePost)
-  const projects = projectRows.map(serializeProject)
-  const yeucaActivitiesList = listYeucaActivitiesAdmin(client)
-  const membersList = listYeucaMembersAdmin(client)
-  const recruit = getYeucaRecruitAdminConfig(client, settings.contentId)
+  const allPosts = postRows.map(serializePost)
+  const allProjects = projectRows.map(serializeProject)
+  const allActivities = listYeucaActivitiesAdmin(client)
+  const allMembers = listYeucaMembersAdmin(client)
+  const fullRecruit = getYeucaRecruitAdminConfig(client, settings.contentId)
+
+  const posts = scopedDept ? allPosts.filter(p => p.deptName.trim() === scopedDept) : allPosts
+  const projects = scopedDept ? allProjects.filter(p => p.deptName.trim() === scopedDept) : allProjects
+  const yeucaActivitiesList = scopedDept ? allActivities.filter(a => a.deptName.trim() === scopedDept) : allActivities
+  const membersList = scopedDept ? allMembers.filter(m => m.department.trim() === scopedDept) : allMembers
+  const recruitSubs = scopedDept
+    ? fullRecruit.submissions.filter(s => matchesDepartmentTagList(s.departments, scopedDept))
+    : fullRecruit.submissions
+  const recruit: YeucaRecruitAdminConfig = {
+    ...fullRecruit,
+    totalSubmissions: recruitSubs.length,
+    submissions: recruitSubs
+  }
 
   let campusPublishedActivities = 0
-  if (settings.contentId) {
+  if (!scopedDept && settings.contentId) {
     campusPublishedActivities = client.db
       .select({ id: activities.id })
       .from(activities)
@@ -397,6 +437,7 @@ export async function getAdminYeucaOverview(client: DatabaseClient): Promise<Yeu
   const gitea = await inspectGiteaHealth(gitSyncedMembers)
 
   return {
+    adminScope,
     settings,
     posts,
     projects,
@@ -417,6 +458,54 @@ export async function getAdminYeucaOverview(client: DatabaseClient): Promise<Yeu
       gitSyncedMembers
     }
   }
+}
+
+export function updateYeucaOwnDepartment(
+  client: DatabaseClient,
+  departmentName: string,
+  input: z.infer<typeof updateYeucaOwnDepartmentSchema>
+): YeucaDepartment {
+  const settings = ensureYeucaSettings(client)
+  const targetIdx = settings.departments.findIndex(d => d.name === departmentName)
+  if (targetIdx < 0) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Department not found',
+      data: { code: 'DEPARTMENT_NOT_FOUND', message: `未在部门列表中找到「${departmentName}」` }
+    })
+  }
+  const current = settings.departments[targetIdx]!
+  const updatedDept: YeucaDepartment = {
+    ...current,
+    ...(input.lead !== undefined ? { lead: input.lead } : {}),
+    ...(input.summary !== undefined ? { summary: input.summary } : {}),
+    ...(input.focusList !== undefined ? { focusList: input.focusList } : {}),
+    ...(input.tools !== undefined ? { tools: input.tools } : {}),
+    ...(input.recentTopic !== undefined ? { recentTopic: input.recentTopic } : {}),
+    ...(input.acceptingRecruit !== undefined ? { acceptingRecruit: input.acceptingRecruit } : {}),
+    ...(input.recruitDesc !== undefined ? { recruitDesc: input.recruitDesc } : {})
+  }
+  const nextDepartments = settings.departments.map((d, idx) => (idx === targetIdx ? updatedDept : d))
+  client.db
+    .update(yeucaSiteSettings)
+    .set({
+      departmentsJson: JSON.stringify(nextDepartments),
+      updatedAt: Date.now()
+    })
+    .where(eq(yeucaSiteSettings.id, settings.id))
+    .run()
+
+  return updatedDept
+}
+
+export function getYeucaPostById(client: DatabaseClient, id: string): YeucaPostItem | null {
+  const row = client.db.select().from(yeucaPosts).where(eq(yeucaPosts.id, id)).get()
+  return row ? serializePost(row) : null
+}
+
+export function getYeucaProjectById(client: DatabaseClient, id: string): YeucaProjectItem | null {
+  const row = client.db.select().from(yeucaProjects).where(eq(yeucaProjects.id, id)).get()
+  return row ? serializeProject(row) : null
 }
 
 export function updateYeucaSettings(client: DatabaseClient, input: UpdateSettingsInput): YeucaSiteSettings {

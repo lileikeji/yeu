@@ -1449,7 +1449,7 @@ export const adminCompetitionScoreSchema = z.object({
   comment: z.string().trim().max(500).optional()
 }).strict()
 
-export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing', 'confirmed', 'confirmed-plain'])
+export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing', 'confirmed', 'confirmed-plain', 'songs'])
 
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
 // 带 preRegistrationId = 从预报名确认生成。
@@ -1490,7 +1490,7 @@ export const competitionSongLookupSchema = z.object({
 export const setCompetitionEntryAccompanimentSchema = z.object({
   entryId: z.string().min(1).max(64),
   filename: z.string().trim().max(120).optional(),
-  data: z.string().min(1).max(410 * 1024 * 1024)
+  data: z.string().min(1).max(560 * 1024 * 1024)
 }).strict()
 
 export const competitionSongAccompanimentSchema = z.object({
@@ -1498,6 +1498,7 @@ export const competitionSongAccompanimentSchema = z.object({
   studentNo: z.string().trim().min(1).max(30),
   contact: z.string().trim().min(4).max(120),
   filename: z.string().trim().max(160).optional(),
+  song: z.string().trim().max(100).optional(),
   data: z.string().min(16)
 }).strict()
 
