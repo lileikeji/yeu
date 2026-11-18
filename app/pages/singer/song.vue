@@ -84,8 +84,8 @@ async function uploadAccompaniment(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file || !state.value) return
-  if (file.size > 30 * 1024 * 1024) {
-    toast.add({ title: '伴奏别超过 30MB', color: 'warning' })
+  if (file.size > 300 * 1024 * 1024) {
+    toast.add({ title: '伴奏别超过 300MB', color: 'warning' })
     return
   }
   accompanimentBusy.value = true
@@ -244,7 +244,7 @@ async function submit() {
               伴奏 <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
             </p>
             <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 30MB。<br>
+              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 300MB。<br>
               iPhone 在微信里选不到聊天文件时：先长按文件「用其他应用打开 → 存储到文件」，再点下面的按钮从「文件」App 里选；实在不行把伴奏发给工作人员代传。
             </p>
             <p
@@ -281,7 +281,7 @@ async function submit() {
               {{ accompanimentBusy ? '上传中…' : (state.accompaniment ? '换一个伴奏' : '上传伴奏') }}
             </button>
             <p class="mt-1 text-[11px] text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，30MB 以内。微信里点开可以直接从聊天文件或手机里选。
+              支持 mp3 / m4a / wav / aac / ogg / flac，300MB 以内。微信里点开可以直接从聊天文件或手机里选。
             </p>
           </div>
 

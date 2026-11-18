@@ -4,7 +4,31 @@ import { resolve } from 'node:path'
 import { createError } from 'h3'
 import { uploadDirectory } from './uploaded-images'
 
-export const MAX_UPLOADED_AUDIO_BYTES = 30 * 1024 * 1024
+export const MAX_UPLOADED_AUDIO_BYTES = 300 * 1024 * 1024
+
+/**
+ * 一次只允许一个伴奏上传在内存里解析：300MB 的 base64 展开后峰值接近 1GB，
+ * 两个并发就会把 768M/1792M 的 cgroup 顶爆。拿不到名额的直接提示稍后再试。
+ */
+let audioUploadInFlight = false
+
+export function beginAudioUpload(): boolean {
+  if (audioUploadInFlight) return false
+  audioUploadInFlight = true
+  return true
+}
+
+export function endAudioUpload(): void {
+  audioUploadInFlight = false
+}
+
+export function audioUploadBusyError() {
+  return createError({
+    statusCode: 429,
+    statusMessage: 'Another audio upload is in progress',
+    data: { code: 'AUDIO_UPLOAD_BUSY', message: '有人正在上传伴奏，等半分钟再试' }
+  })
+}
 
 const AUDIO_TYPES = {
   mp3: 'audio/mpeg',
@@ -40,6 +64,88 @@ export function uploadedAudioContentType(filename: string): string | null {
   return extension ? AUDIO_TYPES[extension] ?? null : null
 }
 
+/**
+ * 伴奏可以走「职业发展平台」已经接好的对象存储：
+ * 那边有桶和接口，我们只把字节转过去，拿回一个公网可直接播放的 URL。
+ * 没配置 CAREER_STORAGE_BASE_URL 时继续落本机 /uploads（原行为不变）。
+ */
+export interface CareerStorageConfig {
+  baseUrl: string
+  token: string
+  path: string
+  prefix: string
+}
+
+export function careerStorageConfig(): CareerStorageConfig | null {
+  const baseUrl = (process.env.CAREER_STORAGE_BASE_URL || '').trim().replace(/\/+$/, '')
+  if (!baseUrl) return null
+  return {
+    baseUrl,
+    token: (process.env.CAREER_STORAGE_TOKEN || '').trim(),
+    path: (process.env.CAREER_STORAGE_PATH || '/api/storage/upload').trim(),
+    prefix: (process.env.CAREER_STORAGE_PREFIX || 'competition/accompaniment').replace(/^\/+|\/+$/g, '')
+  }
+}
+
+/** 把上传接口的返回体兼容成一条 URL：`url`、`data.url`、`data.data.url` 都认。 */
+export function pickStorageUrl(payload: unknown): string | null {
+  const seen = new Set<unknown>()
+  const walk = (node: unknown, depth: number): string | null => {
+    if (!node || depth > 4 || typeof node !== 'object' || seen.has(node)) return null
+    seen.add(node)
+    const record = node as Record<string, unknown>
+    for (const key of ['url', 'src', 'href', 'downloadUrl', 'fileUrl']) {
+      const value = record[key]
+      if (typeof value === 'string' && /^https?:\/\//.test(value)) return value
+    }
+    for (const value of Object.values(record)) {
+      const found = walk(value, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  return walk(payload, 0)
+}
+
+async function uploadAudioToCareer(
+  config: CareerStorageConfig,
+  data: Uint8Array,
+  filename: string,
+  contentType: string
+): Promise<string> {
+  const form = new FormData()
+  const key = `${config.prefix}/${filename}`
+  form.append('file', new Blob([data as unknown as BlobPart], { type: contentType }), filename)
+  form.append('path', key)
+  form.append('filename', filename)
+  const headers: Record<string, string> = {}
+  if (config.token) headers.Authorization = `Bearer ${config.token}`
+  const response = await fetch(`${config.baseUrl}${config.path}`, { method: 'POST', body: form, headers })
+  const text = await response.text()
+  if (!response.ok) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Career storage upload failed',
+      data: { code: 'STORAGE_UPLOAD_FAILED', message: `对象存储返回 ${response.status}：${text.slice(0, 120)}` }
+    })
+  }
+  let json: unknown = null
+  try {
+    json = JSON.parse(text)
+  } catch {
+    if (/^https?:\/\//.test(text.trim())) return text.trim()
+  }
+  const url = pickStorageUrl(json)
+  if (!url) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Career storage returned no url',
+      data: { code: 'STORAGE_UPLOAD_NO_URL', message: `对象存储没回传可播放链接：${text.slice(0, 120)}` }
+    })
+  }
+  return url
+}
+
 export async function storeUploadedAudio(data: Uint8Array): Promise<{
   filename: string
   url: string
@@ -60,9 +166,14 @@ export async function storeUploadedAudio(data: Uint8Array): Promise<{
       data: { code: 'UNSUPPORTED_AUDIO', message: '只收 mp3 / m4a / wav / aac / ogg / flac 这几种格式' }
     })
   }
+  const filename = `${randomUUID()}.${type}`
+  const career = careerStorageConfig()
+  if (career) {
+    const url = await uploadAudioToCareer(career, data, filename, AUDIO_TYPES[type])
+    return { filename, url, size: data.length, contentType: AUDIO_TYPES[type] }
+  }
   const directory = uploadDirectory()
   await mkdir(directory, { recursive: true })
-  const filename = `${randomUUID()}.${type}`
   // 0644：nginx 以 www 身份读文件，0640 会 403
   const target = resolve(directory, filename)
   await writeFile(target, data, { mode: 0o644 })
