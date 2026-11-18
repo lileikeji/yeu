@@ -301,6 +301,38 @@ const updatedAtText = computed(() => {
 const isSheet = computed(() => props.variant === 'sheet')
 const sheetState = computed<MobileSheetState>(() => props.state ?? 'half')
 const sheetStops = computed(() => selectedRoute.value?.stops ?? [])
+
+/* 站列滚动：只有真的溢出才给底部渐隐（guide: scrollability-affordance-hints）。
+   半屏 326 时 7 站装不下，不给滚容器等于把最后两站钉死在屏幕外。 */
+const stopsScrollRef = ref<HTMLElement | null>(null)
+const stopsOverflowing = ref(false)
+let stopsResizeObserver: ResizeObserver | null = null
+const STOPS_FADE_MASK = 'linear-gradient(to bottom, black calc(100% - 12px), transparent)'
+const stopsFadeStyle = computed(() => (stopsOverflowing.value
+  ? { '-webkit-mask-image': STOPS_FADE_MASK, 'mask-image': STOPS_FADE_MASK }
+  : undefined))
+
+/** 亚像素取整不该让最后一行被遮，所以留 1px 余量。 */
+function measureStopsOverflow(): void {
+  const el = stopsScrollRef.value
+  stopsOverflowing.value = Boolean(el && el.scrollHeight > el.clientHeight + 1)
+}
+
+function bindStopsScroll(el: HTMLElement | null): void {
+  stopsResizeObserver?.disconnect()
+  stopsResizeObserver = null
+  if (!el || typeof ResizeObserver === 'undefined') return
+  stopsResizeObserver = new ResizeObserver(() => measureStopsOverflow())
+  stopsResizeObserver.observe(el)
+  measureStopsOverflow()
+}
+
+watch(stopsScrollRef, el => bindStopsScroll(el ?? null), { flush: 'post' })
+// 站数变化不改容器尺寸，ResizeObserver 看不到，得自己补一次。
+watch([sheetStops, sheetState], () => {
+  void nextTick(() => measureStopsOverflow())
+}, { flush: 'post' })
+onBeforeUnmount(() => stopsResizeObserver?.disconnect())
 /** 面板只展示排在第一位的车（与线路条首个车标一致），其余车辆数量折进文案。 */
 const leadBus = computed(() => busMarkers.value[0] ?? null)
 /** 折叠条右侧胶囊：`约 4 分钟` → `4′`。 */
@@ -497,14 +529,18 @@ function markerBarTop(ratio: number): string {
         </div>
       </div>
 
-      <!-- 站行：最小 32，容器富余时等分拉伸；车标按行中心百分比定位 -->
-      <div class="min-h-0 flex-1 overflow-hidden px-3">
-        <!-- 方案 A：站列底部 24px 渐隐。用 mask 而不是盖一层白纱——面板本身是 66% 玻璃，
-             白纱会把渐隐区糊成一块比面板更实的白。 -->
+      <!-- 站行：最小 32，容器富余时等分拉伸；车标按行中心百分比定位。
+           半屏 326 装不下 7 站时必须能滚 —— 这是「点开叮叮车卡住」的根因。 -->
+      <div
+        ref="stopsScrollRef"
+        data-bus-stops-fade
+        class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 scrollbar-none"
+        :data-bus-stops-overflow="stopsOverflowing ? 'on' : 'off'"
+        :style="stopsFadeStyle"
+      >
+        <!-- 12px 渐隐只在真溢出时出现：放得下时别遮最后一行（scrollability-affordance-hints） -->
         <div
-          data-bus-stops-fade
-          class="relative -ml-2 grid h-full auto-rows-[minmax(32px,1fr)] pl-2 [contain:layout]"
-          style="-webkit-mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent)"
+          class="relative -ml-2 grid min-h-full auto-rows-[minmax(32px,1fr)] pl-2 [contain:layout]"
         >
           <span
             aria-hidden="true"

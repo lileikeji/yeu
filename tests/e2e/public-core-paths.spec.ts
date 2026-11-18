@@ -71,11 +71,19 @@ test('搜索可进入已发布地点、查看详情并返回地图', async ({ pa
 
   await page.locator('a[href="/map?place=e2e-verified-service-point"]').first().click()
   await expect(page).toHaveURL(/\/map\?place=e2e-verified-service-point$/)
-  await expect(page.getByRole('heading', { level: 2, name: 'E2E 确认服务点' }).filter({ visible: true })).toBeVisible()
-  await expect(page.getByText('到这里前先确认', { exact: true }).filter({ visible: true })).toBeVisible()
-  await expect(page.getByText('核对地点名称和入口标识。', { exact: true }).filter({ visible: true })).toBeVisible()
 
-  await page.getByRole('link', { name: '详情', exact: true }).filter({ visible: true }).click()
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    // 手机端详情改由锚定浮窗承载：标题在卡片内，清单折成 chip，详情是卡内动作而不是链接。
+    const card = page.locator('.pin-popover').filter({ visible: true })
+    await expect(card).toBeVisible()
+    await expect(card).toContainText('E2E 确认服务点')
+    await card.getByRole('button', { name: '详情', exact: true }).click()
+  } else {
+    await expect(page.getByRole('heading', { level: 2, name: 'E2E 确认服务点' }).filter({ visible: true })).toBeVisible()
+    await expect(page.getByText('到这里前先确认', { exact: true }).filter({ visible: true })).toBeVisible()
+    await expect(page.getByText('核对地点名称和入口标识。', { exact: true }).filter({ visible: true })).toBeVisible()
+    await page.getByRole('link', { name: '详情', exact: true }).filter({ visible: true }).click()
+  }
   await expect(page).toHaveURL(/\/places\/e2e-verified-service-point\?from=/)
   await expect(page.getByRole('heading', { level: 1, name: 'E2E 确认服务点' })).toBeVisible()
   await expect(page.getByRole('link', { name: '开始导航', exact: true })).toHaveAttribute('href', /position=118\.604(?:%2C|,)25\.107/)

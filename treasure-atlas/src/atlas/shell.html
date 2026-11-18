@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>奶龙的迎新巡游 · 仰恩校园手绘地图</title>
+<link rel="icon" href="data:,">
+<style>@@STYLE@@</style>
+</head>
+<body>
+<main class="atlas" id="atlas">
+  <aside class="sidebar" id="filters" aria-label="标点筛选">
+    <header class="brand">
+      <span aria-hidden="true">✧</span><div><h1>奶龙的迎新巡游</h1><p><a href="/activities">校园活动</a> · 仰恩手绘地图</p></div>
+      <button type="button" class="round close-sidebar" id="close-filters" aria-label="收起侧栏" aria-controls="filters">×</button>
+    </header>
+    <div class="search-area">
+      <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search" autocomplete="off" placeholder="搜索楼栋、立牌或地标" aria-label="搜索标点"></label>
+      <div class="region-strip" role="group" aria-label="切换校区">
+        <button type="button" data-region="all" aria-pressed="true">✧ 全校</button>
+        <button type="button" data-region="new" aria-pressed="false">✧ 新区</button>
+        <button type="button" data-region="old" aria-pressed="false">✧ 旧区</button>
+      </div>
+    </div>
+    <div class="directory">
+      <nav aria-label="标点分类">
+        <button type="button" data-tab="places" aria-pressed="false">楼栋地标</button>
+        <button type="button" data-tab="hunt" aria-pressed="true">迎新寻宝</button>
+      </nav>
+      <div class="directory-body">
+        <section id="hunt-pane">
+          <h2>校园寻宝</h2>
+          <p class="hunt-instruction">彩虹桥使用手机定位集章。其余寻宝点可选择模拟距离试玩。</p>
+          <div class="tiles" id="hunt-tiles"></div>
+          <details class="hints standee-gallery" id="standee-gallery"><summary id="standee-title">立牌图鉴</summary><ul id="standee-list" class="standee-list"></ul></details>
+          <details class="hints classroom-hints" id="classroom-clues"><summary id="classroom-title">教学楼隐藏款</summary><ul id="classroom-hints" class="results"></ul></details>
+          <details class="hints"><summary id="hint-title">神瞳线索</summary><ul id="hints" class="results"></ul></details>
+          <details class="hints taffy-hints" id="taffy-clues"><summary id="taffy-title">塔菲隐藏款</summary><p class="taffy-instruction">选择线索，在地图上揭示对应宝箱。</p><ul id="taffy-hints" class="results"></ul></details>
+          <label class="check"><input type="checkbox" id="hide-done"> 隐藏已收集点位</label>
+        </section>
+        <section id="place-pane" hidden>
+          <h2>校园地标</h2>
+          <div class="tiles" id="place-tiles"></div>
+          <p class="muted">宿舍楼名可在上方搜索。</p>
+          <div id="directory-list"></div>
+        </section>
+        <section id="search-pane" hidden>
+          <h2>搜索结果</h2>
+          <ul id="results" class="results"></ul>
+          <p class="muted" id="no-results" hidden>没有找到对应的标点。</p>
+        </section>
+      </div>
+    </div>
+    <footer class="sidebar-footer">
+      <p id="progress-text" class="muted" aria-live="polite">本机试玩</p>
+      <div class="actions">
+        <button class="pill" type="button" id="reset">重置筛选</button>
+        <button class="pill gold" type="button" id="apply">查看标点</button>
+      </div>
+    </footer>
+  </aside>
+  <section class="viewport" id="viewport" data-weather="clear" aria-label="仰恩大学地形地图">
+    <img class="fallback" id="fallback" src="@@FALLBACK@@" alt="仰恩大学新旧两区地形总览" hidden>
+    <div id="map" class="map"></div>
+    <div class="sky" aria-hidden="true">
+      <div class="rain" id="rain" hidden></div>
+    </div>
+    <header class="map-top">
+      <button type="button" class="round" id="open-filters" aria-label="展开侧栏" aria-expanded="false" aria-controls="filters">☰</button>
+      <button type="button" class="badge region-label" id="region-cycle" aria-label="切换校区">◆ 仰恩大学 ▾</button>
+      <div class="map-top-right">
+        <label class="weather badge"><span id="weather-icon" aria-hidden="true">☀</span>
+          <select id="weather" aria-label="天气" aria-describedby="weather-status">
+            <option value="auto">自动 · 跟随天气</option>
+            <option value="clear" selected>晴天</option><option value="cloudy">阴天</option><option value="rain">雨天</option><option value="night">夜色</option>
+          </select>
+        </label>
+        <span id="weather-status" class="weather-status" role="status"></span>
+        <span class="badge" id="stamps" aria-live="polite">探索印章 · 0 / 5</span>
+      </div>
+    </header>
+    <nav class="activity-shortcuts" aria-label="寻宝快捷入口">
+      <button class="badge parade-shortcut" type="button" id="parade-shortcut" aria-controls="detail" aria-expanded="false"><span aria-hidden="true">✦</span> 彩虹桥定位集章</button>
+      <button class="badge classroom-shortcut" type="button" id="classroom-shortcut" aria-controls="classroom-clues">教学楼隐藏款</button>
+      <button class="badge taffy-shortcut" type="button" id="taffy-shortcut" aria-controls="taffy-clues">塔菲宝箱 · 查看线索</button>
+    </nav>
+    <div class="map-tools" role="group" aria-label="地图控制">
+      <button class="round" type="button" id="overview" aria-label="返回校区" title="返回校区" disabled>⌖</button>
+      <button class="round" type="button" id="relief" aria-label="立体地势" title="立体地势" aria-pressed="false" disabled>⛰</button>
+    </div>
+    <div class="map-bottom">
+      <button class="pill gold mobile-only" type="button" id="bottom-filters">筛选标点</button>
+      <span class="badge boundary-key">寻宝校界</span>
+      <span class="badge elevation-key">校内约 71–129 米</span>
+    </div>
+    <p class="map-status badge" id="map-status" role="status">正在绘制校园地图…</p>
+    <section class="detail" id="detail" aria-label="点位详情" hidden></section>
+    <noscript><img class="fallback" src="@@FALLBACK@@" alt="仰恩大学地形总览"><p class="map-status badge">在支持 JavaScript 的浏览器中打开可互动。</p></noscript>
+  </section>
+</main>
+<template id="bridge-pilot-template">
+  <div class="bridge-pilot">
+    <p class="bridge-status" role="status" aria-live="polite"></p>
+    <a class="pill bridge-login" href="/login?redirect=%2Factivities%2Ftreasure%3Fpoint%3Drainbow-bridge" hidden>登录后参加</a>
+    <button class="pill bridge-primary" type="button" data-bridge-retry hidden>重新读取</button>
+    <button class="pill bridge-primary" type="button" data-bridge-locate hidden>验证当前位置</button>
+    <form class="answer bridge-answer" hidden>
+      <label for="bridge-answer">现场暗号</label>
+      <div><input id="bridge-answer" maxlength="64" autocomplete="off" required>
+      <button class="pill bridge-primary" type="submit">提交并集章</button></div>
+    </form>
+    <div class="parade-reaction" aria-hidden="true" hidden>
+      <picture class="reaction-frog"><img alt=""></picture><p><strong>奶蛙：嗯？你再说一遍。</strong></p>
+    </div>
+    <p class="location-note bridge-caption" hidden>验证和提交时各获取一次位置，印章记在当前迎新网账号。</p>
+  </div>
+</template>
+<!-- MapLibre GL JS license
+@@LICENSE@@
+-->
+<!--
+@@ASSET_NOTICES@@
+-->
+<script type="application/json" id="atlas-data">@@DATA@@</script>
+<script type="application/json" id="atlas-worker">@@WORKER@@</script>
+<script type="application/json" id="bridge-config">{}</script>
+<script>@@LIBRARY@@</script>
+<script>@@SCRIPT@@</script>
+</body>
+</html>

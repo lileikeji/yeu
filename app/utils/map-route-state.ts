@@ -77,6 +77,24 @@ export function buildMapRouteQuery(
   return query
 }
 
+/**
+ * URL 里真正承载状态的五个键是否相同。
+ * 面板的守卫历史层（pushState / history.back()）只动历史条目、不改 URL，
+ * popstate 之后 route.query 会给出内容一致的新对象；这时不能再回灌状态，
+ * 否则刚点选的地点会被「没有 place」的旧 URL 清掉，浮窗一闪就没。
+ */
+export function mapRouteQueryEqual(
+  query: MapRouteQuery,
+  previousQuery: MapRouteQuery | undefined
+): boolean {
+  if (!previousQuery) return false
+  return mapQueryValue(query.q) === mapQueryValue(previousQuery.q)
+    && mapQueryValue(query.category) === mapQueryValue(previousQuery.category)
+    && mapQueryValue(query.scope) === mapQueryValue(previousQuery.scope)
+    && mapQueryValue(query.place) === mapQueryValue(previousQuery.place)
+    && mapQueryValue(query.area) === mapQueryValue(previousQuery.area)
+}
+
 export function mapRouteFiltersChanged(
   query: MapRouteQuery,
   previousQuery: MapRouteQuery | undefined
