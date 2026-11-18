@@ -39,7 +39,17 @@ export default defineEventHandler(async (event) => {
   const rawExtension = (input.filename || '').split('.').at(-1)?.toLowerCase() || 'mp3'
   const extension = (EXTENSIONS as readonly string[]).includes(rawExtension) ? rawExtension : 'mp3'
   const key = newAccompanimentKey(config, extension)
-  const mime = (input.mime || '').startsWith('audio/') ? input.mime! : 'audio/mpeg'
+  // 以扩展名定 mime（前端也按同一规则算），保证签名里的 content-type 和浏览器 PUT 的一致
+  const MIME_BY_EXTENSION: Record<string, string> = {
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    mp4: 'audio/mp4',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac'
+  }
+  const mime = MIME_BY_EXTENSION[extension] ?? ((input.mime || '').startsWith('audio/') ? input.mime! : 'audio/mpeg')
   const uploadUrl = presignCosPut(config, key, mime, 900)
   return { key, uploadUrl, expiresIn: 900 }
 })

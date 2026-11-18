@@ -31,7 +31,10 @@ useSeoMeta({ title: '填写参赛曲目', robots: 'noindex, nofollow' })
 
 function messageOf(caught: unknown): string {
   const data = (caught as { data?: { data?: { message?: string }, message?: string } })?.data
-  return data?.data?.message ?? data?.message ?? '出错了，稍后再试。'
+  const serverSide = data?.data?.message ?? data?.message
+  if (serverSide) return serverSide
+  const plain = (caught as { message?: string })?.message
+  return plain && plain.trim() ? plain : '出错了，稍后再试。'
 }
 
 async function lookup() {
@@ -82,6 +85,21 @@ function readFileAsBase64(file: File): Promise<string> {
 }
 
 /** 直传到 COS：走 XHR 才能拿到上传进度，fetch 没有 progress 事件。 */
+/**
+ * 浏览器的 file.type 不可靠：.m4a 有时报 audio/x-m4a、有时报 video/mp4，
+ * 而 COS 的预签名把 content-type 算进签名，两边不一致就会 403。
+ * 所以统一按扩展名定一个固定值，签名和 PUT 都用它。
+ */
+function uploadMimeFor(file: File): string {
+  const extension = (file.name.split('.').at(-1) || '').toLowerCase()
+  if (extension === 'm4a' || extension === 'mp4') return 'audio/mp4'
+  if (extension === 'wav') return 'audio/wav'
+  if (extension === 'aac') return 'audio/aac'
+  if (extension === 'ogg') return 'audio/ogg'
+  if (extension === 'flac') return 'audio/flac'
+  return 'audio/mpeg'
+}
+
 function putFileWithProgress(url: string, file: File, contentType: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
@@ -136,7 +154,7 @@ async function uploadAccompaniment(event: Event) {
           studentNo: studentNo.value.trim(),
           contact: contact.value.trim(),
           filename: file.name,
-          mime: file.type || 'audio/mpeg',
+          mime: uploadMimeFor(file),
           song: songValue
         }
       }
@@ -144,7 +162,7 @@ async function uploadAccompaniment(event: Event) {
     if (ticket?.uploadUrl) {
       uploadPhase.value = 'upload'
       uploadPercent.value = 0
-      await putFileWithProgress(ticket.uploadUrl, file, file.type || 'audio/mpeg')
+      await putFileWithProgress(ticket.uploadUrl, file, uploadMimeFor(file))
       uploadPhase.value = 'confirm'
       const committed = await plainFetch<SongState>('/api/public/competition/song/accompaniment-commit', {
         method: 'POST',
