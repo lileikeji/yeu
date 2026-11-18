@@ -2295,13 +2295,16 @@ function addPrelimEntry(
   singerId: string,
   sortOrder: number,
   contestDay?: 1 | 2 | null,
-  checkedInAt?: number | null
+  checkedInAt?: number | null,
+  song?: string | null
 ): void {
   const prelim = getRoundByKey(client, eventId, 'prelim')
   client.db.insert(competitionRoundEntries).values({
     id: randomUUID(),
     roundId: prelim.id,
     singerId,
+    // 三轮曲目各自独立：初赛这条只写初赛报名时填的歌
+    song: (song ?? '').trim() || null,
     sortOrder,
     contestDay: contestDay ?? prelim.activeDay ?? null,
     checkedInAt: checkedInAt ?? null,
@@ -2332,7 +2335,7 @@ export function createSinger(client: DatabaseClient, eventId: string, input: Sin
       updatedAt: now
     }).run()
   })
-  addPrelimEntry(client, eventId, id, sortOrder)
+  addPrelimEntry(client, eventId, id, sortOrder, null, null, normalized.song)
 
   const row = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, id)).get()!
@@ -2947,7 +2950,7 @@ export function registerSingerFromForm(
         .where(eq(competitionPreRegistrations.id, preRegistration.id)).run()
     }
   })
-  addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day, now)
+  addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day, now, normalized.song)
   const prelimEntries = listRoundEntryRows(client, prelim.id)
   const dayEntries = (resolved.day
     ? prelimEntries.filter(entry => entry.contestDay === resolved.day)
@@ -4147,22 +4150,6 @@ export function submitSongByThreeFactors(
   }
   if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
   assertSongNotRepeated(client, eventRow.id, singer.id, value)
-  // 改之前把旧曲目留到初赛那场，避免「初赛唱什么」随新歌被覆盖（也是重复唱的判定依据）。
-  const previous = (singer.song ?? '').trim()
-  if (previous && songCompareKey(previous) !== songCompareKey(value)) {
-    const prelimRound = getRoundByKey(client, eventRow.id, 'prelim')
-    const prelimEntry = client.db.select({ id: competitionRoundEntries.id, song: competitionRoundEntries.song })
-      .from(competitionRoundEntries)
-      .where(and(
-        eq(competitionRoundEntries.roundId, prelimRound.id),
-        eq(competitionRoundEntries.singerId, singer.id)
-      ))
-      .get()
-    if (prelimEntry && !(prelimEntry.song ?? '').trim()) {
-      client.db.update(competitionRoundEntries).set({ song: previous })
-        .where(eq(competitionRoundEntries.id, prelimEntry.id)).run()
-    }
-  }
   client.db.update(competitionSingers)
     .set({ song: value, updatedAt: Date.now() })
     .where(eq(competitionSingers.id, singer.id)).run()

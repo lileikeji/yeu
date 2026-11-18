@@ -1963,7 +1963,7 @@ test('数据库：曲目名单按姓名拼音排，伴奏一栏分清传没传',
 
   const event = ensureCompetitionEvent(client, musicId)
   createSinger(client, event.id, { name: '曾晨希', song: '星辰大海' })
-  createSinger(client, event.id, { name: '安琪', song: '鹿 be free' })
+  createSinger(client, event.id, { name: '安琪', song: '光年之外' })
   checkInEntries(client, musicId, 'prelim')
   let round = getRoundByKey(client, event.id, 'prelim')
   updateRound(client, round, { status: 'open', judgeCount: 1 })
