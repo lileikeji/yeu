@@ -1297,6 +1297,10 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   accompanimentUrl: text('accompaniment_url'),
   accompanimentName: text('accompaniment_name'),
   accompanimentSize: integer('accompaniment_size'),
+  /** 选手上传的原始文件（m4a/wav 等），导出时优先用它 */
+  originalUrl: text('original_url'),
+  originalName: text('original_name'),
+  originalSize: integer('original_size'),
   /** 1 = 已确认晋级下一轮，0 = 未晋级，空 = 还没确认（按排名自动判定）。 */
   advanced: integer('advanced'),
   createdAt: timestamp('created_at')
