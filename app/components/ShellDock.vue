@@ -176,7 +176,6 @@ onMounted(() => {
             @input="onSearchInput"
             @compositionstart="onSearchCompositionStart"
             @compositionend="onSearchCompositionEnd"
-            @focus="raiseSheet"
           >
           <button
             v-show="searchQuery"

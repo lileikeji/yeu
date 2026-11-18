@@ -388,7 +388,7 @@ test('mobile bus pill is gone: no dock offset rules left to collide with the sea
 test('大面板关掉 rim 亮边：28px 圆角处不再出现一道白线', () => {
   // 着色器那段 2px 亮边在小胶囊上是水切面，铺到 390×326 的面板上就只剩一条白线。
   assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 2\.2, 0\.18, 0, 'top'\)/)
-  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all'\): void => \{/)
+  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all', radiusPx\?: number\): void => \{/)
   assert.match(glassSource, /float rim = \(1\.0 - smoothstep\(0\.0, 2\.0 \* uDpr, -d\)\) \* clamp\(vParams\.w, 0\.0, 2\.0\)/)
   assert.match(glassSource, /rim: clamp\(target\.rim \?\? 1, 0, 2\)/)
   assert.match(glassSource, /mount\.params\[base \+ 3\] = quad\.rim/)
