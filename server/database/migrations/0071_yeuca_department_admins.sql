@@ -1,3 +1,4 @@
+-- 计协分部部长账号绑定表：由协会总管或平台超管分配，按所属部门隔离管理范围。
 CREATE TABLE `yeuca_department_admins` (
 	`admin_user_id` text PRIMARY KEY NOT NULL,
 	`content_id` text NOT NULL,
@@ -11,6 +12,5 @@ CREATE TABLE `yeuca_department_admins` (
 	FOREIGN KEY (`created_by_admin_id`) REFERENCES `admin_users`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
-CREATE INDEX `yeuca_dept_admins_content_idx` ON `yeuca_department_admins` (`content_id`);
---> statement-breakpoint
+CREATE INDEX `yeuca_dept_admins_content_idx` ON `yeuca_department_admins` (`content_id`);--> statement-breakpoint
 CREATE INDEX `yeuca_dept_admins_dept_idx` ON `yeuca_department_admins` (`department_name`);
