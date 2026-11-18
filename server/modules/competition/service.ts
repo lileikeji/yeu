@@ -4150,7 +4150,13 @@ export async function setEntryAccompaniment(
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
   }
   const stored = await storeUploadedAudio(file.data)
-  const name = (file.filename || '').trim().slice(0, 120) || stored.filename
+  const singer = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, entry.singerId)).get()
+  const name = accompanimentDisplayName(
+    singer?.name ?? '',
+    (entry.song ?? '').trim() || singer?.song || '',
+    accompanimentExtension(stored.url)
+  )
   client.db.update(competitionRoundEntries)
     .set({
       accompanimentUrl: stored.url,
@@ -4160,6 +4166,28 @@ export async function setEntryAccompaniment(
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
   return { name, url: stored.url, size: stored.size }
+}
+
+/**
+ * 伴奏在后台的展示名统一成「姓名《曲目》.扩展名」：现场按名单找人时一眼对上，
+ * 不管选手传上来的原始文件名有多乱。
+ */
+export function accompanimentDisplayName(singerName: string, song: string, extension: string): string {
+  const cleanName = String(singerName || '').trim()
+  const cleanSong = String(song || '')
+    .replace(/[《》]/g, '')
+    .replace(/[（(]伴奏[)）]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const cleanExt = String(extension || '').replace(/^\./, '').toLowerCase()
+  const base = cleanSong ? `${cleanName}《${cleanSong}》` : cleanName
+  return cleanExt ? `${base}.${cleanExt}` : base
+}
+
+function accompanimentExtension(source: string): string {
+  const value = String(source || '').split('?')[0] ?? ''
+  const match = value.match(/\.([a-z0-9]{2,5})$/i)
+  return match ? match[1]!.toLowerCase() : 'mp3'
 }
 
 /** 三要素定位到「这一轮要传伴奏的那条出场记录」，直传与普通上传共用。 */
@@ -4193,12 +4221,21 @@ export function commitAccompanimentKey(
   file: { key: string, name: string, size: number }
 ): CompetitionEntryAccompaniment {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
+  const singer = entry
+    ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
+    : null
+  const name = accompanimentDisplayName(
+    singer?.name ?? '',
+    ((entry?.song ?? '').trim() || singer?.song || ''),
+    accompanimentExtension(file.key)
+  )
   client.db.update(competitionRoundEntries)
-    .set({ accompanimentUrl: `cos:${file.key}`, accompanimentName: file.name, accompanimentSize: file.size })
+    .set({ accompanimentUrl: `cos:${file.key}`, accompanimentName: name, accompanimentSize: file.size })
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
   const config = cosConfig()
-  return { name: file.name, url: config ? presignCosGet(config, file.key) : `cos:${file.key}`, size: file.size }
+  return { name, url: config ? presignCosGet(config, file.key) : `cos:${file.key}`, size: file.size }
 }
 
 /** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */
