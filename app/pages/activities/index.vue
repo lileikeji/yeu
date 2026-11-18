@@ -32,6 +32,21 @@ useSeoMeta({
         <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           社团与部门发布的活动，按开始时间排序。活动由组织负责人提交，校方审核后展示。
         </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <UButton
+            to="/activities/treasure"
+            external
+          >
+            校园寻宝
+          </UButton>
+          <UButton
+            to="/activities/treasure?point=rainbow-bridge"
+            variant="soft"
+            external
+          >
+            彩虹桥定位集章
+          </UButton>
+        </div>
       </header>
     </div>
 

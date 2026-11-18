@@ -1,14 +1,20 @@
 import { resetYeucaMemberPasswordSchema } from '../../../../../../shared/schemas/yeuca'
-import { resetYeucaMemberPasswordAdmin } from '../../../../../modules/yeuca/member-service'
+import { getYeucaMemberById, resetYeucaMemberPasswordAdmin } from '../../../../../modules/yeuca/member-service'
 import { writeAudit } from '../../../../../utils/audit'
 import { useAdminRequest } from '../../../../../utils/http'
 import { parseBody, requireUuidParam } from '../../../../../utils/validation'
-import { resolveYeucaAdminScope } from '../../../../../utils/yeuca-admin'
+import { assertYeucaDepartmentAccess, resolveYeucaAdminScope } from '../../../../../utils/yeuca-admin'
 
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event, true)
-  resolveYeucaAdminScope(client, session)
+  const scope = resolveYeucaAdminScope(client, session)
   const id = requireUuidParam(event)
+  const existing = getYeucaMemberById(client, id)
+  if (!existing) {
+    throw createError({ statusCode: 404, statusMessage: 'Member not found', data: { code: 'NOT_FOUND' } })
+  }
+  assertYeucaDepartmentAccess(scope, existing.department, '成员')
+
   const input = await parseBody(event, resetYeucaMemberPasswordSchema)
   const member = await resetYeucaMemberPasswordAdmin(client, id, input.newPassword, input.activateIfPending)
   writeAudit(client, event, {
@@ -16,7 +22,14 @@ export default defineEventHandler(async (event) => {
     action: 'yeuca.member.reset_password',
     entityType: 'yeuca_member',
     entityId: id,
-    details: { gitSynced: member.gitSynced, status: member.memberStatus }
+    details: {
+      studentNo: member.studentNo,
+      department: member.department,
+      gitUsername: member.gitUsername,
+      gitSynced: member.gitSynced,
+      gitSyncError: member.gitSyncError,
+      status: member.memberStatus
+    }
   })
   return member
 })

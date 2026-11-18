@@ -990,3 +990,38 @@ export function resolveMapViewModeSwitchDecision(input: {
     keepSelection: true
   }
 }
+
+export type DockClearSheetAction = 'collapse' | 'rise' | 'none'
+
+/**
+ * 手机 dock 的搜索被改掉时，面板该怎么办（T-036 D2 / T-037 CR-8）。
+ * next 非空 → 抬到半屏，结果块才有地方；next 空、previous 非空 → 收回折叠；
+ * 其余（初始空串、无关重渲染、组词期间 searchQuery 不变）什么都不做。
+ */
+export function resolveDockClearSheetAction(previous: string, next: string): DockClearSheetAction {
+  if (next.trim()) return 'rise'
+  if (previous.trim()) return 'collapse'
+  return 'none'
+}
+
+/** 同一点位「按下关窗 → click 又选中」的判定窗口（T-037 CR-4）。 */
+export const PIN_DISMISS_TOGGLE_MS = 400
+
+export interface PinDismissRecord {
+  kind: string
+  id: string
+  at: number
+}
+
+export type PinReselectDecision = 'swallow' | 'expired' | 'other'
+
+/**
+ * light dismiss 关掉浮窗后紧接着的同一点位选中该怎么处理：
+ * `swallow` = 400ms 内同 kind + id，保持关闭；`expired` = 超窗口，记录可作废；其余 `other`。
+ */
+export function resolvePinReselect(record: PinDismissRecord | null, selection: { kind: string, id: string } | null, now: number): PinReselectDecision {
+  if (!record || !selection) return 'other'
+  if (now - record.at > PIN_DISMISS_TOGGLE_MS) return 'expired'
+  if (record.kind !== selection.kind || record.id !== selection.id) return 'other'
+  return 'swallow'
+}

@@ -68,6 +68,12 @@ const emit = defineEmits<{
 }>()
 
 const popEl = ref<HTMLDivElement | null>(null)
+/**
+ * T-035：入场动画只播一次。首次 showPopover 成功后的下一帧置 true，
+ * CSS 的 @starting-style 用 `.pin-popover:popover-open:not([data-entered])` 收窄，
+ * 之后拖动地图引起重开时不再重播淡入——用户看到的那一下「闪」就是重播。
+ */
+const entered = ref(false)
 const bodyEl = ref<HTMLElement | null>(null)
 /**
  * 内容是否溢出：只用来给卡片挂一个布尔属性（决定要不要画上下渐隐）。
@@ -126,6 +132,78 @@ onBeforeUnmount(() => {
   overflowObserver = null
 })
 
+/**
+ * T-035：popover 由 auto 改成 manual 后，浏览器自带的 light dismiss 随之消失。
+ * 原生那条在 pointerdown 就自行关闭，下一帧 syncOpen() 又把它开回来，@starting-style 重播成闪。
+ * 这里按 light-dismiss-a-dialog 自己实现，但「点空白关」要等到 pointerup 才判定：
+ * 拖动地图是平移地图、卡片继续跟随锚点（页面用 onViewportChange 重算），
+ * 按下即关会把一次平移变成一闭一开，正是要修的闪。
+ */
+const PIN_ANCHOR_HOST_SELECTOR = '.pin-anchor-host'
+/** 与页面的轻点阈值一致：移动超过 6px 就是拖拽，不是点空白。 */
+const LIGHT_DISMISS_DRAG_SLOP = 6
+
+let dismissPointerId: number | null = null
+let dismissStartX = 0
+let dismissStartY = 0
+/** CR-2：本次按压一旦位移超阈值就锁定为拖拽，抬起时不再改判成轻点。 */
+let dismissDragged = false
+
+/** 解除武装：连同「已判为拖拽」一起清，下一次按下是全新手势。 */
+function resetDismissGesture(): void {
+  dismissPointerId = null
+  dismissDragged = false
+}
+
+/** 只有「卡片外、且不在锚点宿主上」才算是要点空白。 */
+function isOutsideCard(target: EventTarget | null): boolean {
+  const el = popEl.value
+  if (!el || !(target instanceof Node)) return false
+  // 卡片内部（含关闭按钮）自己处理，不在捕获阶段抢。
+  if (el.contains(target)) return false
+  return !(target instanceof Element && target.closest(PIN_ANCHOR_HOST_SELECTOR))
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  // CR-1：已有按压在跟随时不接管新的那根手指（双指缩放的第二指），
+  // 否则第二指原地抬起会通过 6px 判定把卡片关掉。旧手势直接作废。
+  if (dismissPointerId !== null) {
+    resetDismissGesture()
+    return
+  }
+  if (!props.open || event.button !== 0 || !isOutsideCard(event.target)) {
+    resetDismissGesture()
+    return
+  }
+  dismissPointerId = event.pointerId
+  dismissStartX = event.clientX
+  dismissStartY = event.clientY
+  dismissDragged = false
+}
+
+/** CR-2：移动过阈值的按压永远算拖拽，之后就算拖回起点附近松开也不关卡片。 */
+function onDocumentPointerMove(event: PointerEvent): void {
+  if (dismissPointerId === null || event.pointerId !== dismissPointerId || dismissDragged) return
+  const moved = Math.hypot(event.clientX - dismissStartX, event.clientY - dismissStartY)
+  if (moved > LIGHT_DISMISS_DRAG_SLOP) dismissDragged = true
+}
+
+/** CR-1：浏览器取消手势（来电、系统缩放等）后不会再发 pointerup，必须在这里解除武装。 */
+function onDocumentPointerCancel(): void {
+  resetDismissGesture()
+}
+
+function onDocumentPointerUp(event: PointerEvent): void {
+  if (dismissPointerId === null || event.pointerId !== dismissPointerId) return
+  const dragged = dismissDragged
+  resetDismissGesture()
+  if (!props.open || dragged) return
+  // CR-3：触摸按下时浏览器会做隐式指针捕获，event.target 可能仍是最初按下的元素；
+  // 从卡片外 2px 滑进卡片再松开会被判成「点空白」。改用落点命中的元素判定。
+  const hit = document.elementFromPoint(event.clientX, event.clientY)
+  if (!hit || !isOutsideCard(hit)) return
+  emit('close')
+}
 const hostStyle = computed(() => {
   const point = props.anchor
   if (!point) return { display: 'none' }
@@ -244,15 +322,34 @@ function alignArrow(): void {
   el.style.setProperty('--pin-arrow-x', Math.round(clamped) + 'px')
 }
 
+/**
+ * 上一次同步时卡片是否「该开着」。只有 false→true 才调 showPopover：
+ * 拖动地图时锚点每帧都在变，watch 会反复触发 syncOpen，若无条件 showPopover
+ * 就会把已经开着的卡片当成新开一次，@starting-style 跟着重播（用户看到的闪）。
+ */
+let wantOpenLast = false
+
 function syncOpen(): void {
   const el = popEl.value
   if (!el) return
   const wantOpen = props.open && Boolean(props.anchor)
+  const isOpening = wantOpen && !wantOpenLast
+  wantOpenLast = wantOpen
   // 没有原生 popover 时不碰 showPopover/hidePopover：显隐由模板上的 hidden 绑定接管。
   if (supportsPopover.value) {
     const visible = el.matches(':popover-open')
-    if (wantOpen && !visible) el.showPopover()
-    else if (!wantOpen && visible) el.hidePopover()
+    if (isOpening && !visible) {
+      el.showPopover()
+      // 入场只在首次打开播一次：等第一帧落定后再挂 data-entered，
+      // CSS 的 @starting-style 用 :not([data-entered]) 收窄，之后重开不再重播。
+      if (!entered.value) {
+        requestAnimationFrame(() => {
+          if (props.open) entered.value = true
+        })
+      }
+    } else if (!wantOpen && visible) {
+      el.hidePopover()
+    }
   }
   if (wantOpen) {
     requestAnimationFrame(() => {
@@ -274,10 +371,19 @@ onMounted(() => {
   nextTick(syncOpen)
   window.addEventListener('resize', onViewportResize)
   window.addEventListener('scroll', onViewportResize, true)
+  // T-035：捕获阶段先于卡片内的按钮拿到事件，判「卡片外」只用 contains，与坐标无关。
+  document.addEventListener('pointerdown', onDocumentPointerDown, true)
+  document.addEventListener('pointerup', onDocumentPointerUp, true)
+  document.addEventListener('pointermove', onDocumentPointerMove, true)
+  document.addEventListener('pointercancel', onDocumentPointerCancel, true)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onViewportResize)
   window.removeEventListener('scroll', onViewportResize, true)
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true)
+  document.removeEventListener('pointerup', onDocumentPointerUp, true)
+  document.removeEventListener('pointermove', onDocumentPointerMove, true)
+  document.removeEventListener('pointercancel', onDocumentPointerCancel, true)
 })
 
 function onToggle(event: Event): void {
@@ -295,12 +401,13 @@ function onToggle(event: Event): void {
   />
   <div
     ref="popEl"
-    :popover="supportsPopover ? 'auto' : undefined"
+    :popover="supportsPopover ? 'manual' : undefined"
     :hidden="!supportsPopover && !open"
     role="dialog"
     :aria-labelledby="titleId"
     class="pin-popover"
     :class="glass ? 'map-glass-refracting' : 'map-glass-surface'"
+    :data-entered="entered ? 'true' : undefined"
     :data-kind="kind"
     :data-tone="tone"
     :data-placement="supportsAnchor ? 'anchor' : 'fallback'"
@@ -557,6 +664,8 @@ function onToggle(event: Event): void {
   background: color-mix(in srgb, var(--pin-glass-tint) 66%, transparent);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  /* T-035：玻璃边缘由 shader 的 rim 画；DOM 这 1px 边框会在圆角外多出一道线，成双线。 */
+  border-color: transparent;
 }
 
 .pin-popover.map-glass-surface {
@@ -605,12 +714,13 @@ function onToggle(event: Event): void {
 
 .pin-popover__close {
   position: absolute;
-  inset-block-start: 7px;
-  inset-inline-end: 8px;
+  /* T-035：7/8 与 14px 圆角不共心，视觉上被推离角尖；收成 6/6 并放大到 24 让角部干净。 */
+  inset-block-start: 6px;
+  inset-inline-end: 6px;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -869,7 +979,8 @@ function onToggle(event: Event): void {
   }
 
   @starting-style {
-    .pin-popover:popover-open {
+    /* T-035：只在首次打开（还没挂 data-entered）时播入场，之后重开直接是终态。 */
+    .pin-popover:popover-open:not([data-entered]) {
       opacity: 0;
       translate: 0 4px;
     }

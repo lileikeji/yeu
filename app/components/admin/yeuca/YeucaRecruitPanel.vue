@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import type { YeucaDepartment, YeucaRecruitAdminConfig } from '~~/shared/types/yeuca'
+import type {
+  YeucaAdminScopePayload,
+  YeucaDepartment,
+  YeucaRecruitAdminConfig
+} from '~~/shared/types/yeuca'
 import { adminFetch } from '~~/app/utils/admin-request'
 
 const props = defineProps<{
   recruit: YeucaRecruitAdminConfig
   departments: YeucaDepartment[]
+  adminScope?: YeucaAdminScopePayload
 }>()
 
 const emit = defineEmits<{
@@ -12,6 +17,8 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const isMinister = computed(() => props.adminScope?.role === 'minister')
+const scopedDepartment = computed(() => props.adminScope?.departmentName || '')
 
 const form = reactive({
   open: props.recruit.open,
@@ -32,7 +39,13 @@ const searchKw = ref('')
 const selectedIds = ref<string[]>([])
 const approving = ref(false)
 const defaultTerm = ref('2025-2026学年')
-const defaultDepartment = ref('')
+const defaultDepartment = ref(props.adminScope?.role === 'minister' ? (props.adminScope.departmentName || '') : '')
+
+watch(() => props.adminScope, (scope) => {
+  if (scope?.role === 'minister' && scope.departmentName) {
+    defaultDepartment.value = scope.departmentName
+  }
+}, { immediate: true })
 
 const filteredSubs = computed(() => {
   const kw = searchKw.value.trim().toLowerCase()
@@ -142,8 +155,11 @@ function exportRecruitCsv(): void {
 
 <template>
   <div class="space-y-4">
-    <!-- 招新通道配置卡 -->
-    <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4">
+    <!-- 招新通道配置卡（仅总管可调） -->
+    <div
+      v-if="!isMinister"
+      class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4"
+    >
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
@@ -222,6 +238,7 @@ function exportRecruitCsv(): void {
             class="w-56"
           />
           <select
+            v-if="!isMinister"
             v-model="defaultDepartment"
             class="h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2 text-xs"
           >
@@ -236,6 +253,12 @@ function exportRecruitCsv(): void {
               兜底部门：{{ d.name }}
             </option>
           </select>
+          <span
+            v-else
+            class="inline-flex items-center rounded-md border border-sky-300/70 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-800 dark:text-sky-200"
+          >
+            仅显示意向含「{{ scopedDepartment }}」报名 · 转正归入本部门
+          </span>
           <UInput
             v-model="defaultTerm"
             size="sm"

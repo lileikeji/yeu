@@ -59,6 +59,9 @@ async function lookup() {
 
 const accompanimentInput = ref<HTMLInputElement | null>(null)
 const accompanimentBusy = ref(false)
+/** 上传进度：0-100；null 表示还没开始。大文件必须让选手看到在动。 */
+const uploadPercent = ref<number | null>(null)
+const uploadPhase = ref<'read' | 'upload' | 'confirm' | null>(null)
 
 function formatSize(size: number | null): string {
   if (!size) return ''
@@ -78,19 +81,90 @@ function readFileAsBase64(file: File): Promise<string> {
   })
 }
 
+/** 直传到 COS：走 XHR 才能拿到上传进度，fetch 没有 progress 事件。 */
+function putFileWithProgress(url: string, file: File, contentType: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('PUT', url, true)
+    request.setRequestHeader('Content-Type', contentType)
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        uploadPercent.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
+      }
+    }
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        uploadPercent.value = 100
+        resolve()
+        return
+      }
+      reject(new Error(`直传失败（${request.status}）`))
+    }
+    request.onerror = () => reject(new Error('直传失败，检查网络后重试一次'))
+    request.ontimeout = () => reject(new Error('直传超时，重试一次'))
+    request.timeout = 30 * 60 * 1000
+    request.send(file)
+  })
+}
+
 /** 伴奏不是必填；传过也可以再传一次覆盖旧的。 */
 async function uploadAccompaniment(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file || !state.value) return
-  if (file.size > 300 * 1024 * 1024) {
-    toast.add({ title: '伴奏别超过 300MB', color: 'warning' })
+  if (file.size > 400 * 1024 * 1024) {
+    toast.add({ title: '伴奏别超过 400MB', color: 'warning' })
+    return
+  }
+  const songValue = (song.value || '').trim()
+  if (!songValue) {
+    toast.add({ title: '先把曲目填上，再传伴奏', color: 'warning' })
     return
   }
   accompanimentBusy.value = true
+  uploadPercent.value = null
+  uploadPhase.value = null
   try {
+    // 优先直传对象存储：字节不经过服务器，400MB 也不会把内存顶爆
+    const ticket = await plainFetch<{ key: string, uploadUrl: string }>(
+      '/api/public/competition/song/accompaniment-ticket',
+      {
+        method: 'POST',
+        body: {
+          name: name.value.trim(),
+          studentNo: studentNo.value.trim(),
+          contact: contact.value.trim(),
+          filename: file.name,
+          mime: file.type || 'audio/mpeg'
+        }
+      }
+    ).catch(() => null)
+    if (ticket?.uploadUrl) {
+      uploadPhase.value = 'upload'
+      uploadPercent.value = 0
+      await putFileWithProgress(ticket.uploadUrl, file, file.type || 'audio/mpeg')
+      uploadPhase.value = 'confirm'
+      const committed = await plainFetch<SongState>('/api/public/competition/song/accompaniment-commit', {
+        method: 'POST',
+        body: {
+          name: name.value.trim(),
+          studentNo: studentNo.value.trim(),
+          contact: contact.value.trim(),
+          key: ticket.key,
+          filename: file.name,
+          song: songValue
+        }
+      })
+      state.value = committed
+      toast.add({ title: '伴奏收到了', description: file.name, color: 'success' })
+      return
+    }
+    uploadPhase.value = 'read'
+    uploadPercent.value = 0
     const data = await readFileAsBase64(file)
+    uploadPhase.value = 'upload'
+    uploadPercent.value = 95
     const result = await plainFetch<SongState>('/api/public/competition/song/accompaniment', {
       method: 'POST',
       body: {
@@ -98,6 +172,7 @@ async function uploadAccompaniment(event: Event) {
         studentNo: studentNo.value.trim(),
         contact: contact.value.trim(),
         filename: file.name,
+        song: songValue,
         data
       }
     })
@@ -107,6 +182,8 @@ async function uploadAccompaniment(event: Event) {
     toast.add({ title: messageOf(caught), color: 'error' })
   } finally {
     accompanimentBusy.value = false
+    uploadPhase.value = null
+    uploadPercent.value = null
   }
 }
 
@@ -244,7 +321,7 @@ async function submit() {
               伴奏 <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
             </p>
             <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 300MB。<br>
+              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。<br>
               iPhone 在微信里选不到聊天文件时：先长按文件「用其他应用打开 → 存储到文件」，再点下面的按钮从「文件」App 里选；实在不行把伴奏发给工作人员代传。
             </p>
             <p
@@ -260,9 +337,15 @@ async function submit() {
               class="hidden"
               @change="uploadAccompaniment"
             >
+            <p
+              v-if="!song.trim() && !state.song"
+              class="mt-1 text-xs text-[var(--color-orange-600)]"
+            >
+              先用上面的输入框把新曲目填上，才能选伴奏文件。
+            </p>
             <button
               type="button"
-              :disabled="accompanimentBusy"
+              :disabled="accompanimentBusy || (!song.trim() && !state.song)"
               class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium disabled:opacity-60"
               @click="accompanimentInput?.click()"
             >
@@ -278,10 +361,28 @@ async function submit() {
                 class="size-4"
                 aria-hidden="true"
               />
-              {{ accompanimentBusy ? '上传中…' : (state.accompaniment ? '换一个伴奏' : '上传伴奏') }}
+              {{ accompanimentBusy
+                ? (uploadPhase === 'read' ? '读取文件…'
+                  : uploadPhase === 'confirm' ? '确认中…'
+                    : uploadPercent !== null ? `上传中 ${uploadPercent}%` : '上传中…')
+                : (state.accompaniment ? '换一个伴奏' : '上传伴奏') }}
             </button>
+            <div
+              v-if="accompanimentBusy"
+              class="mt-2"
+            >
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
+                <div
+                  class="h-full rounded-full bg-[var(--color-green-600)] transition-all duration-200"
+                  :style="{ width: `${uploadPercent ?? 0}%` }"
+                />
+              </div>
+              <p class="mt-1 text-[11px] text-[var(--muted-ink)]">
+                {{ uploadPhase === 'confirm' ? '文件传完了，正在登记…' : uploadPercent === null ? '准备中…' : `${uploadPercent}%（别关页面，传完会自动跳提示）` }}
+              </p>
+            </div>
             <p class="mt-1 text-[11px] text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，300MB 以内。微信里点开可以直接从聊天文件或手机里选。
+              支持 mp3 / m4a / wav / aac / ogg / flac，400MB 以内。微信里点开可以直接从聊天文件或手机里选。
             </p>
           </div>
 

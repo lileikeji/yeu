@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type {
+  YeucaAdminScopePayload,
   YeucaDepartment,
   YeucaGiteaAdminOverview,
+  YeucaGiteaProbeResult,
   YeucaMemberItem,
   YeucaMemberStatus
 } from '~~/shared/types/yeuca'
@@ -16,6 +18,7 @@ const props = defineProps<{
   members: YeucaMemberItem[]
   departments: YeucaDepartment[]
   gitea: YeucaGiteaAdminOverview
+  adminScope?: YeucaAdminScopePayload
 }>()
 
 const emit = defineEmits<{
@@ -24,11 +27,40 @@ const emit = defineEmits<{
 
 const toast = useToast()
 
+const isMinister = computed(() => props.adminScope?.role === 'minister')
+const scopedDepartment = computed(() => props.adminScope?.departmentName || '')
+
 const searchKeyword = ref('')
 const filterDept = ref('')
 const filterStatus = ref<'all' | YeucaMemberStatus>('all')
 
-const roleOptions = ['会员', '干事', '副部长', '部长', '副会长', '会长', '技术顾问']
+const roleOptions = computed(() =>
+  isMinister.value
+    ? ['会员', '干事', '副部长', '部长', '技术顾问']
+    : ['会员', '干事', '副部长', '部长', '副会长', '会长', '技术顾问']
+)
+
+const probingGitea = ref(false)
+const giteaProbe = ref<YeucaGiteaProbeResult | null>(null)
+
+async function runGiteaProbe(): Promise<void> {
+  probingGitea.value = true
+  try {
+    const res = await adminFetch<YeucaGiteaProbeResult>('/api/admin/yeuca/gitea/probe', { method: 'POST' })
+    giteaProbe.value = res
+    toast.add({
+      title: res.adminTokenValid ? 'Gitea 开户接口校验通过' : 'Gitea 开户探测失败',
+      description: res.adminTokenValid
+        ? `管理员令牌 (${res.adminLogin}) 正常 · Gitea v${res.version} · 共 ${res.totalGiteaUsers ?? 0} 个 Git 账号`
+        : res.error,
+      color: res.adminTokenValid ? 'success' : 'error'
+    })
+  } catch (error) {
+    toast.add({ title: '探测失败', description: getErrDesc(error), color: 'error' })
+  } finally {
+    probingGitea.value = false
+  }
+}
 
 const filteredMembers = computed(() => {
   const kw = searchKeyword.value.trim().toLowerCase()
@@ -86,7 +118,9 @@ function openNewMember(): void {
   memberForm.studentNo = ''
   memberForm.name = ''
   memberForm.gradeMajorClass = ''
-  memberForm.department = props.departments[0]?.name || ''
+  memberForm.department = isMinister.value && scopedDepartment.value
+    ? scopedDepartment.value
+    : (props.departments[0]?.name || '')
   memberForm.roleTitle = '会员'
   memberForm.term = '2025-2026学年'
   memberForm.phone = ''
@@ -436,6 +470,15 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
           名录 {{ memberCounts.total }} · 已激活 {{ memberCounts.active }} · 待激活 {{ memberCounts.pending }} · Git同步 {{ memberCounts.gitSynced }}
         </span>
         <UButton
+          size="xs"
+          color="primary"
+          variant="subtle"
+          icon="i-lucide-shield-check"
+          label="探测开户接口"
+          :loading="probingGitea"
+          @click="runGiteaProbe"
+        />
+        <UButton
           :to="gitea.publicGitUrl"
           target="_blank"
           rel="noopener noreferrer"
@@ -446,6 +489,28 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
           label="打开 Git 站"
         />
       </div>
+    </div>
+
+    <div
+      v-if="giteaProbe"
+      class="rounded-xl border px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2"
+      :class="giteaProbe.adminTokenValid
+        ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200'
+        : 'border-rose-300 dark:border-rose-800 bg-rose-50/70 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200'"
+    >
+      <span v-if="giteaProbe.adminTokenValid">
+        Gitea 自动开户接口校验通过（令牌管理员：{{ giteaProbe.adminLogin }} · Gitea {{ giteaProbe.version }} · 当前已建用户 {{ giteaProbe.totalGiteaUsers ?? '未知' }} 个）
+      </span>
+      <span v-else>
+        Gitea 自动开户接口探测失败：{{ giteaProbe.error }}
+      </span>
+      <button
+        type="button"
+        class="underline opacity-75 hover:opacity-100"
+        @click="giteaProbe = null"
+      >
+        关闭
+      </button>
     </div>
 
     <!-- 搜索筛选与操作条 -->
@@ -459,6 +524,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
           class="w-full sm:w-64"
         />
         <select
+          v-if="!isMinister"
           v-model="filterDept"
           class="h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2.5 text-xs text-zinc-700 dark:text-zinc-200"
         >
@@ -473,6 +539,12 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
             {{ dept.name }}
           </option>
         </select>
+        <span
+          v-else
+          class="inline-flex items-center rounded-md border border-sky-300/70 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/30 px-2.5 py-1 text-xs font-medium text-sky-800 dark:text-sky-200"
+        >
+          当前部门：{{ scopedDepartment }}
+        </span>
         <select
           v-model="filterStatus"
           class="h-8 rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2.5 text-xs text-zinc-700 dark:text-zinc-200"
@@ -718,13 +790,17 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
             <UFormField label="所属部门">
               <select
                 v-model="memberForm.department"
-                class="h-9 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2.5 text-sm"
+                :disabled="isMinister"
+                class="h-9 w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-950 px-2.5 text-sm disabled:opacity-70"
               >
-                <option value="">
+                <option
+                  v-if="!isMinister"
+                  value=""
+                >
                   暂不分配 / 全部
                 </option>
                 <option
-                  v-for="dept in departments"
+                  v-for="dept in (isMinister && scopedDepartment ? [{ id: 'scoped', name: scopedDepartment }] : departments)"
                   :key="dept.id"
                   :value="dept.name"
                 >
@@ -905,6 +981,12 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
         <div class="space-y-4">
           <div class="rounded-lg border border-sky-200 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/30 p-3 text-xs leading-5 text-zinc-700 dark:text-zinc-300">
             导入名录内的同学，进入主站「会员入口」输入<strong>学号 + 姓名</strong>核验通过后，即可自设密码完成注册并自动获得 Git 代码站账号。
+            <span
+              v-if="isMinister && scopedDepartment"
+              class="font-semibold text-sky-800 dark:text-sky-200"
+            >
+              （当前以「{{ scopedDepartment }}」部长身份操作，本次导入成员全部自动归入 {{ scopedDepartment }}，且不能覆盖其他部门现有成员）
+            </span>
           </div>
 
           <div class="flex flex-wrap items-center justify-between gap-2">

@@ -88,6 +88,32 @@ function serializeAdminActivity(
   }
 }
 
+export function getYeucaActivityById(client: DatabaseClient, id: string): YeucaAdminActivityItem | null {
+  const row = client.db.select().from(yeucaActivities).where(eq(yeucaActivities.id, id)).get()
+  if (!row) return null
+  const counts = countRegistrationsByActivity(client).get(id) ?? { active: 0, checkedIn: 0 }
+  return serializeAdminActivity(row, counts)
+}
+
+export function getYeucaActivityRegistrationMeta(
+  client: DatabaseClient,
+  registrationId: string
+): { id: string, activityId: string, deptName: string, activityTitle: string, memberId: string } | null {
+  const row = client.db
+    .select({
+      id: yeucaActivityRegistrations.id,
+      activityId: yeucaActivityRegistrations.activityId,
+      deptName: yeucaActivities.deptName,
+      activityTitle: yeucaActivities.title,
+      memberId: yeucaActivityRegistrations.memberId
+    })
+    .from(yeucaActivityRegistrations)
+    .innerJoin(yeucaActivities, eq(yeucaActivities.id, yeucaActivityRegistrations.activityId))
+    .where(eq(yeucaActivityRegistrations.id, registrationId))
+    .get()
+  return row ?? null
+}
+
 export function listYeucaActivitiesAdmin(client: DatabaseClient): YeucaAdminActivityItem[] {
   const rows = client.db
     .select()

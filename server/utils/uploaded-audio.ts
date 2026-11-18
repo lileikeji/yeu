@@ -4,10 +4,10 @@ import { resolve } from 'node:path'
 import { createError } from 'h3'
 import { uploadDirectory } from './uploaded-images'
 
-export const MAX_UPLOADED_AUDIO_BYTES = 300 * 1024 * 1024
+export const MAX_UPLOADED_AUDIO_BYTES = 400 * 1024 * 1024
 
 /**
- * 一次只允许一个伴奏上传在内存里解析：300MB 的 base64 展开后峰值接近 1GB，
+ * 一次只允许一个伴奏上传在内存里解析：400MB 的 base64 展开后峰值接近 1.4GB，
  * 两个并发就会把 768M/1792M 的 cgroup 顶爆。拿不到名额的直接提示稍后再试。
  */
 let audioUploadInFlight = false

@@ -20,6 +20,8 @@ import YeucaRecruitPanel from '~~/app/components/admin/yeuca/YeucaRecruitPanel.v
 import YeucaActivitiesPanel from '~~/app/components/admin/yeuca/YeucaActivitiesPanel.vue'
 import YeucaSiteContentPanel from '~~/app/components/admin/yeuca/YeucaSiteContentPanel.vue'
 import YeucaVisitsPanel from '~~/app/components/admin/yeuca/YeucaVisitsPanel.vue'
+import YeucaMinistersPanel from '~~/app/components/admin/yeuca/YeucaMinistersPanel.vue'
+import YeucaAuditPanel from '~~/app/components/admin/yeuca/YeucaAuditPanel.vue'
 
 definePageMeta({ layout: 'admin' })
 
@@ -42,6 +44,8 @@ type StudioTab
     | 'departments'
     | 'posts'
     | 'projects'
+    | 'ministers'
+    | 'audits'
     | 'sitecontent'
     | 'visits'
     | 'studio'
@@ -138,8 +142,88 @@ const projectForm = reactive({
 })
 
 const deptOptions = computed(() =>
-  departmentsDraft.value.map(dept => ({ label: dept.name, value: dept.name }))
+  isChief.value
+    ? departmentsDraft.value.map(dept => ({ label: dept.name, value: dept.name }))
+    : (scopedDepartment.value ? [{ label: scopedDepartment.value, value: scopedDepartment.value }] : [])
 )
+
+const adminScope = computed(() => overview.value?.adminScope ?? {
+  role: 'chief' as const,
+  departmentName: null,
+  title: '计协总管'
+})
+const isChief = computed(() => adminScope.value.role === 'chief')
+const scopedDepartment = computed(() => adminScope.value.departmentName || '')
+
+const ownDeptForm = reactive({
+  lead: '',
+  summary: '',
+  focusText: '',
+  toolsText: '',
+  recentTopic: '',
+  acceptingRecruit: true,
+  recruitDesc: ''
+})
+const savingOwnDept = ref(false)
+
+function syncOwnDeptForm(): void {
+  if (isChief.value || !scopedDepartment.value) return
+  const target = departmentsDraft.value.find(d => d.name === scopedDepartment.value)
+  if (!target) return
+  ownDeptForm.lead = target.lead
+  ownDeptForm.summary = target.summary
+  ownDeptForm.focusText = target.focusList.join('\n')
+  ownDeptForm.toolsText = target.tools.join(', ')
+  ownDeptForm.recentTopic = target.recentTopic
+  ownDeptForm.acceptingRecruit = target.acceptingRecruit
+  ownDeptForm.recruitDesc = target.recruitDesc
+}
+
+async function saveOwnDepartment(): Promise<void> {
+  const focusList = ownDeptForm.focusText.split('\n').map(s => s.trim()).filter(Boolean)
+  const tools = ownDeptForm.toolsText.split(/[,，/]/).map(s => s.trim()).filter(Boolean)
+  if (!ownDeptForm.summary.trim()) {
+    toast.add({ title: '请填写部门简介', color: 'warning' })
+    return
+  }
+  if (!focusList.length || focusList.length > 6) {
+    toast.add({ title: '请填写 1 至 6 条实践要点（每行一条）', color: 'warning' })
+    return
+  }
+  if (focusList.some(item => item.length > 120)) {
+    toast.add({ title: '单条实践要点不能超过 120 字', color: 'warning' })
+    return
+  }
+  if (!tools.length || tools.length > 12) {
+    toast.add({ title: '请填写 1 至 12 项常用工具 / 技术栈', color: 'warning' })
+    return
+  }
+  if (tools.some(item => item.length > 40)) {
+    toast.add({ title: '单个工具名称不能超过 40 字', color: 'warning' })
+    return
+  }
+  savingOwnDept.value = true
+  try {
+    await adminFetch('/api/admin/yeuca/department', {
+      method: 'PUT',
+      body: {
+        lead: ownDeptForm.lead.trim(),
+        summary: ownDeptForm.summary.trim(),
+        focusList,
+        tools,
+        recentTopic: ownDeptForm.recentTopic.trim(),
+        acceptingRecruit: ownDeptForm.acceptingRecruit,
+        recruitDesc: ownDeptForm.recruitDesc.trim()
+      }
+    })
+    toast.add({ title: `已更新「${scopedDepartment.value}」对外展示介绍`, color: 'success' })
+    await loadOverview()
+  } catch (error) {
+    showApiError(error, '保存部门介绍失败')
+  } finally {
+    savingOwnDept.value = false
+  }
+}
 
 const featuredDeptName = computed(() =>
   departmentsDraft.value.find(d => d.isFeatured)?.name
@@ -216,11 +300,13 @@ async function loadOverview(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [session, data] = await Promise.all([
-      adminFetch<SessionPayload>('/api/admin/auth/session'),
-      adminFetch<YeucaAdminOverviewPayload>('/api/admin/yeuca/overview')
-    ])
+    const session = await adminFetch<SessionPayload>('/api/admin/auth/session')
     mustChangePassword.value = session.admin?.mustChangePassword === true
+    if (mustChangePassword.value) {
+      overview.value = null
+      return
+    }
+    const data = await adminFetch<YeucaAdminOverviewPayload>('/api/admin/yeuca/overview')
     overview.value = data
     settingsForm.campus = data.settings.campus
     settingsForm.tagline = data.settings.tagline
@@ -241,6 +327,7 @@ async function loadOverview(): Promise<void> {
       ? extras.gallery.map(item => ({ ...item }))
       : []
     siteContentState.value = createEditableExtrasState(extras)
+    syncOwnDeptForm()
   } catch (error) {
     errorMessage.value = '管理数据加载失败，先看账号权限。'
     showApiError(error, '加载失败')
@@ -462,7 +549,9 @@ function openNewPost(kind: YeucaPostKind = 'news'): void {
   editingPostId.value = null
   postPreviewMode.value = false
   postForm.kind = kind
-  postForm.deptName = departmentsDraft.value[0]?.name || 'AI 部'
+  postForm.deptName = !isChief.value && scopedDepartment.value
+    ? scopedDepartment.value
+    : (departmentsDraft.value[0]?.name || 'AI 部')
   postForm.category = kind === 'resource' ? '实践笔记' : ''
   postForm.title = ''
   postForm.summary = ''
@@ -559,7 +648,9 @@ async function removePost(post: YeucaPostItem): Promise<void> {
 function openNewProject(seedFlagship = false): void {
   editingProjectId.value = null
   projectForm.title = seedFlagship ? 'YeU 仰恩大学迎新指南与校园服务平台' : ''
-  projectForm.deptName = departmentsDraft.value[0]?.name || 'AI 部'
+  projectForm.deptName = !isChief.value && scopedDepartment.value
+    ? scopedDepartment.value
+    : (departmentsDraft.value[0]?.name || 'AI 部')
   projectForm.track = seedFlagship ? 'Web 全栈 / RAG 检索' : 'AI / Agent'
   projectForm.status = 'active'
   projectForm.summary = seedFlagship
@@ -740,10 +831,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             <div class="flex flex-wrap items-center gap-2 text-xs">
               <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-[#a8121e]/25 px-2.5 py-0.5 font-mono font-semibold text-rose-200">
                 <span class="size-1.5 rounded-full bg-emerald-400" />
-                YEUCA STUDIO
+                {{ isChief ? 'YEUCA STUDIO · 总管控制台' : `${scopedDepartment} · ${adminScope.title}` }}
               </span>
               <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 font-mono text-zinc-300">
-                主站：yeuca.huiliyill.cn
+                {{ isChief ? '主站：yeuca.huiliyill.cn' : '分部数据隔离视角' }}
               </span>
               <span
                 v-if="lastSavedAt"
@@ -907,6 +998,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'activities'"
         />
         <UButton
+          v-if="isChief"
           label="页面与镜像"
           icon="i-lucide-layout-grid"
           color="neutral"
@@ -915,7 +1007,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'sitecontent'"
         />
         <UButton
-          :label="`部门 (${departmentsDraft.length})`"
+          :label="isChief ? `部门 (${departmentsDraft.length})` : `我的部门 · ${scopedDepartment}`"
           icon="i-lucide-layers"
           color="neutral"
           :variant="activeTab === 'departments' ? 'solid' : 'ghost'"
@@ -939,6 +1031,24 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'projects'"
         />
         <UButton
+          v-if="isChief"
+          label="部长账号"
+          icon="i-lucide-user-plus"
+          color="neutral"
+          :variant="activeTab === 'ministers' ? 'solid' : 'ghost'"
+          :class="activeTab === 'ministers' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
+          @click="activeTab = 'ministers'"
+        />
+        <UButton
+          label="操作与开户审计"
+          icon="i-lucide-scroll-text"
+          color="neutral"
+          :variant="activeTab === 'audits' ? 'solid' : 'ghost'"
+          :class="activeTab === 'audits' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
+          @click="activeTab = 'audits'"
+        />
+        <UButton
+          v-if="isChief"
           label="文案与图片"
           icon="i-lucide-sliders-horizontal"
           color="neutral"
@@ -947,6 +1057,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'studio'"
         />
         <UButton
+          v-if="isChief"
           size="sm"
           label="访问记录"
           icon="i-lucide-shield-alert"
@@ -963,6 +1074,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         :members="overview.members"
         :departments="departmentsDraft"
         :gitea="overview.gitea"
+        :admin-scope="adminScope"
         @changed="loadOverview"
       />
 
@@ -971,6 +1083,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         v-if="activeTab === 'recruit'"
         :recruit="overview.recruit"
         :departments="departmentsDraft"
+        :admin-scope="adminScope"
         @changed="loadOverview"
       />
 
@@ -979,153 +1092,256 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         v-if="activeTab === 'activities'"
         :activities="overview.activities"
         :departments="departmentsDraft"
+        :admin-scope="adminScope"
         @changed="loadOverview"
       />
 
-      <!-- Tab D：全站各页文案 / 镜像 / 沿革 / 外链接管 -->
+      <!-- Tab D：全站各页文案 / 镜像 / 沿革 / 外链接管（仅总管） -->
       <YeucaSiteContentPanel
-        v-if="activeTab === 'sitecontent'"
+        v-if="isChief && activeTab === 'sitecontent'"
         :initial-extras="overview.settings.extras"
         :saving="savingSettings"
         @save="saveSiteContentState"
       />
 
-      <!-- Tab 1：部门分工增删改查与部门页展示顺序设置 -->
+      <!-- Tab E：部门部长账号管理（总管创建） -->
+      <YeucaMinistersPanel
+        v-if="isChief && activeTab === 'ministers'"
+        :departments="departmentsDraft"
+      />
+
+      <!-- Tab F：计协操作审计与 Gitea 开户诊断 -->
+      <YeucaAuditPanel
+        v-if="activeTab === 'audits'"
+        :admin-scope="adminScope"
+      />
+
+      <!-- Tab 1：部门分工（总管增删改全部；部长编辑本部门简介、要点与近期方向） -->
       <div
         v-if="activeTab === 'departments'"
         class="space-y-4"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200/80 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/40 px-4 py-3">
-          <div class="text-sm text-zinc-700 dark:text-zinc-200">
-            <strong class="font-semibold">改完即时入库。</strong>
-            前台部门页、首页入口和报名选项一起更新。
+        <div
+          v-if="!isChief"
+          class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
+                维护「{{ scopedDepartment }}」官网展示页
+              </h2>
+              <p class="text-xs text-zinc-500">
+                保存后直接同步官网「部门」介绍与招新选项。部门名称与首页展示位由总管统一维护。
+              </p>
+            </div>
+            <label class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium cursor-pointer">
+              <input
+                v-model="ownDeptForm.acceptingRecruit"
+                type="checkbox"
+                class="rounded border-zinc-300"
+              >
+              <span :class="ownDeptForm.acceptingRecruit ? 'text-emerald-600 font-semibold' : 'text-zinc-500'">
+                {{ ownDeptForm.acceptingRecruit ? '本部门开放招新报名' : '暂不招新' }}
+              </span>
+            </label>
           </div>
-          <UButton
-            icon="i-lucide-plus"
-            label="新增部门"
-            color="primary"
-            :loading="savingSettings"
-            @click="openNewDepartment"
-          />
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="负责人 / 部长展示名">
+              <UInput
+                v-model="ownDeptForm.lead"
+                placeholder="如：张三（留空前台不展示）"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="近期重点方向">
+              <UInput
+                v-model="ownDeptForm.recentTopic"
+                placeholder="如：Agent 工作流搭建 / 每周算法集训"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+
+          <UFormField
+            label="部门介绍"
+            required
+          >
+            <UTextarea
+              v-model="ownDeptForm.summary"
+              :rows="3"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="实践要点（每行一条）">
+            <UTextarea
+              v-model="ownDeptForm.focusText"
+              :rows="4"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="常用工具 / 技术栈（逗号分隔）">
+            <UInput
+              v-model="ownDeptForm.toolsText"
+              placeholder="Python, Vue, Linux"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="入门条件与招新说明">
+            <UTextarea
+              v-model="ownDeptForm.recruitDesc"
+              :rows="2"
+              class="w-full"
+            />
+          </UFormField>
+
+          <div class="flex justify-end">
+            <UButton
+              icon="i-lucide-save"
+              label="保存本部门设置"
+              class="!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
+              :loading="savingOwnDept"
+              @click="saveOwnDepartment"
+            />
+          </div>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <article
-            v-for="(dept, index) in departmentsDraft"
-            :key="dept.id"
-            class="flex flex-col justify-between rounded-xl border bg-[var(--surface)] dark:bg-zinc-900 p-4 space-y-3 transition-shadow hover:shadow-sm"
-            :class="dept.isFeatured ? 'border-sky-400 dark:border-sky-700 ring-1 ring-sky-200 dark:ring-sky-900' : 'border-zinc-200 dark:border-zinc-800'"
-          >
-            <div class="space-y-2.5">
-              <div class="flex items-center justify-between gap-2">
-                <span class="rounded bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 font-mono text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                  #{{ index + 1 }} · {{ dept.code }}
-                </span>
+        <template v-else>
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200/80 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/40 px-4 py-3">
+            <div class="text-sm text-zinc-700 dark:text-zinc-200">
+              <strong class="font-semibold">改完即时入库。</strong>
+              前台部门页、首页入口和报名选项一起更新。
+            </div>
+            <UButton
+              icon="i-lucide-plus"
+              label="新增部门"
+              color="primary"
+              :loading="savingSettings"
+              @click="openNewDepartment"
+            />
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <article
+              v-for="(dept, index) in departmentsDraft"
+              :key="dept.id"
+              class="flex flex-col justify-between rounded-xl border bg-[var(--surface)] dark:bg-zinc-900 p-4 space-y-3 transition-shadow hover:shadow-sm"
+              :class="dept.isFeatured ? 'border-sky-400 dark:border-sky-700 ring-1 ring-sky-200 dark:ring-sky-900' : 'border-zinc-200 dark:border-zinc-800'"
+            >
+              <div class="space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="rounded bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 font-mono text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                    #{{ index + 1 }} · {{ dept.code }}
+                  </span>
+                  <div class="flex flex-wrap gap-1">
+                    <UBadge
+                      v-if="dept.isFeatured"
+                      label="默认首展"
+                      color="info"
+                      variant="soft"
+                      size="xs"
+                    />
+                    <UBadge
+                      :label="dept.acceptingRecruit ? '开放报名' : '暂不招新'"
+                      :color="dept.acceptingRecruit ? 'success' : 'neutral'"
+                      variant="subtle"
+                      size="xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h2 class="text-base font-bold text-zinc-950 dark:text-zinc-100">
+                    {{ dept.name }}
+                  </h2>
+                  <p class="mt-0.5 text-xs font-medium text-sky-700 dark:text-sky-400">
+                    近期方向：{{ dept.recentTopic || '常规实践' }}
+                  </p>
+                </div>
+
+                <p class="line-clamp-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                  {{ dept.summary }}
+                </p>
+
                 <div class="flex flex-wrap gap-1">
                   <UBadge
-                    v-if="dept.isFeatured"
-                    label="默认首展"
-                    color="info"
-                    variant="soft"
-                    size="xs"
-                  />
-                  <UBadge
-                    :label="dept.acceptingRecruit ? '开放报名' : '暂不招新'"
-                    :color="dept.acceptingRecruit ? 'success' : 'neutral'"
-                    variant="subtle"
+                    v-for="tool in dept.tools.slice(0, 5)"
+                    :key="tool"
+                    :label="tool"
+                    color="neutral"
+                    variant="outline"
                     size="xs"
                   />
                 </div>
+
+                <div class="rounded-md bg-zinc-50 dark:bg-zinc-800/50 px-2.5 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  实践重点 {{ dept.focusList.length }} 条 · {{ dept.lead ? `负责人：${dept.lead}` : '未填负责人' }}
+                </div>
               </div>
 
-              <div>
-                <h2 class="text-base font-bold text-zinc-950 dark:text-zinc-100">
-                  {{ dept.name }}
-                </h2>
-                <p class="mt-0.5 text-xs font-medium text-sky-700 dark:text-sky-400">
-                  近期方向：{{ dept.recentTopic || '常规实践' }}
-                </p>
-              </div>
+              <div class="flex flex-wrap items-center justify-between gap-1.5 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
+                <div class="flex items-center gap-1">
+                  <UButton
+                    size="xs"
+                    variant="outline"
+                    color="neutral"
+                    icon="i-lucide-arrow-left"
+                    :disabled="index === 0 || savingSettings"
+                    aria-label="前移排序"
+                    @click="moveDepartment(index, -1)"
+                  />
+                  <UButton
+                    size="xs"
+                    variant="outline"
+                    color="neutral"
+                    icon="i-lucide-arrow-right"
+                    :disabled="index === departmentsDraft.length - 1 || savingSettings"
+                    aria-label="后移排序"
+                    @click="moveDepartment(index, 1)"
+                  />
+                  <UButton
+                    v-if="!dept.isFeatured"
+                    size="xs"
+                    variant="ghost"
+                    color="info"
+                    label="设首展"
+                    :disabled="savingSettings"
+                    @click="setFeaturedDepartment(index)"
+                  />
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    :label="dept.acceptingRecruit ? '停招' : '开招'"
+                    :disabled="savingSettings"
+                    @click="toggleDepartmentRecruit(index)"
+                  />
+                </div>
 
-              <p class="line-clamp-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-                {{ dept.summary }}
-              </p>
-
-              <div class="flex flex-wrap gap-1">
-                <UBadge
-                  v-for="tool in dept.tools.slice(0, 5)"
-                  :key="tool"
-                  :label="tool"
-                  color="neutral"
-                  variant="outline"
-                  size="xs"
-                />
+                <div class="flex items-center gap-1">
+                  <UButton
+                    size="xs"
+                    variant="soft"
+                    color="neutral"
+                    label="编辑"
+                    @click="openEditDepartment(index)"
+                  />
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="error"
+                    label="删除"
+                    :disabled="savingSettings"
+                    @click="deleteDepartment(index)"
+                  />
+                </div>
               </div>
-
-              <div class="rounded-md bg-zinc-50 dark:bg-zinc-800/50 px-2.5 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                实践重点 {{ dept.focusList.length }} 条 · {{ dept.lead ? `负责人：${dept.lead}` : '未填负责人' }}
-              </div>
-            </div>
-
-            <div class="flex flex-wrap items-center justify-between gap-1.5 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
-              <div class="flex items-center gap-1">
-                <UButton
-                  size="xs"
-                  variant="outline"
-                  color="neutral"
-                  icon="i-lucide-arrow-left"
-                  :disabled="index === 0 || savingSettings"
-                  aria-label="前移排序"
-                  @click="moveDepartment(index, -1)"
-                />
-                <UButton
-                  size="xs"
-                  variant="outline"
-                  color="neutral"
-                  icon="i-lucide-arrow-right"
-                  :disabled="index === departmentsDraft.length - 1 || savingSettings"
-                  aria-label="后移排序"
-                  @click="moveDepartment(index, 1)"
-                />
-                <UButton
-                  v-if="!dept.isFeatured"
-                  size="xs"
-                  variant="ghost"
-                  color="info"
-                  label="设首展"
-                  :disabled="savingSettings"
-                  @click="setFeaturedDepartment(index)"
-                />
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  :label="dept.acceptingRecruit ? '停招' : '开招'"
-                  :disabled="savingSettings"
-                  @click="toggleDepartmentRecruit(index)"
-                />
-              </div>
-
-              <div class="flex items-center gap-1">
-                <UButton
-                  size="xs"
-                  variant="soft"
-                  color="neutral"
-                  label="编辑"
-                  @click="openEditDepartment(index)"
-                />
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="error"
-                  label="删除"
-                  :disabled="savingSettings"
-                  @click="deleteDepartment(index)"
-                />
-              </div>
-            </div>
-          </article>
-        </div>
+            </article>
+          </div>
+        </template>
       </div>
 
       <!-- Tab 2：动态与学习资料（含正文上传配图插入） -->
@@ -1397,11 +1613,11 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         </div>
       </div>
 
-      <!-- Tab 4：图片上传（首屏/二维码/实景图库）与全站可编辑内容（文案/竞赛/Q&A） -->
-      <YeucaVisitsPanel v-if="activeTab === 'visits'" />
+      <!-- Tab 4：访客统计与全站图片上传设置（仅总管） -->
+      <YeucaVisitsPanel v-if="isChief && activeTab === 'visits'" />
 
       <div
-        v-if="activeTab === 'studio'"
+        v-if="isChief && activeTab === 'studio'"
         class="space-y-6"
       >
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
@@ -1804,6 +2020,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 <USelect
                   v-model="postForm.deptName"
                   :items="deptOptions"
+                  :disabled="!isChief"
                   class="w-full"
                 />
               </UFormField>
@@ -1936,6 +2153,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 <USelect
                   v-model="projectForm.deptName"
                   :items="deptOptions"
+                  :disabled="!isChief"
                   class="w-full"
                 />
               </UFormField>

@@ -12,6 +12,6 @@ export default defineEventHandler(async (event) => {
   const client = useAppDatabase(event)
   const session = requireYeucaMemberSession(event, client)
   const input = await parseBody(event, memberUpdateProfileSchema)
-  const member = await updateMemberProfile(client, session.member.id, input)
+  const member = await updateMemberProfile(client, session.member.id, input, {}, event)
   return { member }
 })

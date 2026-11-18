@@ -1,0 +1,16 @@
+{
+  "source": "repository root",
+  "files": {
+    "data/seeds/amap-imported-places.ts": "8f20cd2dc35571dd0ab2d00a772b5399853284b5d39a46d9e8ba15c095400d78",
+    "data/seeds/osm-campus-boundary.json": "bd9e514b5b239f9e0f0694a500938c7eba298dd04c523f6c2919cc4780cf08cc",
+    "data/seeds/preview-places.ts": "6d3ee715b0f12c57a2cb9c2829d8942a22b7d6381ce5a49a84605dda82fbf18f",
+    "LICENSE": "e9c0b639e1d5d0ea82262a9d8d235a22b1b0a97f8f4bb044203a42ae9551efe8",
+    "map/core/types.ts": "744c5c41ff8e64bb74ff599a02f0bd7946676b57e4c1cda12996687e804438d5",
+    "shared/types.ts": "1abdc1d9cc1ea0fa6d496c717e4230609fcc4aa545859a60dc3355f9883d2fbb",
+    "shared/utils/bus-route-progress.ts": "f232b6294c64f8efcdb86d50a62f9ec80b5daeb0d6b490ca447360cd457d636e",
+    "shared/utils/campus-dorm-buildings.ts": "31f5075bb3ac983327faa896e001fc83d43168fad0ce6e8ecea2360d81c34087",
+    "shared/utils/campus-speed-bumps.ts": "985c737dbd706ebf3c2f25c9c2a12d9603ec49b7a89d308cecb03052add00147",
+    "shared/utils/coordinate-convert.ts": "d1d451dabf6a851c1980979fd2b55812fec235eb5d1475c2afd2cbcfa0a071e9",
+    "shared/utils/geo-obfuscation.ts": "c39cb1e8ea7149971fbbc7da34f976b505197420d6a8056c47deeab3422ae68c"
+  }
+}

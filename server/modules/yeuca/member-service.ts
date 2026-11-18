@@ -14,6 +14,7 @@ import { getClientIpAddress } from '../../utils/client-ip'
 import { hashUserPassword, verifyPassword } from '../../utils/password'
 import { assertRateLimit } from '../../utils/rate-limit'
 import { createOpaqueToken, getSecurityConfig, hashOpaqueToken } from '../../utils/security'
+import { writeAudit } from '../../utils/audit'
 import { syncGiteaAccount } from './gitea'
 
 const MEMBER_SESSION_COOKIE = 'yeuca_member_session'
@@ -269,6 +270,28 @@ export function logoutYeucaMember(event: H3Event, client: DatabaseClient): void 
   clearMemberSessionCookie(event)
 }
 
+const PROTECTED_CHIEF_ROLES = new Set(['会长', '副会长'])
+
+function recordMemberAudit(
+  client: DatabaseClient,
+  event: H3Event | undefined,
+  action: string,
+  entityId: string | null,
+  details: Record<string, unknown>
+): void {
+  if (!event) return
+  writeAudit(client, event, {
+    actorAdminId: null,
+    action,
+    entityType: 'yeuca_member',
+    entityId,
+    details: {
+      ...details,
+      ip: getClientIpAddress(event)
+    }
+  })
+}
+
 /* ---------- 公开端：名录核验、开放注册、成员登录与个人操作 ---------- */
 
 export function verifyMemberEligibility(
@@ -290,6 +313,12 @@ export function verifyMemberEligibility(
     .get()
 
   if (!found || found.name.trim() !== normalizedName) {
+    recordMemberAudit(client, event, 'yeuca.member.verify_rejected', found?.id ?? null, {
+      studentNo: normalizedNo,
+      name: normalizedName,
+      department: found?.department ?? '',
+      reason: 'NOT_IN_LIST'
+    })
     return {
       eligible: false as const,
       reason: 'NOT_IN_LIST',
@@ -298,6 +327,12 @@ export function verifyMemberEligibility(
   }
 
   if (found.memberStatus === 'disabled') {
+    recordMemberAudit(client, event, 'yeuca.member.verify_rejected', found.id, {
+      studentNo: found.studentNo,
+      name: found.name,
+      department: found.department,
+      reason: 'DISABLED'
+    })
     return {
       eligible: false as const,
       reason: 'DISABLED',
@@ -306,12 +341,24 @@ export function verifyMemberEligibility(
   }
 
   if (found.memberStatus === 'active') {
+    recordMemberAudit(client, event, 'yeuca.member.verify_rejected', found.id, {
+      studentNo: found.studentNo,
+      name: found.name,
+      department: found.department,
+      reason: 'ALREADY_REGISTERED'
+    })
     return {
       eligible: false as const,
       reason: 'ALREADY_REGISTERED',
       message: '该学号已完成官网注册与 Git 账号激活，请直接切换「会员登录」进入'
     }
   }
+
+  recordMemberAudit(client, event, 'yeuca.member.verify_passed', found.id, {
+    studentNo: found.studentNo,
+    name: found.name,
+    department: found.department
+  })
 
   return {
     eligible: true as const,
@@ -357,6 +404,12 @@ export async function registerYeucaMember(
     .get()
 
   if (!member || member.name.trim() !== normalizedName) {
+    recordMemberAudit(client, event, 'yeuca.member.register_rejected', member?.id ?? null, {
+      studentNo: normalizedNo,
+      name: normalizedName,
+      department: member?.department ?? '',
+      reason: 'NOT_IN_LIST'
+    })
     throw createError({
       statusCode: 403,
       statusMessage: 'Not eligible for registration',
@@ -364,6 +417,12 @@ export async function registerYeucaMember(
     })
   }
   if (member.memberStatus === 'disabled') {
+    recordMemberAudit(client, event, 'yeuca.member.register_rejected', member.id, {
+      studentNo: member.studentNo,
+      name: member.name,
+      department: member.department,
+      reason: 'MEMBER_DISABLED'
+    })
     throw createError({
       statusCode: 403,
       statusMessage: 'Member is disabled',
@@ -371,6 +430,12 @@ export async function registerYeucaMember(
     })
   }
   if (member.memberStatus === 'active') {
+    recordMemberAudit(client, event, 'yeuca.member.register_rejected', member.id, {
+      studentNo: member.studentNo,
+      name: member.name,
+      department: member.department,
+      reason: 'ALREADY_REGISTERED'
+    })
     throw createError({
       statusCode: 409,
       statusMessage: 'Member already registered',
@@ -388,6 +453,13 @@ export async function registerYeucaMember(
     .get()
 
   if (conflictGit) {
+    recordMemberAudit(client, event, 'yeuca.member.register_rejected', member.id, {
+      studentNo: member.studentNo,
+      name: member.name,
+      department: member.department,
+      gitUsername: normalizedGitUser,
+      reason: 'GIT_USERNAME_TAKEN'
+    })
     throw createError({
       statusCode: 409,
       statusMessage: 'Git username already taken',
@@ -397,14 +469,29 @@ export async function registerYeucaMember(
 
   const finalEmail = resolveMemberEmail(normalizedGitUser, input.email || member.email)
   const giteaSync = deps.giteaSync ?? syncGiteaAccount
-  const gitResult = await giteaSync({
-    username: normalizedGitUser,
-    email: finalEmail,
-    fullName: member.name,
-    password: input.password,
-    active: true,
-    rejectIfUsernameExists: true
-  })
+  let gitResult: Awaited<ReturnType<typeof syncGiteaAccount>>
+  try {
+    gitResult = await giteaSync({
+      username: normalizedGitUser,
+      email: finalEmail,
+      fullName: member.name,
+      password: input.password,
+      active: true,
+      rejectIfUsernameExists: true
+    })
+  } catch (err: unknown) {
+    const errObj = err as { data?: { message?: string, code?: string }, statusMessage?: string }
+    const errMsg = errObj?.data?.message || errObj?.statusMessage || (err instanceof Error ? err.message : 'Gitea 同步失败')
+    recordMemberAudit(client, event, 'yeuca.member.gitea_sync_failed', member.id, {
+      studentNo: member.studentNo,
+      name: member.name,
+      department: member.department,
+      gitUsername: normalizedGitUser,
+      code: errObj?.data?.code || 'GIT_PROVISION_FAILED',
+      error: errMsg
+    })
+    throw err
+  }
 
   const now = Date.now()
   const passwordHash = await hashUserPassword(input.password)
@@ -424,6 +511,16 @@ export async function registerYeucaMember(
     registeredAt: now,
     updatedAt: now
   }).where(eq(yeucaMembers.id, member.id)).run()
+
+  recordMemberAudit(client, event, 'yeuca.member.register', member.id, {
+    studentNo: member.studentNo,
+    name: member.name,
+    department: member.department,
+    gitUsername: normalizedGitUser,
+    gitSynced: gitResult.synced,
+    gitUserId: gitResult.gitUserId,
+    gitSyncError: gitResult.error
+  })
 
   const updated = client.db.select().from(yeucaMembers).where(eq(yeucaMembers.id, member.id)).get()!
   const session = issueMemberSession(event, client, updated)
@@ -457,6 +554,10 @@ export async function loginYeucaMember(
 
   if (!member) {
     await verifyPassword(password, DUMMY_PASSWORD_HASH)
+    recordMemberAudit(client, event, 'yeuca.member.login_failed', null, {
+      account: cleanAccount,
+      reason: 'ACCOUNT_NOT_FOUND'
+    })
     throw createError({
       statusCode: 401,
       statusMessage: 'Invalid account or password',
@@ -465,6 +566,11 @@ export async function loginYeucaMember(
   }
 
   if (member.memberStatus === 'pending') {
+    recordMemberAudit(client, event, 'yeuca.member.login_failed', member.id, {
+      studentNo: member.studentNo,
+      department: member.department,
+      reason: 'NOT_ACTIVATED'
+    })
     throw createError({
       statusCode: 403,
       statusMessage: 'Member not activated yet',
@@ -473,6 +579,11 @@ export async function loginYeucaMember(
   }
 
   if (member.memberStatus === 'disabled') {
+    recordMemberAudit(client, event, 'yeuca.member.login_failed', member.id, {
+      studentNo: member.studentNo,
+      department: member.department,
+      reason: 'MEMBER_DISABLED'
+    })
     throw createError({
       statusCode: 403,
       statusMessage: 'Member account disabled',
@@ -482,12 +593,24 @@ export async function loginYeucaMember(
 
   const ok = member.passwordHash ? await verifyPassword(password, member.passwordHash) : false
   if (!ok) {
+    recordMemberAudit(client, event, 'yeuca.member.login_failed', member.id, {
+      studentNo: member.studentNo,
+      department: member.department,
+      reason: 'WRONG_PASSWORD'
+    })
     throw createError({
       statusCode: 401,
       statusMessage: 'Invalid account or password',
       data: { code: 'INVALID_CREDENTIALS', message: '学号/Git 用户名或密码错误' }
     })
   }
+
+  recordMemberAudit(client, event, 'yeuca.member.login', member.id, {
+    studentNo: member.studentNo,
+    name: member.name,
+    department: member.department,
+    gitUsername: member.gitUsername
+  })
 
   const session = issueMemberSession(event, client, member)
   return {
@@ -509,7 +632,8 @@ export async function updateMemberProfile(
     bio?: string
     skills?: string[]
   },
-  deps: YeucaMemberDeps = {}
+  deps: YeucaMemberDeps = {},
+  event?: H3Event
 ): Promise<YeucaPublicMemberProfile> {
   const existing = client.db.select().from(yeucaMembers).where(eq(yeucaMembers.id, memberId)).get()
   if (!existing) {
@@ -547,6 +671,14 @@ export async function updateMemberProfile(
     updatedAt: now
   }).where(eq(yeucaMembers.id, memberId)).run()
 
+  recordMemberAudit(client, event, 'yeuca.member.profile_update', existing.id, {
+    studentNo: existing.studentNo,
+    department: existing.department,
+    fields: Object.keys(input),
+    gitSynced,
+    gitSyncError
+  })
+
   return serializePublicMember(client.db.select().from(yeucaMembers).where(eq(yeucaMembers.id, memberId)).get()!)
 }
 
@@ -555,7 +687,8 @@ export async function changeMemberPassword(
   memberId: string,
   currentPassword: string,
   newPassword: string,
-  deps: YeucaMemberDeps = {}
+  deps: YeucaMemberDeps = {},
+  event?: H3Event
 ): Promise<{ gitSynced: boolean, gitSyncError: string }> {
   const existing = client.db.select().from(yeucaMembers).where(eq(yeucaMembers.id, memberId)).get()
   if (!existing || existing.memberStatus !== 'active') {
@@ -598,10 +731,23 @@ export async function changeMemberPassword(
     updatedAt: Date.now()
   }).where(eq(yeucaMembers.id, memberId)).run()
 
+  recordMemberAudit(client, event, 'yeuca.member.password_change', existing.id, {
+    studentNo: existing.studentNo,
+    department: existing.department,
+    gitUsername: existing.gitUsername,
+    gitSynced,
+    gitSyncError
+  })
+
   return { gitSynced, gitSyncError }
 }
 
 /* ---------- 管理后台：成员台账 CRUD、批量导入与招新转正 ---------- */
+
+export function getYeucaMemberById(client: DatabaseClient, id: string): YeucaMemberItem | null {
+  const row = client.db.select().from(yeucaMembers).where(eq(yeucaMembers.id, id)).get()
+  return row ? serializeAdminMember(row) : null
+}
 
 export function listYeucaMembersAdmin(client: DatabaseClient): YeucaMemberItem[] {
   return client.db
@@ -946,7 +1092,8 @@ export function importYeucaMembersAdmin(
     gitUsername: string
     memberStatus?: YeucaMemberStatus
     notes: string
-  }>
+  }>,
+  scopedDepartment: string | null = null
 ): { inserted: number, updated: number, skipped: number, total: number } {
   const now = Date.now()
   let inserted = 0
@@ -967,7 +1114,15 @@ export function importYeucaMembersAdmin(
       .where(sql`lower(${yeucaMembers.studentNo}) = lower(${cleanStudentNo})`)
       .get()
 
+    const resolvedDept = scopedDepartment ? scopedDepartment.trim() : raw.department.trim()
+    const rawRole = raw.roleTitle.trim() || '会员'
+    const resolvedRole = scopedDepartment && PROTECTED_CHIEF_ROLES.has(rawRole) ? '会员' : rawRole
+
     if (existing) {
+      if (scopedDepartment && existing.department.trim() !== scopedDepartment.trim()) {
+        skipped++
+        continue
+      }
       if (mode === 'skip_existing') {
         skipped++
         continue
@@ -975,8 +1130,8 @@ export function importYeucaMembersAdmin(
       client.db.update(yeucaMembers).set({
         name: cleanName,
         ...(raw.gradeMajorClass.trim() ? { gradeMajorClass: raw.gradeMajorClass.trim() } : {}),
-        ...(raw.department.trim() ? { department: raw.department.trim() } : {}),
-        ...(raw.roleTitle.trim() ? { roleTitle: raw.roleTitle.trim() } : {}),
+        ...(resolvedDept ? { department: resolvedDept } : {}),
+        ...(raw.roleTitle.trim() ? { roleTitle: resolvedRole } : {}),
         ...(raw.term.trim() ? { term: raw.term.trim() } : {}),
         ...(raw.phone.trim() ? { phone: raw.phone.trim() } : {}),
         ...(raw.qq.trim() ? { qq: raw.qq.trim() } : {}),
@@ -1008,8 +1163,8 @@ export function importYeucaMembersAdmin(
       studentNo: cleanStudentNo,
       name: cleanName,
       gradeMajorClass: raw.gradeMajorClass.trim(),
-      department: raw.department.trim(),
-      roleTitle: raw.roleTitle.trim() || '会员',
+      department: resolvedDept,
+      roleTitle: resolvedRole,
       term: raw.term.trim(),
       phone: raw.phone.trim(),
       qq: raw.qq.trim(),
@@ -1033,13 +1188,22 @@ export function importYeucaMembersAdmin(
   }
 }
 
+function submissionMatchesDepartment(departmentsText: string, targetDept: string): boolean {
+  const parts = departmentsText
+    .split(/[,，/、]/)
+    .map(item => item.trim())
+    .filter(Boolean)
+  return parts.includes(targetDept.trim())
+}
+
 export function approveRecruitSubmissionsToMembers(
   client: DatabaseClient,
   contentId: string,
   adminId: string,
   submissionIds: string[],
   defaultDepartment = '',
-  defaultTerm = ''
+  defaultTerm = '',
+  scopedDepartment: string | null = null
 ): { imported: number, skippedNoStudentNo: number, skippedAlreadyExists: number } {
   const form = client.db
     .select({ id: recruitForms.id })
@@ -1066,6 +1230,17 @@ export function approveRecruitSubmissionsToMembers(
   const now = Date.now()
 
   for (const sub of targetSubs) {
+    if (scopedDepartment && !submissionMatchesDepartment(sub.departments || '', scopedDepartment)) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Submission does not match minister department',
+        data: {
+          code: 'YEUCA_DEPARTMENT_FORBIDDEN',
+          message: `报名记录「${sub.name || sub.studentNo}」的意向部门不含「${scopedDepartment}」，无法审批转入`
+        }
+      })
+    }
+
     const cleanNo = (sub.studentNo || '').trim()
     const cleanName = (sub.name || '').trim()
     if (!cleanNo || !cleanName || !/^[a-zA-Z0-9_-]{4,32}$/.test(cleanNo)) {
@@ -1085,7 +1260,9 @@ export function approveRecruitSubmissionsToMembers(
     }
 
     const majorClass = [sub.major || '', sub.className || ''].filter(Boolean).join(' ').trim()
-    const dept = (sub.departments || defaultDepartment || '').split(/[,，/、]/)[0]?.trim() || defaultDepartment
+    const dept = scopedDepartment
+      ? scopedDepartment.trim()
+      : (sub.departments || defaultDepartment || '').split(/[,，/、]/)[0]?.trim() || defaultDepartment
 
     client.db.insert(yeucaMembers).values({
       id: randomUUID(),
@@ -1101,7 +1278,7 @@ export function approveRecruitSubmissionsToMembers(
       gitUsername: '',
       memberStatus: 'pending',
       recruitSubmissionId: sub.id,
-      notes: '由纳新报名审批入档',
+      notes: scopedDepartment ? `由${scopedDepartment}部长纳新审批入档` : '由纳新报名审批入档',
       createdByAdminId: adminId,
       createdAt: now,
       updatedAt: now

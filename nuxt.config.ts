@@ -97,6 +97,9 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     databasePath: './data/yeu.sqlite',
+    treasurePilotLongitude: '',
+    treasurePilotLatitude: '',
+    treasurePilotAnswer: '',
     baiduMapsServerAk: '',
     adminSessionSecret: '',
     aiGatewayBaseUrl: '',
