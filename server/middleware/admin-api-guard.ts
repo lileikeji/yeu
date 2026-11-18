@@ -55,8 +55,22 @@ export default defineEventHandler((event) => {
   }
 
   if (passwordOnlyPaths.has(pathname)) return
-  if (pathname === '/api/admin/miniapp/analytics' && method === 'GET') return
   if (pathname === '/api/admin/media/images' && method === 'POST') return
+
+  // 计协部门部长仅可操作计协专有后台接口（并在各接口内部按所属部门隔离），不允许越权进全站迎新/活动/老招新接口。
+  if (session.admin.yeucaScope?.role === 'minister') {
+    if (pathname === '/api/admin/yeuca' || pathname.startsWith('/api/admin/yeuca/')) {
+      const organizationContentId = session.admin.organization?.contentId
+      if (organizationContentId && isComputerAssociationContent(client, organizationContentId)) return
+    }
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Department minister can only access Computer Association department workspace',
+      data: { code: 'ADMIN_SCOPE_FORBIDDEN' }
+    })
+  }
+
+  if (pathname === '/api/admin/miniapp/analytics' && method === 'GET') return
 
   // 组织管理员只能看到自己组织的活动（服务层再按 organizationContentId 收口）；
   // 审核路由在 handler 内 requireSuperAdmin，不能只靠这里放行。
