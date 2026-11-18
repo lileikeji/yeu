@@ -6,9 +6,9 @@ export const MAX_JSON_BODY_BYTES = 262_144
 
 /**
  * 上传类接口（把文件 base64 塞进 JSON）用的上限：
- * 300MB 伴奏 base64 后约 400MB，留一点余量给其它字段。
+ * 400MB 伴奏 base64 后约 534MB，留一点余量给其它字段。
  */
-export const MAX_UPLOAD_JSON_BODY_BYTES = 410 * 1024 * 1024
+export const MAX_UPLOAD_JSON_BODY_BYTES = 560 * 1024 * 1024
 
 export interface ParseBodyOptions {
   /** 这个接口自己的请求体上限，默认 256KB。 */
