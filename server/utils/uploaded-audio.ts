@@ -6,6 +6,30 @@ import { uploadDirectory } from './uploaded-images'
 
 export const MAX_UPLOADED_AUDIO_BYTES = 300 * 1024 * 1024
 
+/**
+ * 一次只允许一个伴奏上传在内存里解析：300MB 的 base64 展开后峰值接近 1GB，
+ * 两个并发就会把 768M/1792M 的 cgroup 顶爆。拿不到名额的直接提示稍后再试。
+ */
+let audioUploadInFlight = false
+
+export function beginAudioUpload(): boolean {
+  if (audioUploadInFlight) return false
+  audioUploadInFlight = true
+  return true
+}
+
+export function endAudioUpload(): void {
+  audioUploadInFlight = false
+}
+
+export function audioUploadBusyError() {
+  return createError({
+    statusCode: 429,
+    statusMessage: 'Another audio upload is in progress',
+    data: { code: 'AUDIO_UPLOAD_BUSY', message: '有人正在上传伴奏，等半分钟再试' }
+  })
+}
+
 const AUDIO_TYPES = {
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
