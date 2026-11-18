@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { createError } from 'h3'
 import { uploadDirectory } from './uploaded-images'
 
-export const MAX_UPLOADED_AUDIO_BYTES = 30 * 1024 * 1024
+export const MAX_UPLOADED_AUDIO_BYTES = 300 * 1024 * 1024
 
 const AUDIO_TYPES = {
   mp3: 'audio/mpeg',

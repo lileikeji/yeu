@@ -11,14 +11,14 @@ import {
   resolveCompetitionContentId
 } from '../../../../../utils/competition-admin'
 import { useAdminRequest } from '../../../../../utils/http'
-import { parseBody } from '../../../../../utils/validation'
+import { MAX_UPLOAD_JSON_BODY_BYTES, parseBody } from '../../../../../utils/validation'
 
 /** 后台代传伴奏：选手不会传（比如 iOS 选不到微信文件）时，工作人员在这里补。 */
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event)
   const contentId = resolveCompetitionContentId(client, session)
   const roundKey = requireCompetitionRoundKey(event)
-  const input = await parseBody(event, setCompetitionEntryAccompanimentSchema, { maxBytes: 60 * 1024 * 1024 })
+  const input = await parseBody(event, setCompetitionEntryAccompanimentSchema, { maxBytes: MAX_UPLOAD_JSON_BODY_BYTES })
 
   const competition = ensureCompetitionEvent(client, contentId)
   const round = getRoundByKey(client, competition.id, roundKey)
