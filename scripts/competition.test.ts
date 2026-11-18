@@ -1770,7 +1770,7 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
 
   // 假 mp3：ID3 头就够了，服务端按文件头认格式，不信任扩展名。
   const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)])
-  // 这一轮还没填曲目时不许传伴奏，否则名单里会出现「有伴奏没歌」
+  // 这一轮还没填曲目、也没随伴奏一起交曲目时不许传伴奏，否则名单里会出现「有伴奏没歌」
   await assert.rejects(
     submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v0.mp3', data: mp3 }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'SONG_REQUIRED'
