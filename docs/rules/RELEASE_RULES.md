@@ -119,6 +119,17 @@
 ### 11. 检索哈希按行尾算，CRLF 工作树会假报「未 bump」（2026-11-11 / 2026-11-13）
 `release-tools.mjs checkRetrieval` 用文件字节算 hash：`core.autocrlf=true` 的工作树算出 `d7978e91…`，LF 工作树算出 `8c3787f2…`，与线上一致的是后者。命令必须在 LF 工作树（或 Linux CI）里跑，否则会被「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」拦下，且改的是假问题。
 
+### 12. 并发发版互相顶掉（2026-11-18 一夜四次）
+
+- 现象：我 23:15 发了 `e4589ded`，23:05 别人发了 `9163e746`，两边都以为自己是最新；`current` 只指向一个 release，谁最后切换谁生效，先发的那份功能就等于被删。
+- 根因：判断「线上是什么」和「切换」之间有时间窗，且部署脚本不校验「线上 commit 在不在我这份制品的祖先链里」。
+- 落地做法（已进脚本）：`scripts/release-tools.mjs` 把 `git rev-list <commit>` 写进 `release.json` 的 `history`；`scripts/deploy-incoming.sh` 切换前比对线上 `commit` 是否在 `history` 里，不在就 `exit 1` 并打印「拒绝部署：线上正在跑 X，它不在本次制品的祖先链里」。确实要回退旧版时设 `ALLOW_REVERT=1`。旧制品没有 `history` 字段时只告警放行。
+- 处置流程：被拦下就把线上 commit `git merge` 进主线、重出制品再发，别用 `ALLOW_REVERT` 绕过。
+
+### 13. OSV 上游新收录公告导致 `dependency-security` 变红（2026-11-18）
+`scan-full-lockfile` 报「4 packages affected by 7 known vulnerabilities (2 High)」，而 `git diff` 显示依赖文件没动 —— 是 OSV 数据库当天新收录（`glob ≤14.0.1`、`minimatch <11.0.1`、`picomatch ≤4.0.7`、`deepmerge 4.3.1`）。
+落地做法：按 GHSA 补丁版本做定向 overrides（`glob@11.1.0/13.0.7 → 14.0.2`，去掉把 minimatch 钉在 `10.2.6` 的 `glob>minimatch`），`pnpm install --no-frozen-lockfile` 后必须实跑 `pnpm test` + `typecheck` + `nuxt build` + `pwa:build:test`（`glob` 的两个消费方 `@vercel/nft`、`workbox-build` 只在构建期暴露问题）。上游无修复的 `picomatch`/`deepmerge` 记录在案，不假装修掉。
+
 ## 三、固定约定
 - 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。

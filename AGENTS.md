@@ -88,6 +88,8 @@
 13. **不要用脚本整文件重写源码**：会把 CRLF 文件改成 LF，产生整文件 diff（2026-11-15 `scripts/check-client-bundle-budget.ts` 出现 480 行换行噪音）。多行改动用精确替换，改完看 `git diff --stat` 只该动目标行。
 14. **时间/导航/文案类测试要防漂移**：按「今年」推导日期的用例必须钉死届次（`ensureCompetitionEventPinned`），否则每年 11-14 初赛日必红；改导航或页面文案要同步 `tests/e2e/*.spec.ts` 断言，否则 master CI 长期红（2026-11-13 起连续两次）。
 15. **Gitee 侧不要在网页上合并 PR**：`mirror-to-gitee.yml` 是 master → gitee `yeu-yx/yeu` 的单向 push 且不带 `--force`，在 Gitee 上合并会让下一次镜像 non-fast-forward 失败；`organization`（gitee newcomers-guide）是旧分叉线，不要动。
+16. **并发发版有闸门，别绕过**：`deploy-incoming.sh` 会比对线上 `commit` 是否在本次制品 `release.json` 的 `history`（`release-tools.mjs` 写入 `git rev-list`）里，不在就 `exit 1`。被拦下说明别人刚发过版，正确做法是 `git merge <线上commit>` 后重出制品；`ALLOW_REVERT=1` 只用于真的回退。
+17. **`dependency-security` 红先查是不是上游新公告**：`git diff` 里依赖文件没动却报漏洞，就用 `gh api advisories/<id>` 查补丁版本、在 `pnpm-workspace.yaml` 的 `overrides` 做定向升级，并实跑 `pnpm test` / `typecheck` / `nuxt build` / `pwa:build:test`（`glob` 只在构建期炸）。
 
 发布检查单与全部已发生事故见 [docs/rules/RELEASE_RULES.md](docs/rules/RELEASE_RULES.md)。
 

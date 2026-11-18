@@ -80,6 +80,29 @@ export function migrationFiles(directory) {
   })
 }
 
+/**
+ * 制品里带上「本次提交的祖先清单」，让服务器上的 deploy-incoming.sh 能离线判断
+ * 「线上正在跑的 commit 是否已被这次制品包含」。
+ *
+ * 起因：2026-11-18 夜里多个会话交替发版，每次都是「拿 master 出制品 → 线上被别人
+ * 更新过 → 一发布就把对方刚上的功能顶回去」。服务器上没有仓库，没法 git merge-base，
+ * 所以把判断所需的祖先集合随制品带过去。
+ *
+ * 拿不到 git（例如在无仓库的临时目录生成）时返回空数组，脚本那边降级成「跳过校验」。
+ */
+export function ancestryCommits(commit, limit = 5000) {
+  try {
+    const out = execFileSync('git', ['rev-list', commit], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+    return out.split('\n').filter(Boolean).slice(0, limit)
+  } catch {
+    return []
+  }
+}
+
 export function createRelease(root, output, release, commit) {
   if (!/^[0-9a-f]{40}$/.test(commit) || !/^\d{8}-[a-z0-9-]+$/.test(release)) {
     throw new Error('发布提交号或 release 非法')
@@ -95,7 +118,8 @@ export function createRelease(root, output, release, commit) {
     node: process.version, abi: process.versions.modules,
     retrieval: retrievalMetadata(root),
     migrations: migrationFiles(join(directory, 'migrations')).map(({ tag, when, hash }) => ({ tag, when, hash })),
-    native: { path: native, hash: hash(readFileSync(join(output, native))) }
+    native: { path: native, hash: hash(readFileSync(join(output, native))) },
+    history: ancestryCommits(commit)
   }
   writeFileSync(join(output, 'release.json'), `${JSON.stringify(manifest)}\n`)
   return manifest

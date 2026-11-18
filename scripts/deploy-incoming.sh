@@ -44,6 +44,35 @@ REL="$(node -p "require('$OUT/release.json').release")"
 [[ "$REL" =~ ^[0-9]{8}-[a-z0-9-]+$ ]] || { echo "[$(ts)] release 名非法：$REL"; exit 1; }
 echo "[$(ts)] commit=$COMMIT release=$REL"
 
+# 防回退闸门：线上正在跑的 commit 必须已包含在本次制品里。
+# 多个会话并行发版时，最常见的事故就是「我拿 master 出了制品，发之前别人又发了一版」，
+# 一发布就把对方刚上的功能顶回去（2026-11-18 一夜发生四次）。
+# 祖先清单由 scripts/release-tools.mjs 写进 release.json；老制品没有就只告警不拦。
+CURRENT_LINK="$BASE/current"
+LIVE_COMMIT="$(node -e "try{process.stdout.write(require('$CURRENT_LINK/.output/release.json').commit||'')}catch(e){}" 2>/dev/null || true)"
+if [[ -n "$LIVE_COMMIT" && "$LIVE_COMMIT" != "$COMMIT" ]]; then
+  ANCESTRY="$(node -e "const r=require('$OUT/release.json');const h=Array.isArray(r.history)?r.history:[];process.stdout.write(h.length?(h.includes('$LIVE_COMMIT')?'yes':'no'):'unknown')" 2>/dev/null || echo unknown)"
+  case "$ANCESTRY" in
+    yes)
+      echo "[$(ts)] 防回退校验通过：线上 $LIVE_COMMIT 是本次提交的祖先"
+      ;;
+    unknown)
+      echo "[$(ts)] 警告：制品没有祖先清单（旧版 release-tools 出的），跳过防回退校验"
+      ;;
+    *)
+      echo "[$(ts)] 拒绝部署：线上正在跑 $LIVE_COMMIT，它不在本次制品的祖先链里"
+      echo "           这次发布会把线上已有提交整体顶掉（别人刚发过版就是这种形状）"
+      echo "           处理：先把它并进主线重出制品；确实要回退旧版请设 ALLOW_REVERT=1"
+      if [[ "${ALLOW_REVERT:-0}" != "1" ]]; then
+        exit 1
+      fi
+      echo "[$(ts)] ALLOW_REVERT=1 → 按回退模式继续"
+      ;;
+  esac
+else
+  [[ -n "$LIVE_COMMIT" ]] && echo "[$(ts)] 线上已是同一提交，继续"
+fi
+
 # 本机打包时排除了平台二进制，这里从线上 current 补齐；
 # current 自己可能缺 sqlite-vec 的平台包（20261103-233258 就没有），回退到历史 release 里找。
 CUR="$BASE/current/.output/server/node_modules"
