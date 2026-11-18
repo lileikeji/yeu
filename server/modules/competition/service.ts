@@ -23,6 +23,7 @@ import { createZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
+import { cosConfig, presignCosGet } from '../../utils/cos-storage'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -1012,7 +1013,7 @@ function buildRoundRanking(
 
 // -- 导出（后台名单） ----------------------------------------------------------
 
-export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain'
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain' | 'songs'
 
 function csvCell(value: unknown): string {
   const text = String(value ?? '')
@@ -1053,6 +1054,12 @@ const COMPETITION_SURNAME_HINTS: Record<string, string> = {
   盖: '葛',
   尉: '玉',
   种: '崇'
+}
+
+function formatMegabytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '未知'
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
 function plainSortName(name: string): string {
@@ -1217,6 +1224,26 @@ export function buildCompetitionExport(
         row.singer.song,
         dayLabelOf(entry?.contestDay ?? null),
         (entry && daySequence.get(entry.id)) || ''
+      ])
+    })
+  } else if (kind === 'songs') {
+    // 曲目名单：按姓名拼音首字母排，现场照着点人；伴奏一栏只写有没有传，方便催交。
+    const songCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+    const songRows = [...ranking].sort((left, right) =>
+      songCollator.compare(plainSortName(left.singer.name).slice(0, 1), plainSortName(right.singer.name).slice(0, 1))
+      || songCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name))
+      || (left.sortOrder - right.sortOrder)
+    )
+    label = '曲目名单'
+    rows.push(['序号', '姓名', '班级', '曲目', '伴奏'])
+    songRows.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      rows.push([
+        index + 1,
+        row.singer.name,
+        row.singer.className ?? '',
+        (entry?.song ?? '').trim() || row.singer.song || '',
+        entry?.accompanimentUrl ? `已传（${formatMegabytes(entry.accompanimentSize ?? 0)}）` : '未传'
       ])
     })
   } else {
@@ -4099,9 +4126,13 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
   }
   const url = String(source.accompanimentUrl ?? '').trim()
   if (!url) return null
+  // 存的是 cos:<objectKey>，读的时候换成 6 小时有效的临时地址（桶是私有读）
+  const config = cosConfig()
+  const key = url.startsWith('cos:') ? url.slice(4) : ''
+  const playable = key && config ? presignCosGet(config, key) : url
   return {
     name: String(source.accompanimentName ?? '').trim() || url.split('/').at(-1) || '伴奏',
-    url,
+    url: playable,
     size: source.accompanimentSize ?? null
   }
 }
@@ -4119,7 +4150,13 @@ export async function setEntryAccompaniment(
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
   }
   const stored = await storeUploadedAudio(file.data)
-  const name = (file.filename || '').trim().slice(0, 120) || stored.filename
+  const singer = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, entry.singerId)).get()
+  const name = accompanimentDisplayName(
+    singer?.name ?? '',
+    (entry.song ?? '').trim() || singer?.song || '',
+    accompanimentExtension(stored.url)
+  )
   client.db.update(competitionRoundEntries)
     .set({
       accompanimentUrl: stored.url,
@@ -4131,12 +4168,108 @@ export async function setEntryAccompaniment(
   return { name, url: stored.url, size: stored.size }
 }
 
+/**
+ * 伴奏在后台的展示名统一成「姓名《曲目》.扩展名」：现场按名单找人时一眼对上，
+ * 不管选手传上来的原始文件名有多乱。
+ */
+export function accompanimentDisplayName(singerName: string, song: string, extension: string): string {
+  const cleanName = String(singerName || '').trim()
+  const cleanSong = String(song || '')
+    .replace(/[《》]/g, '')
+    .replace(/[（(]伴奏[)）]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const cleanExt = String(extension || '').replace(/^\./, '').toLowerCase()
+  const base = cleanSong ? `${cleanName}《${cleanSong}》` : cleanName
+  return cleanExt ? `${base}.${cleanExt}` : base
+}
+
+function accompanimentExtension(source: string): string {
+  const value = String(source || '').split('?')[0] ?? ''
+  const match = value.match(/\.([a-z0-9]{2,5})$/i)
+  return match ? match[1]!.toLowerCase() : 'mp3'
+}
+
+/** 三要素定位到「这一轮要传伴奏的那条出场记录」，直传与普通上传共用。 */
+export function resolveAccompanimentTarget(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+): { round: RoundRow, entryId: string, singerName: string } {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  if (!stage.editable || !stage.targetEntryId) {
+    conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能传伴奏')
+  }
+  const rounds = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventRow.id)).all()
+  const round = rounds.find(item => item.id === client.db.select({ roundId: competitionRoundEntries.roundId })
+    .from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.id, stage.targetEntryId!))
+    .get()?.roundId)
+  if (!round) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
+  }
+  return { round, entryId: stage.targetEntryId, singerName: singer.name }
+}
+
+/** 直传完成后把 object key 记到出场记录上（url 存 cos:<key>，读时换成临时地址）。 */
+export function commitAccompanimentKey(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  file: { key: string, name: string, size: number },
+  song?: string
+): CompetitionEntryAccompaniment {
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
+  const singer = entry
+    ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
+    : null
+  const entrySong = (entry?.song ?? '').trim()
+  const incoming = (song ?? '').trim()
+  // 曲目必填：这一轮没有曲目、这次也没一起提交，就不许存伴奏（否则名单里会出现「有伴奏没歌」）。
+  if (!entrySong && !incoming) {
+    conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
+  }
+  const songValue = incoming || entrySong
+  const name = accompanimentDisplayName(
+    singer?.name ?? '',
+    songValue || singer?.song || '',
+    accompanimentExtension(file.key)
+  )
+  client.db.update(competitionRoundEntries)
+    .set({
+      song: songValue,
+      accompanimentUrl: `cos:${file.key}`,
+      accompanimentName: name,
+      accompanimentSize: file.size
+    })
+    .where(eq(competitionRoundEntries.id, entryId))
+    .run()
+  if (incoming && entry) {
+    client.db.update(competitionSingers).set({ song: incoming }).where(eq(competitionSingers.id, entry.singerId)).run()
+  }
+  const config = cosConfig()
+  return { name, url: config ? presignCosGet(config, file.key) : `cos:${file.key}`, size: file.size }
+}
+
+/** 某一轮出场记录上已经填的曲目（去掉首尾空格，空串表示还没填）。 */
+export function entrySongOf(client: DatabaseClient, entryId: string): string {
+  const row = client.db.select({ song: competitionRoundEntries.song })
+    .from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.id, entryId))
+    .get()
+  return (row?.song ?? '').trim()
+}
+
 /** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */
 export async function submitAccompanimentByThreeFactors(
   client: DatabaseClient,
   contentId: string,
   input: { name?: string, studentNo?: string, contact?: string },
-  file: { filename: string, data: Uint8Array }
+  file: { filename: string, data: Uint8Array },
+  song?: string
 ): Promise<CompetitionSongFormState> {
   const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
   const stage = songStage(client, eventRow.id, singer.id)
@@ -4151,6 +4284,16 @@ export async function submitAccompanimentByThreeFactors(
     .get()?.roundId)
   if (!round) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
+  }
+  const incoming = (song ?? '').trim()
+  if (incoming) {
+    client.db.update(competitionRoundEntries).set({ song: incoming })
+      .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
+    client.db.update(competitionSingers).set({ song: incoming })
+      .where(eq(competitionSingers.id, singer.id)).run()
+  }
+  if (!entrySongOf(client, stage.targetEntryId)) {
+    conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
   }
   await setEntryAccompaniment(client, round, stage.targetEntryId, file)
   return getSongEditor(client, contentId, input)
@@ -4182,8 +4325,12 @@ export async function buildAccompanimentArchive(
     const url = (entry.accompanimentUrl ?? '').trim()
     if (!url) continue
     const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
+    const cosKey = url.startsWith('cos:') ? url.slice(4) : ''
+    const config = cosConfig()
     try {
-      const data = await readFile(join(directory, url.split('/').at(-1) ?? ''))
+      const data = cosKey && config
+        ? new Uint8Array(await (await fetch(presignCosGet(config, cosKey, 900))).arrayBuffer())
+        : await readFile(join(directory, url.split('/').at(-1) ?? ''))
       files.push({ name: `${folder}/伴奏-${sanitizePathPart(song)}.${extension}`, data })
     } catch {
       files.push({

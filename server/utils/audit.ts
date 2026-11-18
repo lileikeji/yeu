@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { H3Event } from 'h3'
+import { getHeader, setHeader, type H3Event } from 'h3'
 import type { DatabaseClient } from '../database/client'
 import { auditLogs } from '../database/schema'
 import { resolveRequestId } from './request-context'

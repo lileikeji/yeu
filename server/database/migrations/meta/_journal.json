@@ -498,6 +498,20 @@
       "when": 1795050000000,
       "tag": "0070_yeuca_visits",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1795100000000,
+      "tag": "0071_yeuca_department_admins",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1795200000000,
+      "tag": "0072_treasure_stamps",
+      "breakpoints": true
     }
   ]
 }

@@ -21,7 +21,10 @@ test('pin card phone rows stay inside the card and dial through tel:', () => {
 
 test('pin popover uses native popover with css anchor positioning', () => {
   // popover 属性改成按能力挂：Chrome 114 之前没有 showPopover，`popover="auto"` 也不会隐藏。
-  assert.match(popoverSource, /:popover="supportsPopover \? 'auto' : undefined"/)
+  // T-035：popover 用 manual，不用 auto —— auto 会在 pointerdown 自行 light dismiss，
+  // 下一帧 syncOpen() 又把它开回来，@starting-style 重播成「闪一下」。
+  assert.match(popoverSource, /:popover="supportsPopover \? 'manual' : undefined"/)
+  assert.doesNotMatch(popoverSource, /:popover="supportsPopover \? 'auto'/)
   assert.match(popoverSource, /role="dialog"/)
   assert.match(popoverSource, /anchor-name: --pin-anchor/)
   assert.match(popoverSource, /position-anchor: --pin-anchor/)
@@ -244,4 +247,66 @@ test('bus and stop chips on the amap canvas ignore drag gestures', () => {
   assert.match(amapSource, /attachTapGesture\(element, selectVehicle\)/)
   assert.match(amapSource, /attachTapGesture\(element, selectTerminal\)/)
   assert.match(amapSource, /attachTapGesture\(element, selectStopDot\)/)
+})
+
+test('T-035：浮窗拖动不重播入场、玻璃圆角按真实像素同心', () => {
+  const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
+
+  // F1 拖动闪：manual popover + 只在 false→true 时 showPopover，入场只播一次。
+  assert.match(popoverSource, /const isOpening = wantOpen && !wantOpenLast/)
+  assert.match(popoverSource, /if \(isOpening && !visible\) \{/)
+  // 首次打开后挂 data-entered，@starting-style 只对没挂的生效。
+  assert.match(popoverSource, /:data-entered="entered \? 'true' : undefined"/)
+  assert.match(popoverSource, /\.pin-popover:popover-open:not\(\[data-entered\]\) \{/)
+  // light dismiss 自己实现：捕获阶段 + 排除卡片内部与锚点宿主。
+  assert.match(popoverSource, /document\.addEventListener\('pointerdown', onDocumentPointerDown, true\)/)
+  assert.match(popoverSource, /target\.closest\(PIN_ANCHOR_HOST_SELECTOR\)/)
+  // 点空白要等 pointerup 才判定：按下即关会把「拖地图」变成一闭一开，正是要修的闪。
+  assert.match(popoverSource, /document\.addEventListener\('pointerup', onDocumentPointerUp, true\)/)
+  assert.match(popoverSource, /LIGHT_DISMISS_DRAG_SLOP = 6/)
+
+  // F2 圆角：真实像素进 GlassTarget，按短边换算成 shader 的比例。
+  assert.match(glassSource, /radiusPx\?: number/)
+  assert.match(glassSource, /target\.radiusPx \/ Math\.min\(rect\.width, rect\.height\)/)
+  assert.match(pageSource, /'all', 14\)/)
+  // 折射态不留 DOM 边框：shader 的 rim 已画边缘，1px 边框会成双线。
+  // 断言必须落在折射态那条规则里 —— 全文搜 border-color: transparent 会被别的规则（如主按钮）满足，
+  // 删掉这条规则也照样绿。
+  const refractingRule = popoverSource.match(/\.pin-popover\.map-glass-refracting \{[^}]*\}/)?.[0] ?? ''
+  assert.match(refractingRule, /border-color: transparent;/, '折射态卡片没有隐藏 DOM 边框')
+  // rim 只画在内侧：圆角外侧的残余白线就是白月牙（CR-6 起色值与 alpha 共用这份掩码）。
+  assert.match(glassSource, /col \+= vec3\(1\.0\) \* rimMasked \* 0\.35;/)
+  // 关闭按钮与 14px 圆角共心：6px 内缩、24px 命中区。
+  assert.match(popoverSource, /\.pin-popover__close \{[^}]*inset-block-start: 6px;/)
+  assert.match(popoverSource, /\.pin-popover__close \{[^}]*inset-inline-end: 6px;/)
+  assert.match(popoverSource, /\.pin-popover__close \{[^}]*width: 24px;/)
+  assert.match(popoverSource, /\.pin-popover__close \{[^}]*height: 24px;/)
+})
+
+test('T-037：light dismiss 只在真点空白时关，玻璃 rim 内外一致', () => {
+  const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
+  const presSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+  // CR-1：新按压不接管旧手势；系统取消手势（来电、系统缩放）也要解除武装。
+  assert.match(popoverSource, /if \(dismissPointerId !== null\) \{\s*resetDismissGesture\(\)\s*return\s*\}/)
+  assert.match(popoverSource, /function resetDismissGesture\(\): void \{/)
+  assert.match(popoverSource, /document\.addEventListener\('pointercancel', onDocumentPointerCancel, true\)/)
+  assert.match(popoverSource, /document\.removeEventListener\('pointercancel', onDocumentPointerCancel, true\)/)
+  // CR-2：越过阈值即锁定为拖拽，拖回起点松手也不关。
+  assert.match(popoverSource, /let dismissDragged = false/)
+  assert.match(popoverSource, /document\.addEventListener\('pointermove', onDocumentPointerMove, true\)/)
+  assert.match(popoverSource, /if \(moved > LIGHT_DISMISS_DRAG_SLOP\) dismissDragged = true/)
+  assert.match(popoverSource, /if \(!props\.open \|\| dragged\) return/)
+  // CR-3：落点命中元素判内外，冲掉隐式指针捕获钉住的旧 target。
+  assert.match(popoverSource, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/)
+  // CR-4 / CR-5：点位二击吞掉、焦点归还前重判输入框。
+  assert.match(presSource, /export const PIN_DISMISS_TOGGLE_MS = 400/)
+  assert.match(pageSource, /resolvePinReselect\(record, selection, Date\.now\(\)\)/)
+  assert.match(pageSource, /if \(selection && swallowDismissedPinSelection\(selection\)\) return/)
+  assert.match(pageSource, /activeNow instanceof HTMLInputElement/)
+  assert.match(pageSource, /activeNow\?\.isContentEditable/)
+  // CR-6：rim 的色值与透明度共用同一份 inside 掩码。
+  assert.match(glassSource, /float rimMasked = rim \* inside;/)
+  assert.match(glassSource, /alpha \+= rimMasked \* 0\.25 \+ topLit \* 0\.12 \+ gloss \* 0\.06;/)
+  // CR-7：radiusPx = 0 是合法圆角，不能当成缺省落到旧比例路径。
+  assert.match(glassSource, /target\.radiusPx !== undefined && Number\.isFinite\(target\.radiusPx\)/)
 })
