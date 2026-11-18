@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { amapImportedPlaces } from './src/map-source/data/seeds/amap-imported-places.ts'
@@ -14,7 +15,11 @@ const root = import.meta.dirname
 const project = join(root, 'src/map-source')
 const scratch = join(root, 'src/atlas')
 const dir = join(project, 'public/adventure-map')
-const libDir = join(root, 'vendor/maplibre-gl')
+// maplibre 的 worker、css、LICENSE 与 npm 包 dist 里逐字节相同（已用 sha256 核对），
+// 所以直接从依赖读，仓库里只留那份没法从 npm 直接取得的 IIFE 包（见 vendor/maplibre-gl/VENDOR.json）。
+const maplibreRoot = join(root, '..', 'node_modules', 'maplibre-gl')
+const maplibreDist = join(maplibreRoot, 'dist')
+const libraryFile = join(root, 'vendor/maplibre-gl/maplibre-gl.iife.js')
 const artwork = join(root, 'artwork')
 const publishedArtwork = join(root, '..', 'public', 'treasure-artwork')
 const read = (file: string) => readFileSync(file, 'utf8')
@@ -22,7 +27,7 @@ const asset = (file: string, type: string) => `data:${type};base64,${readFileSyn
 const safe = (content: unknown) => JSON.stringify(content).replace(/</g, '\\u003c')
 const profile = JSON.parse(read(join(dir, 'terrain-profile.json')))
 const style = createAdventureStyle('http://atlas.invalid')
-delete style.glyphs
+Reflect.deleteProperty(style, 'glyphs')
 style.layers = style.layers.filter(layer => layer.id !== 'lake-names')
 const tileData: Record<string, string> = {}
 function addTiles(folder: string) {
@@ -85,7 +90,7 @@ style.layers.push(
 // MapLibre initializes image sources even when no layer renders them.
 const usedSources = new Set(['elevation', ...artworkIds, 'boundary', 'positionZone', 'bridgeRoute'])
 for (const id of Object.keys(style.sources)) {
-  if (!usedSources.has(id)) delete style.sources[id]
+  if (!usedSources.has(id)) Reflect.deleteProperty(style.sources, id)
 }
 
 // Six old-campus dorms still have a generic building category in the map import.
@@ -265,8 +270,8 @@ for (const entry of allActivity) {
 const icons = Object.fromEntries(['chest', 'oculus', 'oculus-done', 'waypoint'].map(key => [
   key, asset(join(project, 'public/images/adventure', `${key}.svg`), 'image/svg+xml')
 ]))
-const libraryCode = read(join(libDir, 'maplibre-gl.iife.js'))
-const workerCode = read(join(libDir, 'maplibre-gl-worker.mjs')).replace(/^\/\/# sourceMappingURL=.*$/gm, '')
+const libraryCode = read(libraryFile)
+const workerCode = read(join(maplibreDist, 'maplibre-gl-worker.mjs')).replace(/^\/\/# sourceMappingURL=.*$/gm, '')
 const taffy = Object.fromEntries([
   ['taffy-new-admin', '叶', '#386052'],
   ['taffy-zequan', '粉', '#825368'],
@@ -278,18 +283,22 @@ const data = { style, tileData, pins: reviewedPins, activity: allActivity,
   goal: adventureGoal, icons, taffy, characters, paradeDemo, elevation: profile.campusRange,
   artworkIds, artBounds: plates[0]!.bounds, pilot, bridgeRoute, pendingPlanNames }
 const rendered = read(join(scratch, 'shell.html'))
-  .replace('@@STYLE@@', () => read(join(libDir, 'maplibre-gl.css')).replace(/\/\*# sourceMappingURL=.*?\*\//g, '') + read(join(scratch, 'style.css')))
+  .replace('@@STYLE@@', () => read(join(maplibreDist, 'maplibre-gl.css')).replace(/\/\*# sourceMappingURL=.*?\*\//g, '') + read(join(scratch, 'style.css')))
   .replace('@@DATA@@', () => safe(data))
   .replace('@@WORKER@@', () => safe(workerCode))
   .replace('@@LIBRARY@@', () => libraryCode.replace(/<\/script/gi, '<\\/script'))
   .replace('@@SCRIPT@@', () => ['zodiac-motion.js', 'bridge-pilot.js', 'atlas.js'].map(file => read(join(scratch, file))).join('\n\n').replace(/<\/script/gi, '<\\/script'))
   .replaceAll('@@FALLBACK@@', () => `/treasure-artwork/${plates[0]!.file}`)
-  .replace('@@LICENSE@@', () => read(join(libDir, 'LICENSE.txt')).replace(/-->/g, '—>'))
+  .replace('@@LICENSE@@', () => read(join(maplibreRoot, 'LICENSE.txt')).replace(/-->/g, '—>'))
   .replace('@@ASSET_NOTICES@@', () => read(join(scratch, 'asset-notices.txt')).replace(/-->/g, '—>'))
 mkdirSync(join(root, 'outputs'), { recursive: true })
 const target = join(root, '..', 'server', 'assets', 'treasure', 'atlas.html')
 mkdirSync(dirname(target), { recursive: true })
 writeFileSync(target, rendered)
+writeFileSync(join(root, 'atlas.lock.json'), `${JSON.stringify({
+  atlas: { sha256: createHash('sha256').update(rendered).digest('hex'), bytes: Buffer.byteLength(rendered) },
+  maplibre: JSON.parse(read(join(maplibreRoot, 'package.json'))).version
+}, null, 2)}\n`)
 console.log(target, (Buffer.byteLength(rendered) / 1024 / 1024).toFixed(2), 'MB', 'pins', Object.groupBy(pins, p => p.kind) && Object.fromEntries(Object.entries(Object.groupBy(pins, p => p.kind)).map(([k, v]) => [k, v!.length])))
 const labels: Record<string, string> = { chest: '角色立牌', oculus: '神瞳', finish: '终点', taffy: '塔菲', classroom: '教学楼隐藏款', waypoint: '传送锚点', landmark: '地标', dorm: '宿舍搜索' }
 const originalPoints = new Map([...originalActivity, ...pins].map(entry => [entry.id, entry.point]))
