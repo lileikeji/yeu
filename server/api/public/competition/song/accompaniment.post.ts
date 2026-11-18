@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     return submitAccompanimentByThreeFactors(client, contentId, input, {
       filename: input.filename ?? '',
       data
-    })
+    }, input.song)
   } finally {
     endAudioUpload()
   }

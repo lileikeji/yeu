@@ -6,7 +6,8 @@ import {
   adminSessions,
   adminUsers,
   contents,
-  organizationAdminScopes
+  organizationAdminScopes,
+  yeucaDepartmentAdmins
 } from '../database/schema'
 import { verifyPassword } from './password'
 import { getClientIpAddress } from './client-ip'
@@ -35,6 +36,12 @@ function sessionIdleLimitMs(): number {
   return Math.min(168, Math.max(1, hours)) * 60 * 60 * 1000
 }
 
+export interface AdminYeucaScope {
+  role: 'chief' | 'minister'
+  departmentName: string | null
+  title: string
+}
+
 export interface AdminIdentity {
   id: string
   username: string
@@ -47,6 +54,7 @@ export interface AdminIdentity {
     slug: string
     title: string
   } | null
+  yeucaScope?: AdminYeucaScope | null
 }
 
 export interface AdminSessionContext {
@@ -76,6 +84,97 @@ function forbidden(code = 'ADMIN_SCOPE_FORBIDDEN'): never {
   })
 }
 
+function isValidOrganizationRow(row: {
+  contentId: string | null
+  contentKind: string | null
+  contentSlug: string | null
+  contentTitle: string | null
+}): row is {
+  contentId: string
+  contentKind: 'department' | 'club'
+  contentSlug: string
+  contentTitle: string
+} {
+  return Boolean(
+    row.contentId
+    && (row.contentKind === 'department' || row.contentKind === 'club')
+    && row.contentSlug
+    && row.contentTitle
+  )
+}
+
+function isComputerAssociationMeta(slug: string, title: string): boolean {
+  return slug === 'computer-association' || title === '计算机协会'
+}
+
+/** 统一解析组织管理员归属与计协总管/部长分权范围，同时兼容旧的社团单一绑定表。 */
+function resolveOrganizationAndYeucaScope(
+  client: DatabaseClient,
+  adminId: string,
+  role: 'super' | 'organization',
+  baseOrg: {
+    contentId: string | null
+    contentKind: string | null
+    contentSlug: string | null
+    contentTitle: string | null
+  }
+): {
+  organization: AdminIdentity['organization']
+  yeucaScope: AdminYeucaScope | null
+} {
+  if (role === 'super') {
+    return {
+      organization: null,
+      yeucaScope: { role: 'chief', departmentName: null, title: '平台总管' }
+    }
+  }
+
+  if (isValidOrganizationRow(baseOrg)) {
+    const organization: AdminIdentity['organization'] = {
+      contentId: baseOrg.contentId,
+      kind: baseOrg.contentKind,
+      slug: baseOrg.contentSlug,
+      title: baseOrg.contentTitle
+    }
+    const yeucaScope: AdminYeucaScope | null = isComputerAssociationMeta(baseOrg.contentSlug, baseOrg.contentTitle)
+      ? { role: 'chief', departmentName: null, title: '计协总管' }
+      : null
+    return { organization, yeucaScope }
+  }
+
+  const deptRow = client.db.select({
+    departmentName: yeucaDepartmentAdmins.departmentName,
+    title: yeucaDepartmentAdmins.title,
+    contentId: contents.id,
+    contentKind: contents.kind,
+    contentSlug: contents.slug,
+    contentTitle: contents.title
+  }).from(yeucaDepartmentAdmins)
+    .innerJoin(contents, eq(contents.id, yeucaDepartmentAdmins.contentId))
+    .where(eq(yeucaDepartmentAdmins.adminUserId, adminId))
+    .get()
+
+  if (deptRow && isValidOrganizationRow(deptRow)) {
+    return {
+      organization: {
+        contentId: deptRow.contentId,
+        kind: deptRow.contentKind,
+        slug: deptRow.contentSlug,
+        title: deptRow.contentTitle
+      },
+      yeucaScope: isComputerAssociationMeta(deptRow.contentSlug, deptRow.contentTitle)
+        ? {
+            role: 'minister',
+            departmentName: deptRow.departmentName,
+            title: deptRow.title || '部长'
+          }
+        : null
+    }
+  }
+
+  return { organization: null, yeucaScope: null }
+}
+
 function getAdminIdentity(client: DatabaseClient, adminId: string): AdminIdentity | null {
   const row = client.db.select({
     id: adminUsers.id,
@@ -94,18 +193,7 @@ function getAdminIdentity(client: DatabaseClient, adminId: string): AdminIdentit
     .get()
 
   if (!row) return null
-  const organization = row.role === 'organization'
-    && row.contentId
-    && (row.contentKind === 'department' || row.contentKind === 'club')
-    && row.contentSlug
-    && row.contentTitle
-    ? {
-        contentId: row.contentId,
-        kind: row.contentKind,
-        slug: row.contentSlug,
-        title: row.contentTitle
-      }
-    : null
+  const { organization, yeucaScope } = resolveOrganizationAndYeucaScope(client, row.id, row.role, row)
 
   return {
     id: row.id,
@@ -113,7 +201,8 @@ function getAdminIdentity(client: DatabaseClient, adminId: string): AdminIdentit
     displayName: row.displayName,
     role: row.role,
     mustChangePassword: row.mustChangePassword,
-    organization
+    organization,
+    yeucaScope
   }
 }
 
@@ -422,11 +511,10 @@ export function getOptionalAdminSession(
 
   const now = Date.now()
   const idleExpired = result ? (now - result.lastSeenAt) > sessionIdleLimitMs() : false
-  const organizationScopeMissing = result?.role === 'organization'
-    && (!result.contentId
-      || !result.contentSlug
-      || !result.contentTitle
-      || (result.contentKind !== 'department' && result.contentKind !== 'club'))
+  const resolvedScope = result
+    ? resolveOrganizationAndYeucaScope(client, result.adminId, result.role, result)
+    : { organization: null, yeucaScope: null }
+  const organizationScopeMissing = result?.role === 'organization' && !resolvedScope.organization
   if (!result || !result.isActive || result.expiresAt <= now || idleExpired || organizationScopeMissing) {
     if (result) {
       client.db.delete(adminSessions).where(eq(adminSessions.id, result.sessionId)).run()
@@ -470,14 +558,8 @@ export function getOptionalAdminSession(
       displayName: result.displayName,
       role: result.role,
       mustChangePassword: result.mustChangePassword,
-      organization: result.role === 'organization'
-        ? {
-            contentId: result.contentId!,
-            kind: result.contentKind as 'department' | 'club',
-            slug: result.contentSlug!,
-            title: result.contentTitle!
-          }
-        : null
+      organization: resolvedScope.organization,
+      yeucaScope: resolvedScope.yeucaScope
     },
     sessionId: result.sessionId,
     expiresAt: result.expiresAt,
