@@ -25,6 +25,9 @@ export const BASE_SECURITY_HEADERS = {
     'script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://res.wx.qq.com https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
     'style-src \'self\' \'unsafe-inline\' https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
     'img-src \'self\' data: blob: https:',
+    // 伴奏存在对象存储（COS）上，<audio> 直接播跨站地址；没有 media-src 时
+    // 会回落到 default-src 'self'，Chrome 报「Media load rejected by URL safety check」。
+    'media-src \'self\' blob: https:',
     'font-src \'self\' data:',
     'connect-src \'self\' https: wss:',
     'worker-src \'self\' blob:',
