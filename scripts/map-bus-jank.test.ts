@@ -34,7 +34,7 @@ test('T-031 B2：当前站圆点与导轨同心，左缘不再被裁', () => {
   assert.match(componentSource, /class="pointer-events-none absolute left-\[12px\] z-20 -translate-x-1\/2 -translate-y-1\/2"/, '当前站容器以导轨中心为锚点，水平垂直双向居中')
   // 回归（2026-11-16 m12430 截图）：站列 mask 会把绘制裁到自身 border box，
   // 14px 圆点中心在 16px 时会左溢 3px 被平切。用 -ml-2 + pl-2 把 mask 盒子向左扩 8px。
-  assert.match(componentSource, /class="relative -ml-2 grid h-full auto-rows-\[minmax\(32px,1fr\)\] pl-2 \[contain:layout\]"/, 'mask 盒子要向左扩 8px，圆点不得被 mask 裁切')
+  assert.match(componentSource, /class="relative -ml-2 grid min-h-full auto-rows-\[minmax\(32px,1fr\)\] pl-2 \[contain:layout\]"/, 'mask 盒子要向左扩 8px，圆点不得被 mask 裁切')
   assert.doesNotMatch(componentSource, /class="pointer-events-none absolute left-0 z-20 -translate-y-1\/2"/, '旧 left-0 半切实现必须消失')
   assert.match(componentSource, /class="absolute bottom-3 left-\[12px\] top-3 w-px bg-\[var\(--bus-accent-line\)\]"/, '导轨锚在 12px，与圆点同轴且不整体右移')
 })
@@ -48,7 +48,7 @@ test('T-031 B3：过渡期摘掉站列 mask，站列容器自带 containment', (
   // 回归（2026-11-16 用户截图）：paint containment 把内容裁到 padding box，车辆圆点
   // 中心在 left-[4px]（相对内层 12px 起 → 绝对 16px），14px 宽就会左溢 3px 被平切。
   assert.doesNotMatch(componentSource, /\[contain:layout_paint\]/, '站列容器不能用 paint containment，会裁掉出血的车辆圆点')
-  assert.match(componentSource, /mask-image: linear-gradient\(to bottom, black calc\(100% - 24px\), transparent\)/, '非过渡期渐隐仍在')
+  assert.match(componentSource, /calc\(100% - 12px\), transparent/, '非过渡期渐隐仍在（T-034 起只在真溢出时生效）')
   assert.equal(countOf(pageSource, 'sheetTransitioning.value = true'), 1, '起过渡要置位')
   assert.equal(countOf(pageSource, 'sheetTransitioning.value = false'), 1, '结束过渡要复位')
   assert.match(pageSource, /const sheetInteractionActive = computed\(\(\) => mobileSheetDragging\.value \|\| sheetTransitioning\.value\)/, '拖动与过渡共用同一个冻结开关')
