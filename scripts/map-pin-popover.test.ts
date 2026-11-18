@@ -270,7 +270,10 @@ test('T-035：浮窗拖动不重播入场、玻璃圆角按真实像素同心', 
   assert.match(glassSource, /target\.radiusPx \/ Math\.min\(rect\.width, rect\.height\)/)
   assert.match(pageSource, /'all', 14\)/)
   // 折射态不留 DOM 边框：shader 的 rim 已画边缘，1px 边框会成双线。
-  assert.match(popoverSource, /border-color: transparent;/)
+  // 断言必须落在折射态那条规则里 —— 全文搜 border-color: transparent 会被别的规则（如主按钮）满足，
+  // 删掉这条规则也照样绿。
+  const refractingRule = popoverSource.match(/\.pin-popover\.map-glass-refracting \{[^}]*\}/)?.[0] ?? ''
+  assert.match(refractingRule, /border-color: transparent;/, '折射态卡片没有隐藏 DOM 边框')
   // rim 只画在内侧：圆角外侧的残余白线就是白月牙（CR-6 起色值与 alpha 共用这份掩码）。
   assert.match(glassSource, /col \+= vec3\(1\.0\) \* rimMasked \* 0\.35;/)
   // 关闭按钮与 14px 圆角共心：6px 内缩、24px 命中区。
