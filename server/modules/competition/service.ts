@@ -1875,6 +1875,51 @@ export function setRoundDay(
  * 如果正好是当前这位，指针一并清空。
  */
 /** 后台给某一轮的某位选手改曲目：只动这一轮的条目，其它轮不受影响。 */
+/** 歌名比对用：去掉书名号、括号、空白与大小写差异，「《晴天》」与「晴天(伴奏)」视为同一首。 */
+export function songCompareKey(value: string | null | undefined): string {
+  return String(value ?? '')
+    .replace(/[《》〈〉"'"'「」]/g, '')
+    .replace(/[（([【][^）)】\]]{0,12}[）)】\]]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+}
+
+/**
+ * 同一个选手三场比赛不能唱同一首：查这个人其它轮次里已经记下的曲目。
+ * 复赛/决赛还算上选手库里的当前曲目（报名时填的那首通常只在 singers 里）。
+ */
+export function assertSongNotRepeated(
+  client: DatabaseClient,
+  eventId: string,
+  singerId: string,
+  song: string,
+  exceptRoundId?: string
+): void {
+  const key = songCompareKey(song)
+  if (!key) return
+  const rows = client.db.select({
+    key: competitionRounds.key,
+    roundId: competitionRounds.id,
+    entrySong: competitionRoundEntries.song
+  })
+    .from(competitionRoundEntries)
+    .innerJoin(competitionRounds, eq(competitionRounds.id, competitionRoundEntries.roundId))
+    .where(and(
+      eq(competitionRoundEntries.singerId, singerId),
+      eq(competitionRounds.eventId, eventId)
+    ))
+    .all()
+  for (const row of rows) {
+    if (row.roundId === exceptRoundId) continue
+    if (row.entrySong && songCompareKey(row.entrySong) === key) {
+      const label = row.key === 'prelim' ? '初赛' : row.key === 'semi' ? '复赛' : '决赛'
+      conflictError('SONG_REPEATED', `这首歌你在${label}已经唱过了，换一首`)
+    }
+  }
+  // 初赛曲目由 confirmAdvanceRoster 落进 prelim 条目，所以这里只比对条目就够；
+  // 不再读 singers.song（那是「最近一次填的歌」，会和当前轮自己撞上）。
+}
+
 export function setEntrySong(
   client: DatabaseClient,
   round: RoundRow,
@@ -1895,6 +1940,7 @@ export function setEntrySong(
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
     validationError('曲目要填具体歌名，不能填「待定」', 'song')
   }
+  assertSongNotRepeated(client, round.eventId, entry.singerId, value, round.id)
   if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
   client.db.update(competitionRoundEntries).set({ song: value })
     .where(eq(competitionRoundEntries.id, entryId)).run()
@@ -4100,6 +4146,23 @@ export function submitSongByThreeFactors(
     validationError('曲目要填具体歌名，不能填「待定」', 'song')
   }
   if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
+  assertSongNotRepeated(client, eventRow.id, singer.id, value)
+  // 改之前把旧曲目留到初赛那场，避免「初赛唱什么」随新歌被覆盖（也是重复唱的判定依据）。
+  const previous = (singer.song ?? '').trim()
+  if (previous && songCompareKey(previous) !== songCompareKey(value)) {
+    const prelimRound = getRoundByKey(client, eventRow.id, 'prelim')
+    const prelimEntry = client.db.select({ id: competitionRoundEntries.id, song: competitionRoundEntries.song })
+      .from(competitionRoundEntries)
+      .where(and(
+        eq(competitionRoundEntries.roundId, prelimRound.id),
+        eq(competitionRoundEntries.singerId, singer.id)
+      ))
+      .get()
+    if (prelimEntry && !(prelimEntry.song ?? '').trim()) {
+      client.db.update(competitionRoundEntries).set({ song: previous })
+        .where(eq(competitionRoundEntries.id, prelimEntry.id)).run()
+    }
+  }
   client.db.update(competitionSingers)
     .set({ song: value, updatedAt: Date.now() })
     .where(eq(competitionSingers.id, singer.id)).run()
@@ -4191,6 +4254,12 @@ export async function setEntryAccompaniment(
     songValue,
     sniffed || accompanimentExtension(stored.url)
   )
+  if (currentSong || fromFilename) {
+    const pending = currentSong || fromFilename
+    if (pending !== (entry.song ?? '').trim()) {
+      assertSongNotRepeated(client, round.eventId, entry.singerId, pending, round.id)
+    }
+  }
   let originalUrl: string | null = null
   let originalName: string | null = null
   let originalSize: number | null = null
@@ -4363,6 +4432,9 @@ export async function commitAccompanimentKey(
     songValue || singer?.song || '',
     sniffed || accompanimentExtension(file.key)
   )
+  if (songValue && songValue !== entrySong) {
+    assertSongNotRepeated(client, round.eventId, entry?.singerId ?? '', songValue, round.id)
+  }
   // 转码前的原始文件单独留档：导出伴奏包时按「原来上传的」给现场用。
   const keptOriginal = sourceKey !== originalKey
   client.db.update(competitionRoundEntries)
