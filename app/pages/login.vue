@@ -117,7 +117,7 @@ async function submitRegister(): Promise<void> {
       }
     })
     await refreshSession(true)
-    await navigateTo(redirectTarget(), { replace: true })
+    await navigateAfterLogin()
   } catch (error) {
     errorMessage.value = getRequestMessage(error, '注册失败')
   } finally {
@@ -135,6 +135,13 @@ function requestedRedirectTarget(): string | null {
 
 function redirectTarget(): string {
   return requestedRedirectTarget() ?? '/me'
+}
+
+function navigateAfterLogin() {
+  const target = redirectTarget()
+  // The treasure atlas is a Nitro document, outside the Nuxt page router.
+  const isTreasureAtlas = target === '/activities/treasure' || target.startsWith('/activities/treasure?')
+  return navigateTo(target, { replace: true, external: isTreasureAtlas })
 }
 
 const isChatRedirect = computed(() => {
@@ -173,7 +180,7 @@ async function checkExistingSession(): Promise<void> {
   try {
     await refreshSession(true)
     if (isAuthenticated.value) {
-      await navigateTo(redirectTarget(), { replace: true })
+      await navigateAfterLogin()
     }
   } finally {
     checkingSession.value = false
@@ -194,7 +201,7 @@ async function submitLogin(): Promise<void> {
   errorMessage.value = ''
   try {
     await login(username.value.trim(), password.value)
-    await navigateTo(redirectTarget(), { replace: true })
+    await navigateAfterLogin()
   } catch (error) {
     errorMessage.value = getRequestMessage(error, '账号或密码不正确')
   } finally {
