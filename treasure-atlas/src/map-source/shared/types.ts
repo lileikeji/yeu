@@ -308,6 +308,15 @@ export interface CompetitionEvent {
   registrationOpen: boolean
   /** 第几届，例如「2026 年 · 第 1 届」。 */
   edition: string
+  /** 算平均分时去掉一个最高分和一个最低分（至少 3 位评委才生效）。 */
+  trimExtremes: boolean
+  /** 1 = 当前届；换届后旧届数据仍留在库里，但界面上只操作当前届。 */
+  isCurrent: boolean
+  /** 预报名未到场的一键提醒模板。 */
+  reminderSubject: string
+  /** 邮件模板「加群按钮」跳转的 QQ 群链接，空 = 不显示按钮 */
+  qqGroupUrl: string
+  reminderBody: string
   /** 赛程：每轮的日期/时间/地点。 */
   schedule: CompetitionScheduleItem[]
   /** 报名表单字段（可改名、可设必填、可整项隐藏）。 */
@@ -327,7 +336,7 @@ export interface CompetitionScheduleItem {
 }
 
 export type CompetitionFormFieldKey
-  = | 'name' | 'className' | 'studentNo' | 'phone' | 'email' | 'song' | 'preferredDay'
+  = | 'name' | 'className' | 'studentNo' | 'phone' | 'email' | 'qq' | 'song' | 'preferredDay'
 
 export interface CompetitionFormField {
   key: CompetitionFormFieldKey
@@ -335,6 +344,8 @@ export interface CompetitionFormField {
   required: boolean
   enabled: boolean
 }
+
+export type CompetitionScorePrecision = 'integer' | 'decimal'
 
 export interface CompetitionRound {
   id: string
@@ -345,6 +356,12 @@ export interface CompetitionRound {
   judgeCount: number
   /** 本轮晋级下一轮的人数；决赛为 null。复赛为 null 表示名额待定。 */
   advanceCount: number | null
+  /** 晋级名单确认时间；空 = 还没确认，不能发结果邮件。 */
+  rosterConfirmedAt: number | null
+  /** 本轮结果查询通道是否已开（发出结果邮件后自动打开）。 */
+  resultQueryOpen: boolean
+  /** 打分精度：integer 只能整数；decimal 只能拖滑块，可带一位小数。 */
+  scorePrecision: CompetitionScorePrecision
   /** 分场天：1 / 2；null = 不分天（复赛、决赛）。 */
   activeDay: number | null
   createdAt: number
@@ -387,6 +404,8 @@ export interface CompetitionSinger extends CompetitionSingerPublic {
   studentNo: string | null
   phone: string | null
   email: string | null
+  /** QQ 号：结果查询的三要素之一。 */
+  qq: string | null
   /** admin = 后台录入/导入；form = 现场手填；pre = 预报名确认生成。 */
   source: 'admin' | 'form' | 'pre'
   preRegistrationId: string | null
@@ -399,6 +418,7 @@ export interface CompetitionPreRegistration {
   studentNo: string | null
   phone: string | null
   email: string | null
+  qq: string | null
   song: string | null
   /** 自选参赛日：1 / 2，空 = 没定；实际以现场签到为准。 */
   preferredDay: number | null
@@ -487,7 +507,7 @@ export interface CompetitionScore {
   updatedAt: number
 }
 
-export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'idle' | 'unknown'
+export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'skipped' | 'idle' | 'unknown'
 
 /** 选手自己在现场看到的排队情况。 */
 export interface CompetitionQueuePosition {
@@ -500,6 +520,38 @@ export interface CompetitionQueuePosition {
   total: number
 }
 
+/** 叫号台的一行：出场序、姓名、歌曲、班级、当前状态。 */
+export interface CompetitionCallBoardRow {
+  position: number
+  name: string
+  song: string
+  className: string
+  state: CompetitionQueueState
+  /** 前面还有几位（不含正在唱的那位）。 */
+  ahead: number | null
+}
+
+/** 免登录叫号台：只露出叫号要用的信息，不含电话、邮箱、评分。 */
+export interface CompetitionCallBoard {
+  round: {
+    key: string
+    title: string
+    status: CompetitionRoundStatus
+    activeDay: 1 | 2 | null
+  }
+  total: number
+  current: CompetitionCallBoardRow | null
+  next: CompetitionCallBoardRow | null
+  rows: CompetitionCallBoardRow[]
+  updatedAt: number
+}
+
+export interface CompetitionEntryAccompaniment {
+  name: string
+  url: string
+  size: number | null
+}
+
 export interface CompetitionRoundEntry {
   id: string
   singer: CompetitionSingerPublic
@@ -507,6 +559,14 @@ export interface CompetitionRoundEntry {
   sortOrder: number
   /** 分场天：1 / 2；null = 未分配。 */
   contestDay: number | null
+  /** 现场签到时间；null = 还没到场（评委看不到、不占排队位置）。 */
+  checkedInAt: number | null
+  /** 这一轮实际演唱的曲目；空 = 用选手库里登记的 song */
+  song: string | null
+  /** 这一轮上传的伴奏；复赛起使用，空 = 还没传。 */
+  accompaniment: CompetitionEntryAccompaniment | null
+  /** 1 = 已确认晋级下一轮，0 = 未晋级，null = 还没确认。 */
+  advanced: number | null
   advancedFromRank: number | null
   average: number | null
   scoreCount: number
@@ -523,12 +583,47 @@ export interface CompetitionRoundEntry {
   queuePosition?: number | null
 }
 
+/**
+ * 晋级名单的一行：谁在候选里、当前是否勾选、排第几。
+ * 名单微调时后台只改 `advanced`，确认后才落库并生成下一轮名单。
+ */
+export interface CompetitionAdvanceRow {
+  entryId: string
+  singer: CompetitionSingerPublic
+  average: number | null
+  scoreCount: number
+  rank: number | null
+  advanced: boolean
+}
+
+/** 结果查询回执状态。 */
+export interface CompetitionReceiptState {
+  singerName: string
+  roundKey: CompetitionRoundKey
+  roundTitle: string
+  confirmedAt: number | null
+}
+
+/** 三要素查到的一条结果：正文是发出去的那封邮件。 */
+export interface CompetitionResultLookup {
+  singerName: string
+  singerSong: string
+  roundKey: CompetitionRoundKey
+  roundTitle: string
+  subject: string
+  body: string
+  receiptToken: string
+  receipt: CompetitionReceiptState
+}
+
 export interface CompetitionRoundView extends CompetitionRound {
   entries: CompetitionRoundEntry[]
   judges: CompetitionJudge[]
   scores: CompetitionScore[]
   maxTotal: number
   hasScores: boolean
+  /** 后台显式开启了顺序评分（评委只能评当前这位）。 */
+  sequential: boolean
   /** 顺序评分：当前这位选手与全场提交情况；未开启顺序评分时为 null。 */
   current: CompetitionCurrentSinger | null
 }
@@ -570,6 +665,27 @@ export interface CompetitionAdminPayload {
   rounds: CompetitionRoundView[]
   email: CompetitionEmailState
   preRegistrations: CompetitionPreRegistration[]
+  /** 每轮的晋级名单（只有结束时才有内容）。 */
+  advance: Record<string, CompetitionAdvanceRow[]>
+  /** 每轮结果邮件的「收到」回执。 */
+  receipts: Record<string, CompetitionReceiptRow[]>
+  /** 历届（含当前届）：换届后可切回查看。 */
+  editions: CompetitionEdition[]
+}
+
+export interface CompetitionReceiptRow {
+  singerId: string
+  name: string
+  email: string | null
+  confirmedAt: number | null
+}
+
+export interface CompetitionEdition {
+  id: string
+  label: string
+  isCurrent: boolean
+  singerCount: number
+  createdAt: number
 }
 
 export interface CompetitionJudgePayload {
@@ -591,6 +707,10 @@ export interface CompetitionJudgePayload {
     title: string
     status: CompetitionRoundStatus
     advanceCount: number | null
+    /** 后台显式开启了顺序评分；false 时评委可自由选人打分。 */
+    sequential: boolean
+    /** 打分精度：integer 整数；decimal 小数（只能拖滑块）。 */
+    scorePrecision: CompetitionScorePrecision
   }
   singers: Array<CompetitionSingerPublic & {
     sortOrder: number

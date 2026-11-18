@@ -1,0 +1,8 @@
+{
+  "package": "maplibre-gl",
+  "version": "6.17.0",
+  "file": "maplibre-gl.iife.js",
+  "sha256": "e33bfd2b3177913604649ff1ec8b3ac30302271c3e75bb40841a74068086b798",
+  "reason": "npm 包的 dist 只提供 ESM（maplibre-gl.mjs），atlas 需要一段可内联的经典脚本，所以用 esbuild 打成 IIFE 后入库；worker、css、LICENSE 与 npm dist 逐字节相同，构建时直接从 node_modules 读，不再重复入库。",
+  "rebuild": "npx esbuild node_modules/maplibre-gl/dist/maplibre-gl.mjs --bundle --format=iife --global-name=maplibregl --minify --outfile=treasure-atlas/vendor/maplibre-gl/maplibre-gl.iife.js"
+}
