@@ -168,7 +168,12 @@ test('F-40 面板从搜索条放大：origin 50% calc(100% - 84px)、首帧 scal
   assert.match(mapPage, /const sheetBlooming = ref\(false\)/)
   assert.match(mapPage, /:data-sheet-bloom="sheetBlooming \? 'on' : 'off'"/)
   // Tailwind v4：工具类在 @layer utilities 里，无层级规则优先于任何层 —— 进了 utilities 层就会被 duration-[320ms] 抢走高度
-  assert.doesNotMatch(mapPage, /@layer utilities \{[\s\S]{0,800}?data-sheet-bloom/, 'bloom 规则进了 utilities 层，切换瞬间拿不到最终高度')
+  // 直接检查 utilities 块的正文，而不是按字符距离猜——相邻规则一多（叮叮车让位 CSS）就会误判
+  const utilitiesBlocks = [...mapPage.matchAll(/@layer utilities \{[\s\S]*?\r?\n\}/g)].map(match => match[0])
+  assert.ok(utilitiesBlocks.length > 0, '页面里找不到 @layer utilities 块')
+  for (const block of utilitiesBlocks) {
+    assert.doesNotMatch(block, /data-sheet-bloom/, 'bloom 规则进了 utilities 层，切换瞬间拿不到最终高度')
+  }
   // 只在离散切换 bloom：拖拽松手、bus 视图、水合未完成都跳过
   assert.match(mapPage, /if \(previous !== 'collapsed' \|\| state === 'collapsed'\) return/)
   assert.match(mapPage, /if \(Date\.now\(\) - sheetDragEndedAt < 240\) return/)
