@@ -1702,3 +1702,47 @@ export const yeucaActivityRegistrations = sqliteTable('yeuca_activity_registrati
   uniqueIndex('yeuca_activity_reg_unique').on(table.activityId, table.memberId),
   index('yeuca_activity_reg_member_idx').on(table.memberId)
 ])
+
+/**
+ * 计协官网访问记录。页面由 nginx 直出，前端埋点记 page_view；
+ * 公开接口由中间件记 api，两条来源统一进这张表，后台按 IP / 路径 / 时间切片看流量。
+ */
+export const yeucaVisits = sqliteTable('yeuca_visits', {
+  id: text('id').primaryKey(),
+  visitorId: text('visitor_id').notNull().default(''),
+  ip: text('ip').notNull().default(''),
+  country: text('country').notNull().default(''),
+  region: text('region').notNull().default(''),
+  city: text('city').notNull().default(''),
+  userAgent: text('user_agent').notNull().default(''),
+  isBot: integer('is_bot', { mode: 'boolean' }).notNull().default(false),
+  botName: text('bot_name').notNull().default(''),
+  action: text('action').notNull().default('page_view'),
+  path: text('path').notNull().default('/'),
+  method: text('method').notNull().default('GET'),
+  status: integer('status'),
+  durationMs: integer('duration_ms'),
+  referer: text('referer').notNull().default(''),
+  origin: text('origin').notNull().default(''),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('yeuca_visits_created_idx').on(table.createdAt),
+  index('yeuca_visits_ip_created_idx').on(table.ip, table.createdAt),
+  index('yeuca_visits_path_created_idx').on(table.path, table.createdAt),
+  index('yeuca_visits_visitor_created_idx').on(table.visitorId, table.createdAt),
+  index('yeuca_visits_bot_created_idx').on(table.isBot, table.createdAt)
+])
+
+/** 计协官网 IP 封禁表：拦的是来源地址，过期后自动失效。 */
+export const yeucaIpBans = sqliteTable('yeuca_ip_bans', {
+  ip: text('ip').primaryKey(),
+  reason: text('reason').notNull().default(''),
+  hits: integer('hits').notNull().default(0),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  expiresAt: integer('expires_at'),
+  bannedByAdminId: text('banned_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('yeuca_ip_bans_active_idx').on(table.isActive, table.expiresAt)
+])

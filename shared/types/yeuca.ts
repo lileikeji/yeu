@@ -417,3 +417,59 @@ export interface YeucaAdminOverviewPayload {
     gitSyncedMembers: number
   }
 }
+
+/* ---------------- 访问记录 ---------------- */
+
+export type YeucaVisitRange = '24h' | '7d' | '30d'
+
+export interface YeucaVisitListItem {
+  id: string
+  createdAt: number
+  ip: string
+  locationLabel: string
+  action: string
+  path: string
+  method: string
+  status: number | null
+  durationMs: number | null
+  userAgent: string
+  botName: string
+  isBot: boolean
+  referer: string
+  banned: boolean
+}
+
+export interface YeucaVisitsPayload {
+  range: YeucaVisitRange
+  retentionDays: number
+  summary: {
+    hits: number
+    pageViews: number
+    browsers: number
+    botHits: number
+    botRate: number
+    ips: number
+    visitors: number
+    series: Array<{ label: string, hits: number }>
+    topPaths: Array<{ path: string, hits: number, ips: number, lastAt: number }>
+    topIps: Array<{
+      ip: string
+      hits: number
+      paths: number
+      lastAt: number
+      isBot: boolean
+      botName: string
+      locationLabel: string
+      banned: boolean
+    }>
+    bursts: Array<{ ip: string, hits: number, lastAt: number, banned: boolean }>
+    bans: Array<{ ip: string, reason: string, hits: number, expiresAt: number | null }>
+  }
+  rows: YeucaVisitListItem[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    pages: number
+  }
+}
