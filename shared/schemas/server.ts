@@ -1498,6 +1498,7 @@ export const competitionSongAccompanimentSchema = z.object({
   studentNo: z.string().trim().min(1).max(30),
   contact: z.string().trim().min(4).max(120),
   filename: z.string().trim().max(160).optional(),
+  song: z.string().trim().max(100).optional(),
   data: z.string().min(16)
 }).strict()
 
