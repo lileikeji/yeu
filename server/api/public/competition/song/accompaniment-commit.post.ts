@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: 'Unsupported audio type', data: { code: 'UNSUPPORTED_AUDIO', message: '只收音频文件' } })
   }
   const name = (input.filename || '').trim().slice(0, 120) || input.key.split('/').at(-1) || '伴奏'
-  const saved = commitAccompanimentKey(
+  const saved = await commitAccompanimentKey(
     client,
     target.round,
     target.entryId,

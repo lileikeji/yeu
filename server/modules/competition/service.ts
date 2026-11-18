@@ -18,12 +18,12 @@ import {
   contents
 } from '../../database/schema'
 import { hashPasswordWithMinLength } from '../../utils/password'
-import { storeUploadedAudio } from '../../utils/uploaded-audio'
+import { detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
 import { createZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
-import { cosConfig, presignCosGet } from '../../utils/cos-storage'
+import { contentTypeForName, cosConfig, presignCosGet } from '../../utils/cos-storage'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -4129,9 +4129,10 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
   // 存的是 cos:<objectKey>，读的时候换成 6 小时有效的临时地址（桶是私有读）
   const config = cosConfig()
   const key = url.startsWith('cos:') ? url.slice(4) : ''
-  const playable = key && config ? presignCosGet(config, key) : url
+  const displayName = String(source.accompanimentName ?? '').trim()
+  const playable = key && config ? presignCosGet(config, key, 6 * 60 * 60, contentTypeForName(displayName, key)) : url
   return {
-    name: String(source.accompanimentName ?? '').trim() || url.split('/').at(-1) || '伴奏',
+    name: displayName || url.split('/').at(-1) || '伴奏',
     url: playable,
     size: source.accompanimentSize ?? null
   }
@@ -4152,10 +4153,12 @@ export async function setEntryAccompaniment(
   const stored = await storeUploadedAudio(file.data)
   const singer = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, entry.singerId)).get()
+  // 以文件头为准：用户把 .m4a 改名成 .mp3 上传时，只有嗅探能拿到真实容器。
+  const sniffed = detectUploadedAudioType(file.data)
   const name = accompanimentDisplayName(
     singer?.name ?? '',
     (entry.song ?? '').trim() || singer?.song || '',
-    accompanimentExtension(stored.url)
+    sniffed || accompanimentExtension(stored.url)
   )
   client.db.update(competitionRoundEntries)
     .set({
@@ -4214,13 +4217,27 @@ export function resolveAccompanimentTarget(
 }
 
 /** 直传完成后把 object key 记到出场记录上（url 存 cos:<key>，读时换成临时地址）。 */
-export function commitAccompanimentKey(
+/** 读 COS 对象前 16 字节判断真实容器（客户端给的扩展名不可信）。 */
+async function sniffCosAudioExtension(key: string): Promise<string | null> {
+  const config = cosConfig()
+  if (!config) return null
+  try {
+    const response = await fetch(presignCosGet(config, key, 120), { headers: { Range: 'bytes=0-15' } })
+    if (!response.ok) return null
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    return detectUploadedAudioType(bytes)
+  } catch {
+    return null
+  }
+}
+
+export async function commitAccompanimentKey(
   client: DatabaseClient,
   round: RoundRow,
   entryId: string,
   file: { key: string, name: string, size: number },
   song?: string
-): CompetitionEntryAccompaniment {
+): Promise<CompetitionEntryAccompaniment> {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
   const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
   const singer = entry
@@ -4233,10 +4250,11 @@ export function commitAccompanimentKey(
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
   }
   const songValue = incoming || entrySong
+  const sniffed = await sniffCosAudioExtension(file.key)
   const name = accompanimentDisplayName(
     singer?.name ?? '',
     songValue || singer?.song || '',
-    accompanimentExtension(file.key)
+    sniffed || accompanimentExtension(file.key)
   )
   client.db.update(competitionRoundEntries)
     .set({

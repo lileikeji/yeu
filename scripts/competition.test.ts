@@ -1930,7 +1930,7 @@ test('数据库：曲目名单按姓名拼音排，伴奏一栏分清传没传',
   const semi = getRoundByKey(client, event.id, 'semi')
   const semiEntries = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
   const target = semiEntries.find(entry => entry.singer.name === '安琪')!
-  commitAccompanimentKey(client, semi, target.id, {
+  await commitAccompanimentKey(client, semi, target.id, {
     key: 'competition/accompaniment/x.mp3',
     name: '鹿 be free.mp3',
     size: 5 * 1024 * 1024

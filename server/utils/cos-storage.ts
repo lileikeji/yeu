@@ -126,13 +126,21 @@ export function presignCosPut(config: CosConfig, key: string, _contentType?: str
 }
 
 /** 播放/下载用的临时 GET 地址（带 response-content-type，避免存成 video/mp4 时放不出来）。 */
-export function presignCosGet(config: CosConfig, key: string, expiresIn = 6 * 60 * 60): string {
+export function presignCosGet(config: CosConfig, key: string, expiresIn = 6 * 60 * 60, contentType?: string): string {
   return signCosUrl(config, {
     method: 'GET',
     key,
     expiresIn,
-    params: { 'response-content-type': contentTypeForKey(key) }
+    params: { 'response-content-type': contentType || contentTypeForKey(key) }
   })
+}
+
+/** 按展示文件名（姓名《曲目》.ext）推断播放用的 MIME。 */
+export function contentTypeForName(name: string | null | undefined, fallbackKey?: string): string {
+  const value = String(name || '').trim()
+  const match = value.match(/\.([a-z0-9]{2,5})$/i)
+  if (match) return contentTypeForKey(`x.${match[1]!.toLowerCase()}`)
+  return contentTypeForKey(fallbackKey || '')
 }
 
 /** 给一声部生成新的 object key（保留扩展名）。 */
