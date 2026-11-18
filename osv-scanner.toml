@@ -73,3 +73,28 @@ reason = "false positive via vendor shim：同 GHSA-6j4f-fj2g-mc7p（shim 委托
 id = "GHSA-qhr7-859c-m2p7"
 ignoreUntil = 2027-05-09
 reason = "false positive via vendor shim：同 GHSA-6j4f-fj2g-mc7p（shim 委托已修补5.0.12，无自有逻辑）。"
+
+# 2026-11-18：glob/minimatch 已通过 overrides 升到 14.0.2 / 11.0.5，下面两条是新暴露的。
+# nuxt 4.6.4 就是公告给出的 first_patched_version（installed == patched），
+# osv-scanner 仍按 <4.6.4 的区间把它标红，属扫描器区间解析的假阳性；上游一旦发新版本立即升级并删本组。
+[[IgnoredVulns]]
+id = "GHSA-96x6-fvhx-49hg"
+ignoreUntil = 2027-02-28
+reason = "false positive: installed nuxt 4.6.4 equals the advisory first_patched_version"
+
+[[IgnoredVulns]]
+id = "GHSA-f3x9-2chm-73c8"
+ignoreUntil = 2027-02-28
+reason = "false positive: installed nuxt 4.6.4 equals the advisory first_patched_version"
+
+[[IgnoredVulns]]
+id = "GHSA-hf59-9xwc-2g4p"
+ignoreUntil = 2027-02-28
+reason = "false positive: installed nuxt 4.6.4 equals the advisory first_patched_version"
+
+# picomatch 2.3.2 / 4.0.7：公告 FIXED VERSION 为空（上游无补丁），只被 glob/fast-glob 的构建期
+# 匹配链路使用，不进服务端运行时。每 30 天复查，上游发布修复后立刻升级。
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-02-28
+reason = "no upstream fix; build-time only (glob/fast-glob), not in server runtime; review monthly"
