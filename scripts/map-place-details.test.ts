@@ -17,10 +17,11 @@ const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.
 test('map place details use compact mobile and desktop-only floating panels', () => {
   // 拆分后整棵面板只挂一份，variant 由 matchMedia 断点切换：两份并挂会把同一地点在 DOM 里渲染两遍。
   assert.equal(pageSource.match(/<MapPlaceDetailsPanel\b/g)?.length, 1)
-  assert.match(pageSource, /:variant="panelIsDesktop \? 'desktop' : 'mobile'"/)
+  // T-028：手机不再有底部详情卡，整棵面板只挂桌面分支。
+  assert.match(pageSource, /v-if="selectedPoi && panelIsDesktop"/)
   assert.match(pageSource, /const PANEL_DESKTOP_MEDIA_QUERY = '\(min-width: 768px\)'/)
   assert.doesNotMatch(pageSource, /variant="mobile"/)
-  assert.doesNotMatch(pageSource, /variant="desktop"/)
+  assert.match(pageSource, /^\s+variant="desktop"$/m)
   assert.match(pageSource, /@copy="copyPoiLocation\(selectedPoi\)"/)
   assert.match(pageSource, /@plan-route="startWalkingRoute\(selectedPoi\.name, selectedPoi\.point\)"/)
   assert.match(poiComposableSource, /On mobile, free the bottom list sheet so the floating place card can show over the map/)
@@ -67,10 +68,11 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   )
   assert.match(pageSource, /class="min-h-10(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*\s+md:mt-3(?:\s+dark:[^"\s]+)*\s+md:min-h-11(?:\s+dark:[^"\s]+)*"/)
   assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
-  assert.match(detailsSource, /max-h-\[min\(56dvh,30rem\)\]/)
-  assert.match(detailsSource, /md:hidden/)
+  // T-028：手机分支已删除，只剩桌面定位类。
+  assert.doesNotMatch(detailsSource, /max-h-\[min\(56dvh,30rem\)\]/)
+  assert.doesNotMatch(detailsSource, /md:hidden/)
   assert.match(detailsSource, /hidden md:absolute/)
-  assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+var\(--mobile-dock-inset\)\+var\(--mobile-dock-extra,0rem\)\+env\(safe-area-inset-bottom\)\+0\.5rem\)\]/)
+  assert.doesNotMatch(detailsSource, /--mobile-nav-height/)
   assert.match(pageSource, /min-h-0 overflow-hidden bg-\[var\(--surface\)\]/)
   assert.doesNotMatch(pageSource, /min-h-\[34rem\]/)
   assert.match(layoutSource, /v-if="!isMapPage && !isSearchPage"/)
@@ -320,7 +322,7 @@ test('search results block sits next to the toggle button instead of inside it',
   assert.ok(closeAt > 0, '「展开/收起」按钮应正常闭合')
   assert.ok(resultsAt > closeAt, '搜索结果块必须在按钮闭合之后，不能嵌在按钮里')
   // 结果条目仍然是 selectPoi 的入口，移出按钮后不许丢。
-  assert.match(pageSource, /v-for="place in nativeSearchResults"[\s\S]{0,400}?@click="selectPoi\(place\)"/)
+  assert.match(pageSource, /v-for="place in nativeSearchResults"[\s\S]{0,400}?@click="selectPoiFromSheet\(place\)"/)
 })
 
 test('mobile dock search input stays visible while searching', () => {

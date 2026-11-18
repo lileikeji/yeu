@@ -111,6 +111,13 @@ test('查专业在发现页目录里有一级入口', () => {
   expect(source).toContain('to: \'/competition\'')
 })
 
+test('活动页链接到手绘地图和彩虹桥', () => {
+  const source = fileContents.get('app/pages/activities/index.vue') ?? ''
+  expect(source).toContain('to="/activities/treasure"')
+  expect(source).toContain('to="/activities/treasure?point=rainbow-bridge"')
+  expect(existsSync('server/routes/activities/treasure.get.ts')).toBe(true)
+})
+
 test('已下线的调研页不再出现在页面目录里', () => {
   for (const route of RETIRED_PAGES) {
     expect(existsSync(join('app/pages', route.slice(1) + '.vue'))).toBe(false)

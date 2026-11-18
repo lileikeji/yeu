@@ -131,6 +131,7 @@ test('public read APIs only enable short caching after successful data preparati
       normalizedPath === 'track/stats.get.ts'
       || normalizedPath === 'competition/register/queue.get.ts'
       || normalizedPath === 'competition/call-board.get.ts'
+      || normalizedPath === 'treasure/pilot.get.ts'
     ) {
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
       assert.doesNotMatch(source, /'Cache-Control': 'public,/)

@@ -71,15 +71,15 @@ test('暖橙收成 --bus-accent 三 token，组件里没有裸色值', () => {
   assert.match(cssSource, /--bus-accent-soft: color-mix\(in srgb, var\(--bus-accent\) 12%, var\(--surface\)\)/)
 })
 
-test('站行 32px：七站一屏不滚，56 不再当站行常量', () => {
+test('站行 32px：放得下时等分、放不下时滚动，56 不再当站行常量', () => {
   assert.match(componentSource, /const STOP_ROW_HEIGHT = 32/)
   assert.doesNotMatch(componentSource, /STOP_ROW_HEIGHT = 56/)
   assert.match(componentSource, /Math\.max\(STOP_ROW_HEIGHT, listHeight\.value \/ count\)/)
   assert.match(componentSource, /auto-rows-\[minmax\(32px,1fr\)\]/)
-  assert.match(componentSource, /grid h-full auto-rows-\[minmax\(32px,1fr\)\]/)
-  // 展开态靠拉伸行高填满 548，不靠滚动
-  assert.doesNotMatch(sheetSource, /overflow-y-auto/)
-  assert.match(sheetSource, /overflow-hidden/)
+  assert.match(componentSource, /grid min-h-full auto-rows-\[minmax\(32px,1fr\)\]/)
+  // T-034：半屏 326 装不下 7 站，站列必须能滚；放得下时仍靠 min-h-full 等分拉满。
+  assert.match(sheetSource, /overflow-y-auto overscroll-contain px-3 scrollbar-none/)
+  assert.doesNotMatch(sheetSource, /min-h-0 flex-1 overflow-hidden px-3/)
 })
 
 test('面板内挂 sheet 变体，三态手势与「回到地点列表」闭环齐全', () => {
@@ -138,12 +138,13 @@ test('车辆卡：有车是暖橙描边卡，车名 + 正驶向 + 右侧 ETA', (
   assert.match(componentSource, /v-else[\s\S]{0,700}?vehicleLine/)
 })
 
-test('站列底部 24px 渐隐：最后一行被半屏切掉时不再硬切（F33 方案 A）', () => {
+test('站列底部渐隐按需：只有真溢出才给 12px（T-034 D2）', () => {
   assert.match(componentSource, /data-bus-stops-fade/)
-  assert.match(componentSource, /mask-image: linear-gradient\(to bottom, black calc\(100% - 24px\), transparent\)/)
-  assert.match(componentSource, /-webkit-mask-image: linear-gradient\(to bottom, black calc\(100% - 24px\), transparent\)/)
-  // 渐隐挂在不滚动的站列网格上；盖白纱会把 66% 玻璃糊实，所以断言不再出现背景渐变那版
+  assert.match(componentSource, /linear-gradient\(to bottom, black calc\(100% - 12px\), transparent\)/)
+  assert.match(componentSource, /'-webkit-mask-image': STOPS_FADE_MASK/)
+  assert.match(componentSource, /'mask-image': STOPS_FADE_MASK/)
+  // 渐隐挂在滚动容器自己身上（视口底边才是要提示的位置）；盖白纱会把 66% 玻璃糊实。
   const at = componentSource.indexOf('data-bus-stops-fade')
-  assert.equal(componentSource.slice(at, at + 400).includes('grid h-full auto-rows-[minmax(32px,1fr)]'), true)
+  assert.equal(componentSource.slice(at, at + 700).includes('grid min-h-full auto-rows-[minmax(32px,1fr)]'), true)
   assert.doesNotMatch(componentSource, /data-bus-stops-fade[\s\S]{0,300}?linear-gradient\(to top/)
 })
