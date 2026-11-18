@@ -286,16 +286,17 @@ let glassLowFpsSamples = 0
 function resolveGlassTargets(): GlassTarget[] {
   if (!glassEnabled.value || glassStrengthScale.value <= 0) return []
   const targets: GlassTarget[] = []
-  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' | 'top' = 'all'): void => {
-    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost, rim, bandEdges })
+  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' | 'top' = 'all', radiusPx?: number): void => {
+    if (element) targets.push({ element, radius, radiusPx, strengthMul: strengthMul * glassStrengthScale.value, frost, rim, bandEdges })
   }
   push(glassChipsElement.value, 0.5, 2, 0.25)
   // T-030：面板左右那两条乳白竖带来自边缘 band（0.043 原先是圆角半径，被 band 一起吃了）。
   // radius 收到 0.008，band 交给 bandEdges='top' 只由上边驱动：左右是屏幕边，没有水切面语义。
   // 圆角的裁切在外壳 CSS，rim 仍为 0；顶边高光与折射保留。
   push(mobileSheetElement.value, 0.008, 2.2, 0.18, 0, 'top')
-  // 点位浮窗：262 宽卡、圆角 14（14/262 ≈ 0.055），四边都有水切面所以 bandEdges='all' + rim 1。
-  push(pinPopoverElement.value?.rootElement ?? null, 0.055, 2.2, 0.16, 1, 'all')
+  // 点位浮窗：圆角 14 CSS px 按短边换算（T-035）。比例 0.055 是按 262 宽度猜的，卡片变高后
+  // 折算出的圆角只有 8px，与 CSS 的 14px 不同心，四角露出白月牙。四边都有水切面 → bandEdges='all' + rim 1。
+  push(pinPopoverElement.value?.rootElement ?? null, 0.055, 2.2, 0.16, 1, 'all', 14)
   // T-033：搜索胶囊已并入底部合成块，这里不再单独注册 target。
   return targets
 }
