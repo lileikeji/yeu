@@ -1612,3 +1612,93 @@ export const yeucaProjects = sqliteTable('yeuca_projects', {
   index('yeuca_projects_pub_order_idx').on(table.isPublished, table.sortOrder),
   check('yeuca_projects_status_check', sql`${table.status} in ('active', 'maintaining', 'planning')`)
 ])
+
+/** 仰恩大学计算机协会成员台账与开放注册白名单。 */
+export const yeucaMembers = sqliteTable('yeuca_members', {
+  id: text('id').primaryKey(),
+  studentNo: text('student_no').notNull(),
+  name: text('name').notNull(),
+  gradeMajorClass: text('grade_major_class').notNull().default(''),
+  department: text('department').notNull().default(''),
+  roleTitle: text('role_title').notNull().default('会员'),
+  term: text('term').notNull().default(''),
+  phone: text('phone').notNull().default(''),
+  qq: text('qq').notNull().default(''),
+  email: text('email').notNull().default(''),
+  gitUsername: text('git_username').notNull().default(''),
+  gitUserId: integer('git_user_id'),
+  gitSynced: integer('git_synced', { mode: 'boolean' }).notNull().default(false),
+  gitSyncError: text('git_sync_error').notNull().default(''),
+  memberStatus: text('member_status', { enum: ['pending', 'active', 'disabled'] }).notNull().default('pending'),
+  passwordHash: text('password_hash').notNull().default(''),
+  bio: text('bio').notNull().default(''),
+  skillsJson: text('skills_json').notNull().default('[]'),
+  notes: text('notes').notNull().default(''),
+  recruitSubmissionId: text('recruit_submission_id'),
+  registeredAt: integer('registered_at'),
+  lastLoginAt: integer('last_login_at'),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('yeuca_members_student_no_unique').on(table.studentNo),
+  uniqueIndex('yeuca_members_git_username_unique').on(table.gitUsername).where(sql`${table.gitUsername} != ''`),
+  index('yeuca_members_status_dept_idx').on(table.memberStatus, table.department),
+  check('yeuca_members_status_check', sql`${table.memberStatus} in ('pending', 'active', 'disabled')`)
+])
+
+/** 计协成员登录会话（服务官网会员中心与活动操作）。 */
+export const yeucaMemberSessions = sqliteTable('yeuca_member_sessions', {
+  id: text('id').primaryKey(),
+  memberId: text('member_id').notNull().references(() => yeucaMembers.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  lastSeenAt: integer('last_seen_at').notNull(),
+  userAgent: text('user_agent').notNull().default(''),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('yeuca_member_sessions_token_unique').on(table.tokenHash),
+  index('yeuca_member_sessions_member_idx').on(table.memberId),
+  index('yeuca_member_sessions_expires_idx').on(table.expiresAt)
+])
+
+/** 计协独立直管活动排期（可直接创建、编辑、发布及管理会员报名签到）。 */
+export const yeucaActivities = sqliteTable('yeuca_activities', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  deptName: text('dept_name').notNull().default('协会全体'),
+  category: text('category').notNull().default('技术培训'),
+  summary: text('summary').notNull(),
+  body: text('body').notNull().default(''),
+  placeName: text('place_name').notNull().default('校内场地 / 群内通知'),
+  room: text('room').notNull().default(''),
+  startsAt: integer('starts_at').notNull(),
+  endsAt: integer('ends_at'),
+  allowRegistration: integer('allow_registration', { mode: 'boolean' }).notNull().default(true),
+  maxParticipants: integer('max_participants').notNull().default(0),
+  status: text('status', { enum: ['draft', 'published', 'archived'] }).notNull().default('published'),
+  photosJson: text('photos_json').notNull().default('[]'),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('yeuca_activities_slug_unique').on(table.slug),
+  index('yeuca_activities_status_start_idx').on(table.status, table.startsAt),
+  check('yeuca_activities_status_check', sql`${table.status} in ('draft', 'published', 'archived')`)
+])
+
+/** 计协会员活动报名与签到记录。 */
+export const yeucaActivityRegistrations = sqliteTable('yeuca_activity_registrations', {
+  id: text('id').primaryKey(),
+  activityId: text('activity_id').notNull().references(() => yeucaActivities.id, { onDelete: 'cascade' }),
+  memberId: text('member_id').notNull().references(() => yeucaMembers.id, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['registered', 'checked_in', 'cancelled'] }).notNull().default('registered'),
+  note: text('note').notNull().default(''),
+  checkedInAt: integer('checked_in_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('yeuca_activity_reg_unique').on(table.activityId, table.memberId),
+  index('yeuca_activity_reg_member_idx').on(table.memberId)
+])

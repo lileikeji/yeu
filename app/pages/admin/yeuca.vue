@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type {
   YeucaAdminOverviewPayload,
-  YeucaCompetitionItem,
   YeucaDepartment,
-  YeucaFaqItem,
   YeucaGalleryItem,
   YeucaPostItem,
   YeucaPostKind,
@@ -13,11 +11,19 @@ import type {
   YeucaSiteExtras
 } from '~~/shared/types/yeuca'
 import { adminFetch } from '~~/app/utils/admin-request'
+import {
+  createEditableExtrasState,
+  type EditableYeucaExtrasState
+} from '~~/shared/utils/yeuca-defaults'
+import YeucaMembersPanel from '~~/app/components/admin/yeuca/YeucaMembersPanel.vue'
+import YeucaRecruitPanel from '~~/app/components/admin/yeuca/YeucaRecruitPanel.vue'
+import YeucaActivitiesPanel from '~~/app/components/admin/yeuca/YeucaActivitiesPanel.vue'
+import YeucaSiteContentPanel from '~~/app/components/admin/yeuca/YeucaSiteContentPanel.vue'
 
 definePageMeta({ layout: 'admin' })
 
 useSeoMeta({
-  title: '仰恩大学计算机协会 · 主站与内容控制台',
+  title: '仰恩大学计算机协会 · 主站、成员与 Git 控制台',
   robots: 'noindex, nofollow'
 })
 
@@ -28,28 +34,21 @@ interface SessionPayload {
   }
 }
 
-type StudioTab = 'departments' | 'posts' | 'projects' | 'studio'
-
-const DEFAULT_COMPETITION_SEEDS: YeucaCompetitionItem[] = [
-  { name: '蓝桥杯全国软件和信息技术专业人才大赛', track: '程序 / 安全', dept: '编程部 · 网络安全部', site: 'dasai.lanqiao.cn', href: 'https://dasai.lanqiao.cn/' },
-  { name: '华为 ICT 大赛（网络与云赛道）', track: '网络工程', dept: '网络工程部', site: 'e.huawei.com', href: 'https://e.huawei.com/cn/talent/ict-academy/' },
-  { name: '新华三杯全国大学生数字技术大赛', track: '路由交换', dept: '网络工程部', site: 'h3c.com', href: 'https://www.h3c.com/' },
-  { name: '全国大学生信息安全竞赛 & 省数据安全大赛', track: '安全攻防', dept: '网络安全部', site: 'ciscn.cn', href: 'https://www.ciscn.cn/' },
-  { name: '「西门子杯」中国智能制造挑战赛', track: '工程实践', dept: '编程部 · 运维部', site: 'siemenscup-cimc.org.cn', href: 'https://www.siemenscup-cimc.org.cn/' }
-]
-
-const DEFAULT_FAQ_SEEDS: YeucaFaqItem[] = [
-  { q: '完全零基础，电脑都没怎么折腾过，可以加入吗？', a: '可以。不管什么专业、以前有没有敲过代码，开学各部门都会从装编辑器和配置环境开始带。' },
-  { q: '加入计协跟专业课学习会冲突吗？', a: '交流和培训一般放在晚上或周末非上课时间，自愿过来；期末复习周和考试周会暂停常规活动，先顾好自己课程考试。' },
-  { q: '各个部门之间怎么选？能不能跨组旁听？', a: '想做 AI 应用和小脚本选 AI 部；想练算法题打蓝桥杯选编程部；偏爱配路由交换选网络工程部；对 CTF 靶场安全感兴趣选网络安全部；爱折腾 Linux 和拆装电脑选运维部；想做海报摄影或写文选宣传部。协会内公开分享课都可以跨组旁听。' },
-  { q: '没有独立显卡或高性能电脑，也能参与 AI 部和编程训练吗？', a: '可以。入门写 Python 脚本、工作流编排和算法题在普通轻薄本上都能跑，问答服务调用走接口就行，不用本地显卡。' }
-]
+type StudioTab
+  = | 'members'
+    | 'recruit'
+    | 'activities'
+    | 'departments'
+    | 'posts'
+    | 'projects'
+    | 'sitecontent'
+    | 'studio'
 
 const toast = useToast()
 const loading = ref(true)
 const errorMessage = ref('')
 const mustChangePassword = ref(false)
-const activeTab = ref<StudioTab>('departments')
+const activeTab = ref<StudioTab>('members')
 
 const overview = ref<YeucaAdminOverviewPayload | null>(null)
 
@@ -68,10 +67,10 @@ const settingsForm = reactive({
 const extrasForm = reactive({
   heroImageUrl: '',
   flagshipNote: '',
-  gallery: [] as YeucaGalleryItem[],
-  competitions: [] as YeucaCompetitionItem[],
-  faqs: [] as YeucaFaqItem[]
+  gallery: [] as YeucaGalleryItem[]
 })
+
+const siteContentState = ref<EditableYeucaExtrasState>(createEditableExtrasState(undefined))
 
 const departmentsDraft = ref<YeucaDepartment[]>([])
 const editingDeptIdx = ref<number | null>(null)
@@ -239,14 +238,9 @@ async function loadOverview(): Promise<void> {
     extrasForm.gallery = Array.isArray(extras.gallery)
       ? extras.gallery.map(item => ({ ...item }))
       : []
-    extrasForm.competitions = Array.isArray(extras.competitions)
-      ? extras.competitions.map(item => ({ ...item }))
-      : []
-    extrasForm.faqs = Array.isArray(extras.faqs)
-      ? extras.faqs.map(item => ({ ...item }))
-      : []
+    siteContentState.value = createEditableExtrasState(extras)
   } catch (error) {
-    errorMessage.value = '计算机协会管理数据加载失败，请确认当前账号权限。'
+    errorMessage.value = '管理数据加载失败，先看账号权限。'
     showApiError(error, '加载失败')
   } finally {
     loading.value = false
@@ -267,7 +261,9 @@ function buildExtrasPayload(): YeucaSiteExtras {
       caption: item.caption.trim(),
       imageUrl: item.imageUrl.trim()
     }))
-  const cleanComps = extrasForm.competitions
+
+  const sc = siteContentState.value
+  const cleanComps = sc.competitions
     .filter(item => item.name.trim() && item.track.trim() && item.dept.trim())
     .map(item => ({
       name: item.name.trim(),
@@ -276,7 +272,7 @@ function buildExtrasPayload(): YeucaSiteExtras {
       site: (item.site || '').trim(),
       href: (item.href || '').trim()
     }))
-  const cleanFaqs = extrasForm.faqs
+  const cleanFaqs = sc.faqs
     .filter(item => item.q.trim() && item.a.trim())
     .map(item => ({ q: item.q.trim(), a: item.a.trim() }))
 
@@ -285,11 +281,25 @@ function buildExtrasPayload(): YeucaSiteExtras {
     ...(extrasForm.flagshipNote.trim() ? { flagshipNote: extrasForm.flagshipNote.trim() } : {}),
     ...(cleanGallery.length ? { gallery: cleanGallery } : {}),
     ...(cleanComps.length ? { competitions: cleanComps } : {}),
-    ...(cleanFaqs.length ? { faqs: cleanFaqs } : {})
+    ...(cleanFaqs.length ? { faqs: cleanFaqs } : {}),
+    homeAnnouncement: sc.homeAnnouncement,
+    homeHero: sc.homeHero,
+    homeEntries: sc.homeEntries.filter(e => e.title.trim()),
+    featureFlags: sc.featureFlags,
+    aiWorkflowSteps: sc.aiWorkflowSteps.filter(s => s.title.trim()),
+    seasonalRhythm: sc.seasonalRhythm.filter(r => r.title.trim()),
+    archiveTimeline: sc.archiveTimeline.filter(t => t.title.trim()),
+    volatileChecklist: sc.volatileChecklist.filter(c => c.item.trim() && c.source.trim()),
+    practiceTopics: sc.practiceTopics.filter(p => p.title.trim()),
+    starterLinks: sc.starterLinks.filter(l => l.title.trim() && l.url.trim()),
+    mirrors: sc.mirrors.filter(m => m.name.trim() && m.cmd.trim()),
+    scriptOptions: sc.scriptOptions.filter(o => o.label.trim() && o.ps1.length && o.sh.length),
+    ...(sc.footerNote.trim() ? { footerNote: sc.footerNote.trim() } : {}),
+    friendLinks: sc.friendLinks.filter(f => f.label.trim() && f.href.trim())
   }
 }
 
-async function persistSiteSettings(successMessage = '主站配置与部门架构已保存并实时生效'): Promise<boolean> {
+async function persistSiteSettings(successMessage = '已保存'): Promise<boolean> {
   savingSettings.value = true
   try {
     await adminFetch('/api/admin/yeuca/settings', {
@@ -316,6 +326,11 @@ async function persistSiteSettings(successMessage = '主站配置与部门架构
   } finally {
     savingSettings.value = false
   }
+}
+
+async function saveSiteContentState(nextState: EditableYeucaExtrasState): Promise<void> {
+  siteContentState.value = nextState
+  await persistSiteSettings('已保存')
 }
 
 /* ---------- 部门 CRUD（所有操作即时写库） ---------- */
@@ -663,22 +678,6 @@ function removeGalleryItem(index: number): void {
   extrasForm.gallery.splice(index, 1)
 }
 
-function loadDefaultCompetitions(): void {
-  extrasForm.competitions = DEFAULT_COMPETITION_SEEDS.map(item => ({ ...item }))
-}
-
-function addCompetitionRow(): void {
-  extrasForm.competitions.push({ name: '', track: '技术竞赛', dept: departmentsDraft.value[0]?.name || 'AI 部', site: '', href: '' })
-}
-
-function loadDefaultFaqs(): void {
-  extrasForm.faqs = DEFAULT_FAQ_SEEDS.map(item => ({ ...item }))
-}
-
-function addFaqRow(): void {
-  extrasForm.faqs.push({ q: '', a: '' })
-}
-
 const postStatusMeta: Record<YeucaPostStatus, { label: string, color: 'success' | 'warning' | 'neutral' }> = {
   published: { label: '已发布', color: 'success' },
   draft: { label: '草稿', color: 'warning' },
@@ -744,9 +743,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 font-mono text-zinc-300">
                 主站：yeuca.huiliyill.cn
               </span>
-              <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 text-zinc-300">
-                yeuca.huiliyill.cn/admin ⇄ yx.huiliyill.cn/admin 互通
-              </span>
               <span
                 v-if="lastSavedAt"
                 class="font-mono text-emerald-300"
@@ -763,10 +759,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               >
               <div>
                 <h1 class="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                  仰恩大学计算机协会 · 主站与内容后台
+                  仰恩大学计算机协会 · 主站、成员与 Git 控制台
                 </h1>
                 <p class="mt-0.5 max-w-3xl text-sm leading-6 text-zinc-300">
-                  编辑官网标语简介、部门增删改查、发布动态和笔记、传迎新二维码与实景图；YeU 迎新平台作为校园应用联动展示。
+                  成员名录、招新审批、活动签到、各页文案，还有会员的 Git 代码站账号。
                 </p>
               </div>
             </div>
@@ -782,6 +778,15 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               class="!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
             />
             <UButton
+              to="https://yeuca.huiliyill.cn/member/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-user-round"
+              label="主站会员入口"
+              color="neutral"
+              variant="subtle"
+            />
+            <UButton
               to="https://yeuca.huiliyill.cn/git/"
               target="_blank"
               rel="noopener noreferrer"
@@ -790,29 +795,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               color="neutral"
               variant="subtle"
             />
-            <UButton
-              to="https://yx.huiliyill.cn/clubs/computer-association"
-              target="_blank"
-              rel="noopener noreferrer"
-              icon="i-lucide-link"
-              label="YeU 计协名片"
-              color="neutral"
-              variant="outline"
-            />
-            <UButton
-              to="/admin/activities"
-              icon="i-lucide-calendar-days"
-              label="活动排期"
-              color="neutral"
-              variant="outline"
-            />
-            <UButton
-              to="/admin/recruit"
-              icon="i-lucide-clipboard-list"
-              label="纳新与报名表"
-              color="neutral"
-              variant="outline"
-            />
           </div>
         </div>
       </section>
@@ -820,27 +802,52 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       <!-- 实时数据统计卡片（真实数据库数据） -->
       <div class="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <div class="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-2xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
-          <div class="absolute inset-x-0 top-0 h-0.5 bg-sky-600/80" />
+          <div class="absolute inset-x-0 top-0 h-0.5 bg-[#a8121e]" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              在线展示部门（含部门页展台）
+              成员
             </p>
             <UIcon
-              name="i-lucide-layers"
-              class="size-4 text-sky-600"
+              name="i-lucide-users-round"
+              class="size-4 text-[#a8121e] dark:text-rose-400"
             />
           </div>
           <p class="mt-1.5 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
-            {{ departmentsDraft.length }}
-            <span class="text-xs font-normal text-zinc-500">主展：{{ featuredDeptName }}</span>
+            {{ overview.stats.totalMembers }}
+            <span class="text-xs font-normal text-zinc-500">已激活 {{ overview.stats.activeMembers }} · Git {{ overview.stats.gitSyncedMembers }}</span>
           </p>
+        </div>
+
+        <div class="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-2xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
+          <div class="absolute inset-x-0 top-0 h-0.5 bg-sky-600/80" />
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              招新 / 活动
+            </p>
+            <UIcon
+              name="i-lucide-calendar-days"
+              class="size-4 text-sky-600"
+            />
+          </div>
+          <div class="mt-1.5 flex items-center justify-between gap-2">
+            <span class="text-2xl font-bold text-zinc-950 dark:text-zinc-100">
+              {{ overview.stats.publishedActivities }}
+              <span class="text-xs font-normal text-zinc-500">场活动</span>
+            </span>
+            <UBadge
+              :label="overview.stats.recruitOpen ? `招新中 (${overview.stats.recruitSubmissions})` : `暂未开 (${overview.stats.recruitSubmissions})`"
+              :color="overview.stats.recruitOpen ? 'success' : 'neutral'"
+              variant="soft"
+              size="xs"
+            />
+          </div>
         </div>
 
         <div class="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-2xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
           <div class="absolute inset-x-0 top-0 h-0.5 bg-emerald-600/80" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              已发布动态 / 笔记资料
+              动态 / 资料
             </p>
             <UIcon
               name="i-lucide-newspaper"
@@ -857,55 +864,64 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="absolute inset-x-0 top-0 h-0.5 bg-amber-600/80" />
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              项目卡片 / 实景图库
+              部门 {{ departmentsDraft.length }} · 项目
             </p>
             <UIcon
-              name="i-lucide-images"
+              name="i-lucide-layers"
               class="size-4 text-amber-600"
             />
           </div>
           <p class="mt-1.5 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
             {{ overview.stats.publishedProjects }}
-            <span class="text-xs font-normal text-zinc-500">个项目 · {{ extrasForm.gallery.length }} 张实景</span>
+            <span class="text-xs font-normal text-zinc-500">项目 · 主展{{ featuredDeptName }}</span>
           </p>
-        </div>
-
-        <div class="relative overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-2xs transition-all hover:-translate-y-0.5 hover:shadow-sm">
-          <div class="absolute inset-x-0 top-0 h-0.5 bg-[#a8121e]" />
-          <div class="flex items-center justify-between">
-            <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              线上纳新通道
-            </p>
-            <UIcon
-              name="i-lucide-user-plus"
-              class="size-4 text-[#a8121e] dark:text-rose-400"
-            />
-          </div>
-          <div class="mt-2 flex items-center justify-between gap-2">
-            <UBadge
-              :label="overview.stats.recruitOpen ? '招新开放中' : '暂未开放'"
-              :color="overview.stats.recruitOpen ? 'success' : 'neutral'"
-              variant="soft"
-            />
-            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              已收 {{ overview.stats.recruitSubmissions }} 份报名
-            </span>
-          </div>
         </div>
       </div>
 
-      <!-- 主功能导航标签 -->
+      <!-- 主功能导航标签（8 个全景工作台 Tab） -->
       <div class="flex flex-wrap items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-1.5 shadow-2xs">
         <UButton
-          :label="`部门分工管理 (${departmentsDraft.length})`"
+          :label="`成员与 Git (${overview.members.length})`"
+          icon="i-lucide-users-round"
+          color="neutral"
+          :variant="activeTab === 'members' ? 'solid' : 'ghost'"
+          :class="activeTab === 'members' ? '!bg-[#a8121e] !text-white' : ''"
+          @click="activeTab = 'members'"
+        />
+        <UButton
+          :label="`招新审批 (${overview.recruit.totalSubmissions})`"
+          icon="i-lucide-clipboard-list"
+          color="neutral"
+          :variant="activeTab === 'recruit' ? 'solid' : 'ghost'"
+          :class="activeTab === 'recruit' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
+          @click="activeTab = 'recruit'"
+        />
+        <UButton
+          :label="`活动与签到 (${overview.activities.length})`"
+          icon="i-lucide-calendar-days"
+          color="neutral"
+          :variant="activeTab === 'activities' ? 'solid' : 'ghost'"
+          :class="activeTab === 'activities' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
+          @click="activeTab = 'activities'"
+        />
+        <UButton
+          label="页面与镜像"
+          icon="i-lucide-layout-grid"
+          color="neutral"
+          :variant="activeTab === 'sitecontent' ? 'solid' : 'ghost'"
+          :class="activeTab === 'sitecontent' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
+          @click="activeTab = 'sitecontent'"
+        />
+        <UButton
+          :label="`部门 (${departmentsDraft.length})`"
           icon="i-lucide-layers"
-          :color="activeTab === 'departments' ? 'neutral' : 'neutral'"
+          color="neutral"
           :variant="activeTab === 'departments' ? 'solid' : 'ghost'"
           :class="activeTab === 'departments' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
           @click="activeTab = 'departments'"
         />
         <UButton
-          :label="`动态与技术笔记 (${overview.posts.length})`"
+          :label="`动态与笔记 (${overview.posts.length})`"
           icon="i-lucide-newspaper"
           color="neutral"
           :variant="activeTab === 'posts' ? 'solid' : 'ghost'"
@@ -913,7 +929,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'posts'"
         />
         <UButton
-          :label="`项目实验室 (${overview.projects.length})`"
+          :label="`项目 (${overview.projects.length})`"
           icon="i-lucide-folder-git-2"
           color="neutral"
           :variant="activeTab === 'projects' ? 'solid' : 'ghost'"
@@ -921,14 +937,47 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           @click="activeTab = 'projects'"
         />
         <UButton
-          label="图片上传与全站配置"
+          label="文案与图片"
           icon="i-lucide-sliders-horizontal"
           color="neutral"
           :variant="activeTab === 'studio' ? 'solid' : 'ghost'"
-          :class="activeTab === 'studio' ? '!bg-[#a8121e] !text-white' : ''"
+          :class="activeTab === 'studio' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
           @click="activeTab = 'studio'"
         />
       </div>
+
+      <!-- Tab A：成员台账、批量导入与 Git 权限 -->
+      <YeucaMembersPanel
+        v-if="activeTab === 'members'"
+        :members="overview.members"
+        :departments="departmentsDraft"
+        :gitea="overview.gitea"
+        @changed="loadOverview"
+      />
+
+      <!-- Tab B：招新开关与审批入档 -->
+      <YeucaRecruitPanel
+        v-if="activeTab === 'recruit'"
+        :recruit="overview.recruit"
+        :departments="departmentsDraft"
+        @changed="loadOverview"
+      />
+
+      <!-- Tab C：活动排期直管与签到 -->
+      <YeucaActivitiesPanel
+        v-if="activeTab === 'activities'"
+        :activities="overview.activities"
+        :departments="departmentsDraft"
+        @changed="loadOverview"
+      />
+
+      <!-- Tab D：全站各页文案 / 镜像 / 沿革 / 外链接管 -->
+      <YeucaSiteContentPanel
+        v-if="activeTab === 'sitecontent'"
+        :initial-extras="overview.settings.extras"
+        :saving="savingSettings"
+        @save="saveSiteContentState"
+      />
 
       <!-- Tab 1：部门分工增删改查与部门页展示顺序设置 -->
       <div
@@ -937,8 +986,8 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200/80 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/40 px-4 py-3">
           <div class="text-sm text-zinc-700 dark:text-zinc-200">
-            <strong class="font-semibold">主站同步：</strong>
-            此处操作（新增、编辑、删除、排序、设为主展）点击后<strong>自动写入数据库</strong>，同步更新「部门」页交互展台、首页部门直达胶囊及报名选择清单。
+            <strong class="font-semibold">改完即时入库。</strong>
+            前台部门页、首页入口和报名选项一起更新。
           </div>
           <UButton
             icon="i-lucide-plus"
@@ -1003,7 +1052,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               </div>
 
               <div class="rounded-md bg-zinc-50 dark:bg-zinc-800/50 px-2.5 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                实践重点 {{ dept.focusList.length }} 条 · {{ dept.lead ? `负责人：${dept.lead}` : '未填负责人（页不写死）' }}
+                实践重点 {{ dept.focusList.length }} 条 · {{ dept.lead ? `负责人：${dept.lead}` : '未填负责人' }}
               </div>
             </div>
 
@@ -1114,7 +1163,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             />
             <UButton
               icon="i-lucide-book-open"
-              label="新增笔记资料"
+              label="新增资料"
               color="neutral"
               variant="outline"
               @click="openNewPost('resource')"
@@ -1126,7 +1175,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           v-if="filteredPosts.length === 0"
           class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
         >
-          暂无匹配内容，点击右上角「发布动态」或「新增笔记资料」创作第一条记录（编辑器支持直接上传正文图片）。
+          还没有内容。右上角可以发动态或笔记。
         </div>
 
         <div
@@ -1232,7 +1281,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-zinc-500">
-            管理主站首页「03 · 项目与 Git 仓库」和项目档案墙展现的项目成果（支持上传项目封面截图与填写演示链接）。
+            首页项目区和项目档案墙展示的内容。
           </p>
           <div class="flex flex-wrap gap-2">
             <UButton
@@ -1255,7 +1304,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           v-if="overview.projects.length === 0"
           class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
         >
-          后台项目展示列表暂无自定义记录（主站当前默认展示自建 Git 仓库与重点联动项目「YeU 迎新平台」）；可点击右上角新增项目卡片。
+          还没有项目。前台先显示 Git 仓库和 YeU 迎新平台。
         </div>
 
         <div
@@ -1344,14 +1393,14 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
           <span class="text-sm text-zinc-600 dark:text-zinc-300">
-            修改下方文案、上传图片或调整竞赛 / Q&amp;A 后，点击右侧「保存并发布全站设置」即可同步至官网。
+            改完点右侧保存，官网即时生效。
           </span>
           <UButton
-            label="保存并发布全站设置"
+            label="保存"
             icon="i-lucide-save"
             color="primary"
             :loading="savingSettings"
-            @click="persistSiteSettings('全站文案、上传图片与扩展配置已保存并生效')"
+            @click="persistSiteSettings('已保存')"
           />
         </div>
 
@@ -1359,7 +1408,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4">
             <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-              主站核心文案与招新提示
+              站名、标语与招新
             </h2>
 
             <div class="grid gap-4 sm:grid-cols-2">
@@ -1369,7 +1418,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="值班 / 迎新群位置提示">
+              <UFormField label="迎新群位置">
                 <UInput
                   v-model="settingsForm.contactNote"
                   placeholder="如：图信中心机房 / 迎新群安排"
@@ -1385,7 +1434,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
 
-            <UFormField label="协会简介（首屏导语）">
+            <UFormField label="协会简介">
               <UTextarea
                 v-model="settingsForm.intro"
                 :rows="3"
@@ -1393,7 +1442,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
 
-            <UFormField label="招新说明补充（展示在「加入我们」页右侧）">
+            <UFormField label="招新说明">
               <UTextarea
                 v-model="settingsForm.recruitNote"
                 :rows="2"
@@ -1402,11 +1451,11 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
 
-            <UFormField label="YeU 迎新联动项目副注（显示在主站项目区）">
+            <UFormField label="YeU 项目副注">
               <UTextarea
                 v-model="extrasForm.flagshipNote"
                 :rows="2"
-                placeholder="留空则展示默认说明：由协会核心成员主导设计与日常运维..."
+                placeholder="留空用默认说明"
                 class="w-full"
               />
             </UFormField>
@@ -1418,10 +1467,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <div class="flex items-center justify-between gap-2">
                 <div>
                   <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                    首页首屏右图（支持替换上传）
+                    首页右图
                   </h2>
                   <p class="text-xs text-zinc-500">
-                    不上传则使用默认俯瞰图；建议 16:10 横屏照片（≤ 5MB）。
+                    16:10 横屏，5MB 以内，留空用默认图。
                   </p>
                 </div>
                 <input
@@ -1460,7 +1509,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               </div>
               <UInput
                 v-model="extrasForm.heroImageUrl"
-                placeholder="留空用默认图，或上传后自动填入 /uploads/..."
+                placeholder="留空用默认图"
                 size="sm"
                 class="w-full font-mono text-xs"
               />
@@ -1470,10 +1519,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <div class="flex items-center justify-between gap-2">
                 <div>
                   <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                    迎新交流群二维码上传
+                    迎新群二维码
                   </h2>
                   <p class="text-xs text-zinc-500">
-                    直接上传微信/QQ 迎新群二维码，实时同步至「加入我们」联络卡。
+                    会出现在「加入我们」的联络卡。
                   </p>
                 </div>
                 <input
@@ -1520,12 +1569,12 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 <div class="flex-1 space-y-2">
                   <UInput
                     v-model="settingsForm.groupQrUrl"
-                    placeholder="/uploads/... 或留空隐藏"
+                    placeholder="留空隐藏"
                     size="sm"
                     class="w-full font-mono text-xs"
                   />
                   <p class="text-xs text-zinc-500">
-                    二维码过期换群后直接重新点击「上传二维码」替换即可。
+                    换群后重新上传。
                   </p>
                 </div>
               </div>
@@ -1538,10 +1587,10 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                实景与器材风采相册（上传即呈现于首页）
+                实景相册
               </h2>
               <p class="text-xs text-zinc-500">
-                可上传机房实验设备、比赛实拍或分享会现场照片（未上传时不显示空相册，不占页面空间）。
+                机房、比赛、分享会的照片，传完出现在首页。
               </p>
             </div>
             <input
@@ -1565,7 +1614,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             v-if="extrasForm.gallery.length === 0"
             class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-6 text-center text-xs text-zinc-500"
           >
-            当前暂无上传实景图片，点击右上角即可上传真实照片。
+            还没上传照片。
           </div>
 
           <div
@@ -1607,171 +1656,14 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           </div>
         </div>
 
-        <!-- 4.4 竞赛条目与常见疑问在线维护 -->
-        <div class="grid gap-6 lg:grid-cols-2">
-          <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                  常规竞赛条目（{{ extrasForm.competitions.length ? `已自定义 ${extrasForm.competitions.length} 项` : '使用默认核验清单' }}）
-                </h2>
-                <p class="text-xs text-zinc-500">
-                  自定义后将覆盖首页「02 · 学科竞赛」和关于页赛项清单。
-                </p>
-              </div>
-              <div class="flex gap-1.5">
-                <UButton
-                  v-if="extrasForm.competitions.length === 0"
-                  label="导入默认 5 项后编辑"
-                  size="xs"
-                  variant="outline"
-                  color="neutral"
-                  @click="loadDefaultCompetitions"
-                />
-                <UButton
-                  label="加一条竞赛"
-                  size="xs"
-                  icon="i-lucide-plus"
-                  @click="addCompetitionRow"
-                />
-              </div>
-            </div>
-
-            <div
-              v-if="extrasForm.competitions.length === 0"
-              class="rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-4 text-xs text-zinc-500"
-            >
-              当前官网正直接展示内置已核验的 5 项常设竞赛；如需增改，点「导入默认 5 项后编辑」或直接「加一条竞赛」。
-            </div>
-
-            <div
-              v-else
-              class="space-y-3"
-            >
-              <div
-                v-for="(comp, idx) in extrasForm.competitions"
-                :key="idx"
-                class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 space-y-2"
-              >
-                <div class="grid gap-2 sm:grid-cols-2">
-                  <UInput
-                    v-model="comp.name"
-                    placeholder="竞赛名称"
-                    size="sm"
-                  />
-                  <UInput
-                    v-model="comp.track"
-                    placeholder="赛道分类（如：程序 / 安全）"
-                    size="sm"
-                  />
-                </div>
-                <div class="grid gap-2 sm:grid-cols-3">
-                  <UInput
-                    v-model="comp.dept"
-                    placeholder="对应部门"
-                    size="sm"
-                  />
-                  <UInput
-                    v-model="comp.site"
-                    placeholder="官网短域名"
-                    size="sm"
-                  />
-                  <UInput
-                    v-model="comp.href"
-                    placeholder="https:// 官网链接"
-                    size="sm"
-                  />
-                </div>
-                <div class="flex justify-end">
-                  <UButton
-                    label="删除此条"
-                    size="xs"
-                    color="error"
-                    variant="ghost"
-                    @click="extrasForm.competitions.splice(idx, 1)"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-                  常见 Q&amp;A（{{ extrasForm.faqs.length ? `已自定义 ${extrasForm.faqs.length} 条` : '使用默认问答清单' }}）
-                </h2>
-                <p class="text-xs text-zinc-500">
-                  可随时修改关于页 Q&amp;A，留空则自动回退默认问答库。
-                </p>
-              </div>
-              <div class="flex gap-1.5">
-                <UButton
-                  v-if="extrasForm.faqs.length === 0"
-                  label="导入默认 4 条后编辑"
-                  size="xs"
-                  variant="outline"
-                  color="neutral"
-                  @click="loadDefaultFaqs"
-                />
-                <UButton
-                  label="加一条问答"
-                  size="xs"
-                  icon="i-lucide-plus"
-                  @click="addFaqRow"
-                />
-              </div>
-            </div>
-
-            <div
-              v-if="extrasForm.faqs.length === 0"
-              class="rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-4 text-xs text-zinc-500"
-            >
-              当前官网关于页直接展示默认新生常见问答库；点击按钮即可按当前学年实际安排自定义。
-            </div>
-
-            <div
-              v-else
-              class="space-y-3"
-            >
-              <div
-                v-for="(faq, idx) in extrasForm.faqs"
-                :key="idx"
-                class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 space-y-2"
-              >
-                <UInput
-                  v-model="faq.q"
-                  placeholder="问题标题"
-                  size="sm"
-                />
-                <UTextarea
-                  v-model="faq.a"
-                  :rows="2"
-                  placeholder="准确答复（避免写死过期日期或人名）"
-                  size="sm"
-                />
-                <div class="flex justify-end">
-                  <UButton
-                    label="删除问答"
-                    size="xs"
-                    color="error"
-                    variant="ghost"
-                    @click="extrasForm.faqs.splice(idx, 1)"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div class="flex justify-end">
           <UButton
-            label="保存并发布全站设置"
+            label="保存"
             icon="i-lucide-save"
             size="lg"
             color="primary"
             :loading="savingSettings"
-            @click="persistSiteSettings('全站文案、上传图片与扩展配置已保存并生效')"
+            @click="persistSiteSettings('已保存')"
           />
         </div>
       </div>
@@ -1785,7 +1677,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         <template #body>
           <div class="space-y-4">
             <div class="grid gap-4 sm:grid-cols-3">
-              <UFormField label="序号编号">
+              <UFormField label="编号">
                 <UInput
                   v-model="deptEditor.code"
                   placeholder="如：01 / AI"
@@ -1802,16 +1694,16 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="负责人（选填）">
+              <UFormField label="负责人">
                 <UInput
                   v-model="deptEditor.lead"
-                  placeholder="留空不写死姓名"
+                  placeholder="留空不显示"
                   class="w-full"
                 />
               </UFormField>
             </div>
             <UFormField
-              label="部门一句话定位与职责介绍"
+              label="部门介绍"
               required
             >
               <UTextarea
@@ -1820,7 +1712,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="日常训练与实践要点（每行一条，将在首页上方大窗口详细拆解展示）">
+            <UFormField label="实践要点（每行一条）">
               <UTextarea
                 v-model="deptEditor.focusText"
                 :rows="4"
@@ -1829,7 +1721,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               />
             </UFormField>
             <div class="grid gap-4 sm:grid-cols-2">
-              <UFormField label="常用技术与工具（逗号分隔）">
+              <UFormField label="常用工具（逗号分隔）">
                 <UInput
                   v-model="deptEditor.toolsText"
                   placeholder="Python, TypeScript, LLM API"
@@ -1844,7 +1736,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 />
               </UFormField>
             </div>
-            <UFormField label="新人入门与纳新要求">
+            <UFormField label="入门与要求">
               <UTextarea
                 v-model="deptEditor.recruitDesc"
                 :rows="2"
@@ -1854,11 +1746,11 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             <div class="flex flex-wrap items-center gap-6">
               <UCheckbox
                 v-model="deptEditor.isFeatured"
-                label="设为默认首展部门（首页优先展示在上方大窗口）"
+                label="首页默认首展"
               />
               <UCheckbox
                 v-model="deptEditor.acceptingRecruit"
-                label="在报名页开放此部门招新"
+                label="报名页开放招新"
               />
             </div>
             <div class="flex justify-end gap-2 pt-2">
@@ -1869,7 +1761,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 @click="deptModalOpen = false"
               />
               <UButton
-                label="保存并同步主站"
+                label="保存"
                 color="primary"
                 :loading="savingSettings"
                 @click="confirmDepartmentEdit"
@@ -1956,7 +1848,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   >
                   <UButton
                     icon="i-lucide-image-plus"
-                    label="上传图片插进正文"
+                    label="正文插图"
                     size="xs"
                     variant="outline"
                     color="neutral"
@@ -1964,7 +1856,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                     @click="postInlineImageInput?.click()"
                   />
                   <UButton
-                    :label="postPreviewMode ? '切回编辑' : '查看文本概况'"
+                    :label="postPreviewMode ? '切回编辑' : '预览'"
                     size="xs"
                     variant="ghost"
                     color="neutral"
@@ -1996,7 +1888,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <div class="flex items-end pb-1.5">
                 <UCheckbox
                   v-model="postForm.pinned"
-                  label="置顶展示在动态列表首位"
+                  label="置顶"
                 />
               </div>
             </div>
@@ -2085,7 +1977,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   class="w-full"
                 />
               </UFormField>
-              <UFormField label="排序权重（数字越小越靠前）">
+              <UFormField label="排序（小在前）">
                 <UInput
                   v-model.number="projectForm.sortOrder"
                   type="number"
@@ -2109,7 +2001,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 />
               </UFormField>
             </div>
-            <UFormField label="展示封面图（支持上传）">
+            <UFormField label="封面图">
               <div class="space-y-2.5">
                 <div class="flex flex-wrap items-center gap-2.5">
                   <UInput
@@ -2152,7 +2044,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             <div class="flex items-center justify-between pt-1">
               <UCheckbox
                 v-model="projectForm.isPublished"
-                label="在计协主站公开展示"
+                label="主站公开"
               />
               <div class="flex gap-2">
                 <UButton
@@ -2162,7 +2054,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   @click="projectModalOpen = false"
                 />
                 <UButton
-                  label="保存项目"
+                  label="保存"
                   color="primary"
                   :loading="savingProject"
                   @click="submitProject"
