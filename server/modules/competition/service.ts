@@ -23,6 +23,7 @@ import { createZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
+import { cosConfig, presignCosGet } from '../../utils/cos-storage'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -4099,9 +4100,13 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
   }
   const url = String(source.accompanimentUrl ?? '').trim()
   if (!url) return null
+  // 存的是 cos:<objectKey>，读的时候换成 6 小时有效的临时地址（桶是私有读）
+  const config = cosConfig()
+  const key = url.startsWith('cos:') ? url.slice(4) : ''
+  const playable = key && config ? presignCosGet(config, key) : url
   return {
     name: String(source.accompanimentName ?? '').trim() || url.split('/').at(-1) || '伴奏',
-    url,
+    url: playable,
     size: source.accompanimentSize ?? null
   }
 }
@@ -4129,6 +4134,44 @@ export async function setEntryAccompaniment(
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
   return { name, url: stored.url, size: stored.size }
+}
+
+/** 三要素定位到「这一轮要传伴奏的那条出场记录」，直传与普通上传共用。 */
+export function resolveAccompanimentTarget(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+): { round: RoundRow, entryId: string, singerName: string } {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const stage = songStage(client, eventRow.id, singer.id)
+  if (!stage.editable || !stage.targetEntryId) {
+    conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能传伴奏')
+  }
+  const rounds = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventRow.id)).all()
+  const round = rounds.find(item => item.id === client.db.select({ roundId: competitionRoundEntries.roundId })
+    .from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.id, stage.targetEntryId!))
+    .get()?.roundId)
+  if (!round) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
+  }
+  return { round, entryId: stage.targetEntryId, singerName: singer.name }
+}
+
+/** 直传完成后把 object key 记到出场记录上（url 存 cos:<key>，读时换成临时地址）。 */
+export function commitAccompanimentKey(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  file: { key: string, name: string, size: number }
+): CompetitionEntryAccompaniment {
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  client.db.update(competitionRoundEntries)
+    .set({ accompanimentUrl: `cos:${file.key}`, accompanimentName: file.name, accompanimentSize: file.size })
+    .where(eq(competitionRoundEntries.id, entryId))
+    .run()
+  return { name: file.name, url: presignCosGet(cosConfig()!, file.key), size: file.size }
 }
 
 /** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */
@@ -4182,8 +4225,12 @@ export async function buildAccompanimentArchive(
     const url = (entry.accompanimentUrl ?? '').trim()
     if (!url) continue
     const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
+    const cosKey = url.startsWith('cos:') ? url.slice(4) : ''
+    const config = cosConfig()
     try {
-      const data = await readFile(join(directory, url.split('/').at(-1) ?? ''))
+      const data = cosKey && config
+        ? new Uint8Array(await (await fetch(presignCosGet(config, cosKey, 900))).arrayBuffer())
+        : await readFile(join(directory, url.split('/').at(-1) ?? ''))
       files.push({ name: `${folder}/伴奏-${sanitizePathPart(song)}.${extension}`, data })
     } catch {
       files.push({

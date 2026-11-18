@@ -90,6 +90,41 @@ async function uploadAccompaniment(event: Event) {
   }
   accompanimentBusy.value = true
   try {
+    // 优先直传对象存储：字节不经过服务器，300MB 也不会把内存顶爆
+    const ticket = await plainFetch<{ key: string, uploadUrl: string }>(
+      '/api/public/competition/song/accompaniment-ticket',
+      {
+        method: 'POST',
+        body: {
+          name: name.value.trim(),
+          studentNo: studentNo.value.trim(),
+          contact: contact.value.trim(),
+          filename: file.name,
+          mime: file.type || 'audio/mpeg'
+        }
+      }
+    ).catch(() => null)
+    if (ticket?.uploadUrl) {
+      const put = await fetch(ticket.uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'audio/mpeg' }
+      })
+      if (!put.ok) throw new Error('直传失败，重试一次')
+      const committed = await plainFetch<SongState>('/api/public/competition/song/accompaniment-commit', {
+        method: 'POST',
+        body: {
+          name: name.value.trim(),
+          studentNo: studentNo.value.trim(),
+          contact: contact.value.trim(),
+          key: ticket.key,
+          filename: file.name
+        }
+      })
+      state.value = committed
+      toast.add({ title: '伴奏收到了', description: file.name, color: 'success' })
+      return
+    }
     const data = await readFileAsBase64(file)
     const result = await plainFetch<SongState>('/api/public/competition/song/accompaniment', {
       method: 'POST',
