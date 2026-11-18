@@ -51,6 +51,7 @@ import {
   renderCompetitionEmailTemplate,
   setEntryDay,
   setEntryCheckIn,
+  setEntrySong,
   setRoundDay,
   buildEmailSendPlan,
   buildReminderPlan,
@@ -1334,6 +1335,53 @@ test('数据库：可以选去掉最高分和最低分再算平均', async () =>
   closeDatabase(':memory:')
 })
 
+test('数据库：同一个人三场不能唱同一首歌，书名号与括号不影响判定', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  checkInEntries(client, musicId)
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  const prelimEntry = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  setEntrySong(client, prelim, prelimEntry.id, '晴天')
+
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const [judge] = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  submitJudgeScore(client, { ...judge!, eventId: event.id, roundId: prelim.id }, prelimEntry.singer.id, { scores: scoresForAll(8) })
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+
+  const semi = getRoundByKey(client, event.id, 'semi')
+  const semiEntry = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries[0]!
+  // 同一个歌名、加书名号、加「(伴奏)」都算重复
+  for (const variant of ['晴天', '《晴天》', '晴天(伴奏)']) {
+    let code = ''
+    try {
+      setEntrySong(client, semi, semiEntry.id, variant)
+    } catch (error) {
+      code = String((error as { data?: { code?: string } }).data?.code ?? '')
+    }
+    assert.equal(code, 'SONG_REPEATED', `${variant} 应该被判重复`)
+  }
+  setEntrySong(client, semi, semiEntry.id, '后来')
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries[0]!.song, '后来')
+  // 初赛那场的记录不受影响
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.song, '晴天')
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：今天排哪一天按赛程日期判断，非初赛日不收，手动切天优先', () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
@@ -1714,8 +1762,9 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
   // 复赛填的新歌只落在复赛那一轮，初赛那场的曲目记录保持原样。
   const semiRows = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
   assert.equal(semiRows[0]?.song, '后来')
+  // 初赛那场的曲目在确认晋级时从选手库落到条目上（三场不许重复唱的判定依据），不会被复赛改歌冲掉
   const prelimRows = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
-  assert.equal(prelimRows[0]?.song ?? null, null)
+  assert.equal(prelimRows[0]?.song, '晴天')
 
   // 第三要素可以用邮箱，也能对上。
   assert.equal(getSongEditor(client, musicId, { ...lookup, contact: 'a@example.com' }).song, '后来')

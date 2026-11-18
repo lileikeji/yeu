@@ -135,28 +135,52 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
   }
 
   /** 导出复赛伴奏：一人一个文件夹的 zip，按出场顺序。 */
-  function downloadAccompanimentZip(round: CompetitionRoundView, original: boolean): void {
+  /**
+   * 伴奏包走对象存储直链下载：zip 先传到 COS，浏览器再从腾讯云边缘拉，
+   * 不再受源站 3Mbps 出口限制。取不到直链时回落到原来的直连流式下载。
+   */
+  async function downloadAccompanimentZip(round: CompetitionRoundView, original: boolean): Promise<void> {
     exportingKind.value = original ? 'accompaniment-original' : 'accompaniment'
-    const link = document.createElement('a')
-    link.href = `/api/admin/competition/rounds/${round.key}/accompaniment${original ? '?original=1' : ''}`
-    link.rel = 'noopener'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => {
-      exportingKind.value = ''
-    }, 3000)
+    const params = new URLSearchParams({ deliver: 'cos' })
+    if (original) params.set('original', '1')
+    try {
+      // 用原生 fetch：$fetch 的模板字面量路由推导在这里会触发 TS2321（路由联合类型过深）
+      const response = await fetch(`/api/admin/competition/rounds/${round.key}/accompaniment?${params.toString()}`, {
+        credentials: 'include',
+        headers: { accept: 'application/json' }
+      })
+      if (!response.ok) throw new Error(`export ${response.status}`)
+      const result = await response.json() as { url?: string }
+      if (!result.url) throw new Error('no url')
+      const link = document.createElement('a')
+      link.href = result.url
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch {
+      const link = document.createElement('a')
+      link.href = `/api/admin/competition/rounds/${round.key}/accompaniment${original ? '?original=1' : ''}`
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } finally {
+      window.setTimeout(() => {
+        exportingKind.value = ''
+      }, 3000)
+    }
   }
 
-  function exportAccompaniment(round: CompetitionRoundView): void {
+  async function exportAccompaniment(round: CompetitionRoundView): Promise<void> {
     if (exportingKind.value) return
-    downloadAccompanimentZip(round, false)
+    await downloadAccompanimentZip(round, false)
   }
 
   /** 导出选手当初上传的原件（m4a/wav 等），现场调音用 */
-  function exportOriginalAccompaniment(round: CompetitionRoundView): void {
+  async function exportOriginalAccompaniment(round: CompetitionRoundView): Promise<void> {
     if (exportingKind.value) return
-    downloadAccompanimentZip(round, true)
+    await downloadAccompanimentZip(round, true)
   }
 
   return {
