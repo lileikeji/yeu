@@ -20,7 +20,8 @@ test('pin card phone rows stay inside the card and dial through tel:', () => {
 })
 
 test('pin popover uses native popover with css anchor positioning', () => {
-  assert.match(popoverSource, /popover="auto"/)
+  // popover 属性改成按能力挂：Chrome 114 之前没有 showPopover，`popover="auto"` 也不会隐藏。
+  assert.match(popoverSource, /:popover="supportsPopover \? 'auto' : undefined"/)
   assert.match(popoverSource, /role="dialog"/)
   assert.match(popoverSource, /anchor-name: --pin-anchor/)
   assert.match(popoverSource, /position-anchor: --pin-anchor/)
@@ -93,8 +94,9 @@ test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /const limit = Math\.max\(0, rect\.width \/ 2 - 8\)/)
   assert.match(popoverSource, /el\.style\.setProperty\('--pin-arrow-x', Math\.round\(clamped\) \+ 'px'\)/)
   assert.match(popoverSource, /inset-inline-start: var\(--pin-arrow-x, 50%\)/)
+  // 打开后连算两帧：第一帧等浏览器把卡片排好，第二帧才拿到最终尺寸（降级路径尤其需要）。
   assert.ok(
-    (popoverSource.match(/requestAnimationFrame\(alignArrow\)/g) || []).length >= 1,
+    (popoverSource.match(/requestAnimationFrame\(layout\)/g) || []).length >= 1,
     'arrow realigns on the frame after the popover opens'
   )
   assert.match(popoverSource, /addEventListener\('resize', onViewportResize/)
@@ -212,4 +214,34 @@ test('route sync ignores the popstate from its own sheet history layer', () => {
   )
   // 自己刚写进去的 URL 回灌也不再覆盖本地状态
   assert.match(routeSyncSource, /if \(route\.fullPath === lastWrittenFullPath\) \{/)
+})
+
+test('pin popover degrades to fixed positioning when anchor positioning is missing', () => {
+  // 两条能力检测：锚定定位（Chrome 125 / Safari 26 起）与原生 popover（Chrome 114 / Safari 17 起）。
+  assert.match(popoverSource, /CSS\.supports\('position-anchor: --pin-anchor'\)/)
+  assert.match(popoverSource, /typeof HTMLElement\.prototype\.showPopover === 'function'/)
+  assert.match(popoverSource, /const supportsAnchor = ref\(true\)/)
+  assert.match(popoverSource, /const supportsPopover = ref\(true\)/)
+  // 降级路径：自己按 pinAnchor 与卡片实测尺寸算位置，只在缺锚定时接管。
+  assert.match(popoverSource, /function placeFallback\(\): void \{/)
+  assert.match(popoverSource, /function layout\(\): void \{\s*if \(!supportsAnchor\.value\) \{\s*placeFallback\(\)/)
+  assert.match(popoverSource, /el\.style\.left = left \+ 'px'/)
+  assert.match(popoverSource, /el\.toggleAttribute\('data-flipped', flipped\)/)
+  assert.match(popoverSource, /:data-placement="supportsAnchor \? 'anchor' : 'fallback'"/)
+  assert.match(popoverSource, /\.pin-popover\[data-placement='fallback'\] \{/)
+  assert.match(popoverSource, /inset: auto/)
+  // 没有原生 popover 时显隐交给 hidden 绑定，别让卡片常驻在页面角落。
+  assert.match(popoverSource, /:hidden="!supportsPopover && !open"/)
+  assert.match(popoverSource, /function isShown\(\): boolean \{/)
+  assert.match(popoverSource, /if \(supportsPopover\.value\) \{\s*const visible = el\.matches\(':popover-open'\)/)
+})
+
+test('bus and stop chips on the amap canvas ignore drag gestures', () => {
+  // 车标、在途车胶囊、首末站徽标、站点圆点都盖在 canvas 上：
+  // 拖动地图经过它们时只认 tap，判定与 POI 图钉同一套，避免误开详情卡。
+  assert.equal((amapSource.match(/attachTapGesture\(element, select/g) || []).length, 4)
+  assert.match(amapSource, /attachTapGesture\(element, selectBus\)/)
+  assert.match(amapSource, /attachTapGesture\(element, selectVehicle\)/)
+  assert.match(amapSource, /attachTapGesture\(element, selectTerminal\)/)
+  assert.match(amapSource, /attachTapGesture\(element, selectStopDot\)/)
 })

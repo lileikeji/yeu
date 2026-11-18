@@ -76,13 +76,36 @@ const bodyEl = ref<HTMLElement | null>(null)
 const overflow = ref(false)
 const titleId = useId()
 
+/**
+ * 两条能力检测：CSS 锚定定位（Chrome 125 / Safari 26 起）与原生 popover（Chrome 114 / Safari 17 起）。
+ * 缺锚定时 `position-area` 整条失效，复位过 `inset` 的卡片会落到静态位置（容器左上角）；
+ * 缺 popover 时 `showPopover` 不存在，直接调用会抛 TypeError，而 `[popover]` 在旧内核里也不隐藏。
+ * 任一条缺失都退到「fixed 定位 + 自己管显隐」，定位由 pinAnchor 与卡片实测高度算。
+ */
+const ANCHOR_POSITIONING_SUPPORTED = typeof CSS !== 'undefined'
+  && typeof CSS.supports === 'function'
+  && CSS.supports('position-anchor: --pin-anchor')
+const NATIVE_POPOVER_SUPPORTED = typeof HTMLElement !== 'undefined'
+  && typeof HTMLElement.prototype.showPopover === 'function'
+// SSR 与首帧先按「支持」渲染，避免水合前后属性不一致；挂载后按实测纠正。
+const supportsAnchor = ref(true)
+const supportsPopover = ref(true)
+/** 降级路径要自己量卡片尺寸：fixed 定位没有锚点可依赖。 */
+const cardBox = ref({ width: 262, height: 160 })
+
 /** 页面的折射画布只认真实 DOM，根元素必须能从这里拿到。 */
 defineExpose({ rootElement: popEl })
 
 function syncOverflow(): void {
   const el = bodyEl.value
-  if (!el) return
-  overflow.value = el.scrollHeight - el.clientHeight > 1
+  if (el) overflow.value = el.scrollHeight - el.clientHeight > 1
+  const card = popEl.value
+  if (card) {
+    const rect = card.getBoundingClientRect()
+    // 收起态（display:none / 还没 showPopover）量到 0×0：保留上次尺寸，别把降级位置算成 0 高。
+    if (rect.width > 0 && rect.height > 0) cardBox.value = { width: rect.width, height: rect.height }
+  }
+  if (!supportsAnchor.value) placeFallback()
 }
 
 let overflowObserver: ResizeObserver | null = null
@@ -93,6 +116,7 @@ onMounted(() => {
     overflowObserver = new ResizeObserver(syncOverflow)
     overflowObserver.observe(el)
     if (el.firstElementChild) overflowObserver.observe(el.firstElementChild)
+    if (popEl.value) overflowObserver.observe(popEl.value)
   }
   syncOverflow()
 })
@@ -137,11 +161,57 @@ const VIEWPORT_INSET = 0
  */
 let appliedShift = 0
 
+/** 卡片此刻是否真的可见：popover 支持时看 `:popover-open`，降级时看 hidden 属性。 */
+function isShown(): boolean {
+  const el = popEl.value
+  if (!el) return false
+  if (supportsPopover.value) return el.matches(':popover-open')
+  return !el.hidden
+}
+
+/**
+ * 无锚定定位时的落位：fixed + 用 pinAnchor 与卡片实测尺寸算 left/top。
+ * 优先放在锚点上方（留 10px），上方放不下就翻到下方；左右夹在视口 12px 内。
+ */
+function placeFallback(): void {
+  const el = popEl.value
+  const anchor = props.anchor
+  if (!el || !anchor) return
+  const EDGE = 12
+  const GAP = 10
+  const viewportWidth = window.innerWidth || 360
+  const viewportHeight = window.innerHeight || 640
+  const width = Math.min(cardBox.value.width, viewportWidth - EDGE * 2)
+  const height = cardBox.value.height
+  const maxLeft = Math.max(EDGE, viewportWidth - EDGE - width)
+  const left = Math.round(Math.min(Math.max(anchor.x - width / 2, EDGE), maxLeft))
+  const above = anchor.y - GAP - height
+  const flipped = above < EDGE
+  const top = flipped
+    ? Math.min(anchor.y + GAP, Math.max(EDGE, viewportHeight - EDGE - height))
+    : above
+  el.style.left = left + 'px'
+  el.style.top = Math.max(EDGE, Math.round(top)) + 'px'
+  el.toggleAttribute('data-flipped', flipped)
+  const arrowLimit = Math.max(ARROW_INSET, width - ARROW_INSET)
+  const arrowX = Math.min(Math.max(anchor.x - left, ARROW_INSET), arrowLimit)
+  el.style.setProperty('--pin-arrow-x', Math.round(arrowX) + 'px')
+}
+
+/** 定位入口：浏览器支持锚定就交给 CSS，不支持就自己算。 */
+function layout(): void {
+  if (!supportsAnchor.value) {
+    placeFallback()
+    return
+  }
+  alignArrow()
+}
+
 function alignArrow(): void {
   const el = popEl.value
   const anchor = props.anchor
   if (!el || !anchor) return
-  if (!el.matches(':popover-open')) return
+  if (!supportsAnchor.value || !isShown()) return
   const rect = el.getBoundingClientRect()
   if (rect.width === 0) return
   const baseLeft = rect.left - appliedShift
@@ -177,23 +247,30 @@ function alignArrow(): void {
 function syncOpen(): void {
   const el = popEl.value
   if (!el) return
-  const visible = el.matches(':popover-open')
-  if (props.open && props.anchor && !visible) el.showPopover()
-  else if ((!props.open || !props.anchor) && visible) el.hidePopover()
-  if (props.open && props.anchor) {
+  const wantOpen = props.open && Boolean(props.anchor)
+  // 没有原生 popover 时不碰 showPopover/hidePopover：显隐由模板上的 hidden 绑定接管。
+  if (supportsPopover.value) {
+    const visible = el.matches(':popover-open')
+    if (wantOpen && !visible) el.showPopover()
+    else if (!wantOpen && visible) el.hidePopover()
+  }
+  if (wantOpen) {
     requestAnimationFrame(() => {
-      alignArrow()
-      requestAnimationFrame(alignArrow)
+      layout()
+      requestAnimationFrame(layout)
     })
   }
 }
 
 function onViewportResize(): void {
-  alignArrow()
+  layout()
 }
 
 watch(() => [props.open, props.anchor] as const, () => nextTick(syncOpen), { deep: true })
 onMounted(() => {
+  // 能力检测放在挂载后：首帧按「支持」渲染保住水合一致性，随后按真实能力决定走哪条定位/显隐路径。
+  supportsAnchor.value = ANCHOR_POSITIONING_SUPPORTED
+  supportsPopover.value = NATIVE_POPOVER_SUPPORTED
   nextTick(syncOpen)
   window.addEventListener('resize', onViewportResize)
   window.addEventListener('scroll', onViewportResize, true)
@@ -218,13 +295,15 @@ function onToggle(event: Event): void {
   />
   <div
     ref="popEl"
-    popover="auto"
+    :popover="supportsPopover ? 'auto' : undefined"
+    :hidden="!supportsPopover && !open"
     role="dialog"
     :aria-labelledby="titleId"
     class="pin-popover"
     :class="glass ? 'map-glass-refracting' : 'map-glass-surface'"
     :data-kind="kind"
     :data-tone="tone"
+    :data-placement="supportsAnchor ? 'anchor' : 'fallback'"
     :data-overflow="overflow ? 'true' : 'false'"
     @toggle="onToggle"
   >
@@ -430,6 +509,17 @@ function onToggle(event: Event): void {
   --pin-glass-tint: var(--surface);
   --pin-accent: var(--color-green-700, #15803d);
   --pin-accent-soft: color-mix(in srgb, var(--pin-accent) 14%, var(--surface));
+}
+
+/*
+ * 降级定位：没有 CSS 锚定定位的浏览器（iOS 26 / Chrome 125 之前）走这一条。
+ * 位置由 placeFallback() 按 pinAnchor 与卡片实测尺寸写成 inline left/top；
+ * 这里只负责把 popover 的 UA 默认定位（fixed + inset:0 + margin:auto）清干净。
+ */
+.pin-popover[data-placement='fallback'] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
 }
 
 /*
