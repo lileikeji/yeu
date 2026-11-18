@@ -21,6 +21,27 @@ async function copySongLink(): Promise<void> {
     toast.add({ title: '复制失败，手动复制这个地址', description: url, color: 'warning' })
   }
 }
+/** 还没传伴奏的人：现场催交用，一键复制名单。 */
+const missingAccompanimentNames = computed(() => (activeRound.value?.entries ?? [])
+  .filter(entry => !entry.accompaniment)
+  .map(entry => entry.singer.name))
+
+async function copyMissingAccompaniment(): Promise<void> {
+  const names = [...missingAccompanimentNames.value].sort((left, right) =>
+    left.localeCompare(right, 'zh-Hans-CN-u-co-pinyin'))
+  if (names.length === 0) {
+    toast.add({ title: '所有选手都传了伴奏', color: 'success' })
+    return
+  }
+  const text = names.join('、')
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.add({ title: `已复制 ${names.length} 位还没传伴奏`, description: text.slice(0, 120), color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败，手动选中下面的名字', description: text.slice(0, 160), color: 'warning' })
+  }
+}
+
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
@@ -1945,6 +1966,24 @@ onBeforeUnmount(stopLiveRefresh)
                 label="晋级名单 CSV"
                 :loading="exportingKind === 'advancing'"
                 @click="exportRound(activeRound, 'advancing')"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-music"
+                label="曲目名单 CSV"
+                :loading="exportingKind === 'songs'"
+                @click="exportRound(activeRound, 'songs')"
+              />
+              <UButton
+                v-if="activeRound && activeRound.key !== 'prelim'"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-copy"
+                :label="`复制没传伴奏的（${missingAccompanimentNames.length}）`"
+                @click="copyMissingAccompaniment"
               />
             </div>
             <label

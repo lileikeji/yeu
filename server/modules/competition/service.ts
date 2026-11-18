@@ -1013,7 +1013,7 @@ function buildRoundRanking(
 
 // -- 导出（后台名单） ----------------------------------------------------------
 
-export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain'
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain' | 'songs'
 
 function csvCell(value: unknown): string {
   const text = String(value ?? '')
@@ -1054,6 +1054,12 @@ const COMPETITION_SURNAME_HINTS: Record<string, string> = {
   盖: '葛',
   尉: '玉',
   种: '崇'
+}
+
+function formatMegabytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '未知'
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
 function plainSortName(name: string): string {
@@ -1218,6 +1224,26 @@ export function buildCompetitionExport(
         row.singer.song,
         dayLabelOf(entry?.contestDay ?? null),
         (entry && daySequence.get(entry.id)) || ''
+      ])
+    })
+  } else if (kind === 'songs') {
+    // 曲目名单：按姓名拼音首字母排，现场照着点人；伴奏一栏只写有没有传，方便催交。
+    const songCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+    const songRows = [...ranking].sort((left, right) =>
+      songCollator.compare(plainSortName(left.singer.name).slice(0, 1), plainSortName(right.singer.name).slice(0, 1))
+      || songCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name))
+      || (left.sortOrder - right.sortOrder)
+    )
+    label = '曲目名单'
+    rows.push(['序号', '姓名', '班级', '曲目', '伴奏'])
+    songRows.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      rows.push([
+        index + 1,
+        row.singer.name,
+        row.singer.className ?? '',
+        (entry?.song ?? '').trim() || row.singer.song || '',
+        entry?.accompanimentUrl ? `已传（${formatMegabytes(entry.accompanimentSize ?? 0)}）` : '未传'
       ])
     })
   } else {
@@ -4171,7 +4197,8 @@ export function commitAccompanimentKey(
     .set({ accompanimentUrl: `cos:${file.key}`, accompanimentName: file.name, accompanimentSize: file.size })
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
-  return { name: file.name, url: presignCosGet(cosConfig()!, file.key), size: file.size }
+  const config = cosConfig()
+  return { name: file.name, url: config ? presignCosGet(config, file.key) : `cos:${file.key}`, size: file.size }
 }
 
 /** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */

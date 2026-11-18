@@ -18,6 +18,7 @@ import {
   deleteEmailImage,
   createSinger,
   ensureCompetitionEvent,
+  commitAccompanimentKey,
   findMusicAssociationContent,
   confirmAdvanceRoster,
   listRoundEntryRows,
@@ -1885,6 +1886,57 @@ test('数据库：确认后可以导出一份不带成绩的名单，按姓名�
   assert.deepEqual(names, ['安七', '陈四', '王五'])
   assert.match(plain.filename, /不带成绩/)
 
+  closeDatabase(':memory:')
+})
+
+test('数据库：曲目名单按姓名拼音排，伴奏一栏分清传没传', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '曾晨希', song: '星辰大海' })
+  createSinger(client, event.id, { name: '安琪', song: '鹿 be free' })
+  checkInEntries(client, musicId, 'prelim')
+  let round = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, round, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, round, 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const zeng = roster.find(entry => entry.singer.name === '曾晨希')!
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, zeng.singer.id, { scores: scoresForAll(8) })
+  const anqi = roster.find(entry => entry.singer.name === '安琪')!
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, anqi.singer.id, { scores: scoresForAll(6) })
+  round = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, round, { status: 'closed', advanceCount: 2 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+
+  const semi = getRoundByKey(client, event.id, 'semi')
+  const semiEntries = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
+  const target = semiEntries.find(entry => entry.singer.name === '安琪')!
+  commitAccompanimentKey(client, semi, target.id, {
+    key: 'competition/accompaniment/x.mp3',
+    name: '鹿 be free.mp3',
+    size: 5 * 1024 * 1024
+  })
+
+  const exported = buildCompetitionExport(client, semi, 'songs')
+  const lines = exported.csv.split('\n')
+  assert.match(lines[0]!, /姓名/)
+  assert.match(lines[0]!, /伴奏/)
+  // 拼音序：安(a) 在 曾(z) 前面，即使「曾」被手动排在前面也要被纠正
+  assert.match(lines[1]!, /^1,安琪,/)
+  assert.match(lines[1]!, /已传（5\.0 MB）/)
+  assert.match(lines[2]!, /^2,曾晨希,/)
+  assert.match(lines[2]!, /未传/)
   closeDatabase(':memory:')
 })
 
