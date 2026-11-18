@@ -22,6 +22,12 @@ interface UseMapTransitOptions {
   mapProvider: Ref<MapProvider | null>
   userLocation: Ref<GeoPoint | null>
   notify: (notice: MapTransitNotice) => void
+  /**
+   * 跟车期间的镜头是否还允许移动。页面在面板抬起时返回 false，
+   * 让「打开叮叮车面板 / 浮窗停跟」不再被 5s / 20s 的轮询镜头抢回去。
+   * 数据刷新照旧，只掐 flyToPoint。
+   */
+  canFollowVehicle?: () => boolean
 }
 
 /**
@@ -30,6 +36,7 @@ interface UseMapTransitOptions {
  */
 export function useMapTransit(options: UseMapTransitOptions) {
   const { mapProvider, userLocation } = options
+  const canFollowVehicle = options.canFollowVehicle ?? (() => true)
 
   // 校车图层：路线 + 起终点 + 实时车位置（云一卡通 5s 轮询）；快照数据喂掌上公交面板
   const busSelectedRouteId = ref('')
@@ -293,6 +300,7 @@ export function useMapTransit(options: UseMapTransitOptions) {
       nextStation: bus.siteName,
       updatedAt: bus.updatedAt
     }
+    if (!canFollowVehicle()) return
     const moved = wgs84ToGcj02(bus.lng, bus.lat)
     // 只放大不缩小：用户手动放大后保持当前 zoom，没动过（或缩小到 17 以下）用 17 保底防跟丢。
     mapProvider.value?.flyToPoint(
@@ -387,6 +395,7 @@ export function useMapTransit(options: UseMapTransitOptions) {
       updatedAt: transitLive.value?.fetchedAt,
       source: 'transit'
     }
+    if (!canFollowVehicle()) return
     // 只放大不缩小（同校内校车跟车）：保持用户手动放大的 zoom，保底 17 防跟丢。
     mapProvider.value?.flyToPoint(
       { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' },

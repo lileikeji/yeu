@@ -149,12 +149,11 @@ function bloomSheetFromDock(): void {
   })
 }
 
-// 只有「折叠 → 非折叠」的离散切换才 bloom：拖拽松手带时间戳跳过，bus 视图跳过。
+// 只有「折叠 → 非折叠」的离散切换才 bloom：拖拽松手带时间戳跳过；叮叮车也走这条路（从搜索条长出来）。
 watch(mobileSheetState, (state, previous) => {
   if (!sheetHydrated.value) return
   if (previous !== 'collapsed' || state === 'collapsed') return
   if (Date.now() - sheetDragEndedAt < 240) return
-  if (mapSheetView.value === 'bus') return
   bloomSheetFromDock()
 })
 
@@ -840,6 +839,11 @@ function pinProjectionPoint(point: GeoPoint): GeoPoint {
  */
 let pinLivePointReader: ((selection: PinSelection) => GeoPoint | undefined) | null = null
 
+// 跟车没有别的出口（T-028 删掉手机车辆卡后）：关闭叮叮车 / 校外公交卡时要能顺带停跟。
+// 用「后可置挂载的读取器」：closePinPopover 在 setup 早期就会被 immediate watch 调到，
+// 那时 useMapTransit 还没调用（解构在文件后半段），直接引用会踩 TDZ。
+let vehicleFollowStopper: (() => void) | null = null
+
 function pinSelectionPoint(selection: PinSelection): GeoPoint | undefined {
   return pinLivePointReader?.(selection) ?? selection.point
 }
@@ -906,8 +910,11 @@ function schedulePinAnchorRefresh(): void {
 }
 
 function closePinPopover(): void {
+  const closed = pinSelection.value
   pinSelection.value = null
   pinAnchor.value = null
+  // 关掉车辆卡等于「不再跟随」：镜头每 5s / 20s 抢回去的源头就是这份 focus。
+  if (closed?.kind === 'bus' || closed?.kind === 'transit-vehicle') vehicleFollowStopper?.()
 }
 
 function handlePinFeatureSelected(selection: PinSelection | null): void {
@@ -1138,7 +1145,10 @@ const pinCard = computed<PinCardModel | null>(() => {
             to: stops[stops.length - 1]?.siteName
           }
         : null,
-      actions: [{ key: 'bus-route', label: '看全线', icon: 'i-lucide-route', variant: 'primary' }],
+      actions: [
+        { key: 'bus-route', label: '看全线', icon: 'i-lucide-route', variant: 'primary' },
+        { key: 'follow-stop', label: '停止跟随', variant: 'ghost' }
+      ],
       meta: pinAgeText(bus?.updatedAt)
     }
   }
@@ -1211,7 +1221,10 @@ const pinCard = computed<PinCardModel | null>(() => {
               meta: pinAgeText(live?.fetchedAt)
             }]
           : [],
-        actions: [{ key: 'transit-live', label: '看线路', icon: 'i-lucide-route', variant: 'primary' }],
+        actions: [
+          { key: 'transit-live', label: '看线路', icon: 'i-lucide-route', variant: 'primary' },
+          { key: 'follow-stop', label: '停止跟随', variant: 'ghost' }
+        ],
         meta: vehicle.nextStation || ''
       }
     }
@@ -1227,7 +1240,10 @@ const pinCard = computed<PinCardModel | null>(() => {
       subtitle: '在途',
       chips: [],
       rows: [],
-      actions: [{ key: 'transit-live', label: '看线路', variant: 'primary' }],
+      actions: [
+        { key: 'transit-live', label: '看线路', variant: 'primary' },
+        { key: 'follow-stop', label: '停止跟随', variant: 'ghost' }
+      ],
       meta: ''
     }
   }
@@ -1258,6 +1274,13 @@ function handlePinAction(key: string): void {
     closePinPopover()
     return
   }
+  if (key === 'follow-stop') {
+    // 停止跟随：清掉 focus（后续轮询不再 flyToPoint），再把卡收掉。
+    vehicleFollowStopper?.()
+    closePinPopover()
+    return
+  }
+
   if (key === 'bus-route') {
     openBusSheet()
     return
@@ -1399,12 +1422,18 @@ const {
   focusTransitStop,
   focusTransitVehicleFromPanel,
   startTransitLive,
-  stopTransitLive
+  stopTransitLive,
+  closeVehicleDetails
 } = useMapTransit({
   mapProvider,
   userLocation,
-  notify: notice => toast.add(notice)
+  notify: notice => toast.add(notice),
+  // 桌面分支保持跟车（点面板里的车全靠轮询把镜头带过去）；手机只在面板折叠时跟，一抬起就让位。
+  canFollowVehicle: () => panelIsDesktop.value || mobileSheetState.value === 'collapsed'
 })
+
+// 跟车停跟的真实落点：上面那份读取器在这里拿到实现。
+vehicleFollowStopper = closeVehicleDetails
 
 // 校车给的是插值显示位（没有自己的 crs，沿用点击时那份）；校外公交给实时 GCJ-02 GPS 点。
 pinLivePointReader = (selection) => {
@@ -1821,6 +1850,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     :data-sheet-transition="sheetTransitioning ? 'on' : 'off'"
     :data-sheet-bloom="sheetBlooming ? 'on' : 'off'"
     :data-sheet-collapse="sheetCollapsePhase"
+    :data-bus-dock="mapSheetView === 'bus' && mobileSheetState !== 'expanded' ? 'on' : 'off'"
     :style="{ '--map-mobile-dock': `${mobileDockBottom}px`, '--sheet-collapse-h': sheetCollapseHeight + 'px' }"
   >
     <aside
@@ -3467,5 +3497,22 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     height: 0 !important;
   }
 }
+}
+
+/* 叮叮车面板底边让开合成块（搜索行 + 底栏）：折叠 84 条与半屏 326 都要整块露出来。
+   展开态 dock 已淡出（.shell-dock--sheet-expanded），面板才允许贴底。
+   层外声明（Tailwind 工具类在 @layer utilities 里），否则 bottom-0 会抢走底边。 */
+.map-workspace[data-bus-dock='on'] > aside.map-glass-sheet {
+  bottom: calc(var(--shell-dock-map-height, 6.25rem) + var(--mobile-dock-inset, 0.625rem));
+}
+
+/* 稳态才给过渡：bloom 首帧与收起三相位要求瞬时，这条不能把它们的 transition: none 顶掉。
+   展开 / 半屏切换时 bottom 与 height 一起动，否则顶边会先跳 110px 再长回去。 */
+.map-workspace[data-sheet-bloom='off'][data-sheet-collapse='off'] > aside.map-glass-sheet {
+  transition:
+    bottom 220ms cubic-bezier(0.24, 1, 0.32, 1),
+    transform 300ms cubic-bezier(0.24, 1, 0.32, 1),
+    opacity 220ms cubic-bezier(0.24, 1, 0.32, 1),
+    height 320ms cubic-bezier(0.24, 1, 0.32, 1);
 }
 </style>
