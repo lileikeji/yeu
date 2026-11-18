@@ -180,8 +180,26 @@ function syncOwnDeptForm(): void {
 }
 
 async function saveOwnDepartment(): Promise<void> {
+  const focusList = ownDeptForm.focusText.split('\n').map(s => s.trim()).filter(Boolean)
+  const tools = ownDeptForm.toolsText.split(/[,，/]/).map(s => s.trim()).filter(Boolean)
   if (!ownDeptForm.summary.trim()) {
     toast.add({ title: '请填写部门简介', color: 'warning' })
+    return
+  }
+  if (!focusList.length || focusList.length > 6) {
+    toast.add({ title: '请填写 1 至 6 条实践要点（每行一条）', color: 'warning' })
+    return
+  }
+  if (focusList.some(item => item.length > 120)) {
+    toast.add({ title: '单条实践要点不能超过 120 字', color: 'warning' })
+    return
+  }
+  if (!tools.length || tools.length > 12) {
+    toast.add({ title: '请填写 1 至 12 项常用工具 / 技术栈', color: 'warning' })
+    return
+  }
+  if (tools.some(item => item.length > 40)) {
+    toast.add({ title: '单个工具名称不能超过 40 字', color: 'warning' })
     return
   }
   savingOwnDept.value = true
@@ -191,8 +209,8 @@ async function saveOwnDepartment(): Promise<void> {
       body: {
         lead: ownDeptForm.lead.trim(),
         summary: ownDeptForm.summary.trim(),
-        focusList: ownDeptForm.focusText.split('\n').map(s => s.trim()).filter(Boolean),
-        tools: ownDeptForm.toolsText.split(/[,，/]/).map(s => s.trim()).filter(Boolean),
+        focusList,
+        tools,
         recentTopic: ownDeptForm.recentTopic.trim(),
         acceptingRecruit: ownDeptForm.acceptingRecruit,
         recruitDesc: ownDeptForm.recruitDesc.trim()
@@ -282,11 +300,13 @@ async function loadOverview(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [session, data] = await Promise.all([
-      adminFetch<SessionPayload>('/api/admin/auth/session'),
-      adminFetch<YeucaAdminOverviewPayload>('/api/admin/yeuca/overview')
-    ])
+    const session = await adminFetch<SessionPayload>('/api/admin/auth/session')
     mustChangePassword.value = session.admin?.mustChangePassword === true
+    if (mustChangePassword.value) {
+      overview.value = null
+      return
+    }
+    const data = await adminFetch<YeucaAdminOverviewPayload>('/api/admin/yeuca/overview')
     overview.value = data
     settingsForm.campus = data.settings.campus
     settingsForm.tagline = data.settings.tagline
