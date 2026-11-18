@@ -4155,13 +4155,18 @@ export async function setEntryAccompaniment(
     .where(eq(competitionSingers.id, entry.singerId)).get()
   // 以文件头为准：用户把 .m4a 改名成 .mp3 上传时，只有嗅探能拿到真实容器。
   const sniffed = detectUploadedAudioType(file.data)
+  const fromFilename = songTitleFromFilename(file.filename)
+  const currentSong = (entry.song ?? '').trim()
+  const songValue = currentSong || fromFilename || (singer?.song ?? '').trim()
   const name = accompanimentDisplayName(
     singer?.name ?? '',
-    (entry.song ?? '').trim() || singer?.song || '',
+    songValue,
     sniffed || accompanimentExtension(stored.url)
   )
   client.db.update(competitionRoundEntries)
     .set({
+      // 后台代传时如果这一轮还没曲目，就用文件名里的歌名补上，避免「有伴奏没歌」。
+      song: currentSong || fromFilename || null,
       accompanimentUrl: stored.url,
       accompanimentName: name,
       accompanimentSize: stored.size
@@ -4185,6 +4190,22 @@ export function accompanimentDisplayName(singerName: string, song: string, exten
   const cleanExt = String(extension || '').replace(/^\./, '').toLowerCase()
   const base = cleanSong ? `${cleanName}《${cleanSong}》` : cleanName
   return cleanExt ? `${base}.${cleanExt}` : base
+}
+
+/**
+ * 从上传文件名里猜曲目名：`世界赠予(伴奏).mp3` → `世界赠予`。
+ * 用于「换了歌只换了文件、曲目输入框没改」的场景，猜不出来就回空串。
+ */
+export function songTitleFromFilename(filename: string): string {
+  const base = String(filename || '').split('/').at(-1) || ''
+  let title = base.replace(/\.[a-z0-9]{2,5}$/i, '')
+  title = title.replace(/[（(【\[]\s*(伴奏|纯音乐|消音|和声|karaoke|instrumental)[^）)】\]]*[）)】\]]/gi, '')
+  title = title.replace(/(伴奏|纯音乐|消音版|和声版|karaoke|instrumental)/gi, '')
+  title = title.replace(/[_]+/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  title = title.replace(/^[\s\-–—.、]+|[\s\-–—.、]+$/g, '').trim()
+  const generic = /^(伴奏|音乐|未知|无名|未命名|audio|track|录音|新录音|demo)$/i
+  if (!title || title.length < 2 || title.length > 40 || generic.test(title)) return ''
+  return title
 }
 
 function accompanimentExtension(source: string): string {
@@ -4244,7 +4265,7 @@ export async function commitAccompanimentKey(
     ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
     : null
   const entrySong = (entry?.song ?? '').trim()
-  const incoming = (song ?? '').trim()
+  const incoming = (song ?? '').trim() || songTitleFromFilename(file.name)
   // 曲目必填：这一轮没有曲目、这次也没一起提交，就不许存伴奏（否则名单里会出现「有伴奏没歌」）。
   if (!entrySong && !incoming) {
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
