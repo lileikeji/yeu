@@ -87,7 +87,7 @@ test('T-029 守卫层跟着面板状态进出，popstate 与 Esc 共用一条判
 
 test('T-030 面板左右竖带：sheet 只按上边算 band，玻璃开也干净', () => {
   assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 2\.2, 0\.18, 0, 'top'\)/)
-  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all'\): void => \{/)
+  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all', radiusPx\?: number\): void => \{/)
   assert.match(glassSource, /bandEdges\?: 'all' \| 'top'/)
   assert.match(glassSource, /if \(vEdges > 0\.5\)/)
   assert.match(glassSource, /uniform1fv\(pipeline\.uEdges, mount\.edges\)/)
