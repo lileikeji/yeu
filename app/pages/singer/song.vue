@@ -340,7 +340,7 @@ async function submit() {
             >
             <p
               v-if="!song.trim() && !state.song"
-              class="mt-1 text-xs text-[var(--color-amber-600,#b45309)]"
+              class="mt-1 text-xs text-[var(--color-orange-600)]"
             >
               先用上面的输入框把新曲目填上，才能选伴奏文件。
             </p>

@@ -228,6 +228,7 @@ function exportRegCsv(): void {
       </div>
       <div class="flex gap-2">
         <UButton
+          v-if="!isMinister"
           to="/admin/activities"
           size="sm"
           variant="outline"
