@@ -115,7 +115,7 @@ test('接入到位：layout 换成 ShellDock、12 处下游引用改到新变量
     'app/components/AppUpdateBanner.vue',
     'app/components/PwaUpdatePrompt.vue',
     'app/components/PublicPageViewStats.vue',
-    'app/components/map/PlaceDetailsPanel.vue',
+    // PlaceDetailsPanel 手机分支已删（T-028 A1），不再引用 dock 变量
     'app/pages/chat/index.vue',
     'app/pages/feedback.vue',
     'app/pages/guides/[slug].vue',

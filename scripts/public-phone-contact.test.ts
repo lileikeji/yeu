@@ -14,6 +14,8 @@ const placePanel = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vu
 const campusPage = readFileSync(resolve('app/pages/campus.vue'), 'utf8')
 const homePage = readFileSync(resolve('app/pages/index.vue'), 'utf8')
 const clubPage = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
+const mapPageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+const popoverSource = readFileSync(resolve('app/components/map/MapPinPopover.vue'), 'utf8')
 
 test('parsePublicPhoneContacts splits multi-number campus lines into dialable tel links', () => {
   assert.deepEqual(
@@ -38,7 +40,6 @@ test('resolvePublicEmailHref only accepts plain email addresses', () => {
   assert.equal(resolvePublicEmailHref('not-an-email'), null)
   assert.equal(resolvePublicEmailHref(null), null)
 })
-
 
 test('resolvePublicContactActions maps phones, emails, and plain text contacts', () => {
   assert.deepEqual(
@@ -99,8 +100,13 @@ test('public pages expose dialable public phone contacts', () => {
   assert.match(placePanel, /:href="phone\.href"/)
   // 移动端电话块只在确实有电话时渲染：曾经的 (campusArea || openingHours ||
   // phoneContacts.length) 会让一个纯电话区块因为校区/营业时间而出现。
-  assert.match(placePanel, /props\.variant === 'mobile' && phoneContacts\.length/)
-  assert.match(placePanel, /拨打/)
+  assert.match(placePanel, /phoneContacts\.length/)
+  // 手机端详情卡已由点位浮窗取代：拨号入口迁到浮窗的电话行，断言语义跟着搬，不是删掉。
+  assert.match(mapPageSource, /parsePublicPhoneContacts/)
+  assert.match(mapPageSource, /tel:/)
+  assert.match(popoverSource, /:href="row\.href"/)
+  // 手机端「拨打」按钮随详情卡一起退场，通话入口现在是浮窗里的电话行。
+  assert.match(mapPageSource, /badge: '电话'/)
   assert.match(campusPage, /parsePublicPhoneContacts/)
   assert.match(campusPage, /departmentPhoneContacts/)
   assert.match(campusPage, /:href="phone\.href"/)

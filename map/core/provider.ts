@@ -5,6 +5,23 @@ export type PoiSelectHandler = (poi: MapPoi | null) => void
 export type AreaSelectHandler = (area: MapArea | null) => void
 export type BusSelectHandler = (busId: string) => void
 export type MapErrorHandler = (error: Error) => void
+
+/** 地图要素（非 POI）被点：聚合簇 / 校车 / 校车站点 / 校外公交终点站 / 校外公交车辆。 */
+export type MapFeatureKind = 'cluster' | 'bus' | 'bus-stop' | 'bus-terminal' | 'transit-terminal' | 'transit-vehicle'
+
+export interface MapFeatureSelection {
+  kind: MapFeatureKind
+  id: string
+  /** 要素自带显示名（站点 / 终点站），POI 之外的卡片标题用它。 */
+  name?: string
+  point: GeoPoint
+  /** 聚合簇内的点位数量（kind === cluster 时有效）。 */
+  count?: number
+}
+
+export type FeatureSelectHandler = (selection: MapFeatureSelection | null) => void
+export type ViewportChangeHandler = () => void
+
 export type MapProviderId = 'maplibre-dev' | 'amap' | 'offline'
 export type MapBaseStyle = 'standard' | 'satellite'
 export type MapLabelSize = 'extra-small' | 'small' | 'medium' | 'large'
@@ -80,9 +97,14 @@ export interface MapProvider {
    * 供 DOM 覆盖层（例如贴在车上的 ETA 胶囊）贴着地图标注摆放；
    * 地图未就绪、点不可渲染时返回 null，调用方需判空跳过。provider 可不实现。
    */
-  projectToScreen?(point: GeoPoint): { x: number; y: number } | null
+  projectToScreen?(point: GeoPoint): { x: number, y: number } | null
   clearRoute(): void
   onPoiSelect(handler: PoiSelectHandler): () => void
+  /** 非 POI 要素（簇 / 车辆 / 站点）被点；provider 可不实现。 */
+  onFeatureSelect?(handler: FeatureSelectHandler): () => void
+  /** 视口变化（move / zoom / resize），供 DOM 覆盖层跟随；provider 可不实现。 */
+  onViewportChange?(handler: ViewportChangeHandler): () => void
+
   /** 校内校车车标被点：回调车辆 id（MapBus.id），返回取消订阅。provider 可不实现。 */
   onBusSelect?(handler: BusSelectHandler): () => void
   onAreaSelect(handler: AreaSelectHandler): () => void
