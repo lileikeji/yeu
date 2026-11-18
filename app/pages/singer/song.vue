@@ -117,6 +117,11 @@ async function uploadAccompaniment(event: Event) {
     toast.add({ title: '伴奏别超过 400MB', color: 'warning' })
     return
   }
+  const songValue = (song.value || '').trim()
+  if (!songValue) {
+    toast.add({ title: '先把曲目填上，再传伴奏', color: 'warning' })
+    return
+  }
   accompanimentBusy.value = true
   uploadPercent.value = null
   uploadPhase.value = null
@@ -147,7 +152,8 @@ async function uploadAccompaniment(event: Event) {
           studentNo: studentNo.value.trim(),
           contact: contact.value.trim(),
           key: ticket.key,
-          filename: file.name
+          filename: file.name,
+          song: songValue
         }
       })
       state.value = committed
@@ -166,6 +172,7 @@ async function uploadAccompaniment(event: Event) {
         studentNo: studentNo.value.trim(),
         contact: contact.value.trim(),
         filename: file.name,
+        song: songValue,
         data
       }
     })
@@ -330,9 +337,15 @@ async function submit() {
               class="hidden"
               @change="uploadAccompaniment"
             >
+            <p
+              v-if="!song.trim() && !state.song"
+              class="mt-1 text-xs text-[var(--color-amber-600,#b45309)]"
+            >
+              先用上面的输入框把新曲目填上，才能选伴奏文件。
+            </p>
             <button
               type="button"
-              :disabled="accompanimentBusy"
+              :disabled="accompanimentBusy || (!song.trim() && !state.song)"
               class="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-medium disabled:opacity-60"
               @click="accompanimentInput?.click()"
             >

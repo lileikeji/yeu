@@ -1770,9 +1770,16 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
 
   // 假 mp3：ID3 头就够了，服务端按文件头认格式，不信任扩展名。
   const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)])
-  const first = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v1.mp3', data: mp3 })
-  // 展示名统一成「姓名《曲目》.扩展名」，选手原始文件名不再透出
-  assert.equal(first.accompaniment?.name, '甲一《晴天》.mp3')
+  // 这一轮还没填曲目时不许传伴奏，否则名单里会出现「有伴奏没歌」
+  await assert.rejects(
+    submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v0.mp3', data: mp3 }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'SONG_REQUIRED'
+  )
+
+  // 传伴奏时一并交曲目，落库后展示名统一成「姓名《曲目》.扩展名」
+  const first = await submitAccompanimentByThreeFactors(client, musicId, lookup, { filename: '伴奏-v1.mp3', data: mp3 }, '后来')
+  assert.equal(first.song, '后来')
+  assert.equal(first.accompaniment?.name, '甲一《后来》.mp3')
   assert.match(first.accompaniment?.url ?? '', /^\/uploads\/[0-9a-f-]{36}\.mp3$/)
 
   // 再传一次就换新的，旧的地址不会复用。
@@ -1789,7 +1796,7 @@ test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人�
   const archive = await buildAccompanimentArchive(client, semi)
   assert.match(archive.filename, /^competition-semi-accompaniment-\d+\.zip$/)
   assert.ok(archive.data.includes(Buffer.from('01-甲一/曲目.txt', 'utf8')))
-  assert.ok(archive.data.includes(Buffer.from('01-甲一/伴奏-晴天.mp3', 'utf8')))
+  assert.ok(archive.data.includes(Buffer.from('01-甲一/伴奏-后来.mp3', 'utf8')))
 
   closeDatabase(':memory:')
   if (previousUploadDir === undefined) delete process.env.NUXT_UPLOAD_DIR
@@ -1927,7 +1934,7 @@ test('数据库：曲目名单按姓名拼音排，伴奏一栏分清传没传',
     key: 'competition/accompaniment/x.mp3',
     name: '鹿 be free.mp3',
     size: 5 * 1024 * 1024
-  })
+  }, '鹿 be free')
 
   const exported = buildCompetitionExport(client, semi, 'songs')
   const lines = exported.csv.split('\n')

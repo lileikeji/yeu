@@ -4218,24 +4218,49 @@ export function commitAccompanimentKey(
   client: DatabaseClient,
   round: RoundRow,
   entryId: string,
-  file: { key: string, name: string, size: number }
+  file: { key: string, name: string, size: number },
+  song?: string
 ): CompetitionEntryAccompaniment {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
   const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
   const singer = entry
     ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
     : null
+  const entrySong = (entry?.song ?? '').trim()
+  const incoming = (song ?? '').trim()
+  // 曲目必填：这一轮没有曲目、这次也没一起提交，就不许存伴奏（否则名单里会出现「有伴奏没歌」）。
+  if (!entrySong && !incoming) {
+    conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
+  }
+  const songValue = incoming || entrySong
   const name = accompanimentDisplayName(
     singer?.name ?? '',
-    ((entry?.song ?? '').trim() || singer?.song || ''),
+    songValue || singer?.song || '',
     accompanimentExtension(file.key)
   )
   client.db.update(competitionRoundEntries)
-    .set({ accompanimentUrl: `cos:${file.key}`, accompanimentName: name, accompanimentSize: file.size })
+    .set({
+      song: songValue,
+      accompanimentUrl: `cos:${file.key}`,
+      accompanimentName: name,
+      accompanimentSize: file.size
+    })
     .where(eq(competitionRoundEntries.id, entryId))
     .run()
+  if (incoming && entry) {
+    client.db.update(competitionSingers).set({ song: incoming }).where(eq(competitionSingers.id, entry.singerId)).run()
+  }
   const config = cosConfig()
   return { name, url: config ? presignCosGet(config, file.key) : `cos:${file.key}`, size: file.size }
+}
+
+/** 某一轮出场记录上已经填的曲目（去掉首尾空格，空串表示还没填）。 */
+export function entrySongOf(client: DatabaseClient, entryId: string): string {
+  const row = client.db.select({ song: competitionRoundEntries.song })
+    .from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.id, entryId))
+    .get()
+  return (row?.song ?? '').trim()
 }
 
 /** 选手自己传伴奏：三要素定位，只有确认晋级的这一轮能传；不传也能交曲目。 */
@@ -4243,7 +4268,8 @@ export async function submitAccompanimentByThreeFactors(
   client: DatabaseClient,
   contentId: string,
   input: { name?: string, studentNo?: string, contact?: string },
-  file: { filename: string, data: Uint8Array }
+  file: { filename: string, data: Uint8Array },
+  song?: string
 ): Promise<CompetitionSongFormState> {
   const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
   const stage = songStage(client, eventRow.id, singer.id)
@@ -4258,6 +4284,16 @@ export async function submitAccompanimentByThreeFactors(
     .get()?.roundId)
   if (!round) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
+  }
+  const incoming = (song ?? '').trim()
+  if (incoming) {
+    client.db.update(competitionRoundEntries).set({ song: incoming })
+      .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
+    client.db.update(competitionSingers).set({ song: incoming })
+      .where(eq(competitionSingers.id, singer.id)).run()
+  }
+  if (!entrySongOf(client, stage.targetEntryId)) {
+    conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
   }
   await setEntryAccompaniment(client, round, stage.targetEntryId, file)
   return getSongEditor(client, contentId, input)

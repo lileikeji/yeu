@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { findMusicAssociationContent, resolveAccompanimentTarget } from '../../../../modules/competition/service'
+import { entrySongOf, findMusicAssociationContent, resolveAccompanimentTarget } from '../../../../modules/competition/service'
 import { useAppDatabase } from '../../../../utils/database'
 import { cosConfig, newAccompanimentKey, presignCosPut } from '../../../../utils/cos-storage'
 import { assertTrustedOrigin } from '../../../../utils/security'
@@ -26,7 +26,10 @@ export default defineEventHandler(async (event) => {
   const client = useAppDatabase(event)
   const input = await parseBody(event, schema)
   const contentId = findMusicAssociationContent(client).id
-  resolveAccompanimentTarget(client, contentId, input)
+  const target = resolveAccompanimentTarget(client, contentId, input)
+  if (!entrySongOf(client, target.entryId)) {
+    throw createError({ statusCode: 409, statusMessage: 'Song required', data: { code: 'SONG_REQUIRED', message: '先把这一轮的曲目填上，再选伴奏文件' } })
+  }
 
   const rawExtension = (input.filename || '').split('.').at(-1)?.toLowerCase() || 'mp3'
   const extension = (EXTENSIONS as readonly string[]).includes(rawExtension) ? rawExtension : 'mp3'
