@@ -19,6 +19,7 @@ import YeucaMembersPanel from '~~/app/components/admin/yeuca/YeucaMembersPanel.v
 import YeucaRecruitPanel from '~~/app/components/admin/yeuca/YeucaRecruitPanel.vue'
 import YeucaActivitiesPanel from '~~/app/components/admin/yeuca/YeucaActivitiesPanel.vue'
 import YeucaSiteContentPanel from '~~/app/components/admin/yeuca/YeucaSiteContentPanel.vue'
+import YeucaVisitsPanel from '~~/app/components/admin/yeuca/YeucaVisitsPanel.vue'
 
 definePageMeta({ layout: 'admin' })
 
@@ -42,6 +43,7 @@ type StudioTab
     | 'posts'
     | 'projects'
     | 'sitecontent'
+    | 'visits'
     | 'studio'
 
 const toast = useToast()
@@ -944,6 +946,15 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           :class="activeTab === 'studio' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
           @click="activeTab = 'studio'"
         />
+        <UButton
+          size="sm"
+          label="访问记录"
+          icon="i-lucide-shield-alert"
+          color="neutral"
+          :variant="activeTab === 'visits' ? 'solid' : 'ghost'"
+          :class="activeTab === 'visits' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
+          @click="activeTab = 'visits'"
+        />
       </div>
 
       <!-- Tab A：成员台账、批量导入与 Git 权限 -->
@@ -1387,6 +1398,8 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       </div>
 
       <!-- Tab 4：图片上传（首屏/二维码/实景图库）与全站可编辑内容（文案/竞赛/Q&A） -->
+      <YeucaVisitsPanel v-if="activeTab === 'visits'" />
+
       <div
         v-if="activeTab === 'studio'"
         class="space-y-6"
