@@ -9,6 +9,17 @@ import { runMigrations } from '../server/database/migrate'
 import { visitorBans, visitorEvents, visitors } from '../server/database/schema'
 import { getPublicPageViewStats, listVisitorBans, listVisitors } from '../server/modules/visitors/service'
 
+function shanghaiDayStart(ms: number): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date(ms))
+  const pick = (type: string) => parts.find(part => part.type === type)?.value ?? ''
+  return Date.parse(`${pick('year')}-${pick('month')}-${pick('day')}T00:00:00+08:00`)
+}
+
 test('visitor list supports activity sorting and daily/hourly analytics', () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-visitors-'))
   const databasePath = join(directory, 'test.sqlite')
@@ -16,14 +27,15 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
   try {
     runMigrations(client)
     const now = Date.now()
+    // 事件必须落在"上海时区的今天"里，否则每天 00:00–00:03 跑测试会整组归到昨天。
+    // 取今天已过去的时长，按比例压缩到 3 个时间点，既不越过午夜也不超出 now。
+    const dayStart = shanghaiDayStart(now)
+    const window = Math.min(180_000, Math.max(3_000, now - dayStart - 2_000))
     const firstId = randomUUID()
     const secondId = randomUUID()
-    // Events are placed inside "today" in the China timezone regardless of
-    // when the suite runs (this fails at 00:00-02:00 if a 2-hour offset
-    // crosses the midnight boundary). Use small offsets from now.
-    const firstEventAt = now - 60_000
-    const secondEventAt = now - 120_000
-    const searchEventAt = now - 180_000
+    const firstEventAt = now - Math.round(window / 3)
+    const secondEventAt = now - Math.round((window * 2) / 3)
+    const searchEventAt = now - window
     client.db.insert(visitors).values([
       {
         id: firstId,
