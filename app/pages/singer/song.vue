@@ -176,7 +176,7 @@ async function uploadAccompaniment(event: Event) {
         }
       })
       state.value = committed
-      toast.add({ title: '伴奏收到了', description: file.name, color: 'success' })
+      toast.add({ title: '伴奏收到了', description: `${songValue || '当前曲目'}：${file.name}`, color: 'success' })
       return
     }
     uploadPhase.value = 'read'
@@ -340,7 +340,8 @@ async function submit() {
               伴奏 <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
             </p>
             <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。<br>
+              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。
+              伴奏会记在当前曲目《{{ song.trim() || '未填' }}》名下：换了歌务必先把上面的曲目改成新歌名，再传伴奏。<br>
               iPhone 在微信里选不到聊天文件时：先长按文件「用其他应用打开 → 存储到文件」，再点下面的按钮从「文件」App 里选；实在不行把伴奏发给工作人员代传。
             </p>
             <p
