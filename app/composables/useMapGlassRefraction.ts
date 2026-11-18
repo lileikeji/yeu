@@ -262,7 +262,9 @@ void main() {
   // 面板把倍率设 0，边缘只留模糊与折射。
   float rim = (1.0 - smoothstep(0.0, 2.0 * uDpr, -d)) * clamp(vParams.w, 0.0, 2.0);
   // T-035：乘 inside。圆角外侧不该有亮边，去掉 DOM 边框后这一圈残余白线就是「白月牙」。
-  col += vec3(1.0) * rim * 0.35 * inside;
+  // T-037 CR-6：alpha 也要用同一份掩码 —— 色值收进圆角内、透明度没收到，外侧仍留半透明白弧。
+  float rimMasked = rim * inside;
+  col += vec3(1.0) * rimMasked * 0.35;
 
   // 16~34 CSS px 内侧 gloss：一道很软的内高光。12→16 淡入、34→40 淡出，
   // 中间 16~34 保持满强度；这个区间来自对比截图，整段收窄到 16px 以内就会像描边。
@@ -278,7 +280,7 @@ void main() {
 
   // 中心透明度 0.14、大面板雾化后 0.92：frost 越大越不透明，文字越好读。
   float alpha = inside * mix(0.32, 0.92, frost);
-  alpha += rim * 0.25 + topLit * 0.12 + gloss * 0.06;
+  alpha += rimMasked * 0.25 + topLit * 0.12 + gloss * 0.06;
   alpha = clamp(alpha, 0.0, 1.0);
 
   // CR-4：上下文按 premultipliedAlpha:true 创建，输出必须是预乘色，否则合成器会再乘一次 alpha。
@@ -356,9 +358,10 @@ export function collectGlassQuads(
       w: rect.width / viewport.width,
       h: rect.height / viewport.height,
       // T-035：有真实圆角就按短边换算，没有才回落到旧的比例语义。
-      radius: target.radiusPx
-        ? clamp(target.radiusPx / Math.min(rect.width, rect.height), 0, 0.5)
-        : clamp(target.radius, 0, 0.5),
+      radius:
+        target.radiusPx !== undefined && Number.isFinite(target.radiusPx)
+          ? clamp(target.radiusPx / Math.min(rect.width, rect.height), 0, 0.5)
+          : clamp(target.radius, 0, 0.5),
       strengthMul: clamp(target.strengthMul, 0, 4),
       frost: clamp(target.frost, 0, 1),
       rim: clamp(target.rim ?? 1, 0, 2),

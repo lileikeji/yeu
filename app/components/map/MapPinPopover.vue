@@ -146,6 +146,14 @@ const LIGHT_DISMISS_DRAG_SLOP = 6
 let dismissPointerId: number | null = null
 let dismissStartX = 0
 let dismissStartY = 0
+/** CR-2：本次按压一旦位移超阈值就锁定为拖拽，抬起时不再改判成轻点。 */
+let dismissDragged = false
+
+/** 解除武装：连同「已判为拖拽」一起清，下一次按下是全新手势。 */
+function resetDismissGesture(): void {
+  dismissPointerId = null
+  dismissDragged = false
+}
 
 /** 只有「卡片外、且不在锚点宿主上」才算是要点空白。 */
 function isOutsideCard(target: EventTarget | null): boolean {
@@ -157,25 +165,45 @@ function isOutsideCard(target: EventTarget | null): boolean {
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {
+  // CR-1：已有按压在跟随时不接管新的那根手指（双指缩放的第二指），
+  // 否则第二指原地抬起会通过 6px 判定把卡片关掉。旧手势直接作废。
+  if (dismissPointerId !== null) {
+    resetDismissGesture()
+    return
+  }
   if (!props.open || event.button !== 0 || !isOutsideCard(event.target)) {
-    dismissPointerId = null
+    resetDismissGesture()
     return
   }
   dismissPointerId = event.pointerId
   dismissStartX = event.clientX
   dismissStartY = event.clientY
+  dismissDragged = false
+}
+
+/** CR-2：移动过阈值的按压永远算拖拽，之后就算拖回起点附近松开也不关卡片。 */
+function onDocumentPointerMove(event: PointerEvent): void {
+  if (dismissPointerId === null || event.pointerId !== dismissPointerId || dismissDragged) return
+  const moved = Math.hypot(event.clientX - dismissStartX, event.clientY - dismissStartY)
+  if (moved > LIGHT_DISMISS_DRAG_SLOP) dismissDragged = true
+}
+
+/** CR-1：浏览器取消手势（来电、系统缩放等）后不会再发 pointerup，必须在这里解除武装。 */
+function onDocumentPointerCancel(): void {
+  resetDismissGesture()
 }
 
 function onDocumentPointerUp(event: PointerEvent): void {
   if (dismissPointerId === null || event.pointerId !== dismissPointerId) return
-  dismissPointerId = null
-  if (!props.open) return
-  const moved = Math.hypot(event.clientX - dismissStartX, event.clientY - dismissStartY)
-  if (moved > LIGHT_DISMISS_DRAG_SLOP) return
-  if (!isOutsideCard(event.target)) return
+  const dragged = dismissDragged
+  resetDismissGesture()
+  if (!props.open || dragged) return
+  // CR-3：触摸按下时浏览器会做隐式指针捕获，event.target 可能仍是最初按下的元素；
+  // 从卡片外 2px 滑进卡片再松开会被判成「点空白」。改用落点命中的元素判定。
+  const hit = document.elementFromPoint(event.clientX, event.clientY)
+  if (!hit || !isOutsideCard(hit)) return
   emit('close')
 }
-
 const hostStyle = computed(() => {
   const point = props.anchor
   if (!point) return { display: 'none' }
@@ -346,12 +374,16 @@ onMounted(() => {
   // T-035：捕获阶段先于卡片内的按钮拿到事件，判「卡片外」只用 contains，与坐标无关。
   document.addEventListener('pointerdown', onDocumentPointerDown, true)
   document.addEventListener('pointerup', onDocumentPointerUp, true)
+  document.addEventListener('pointermove', onDocumentPointerMove, true)
+  document.addEventListener('pointercancel', onDocumentPointerCancel, true)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onViewportResize)
   window.removeEventListener('scroll', onViewportResize, true)
   document.removeEventListener('pointerdown', onDocumentPointerDown, true)
   document.removeEventListener('pointerup', onDocumentPointerUp, true)
+  document.removeEventListener('pointermove', onDocumentPointerMove, true)
+  document.removeEventListener('pointercancel', onDocumentPointerCancel, true)
 })
 
 function onToggle(event: Event): void {
