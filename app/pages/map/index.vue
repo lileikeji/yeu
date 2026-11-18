@@ -35,6 +35,8 @@ import {
   resolveBusSheetHeightClass,
   resolveSheetBackAction,
   resolveSheetHistorySync,
+  resolveDockClearSheetAction,
+  resolvePinReselect,
   resolveSearchQueryChangeReset,
   resolveInitialMapViewMode,
   resolveInitialSelectedMapPoiId,
@@ -918,7 +920,30 @@ function closePinPopover(): void {
   if (closed?.kind === 'bus' || closed?.kind === 'transit-vehicle') vehicleFollowStopper?.()
 }
 
+/** CR-4：浮窗刚被 light dismiss 关掉时记一笔 —— 紧接着的 marker click 不该把它又开回来。 */
+let pinDismissedToggle: { kind: string, id: string, at: number } | null = null
+
+/**
+ * 同一点位连点：pointerdown 先被 light dismiss 关掉浮窗，松手后的 click 又选中同一点位，
+ * 400ms 内保持关闭并清记录；窗口外或换了点位就是正常打开。
+ */
+function swallowDismissedPinSelection(selection: PinSelection): boolean {
+  const record = pinDismissedToggle
+  if (!record) return false
+  const decision = resolvePinReselect(record, selection, Date.now())
+  if (decision === 'expired') {
+    pinDismissedToggle = null
+    return false
+  }
+  if (decision !== 'swallow') return false
+  pinDismissedToggle = null
+  if (pinSelection.value) return false
+  closePinPopover()
+  return true
+}
 function handlePinFeatureSelected(selection: PinSelection | null): void {
+  // CR-4：light dismiss 刚关掉的同一点位，这次选中要吞掉，否则一按一放就是「关了又开」。
+  if (selection && swallowDismissedPinSelection(selection)) return
   // 桌面沿用左下详情卡与两块大面板：点位浮窗只在手机分支出现。
   if (panelIsDesktop.value) {
     closePinPopover()
@@ -1313,16 +1338,25 @@ function restoreMapFocus(): void {
   if (!lostFocus) return
   // 原生 popover 关闭后浏览器会把焦点还给「打开前」的元素，晚一帧再收焦点到地图容器。
   window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => mapElement.value?.focus({ preventScroll: true }))
+    window.requestAnimationFrame(() => {
+      // CR-5：这两帧之间用户可能已经在 dock 里打字；输入框/可编辑区拿到焦点就不抢。
+      const activeNow = document.activeElement as HTMLElement | null
+      if (
+        activeNow instanceof HTMLInputElement
+        || activeNow instanceof HTMLTextAreaElement
+        || activeNow?.isContentEditable
+      ) return
+      mapElement.value?.focus({ preventScroll: true })
+    })
   })
-}
-
-/** 浮窗被 Esc / 点空白关掉时，焦点不回任何按钮。 */
+}/** 浮窗被 Esc / 点空白关掉时，焦点不回任何按钮。 */
 function handlePinPopoverClosed(): void {
+  // CR-4：记下被关掉的那一个点位，给紧接着的 click 用；其它关闭路径不写记录。
+  const dismissed = pinSelection.value
+  if (dismissed) pinDismissedToggle = { kind: dismissed.kind, id: dismissed.id, at: Date.now() }
   closePinPopover()
   restoreMapFocus()
 }
-
 /** Esc 只关浮窗：先收起卡片并把焦点交回地图，面板三态保持原样。 */
 function dismissPinPopover(): void {
   if (!pinSelection.value) return
@@ -1588,22 +1622,23 @@ const mapSheetSearching = computed(() => searchQuery.value.trim().length > 0)
 // 半屏会把 dock（连同正在组词的输入框）按 v-show 一起隐藏，组词就断了。
 /**
  * T-036 D2：dock 的 × 或退格把词清干净后，把手机面板收回折叠（T-026 定下的「清空搜索回折叠」）。
- * 只认「非空 → 空」这一次跃迁：初始空串不触发，组词期间 searchQuery 本就不更新，无关重渲染也不触发。
+ * T-037 CR-8：判定抽到 map-presentation 的 resolveDockClearSheetAction；previous 的推进放到
+ * 桌面早退之前，否则「桌面输入 → 切回手机 → 清空」会被看成空→空，面板收不回去。
  */
 let lastDockSearchQuery = ''
-function collapseSheetOnClearedSearch(query: string): boolean {
-  const previous = lastDockSearchQuery
-  lastDockSearchQuery = query
-  if (query.trim()) return false
-  if (previous.trim()) mobileSheetState.value = 'collapsed'
-  return true
-}
 
 watch(searchQuery, (query) => {
+  const previous = lastDockSearchQuery
+  lastDockSearchQuery = query
   if (panelIsDesktop.value) return
-  if (collapseSheetOnClearedSearch(query)) return
-  mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
+  const action = resolveDockClearSheetAction(previous, query)
+  if (action === 'rise') {
+    mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
+    return
+  }
+  if (action === 'collapse') mobileSheetState.value = 'collapsed'
 })
+
 function onMobileDockSearchInput(value: string): void {
   onSearchQueryInput(value)
 }

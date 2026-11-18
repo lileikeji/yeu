@@ -271,11 +271,39 @@ test('T-035：浮窗拖动不重播入场、玻璃圆角按真实像素同心', 
   assert.match(pageSource, /'all', 14\)/)
   // 折射态不留 DOM 边框：shader 的 rim 已画边缘，1px 边框会成双线。
   assert.match(popoverSource, /border-color: transparent;/)
-  // rim 只画在内侧：圆角外侧的残余白线就是白月牙。
-  assert.match(glassSource, /col \+= vec3\(1\.0\) \* rim \* 0\.35 \* inside;/)
+  // rim 只画在内侧：圆角外侧的残余白线就是白月牙（CR-6 起色值与 alpha 共用这份掩码）。
+  assert.match(glassSource, /col \+= vec3\(1\.0\) \* rimMasked \* 0\.35;/)
   // 关闭按钮与 14px 圆角共心：6px 内缩、24px 命中区。
   assert.match(popoverSource, /\.pin-popover__close \{[^}]*inset-block-start: 6px;/)
   assert.match(popoverSource, /\.pin-popover__close \{[^}]*inset-inline-end: 6px;/)
   assert.match(popoverSource, /\.pin-popover__close \{[^}]*width: 24px;/)
   assert.match(popoverSource, /\.pin-popover__close \{[^}]*height: 24px;/)
+})
+
+test('T-037：light dismiss 只在真点空白时关，玻璃 rim 内外一致', () => {
+  const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
+  const presSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+  // CR-1：新按压不接管旧手势；系统取消手势（来电、系统缩放）也要解除武装。
+  assert.match(popoverSource, /if \(dismissPointerId !== null\) \{\s*resetDismissGesture\(\)\s*return\s*\}/)
+  assert.match(popoverSource, /function resetDismissGesture\(\): void \{/)
+  assert.match(popoverSource, /document\.addEventListener\('pointercancel', onDocumentPointerCancel, true\)/)
+  assert.match(popoverSource, /document\.removeEventListener\('pointercancel', onDocumentPointerCancel, true\)/)
+  // CR-2：越过阈值即锁定为拖拽，拖回起点松手也不关。
+  assert.match(popoverSource, /let dismissDragged = false/)
+  assert.match(popoverSource, /document\.addEventListener\('pointermove', onDocumentPointerMove, true\)/)
+  assert.match(popoverSource, /if \(moved > LIGHT_DISMISS_DRAG_SLOP\) dismissDragged = true/)
+  assert.match(popoverSource, /if \(!props\.open \|\| dragged\) return/)
+  // CR-3：落点命中元素判内外，冲掉隐式指针捕获钉住的旧 target。
+  assert.match(popoverSource, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/)
+  // CR-4 / CR-5：点位二击吞掉、焦点归还前重判输入框。
+  assert.match(presSource, /export const PIN_DISMISS_TOGGLE_MS = 400/)
+  assert.match(pageSource, /resolvePinReselect\(record, selection, Date\.now\(\)\)/)
+  assert.match(pageSource, /if \(selection && swallowDismissedPinSelection\(selection\)\) return/)
+  assert.match(pageSource, /activeNow instanceof HTMLInputElement/)
+  assert.match(pageSource, /activeNow\?\.isContentEditable/)
+  // CR-6：rim 的色值与透明度共用同一份 inside 掩码。
+  assert.match(glassSource, /float rimMasked = rim \* inside;/)
+  assert.match(glassSource, /alpha \+= rimMasked \* 0\.25 \+ topLit \* 0\.12 \+ gloss \* 0\.06;/)
+  // CR-7：radiusPx = 0 是合法圆角，不能当成缺省落到旧比例路径。
+  assert.match(glassSource, /target\.radiusPx !== undefined && Number\.isFinite\(target\.radiusPx\)/)
 })
