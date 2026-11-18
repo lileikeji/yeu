@@ -102,14 +102,45 @@ export function signCosUrl(config: CosConfig, options: CosSignedUrlOptions): str
   return `https://${host}${pathname}?${query}`
 }
 
-/** 浏览器直传用的预签名 PUT 地址。 */
-export function presignCosPut(config: CosConfig, key: string, contentType: string, expiresIn = 900): string {
-  return signCosUrl(config, { method: 'PUT', key, expiresIn, contentType })
+/** 按对象扩展名推断播放用的 MIME，供 GET 覆盖响应头。 */
+export function contentTypeForKey(key: string): string {
+  const extension = (key.split('.').at(-1) || '').toLowerCase()
+  if (extension === 'm4a' || extension === 'mp4') return 'audio/mp4'
+  if (extension === 'wav') return 'audio/wav'
+  if (extension === 'aac') return 'audio/aac'
+  if (extension === 'ogg') return 'audio/ogg'
+  if (extension === 'flac') return 'audio/flac'
+  return 'audio/mpeg'
 }
 
-/** 播放/下载用的临时 GET 地址。 */
-export function presignCosGet(config: CosConfig, key: string, expiresIn = 6 * 60 * 60): string {
-  return signCosUrl(config, { method: 'GET', key, expiresIn })
+/**
+ * 浏览器直传用的预签名 PUT 地址。
+ *
+ * `content-type` 故意不参与签名：微信/旧版前端会按浏览器给的 `file.type` 发
+ * `video/mp4` 之类的头，一旦进签名就会 `403 SignatureDoesNotMatch`，而这类
+ * 不一致完全取决于客户端缓存了哪一版 JS。对象存下来的 Content-Type 不可信，
+ * 播放时一律用 `presignCosGet` 的 `response-content-type` 覆盖。
+ */
+export function presignCosPut(config: CosConfig, key: string, _contentType?: string, expiresIn = 900): string {
+  return signCosUrl(config, { method: 'PUT', key, expiresIn })
+}
+
+/** 播放/下载用的临时 GET 地址（带 response-content-type，避免存成 video/mp4 时放不出来）。 */
+export function presignCosGet(config: CosConfig, key: string, expiresIn = 6 * 60 * 60, contentType?: string): string {
+  return signCosUrl(config, {
+    method: 'GET',
+    key,
+    expiresIn,
+    params: { 'response-content-type': contentType || contentTypeForKey(key) }
+  })
+}
+
+/** 按展示文件名（姓名《曲目》.ext）推断播放用的 MIME。 */
+export function contentTypeForName(name: string | null | undefined, fallbackKey?: string): string {
+  const value = String(name || '').trim()
+  const match = value.match(/\.([a-z0-9]{2,5})$/i)
+  if (match) return contentTypeForKey(`x.${match[1]!.toLowerCase()}`)
+  return contentTypeForKey(fallbackKey || '')
 }
 
 /** 给一声部生成新的 object key（保留扩展名）。 */

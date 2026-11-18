@@ -31,7 +31,10 @@ useSeoMeta({ title: '填写参赛曲目', robots: 'noindex, nofollow' })
 
 function messageOf(caught: unknown): string {
   const data = (caught as { data?: { data?: { message?: string }, message?: string } })?.data
-  return data?.data?.message ?? data?.message ?? '出错了，稍后再试。'
+  const serverSide = data?.data?.message ?? data?.message
+  if (serverSide) return serverSide
+  const plain = (caught as { message?: string })?.message
+  return plain && plain.trim() ? plain : '出错了，稍后再试。'
 }
 
 async function lookup() {
@@ -82,6 +85,21 @@ function readFileAsBase64(file: File): Promise<string> {
 }
 
 /** 直传到 COS：走 XHR 才能拿到上传进度，fetch 没有 progress 事件。 */
+/**
+ * 浏览器的 file.type 不可靠：.m4a 有时报 audio/x-m4a、有时报 video/mp4，
+ * 而 COS 的预签名把 content-type 算进签名，两边不一致就会 403。
+ * 所以统一按扩展名定一个固定值，签名和 PUT 都用它。
+ */
+function uploadMimeFor(file: File): string {
+  const extension = (file.name.split('.').at(-1) || '').toLowerCase()
+  if (extension === 'm4a' || extension === 'mp4') return 'audio/mp4'
+  if (extension === 'wav') return 'audio/wav'
+  if (extension === 'aac') return 'audio/aac'
+  if (extension === 'ogg') return 'audio/ogg'
+  if (extension === 'flac') return 'audio/flac'
+  return 'audio/mpeg'
+}
+
 function putFileWithProgress(url: string, file: File, contentType: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
@@ -136,14 +154,15 @@ async function uploadAccompaniment(event: Event) {
           studentNo: studentNo.value.trim(),
           contact: contact.value.trim(),
           filename: file.name,
-          mime: file.type || 'audio/mpeg'
+          mime: uploadMimeFor(file),
+          song: songValue
         }
       }
     ).catch(() => null)
     if (ticket?.uploadUrl) {
       uploadPhase.value = 'upload'
       uploadPercent.value = 0
-      await putFileWithProgress(ticket.uploadUrl, file, file.type || 'audio/mpeg')
+      await putFileWithProgress(ticket.uploadUrl, file, uploadMimeFor(file))
       uploadPhase.value = 'confirm'
       const committed = await plainFetch<SongState>('/api/public/competition/song/accompaniment-commit', {
         method: 'POST',
@@ -157,7 +176,7 @@ async function uploadAccompaniment(event: Event) {
         }
       })
       state.value = committed
-      toast.add({ title: '伴奏收到了', description: file.name, color: 'success' })
+      toast.add({ title: '伴奏收到了', description: `${songValue || '当前曲目'}：${file.name}`, color: 'success' })
       return
     }
     uploadPhase.value = 'read'
@@ -321,7 +340,8 @@ async function submit() {
               伴奏 <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
             </p>
             <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。<br>
+              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。
+              伴奏会记在当前曲目《{{ song.trim() || '未填' }}》名下：换了歌务必先把上面的曲目改成新歌名，再传伴奏。<br>
               iPhone 在微信里选不到聊天文件时：先长按文件「用其他应用打开 → 存储到文件」，再点下面的按钮从「文件」App 里选；实在不行把伴奏发给工作人员代传。
             </p>
             <p
