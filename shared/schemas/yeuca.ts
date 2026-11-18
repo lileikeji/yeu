@@ -375,3 +375,12 @@ export const approveRecruitSubmissionsSchema = z.object({
   defaultDepartment: z.string().trim().max(40).default(''),
   defaultTerm: z.string().trim().max(32).default('')
 })
+
+/* ---------------- 访问记录与 IP 封禁 ---------------- */
+
+export const yeucaVisitBanSchema = z.object({
+  ip: z.string().trim().min(3, '请填写 IP').max(64),
+  action: z.enum(['ban', 'unban']).default('ban'),
+  reason: z.string().trim().max(200).default(''),
+  hours: z.number().int().min(1).max(24 * 365).optional()
+})
