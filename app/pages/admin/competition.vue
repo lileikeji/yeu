@@ -203,7 +203,7 @@ function editDetailScore(): void {
 const {
   scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
   savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
-  saveScoreEdit, exportingKind, exportRound, exportAccompaniment, exportOriginalAccompaniment
+  saveScoreEdit, exportingKind, exportProgress, exportRound, exportAccompaniment, exportOriginalAccompaniment
 } = useCompetitionScores({
   dimensions: computed(() => activeRound.value?.dimensions ?? settings.value?.dimensions ?? []),
   dimensionMax: computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE),
@@ -1752,7 +1752,9 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="exportingKind === 'accompaniment'"
                 @click="exportAccompaniment(activeRound)"
               >
-                下载全部伴奏
+                {{ exportProgress && exportingKind === 'accompaniment'
+                  ? `打包中 ${exportProgress.done}/${exportProgress.total}`
+                  : '下载全部伴奏' }}
               </UButton>
               <UButton
                 color="neutral"
@@ -1761,7 +1763,9 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="exportingKind === 'accompaniment-original'"
                 @click="exportOriginalAccompaniment(activeRound)"
               >
-                下载全部原件
+                {{ exportProgress && exportingKind === 'accompaniment-original'
+                  ? `打包中 ${exportProgress.done}/${exportProgress.total}`
+                  : '下载全部原件' }}
               </UButton>
             </div>
           </div>

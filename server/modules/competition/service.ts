@@ -4573,7 +4573,7 @@ export async function submitAccompanimentByThreeFactors(
 export async function buildAccompanimentArchiveToFile(
   client: DatabaseClient,
   round: RoundRow,
-  options: { useOriginal?: boolean, targetPath: string }
+  options: { useOriginal?: boolean, targetPath: string, onProgress?: (done: number, total: number) => void }
 ): Promise<{ filename: string, size: number }> {
   const useOriginal = options.useOriginal === true
   const entries = [...listRoundEntryRows(client, round.id)].sort((left, right) => left.sortOrder - right.sortOrder)
@@ -4583,6 +4583,7 @@ export async function buildAccompanimentArchiveToFile(
   const config = cosConfig()
   const zip = new StreamingZip(options.targetPath)
   let index = 0
+  options.onProgress?.(0, entries.length)
   for (const entry of entries) {
     index += 1
     const singer = singerById.get(entry.singerId)
@@ -4614,6 +4615,7 @@ export async function buildAccompanimentArchiveToFile(
     } catch {
       await zip.add(`${folder}/伴奏缺失.txt`, new TextEncoder().encode('文件读取失败，让选手重新上传一次。\n'))
     }
+    options.onProgress?.(index, entries.length)
   }
   const size = await zip.finish()
   return {
