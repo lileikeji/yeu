@@ -75,6 +75,8 @@ const {
 const dimensionRoundKey = ref<CompetitionRoundKey>('prelim')
 const dimensionRoundDraft = ref<CompetitionDimension[]>([])
 const dimensionMaxDraft = ref(COMPETITION_MAX_DIMENSION_SCORE)
+const trimExtremesDraft = ref(false)
+const savingTrimExtremes = ref(false)
 const savingDimensions = ref(false)
 
 const dimensionRound = computed(
@@ -91,6 +93,7 @@ function syncDimensionDraft(): void {
   const round = dimensionRound.value
   dimensionRoundDraft.value = (round?.dimensions ?? []).map(item => ({ ...item }))
   dimensionMaxDraft.value = round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE
+  trimExtremesDraft.value = round?.trimExtremes === true
 }
 
 watch([dimensionRoundKey, () => payload.value?.event.updatedAt], syncDimensionDraft, { immediate: true })
@@ -117,6 +120,25 @@ function restoreRoundDimensions(): void {
     const keys = ['pitch_rhythm', 'timbre_skill', 'emotion', 'stage', 'difficulty']
     return { key: keys[index] ?? `dimension-${index + 1}`, label: base, weight: 20 }
   })
+}
+
+/** 去极值只影响平均分口径，不受「已有评分锁定」限制，单独保存。 */
+async function saveRoundTrimExtremes(): Promise<void> {
+  const round = dimensionRound.value
+  if (!round || savingTrimExtremes.value) return
+  savingTrimExtremes.value = true
+  try {
+    const data = await adminFetch<CompetitionAdminPayload>(
+      `/api/admin/competition/rounds/${round.key}`,
+      { method: 'PUT', body: { trimExtremes: trimExtremesDraft.value } }
+    )
+    payload.value = data
+    toast.add({ title: `${round.title}${trimExtremesDraft.value ? '已开启' : '已关闭'}去极值`, color: 'success' })
+  } catch (error) {
+    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    savingTrimExtremes.value = false
+  }
 }
 
 async function saveRoundDimensions(): Promise<void> {
@@ -643,6 +665,17 @@ onBeforeUnmount(stopLiveRefresh)
               />
             </div>
           </div>
+
+          <label class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+            <input
+              v-model="trimExtremesDraft"
+              type="checkbox"
+              class="size-4 accent-emerald-600"
+              :disabled="savingTrimExtremes"
+              @change="saveRoundTrimExtremes"
+            >
+            算平均分时去掉一个最高分和一个最低分（本轮，至少 3 位评委）
+          </label>
 
           <div class="mt-3 space-y-2">
             <div
@@ -2110,19 +2143,6 @@ onBeforeUnmount(stopLiveRefresh)
                 @click="copyMissingAccompaniment"
               />
             </div>
-            <label
-              v-if="settings"
-              class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
-            >
-              <input
-                v-model="settings.trimExtremes"
-                type="checkbox"
-                class="size-4 accent-emerald-600"
-                :disabled="savingSettings"
-                @change="saveSettings"
-              >
-              算平均分时去掉一个最高分和一个最低分（至少 3 位评委）
-            </label>
           </div>
 
           <div

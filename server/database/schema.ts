@@ -1118,6 +1118,8 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   dimensionsJson: text('dimensions_json'),
   /** 每维满分（初赛 10、复赛/决赛 20）；空 = 10。 */
   dimensionMax: integer('dimension_max'),
+  /** 本轮是否去极值：空 = 沿用赛事级设置。 */
+  trimExtremes: integer('trim_extremes'),
   /**
    * 顺序评分模式下的当前出场条目（competition_round_entries.id）。
    * 为空 = 未开启顺序评分，评委可自由给任意选手打分（旧行为）。

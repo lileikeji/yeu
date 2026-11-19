@@ -95,8 +95,9 @@ const maxTotal = computed(
 /** 本轮打分精度：整数（默认）或小数（小数只能用拖滑块，输入框只读）。 */
 const scorePrecision = computed(() => payload.value?.round.scorePrecision ?? 'integer')
 const decimalMode = computed(() => scorePrecision.value === 'decimal')
-// 滑块与加减按钮用 0.5 的粗档（0.1 在手机上根本点不准），精确值靠输入框直接打。
+// 滑块用 0.5 的粗档（0.1 在手机上根本点不准），加减按钮与输入框负责 0.1 的细调。
 const scoreStep = computed(() => (decimalMode.value ? 0.5 : 1))
+const scoreNudgeStep = computed(() => (decimalMode.value ? 0.1 : 1))
 const tapScoreChoices = computed(() => Array.from({ length: dimensionMax.value }, (_, index) => index + 1))
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
@@ -309,12 +310,12 @@ function nudgeScore(key: string, delta: number): void {
 let nudgeTimer: ReturnType<typeof setTimeout> | null = null
 let nudgeInterval: ReturnType<typeof setInterval> | null = null
 
-/** 长按连发：先 0.5 一档，按住 450ms 后改成 0.1 细调。 */
+/** 加减按钮：小数模式每下 0.1；按住 450ms 后每 140ms 连发一档。 */
 function startNudge(key: string, direction: 1 | -1): void {
   stopNudge()
-  nudgeScore(key, direction * scoreStep.value)
+  nudgeScore(key, direction * scoreNudgeStep.value)
   nudgeTimer = setTimeout(() => {
-    nudgeInterval = setInterval(() => nudgeScore(key, direction * (decimalMode.value ? 0.1 : 1)), 140)
+    nudgeInterval = setInterval(() => nudgeScore(key, direction * scoreNudgeStep.value), 140)
   }, 450)
 }
 
@@ -1036,7 +1037,7 @@ onBeforeUnmount(stopPolling)
                       <button
                         type="button"
                         class="h-9 w-9 shrink-0 rounded-md border border-zinc-300 bg-zinc-50 text-base font-bold leading-none text-zinc-700 select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                        :aria-label="`${dimension.label}减 ${scoreStep}`"
+                        :aria-label="`${dimension.label}减 ${scoreNudgeStep}`"
                         :disabled="!scoringOpen || currentSubmitted"
                         @pointerdown.prevent="startNudge(dimension.key, -1)"
                         @pointerup="stopNudge"
@@ -1065,7 +1066,7 @@ onBeforeUnmount(stopPolling)
                       <button
                         type="button"
                         class="h-9 w-9 shrink-0 rounded-md border border-zinc-300 bg-zinc-50 text-base font-bold leading-none text-zinc-700 select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                        :aria-label="`${dimension.label}加 ${scoreStep}`"
+                        :aria-label="`${dimension.label}加 ${scoreNudgeStep}`"
                         :disabled="!scoringOpen || currentSubmitted"
                         @pointerdown.prevent="startNudge(dimension.key, 1)"
                         @pointerup="stopNudge"

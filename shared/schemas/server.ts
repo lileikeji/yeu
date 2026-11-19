@@ -1381,7 +1381,8 @@ export const updateCompetitionRoundSchema = z.object({
   advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional(),
   scorePrecision: z.enum(['integer', 'decimal']).optional(),
   dimensions: z.array(competitionDimensionSchema).min(1).max(10).optional(),
-  dimensionMax: z.number().int().min(1).max(100).optional()
+  dimensionMax: z.number().int().min(1).max(100).optional(),
+  trimExtremes: z.boolean().optional()
 }).strict()
 
 export const moveCompetitionEntrySchema = z.object({

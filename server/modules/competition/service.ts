@@ -449,6 +449,9 @@ export function serializeRound(row: RoundRow, eventRow?: EventRow | null): Compe
     scorePrecision: row.scorePrecision === 'decimal' ? 'decimal' : 'integer',
     dimensions: getRoundDimensions(row, eventRow),
     dimensionMax: getRoundDimensionMax(row),
+    trimExtremes: row.trimExtremes === null || row.trimExtremes === undefined
+      ? eventRow?.trimExtremes === 1
+      : row.trimExtremes === 1,
     activeDay: row.activeDay ?? null,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
@@ -729,6 +732,8 @@ export interface UpdateRoundInput {
   dimensions?: unknown
   /** 本轮每维满分：初赛 10、复赛/决赛 20。 */
   dimensionMax?: unknown
+  /** 本轮算平均分是否去掉一个最高分和一个最低分。 */
+  trimExtremes?: unknown
 }
 
 export function updateRound(
@@ -785,6 +790,10 @@ export function updateRound(
       }
       patch.dimensionMax = max
     }
+  }
+
+  if (input.trimExtremes !== undefined) {
+    patch.trimExtremes = input.trimExtremes === true ? 1 : 0
   }
 
   if (input.judgeCount !== undefined) {
@@ -924,6 +933,7 @@ function buildQueueBoard(
 }
 
 function trimExtremesFor(client: DatabaseClient, round: RoundRow): boolean {
+  if (round.trimExtremes === 0 || round.trimExtremes === 1) return round.trimExtremes === 1
   return getEvent(client, round.eventId)?.trimExtremes === 1
 }
 

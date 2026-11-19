@@ -1296,6 +1296,41 @@ test('数据库：第一张评分自动开始叫号，当天评委评完自动�
   closeDatabase(':memory:')
 })
 
+test('数据库：去极值可以按轮次单独开关，不受赛事级设置影响', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  checkInEntries(client, musicId)
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 3 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 3)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const singerId = roster[0]!.singer.id
+  for (const [index, score] of [4, 6, 10].entries()) {
+    submitJudgeScore(client, { ...judges[index]!, eventId: event.id, roundId: roster[0]!.roundId ?? judges[index]!.roundId ?? getRoundByKey(client, event.id, 'prelim').id }, singerId, { scores: scoresForAll(score) })
+  }
+  const plain = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  assert.equal(plain.average, 33.33) // (20+30+50)/3
+
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { trimExtremes: true })
+  const trimmed = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  assert.equal(trimmed.average, 30) // 去掉 20 与 50 只剩 30
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').trimExtremes, true)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：可以选去掉最高分和最低分再算平均', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
