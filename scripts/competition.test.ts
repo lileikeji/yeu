@@ -53,6 +53,7 @@ import {
   setEntryCheckIn,
   setEntrySong,
   applyEntrySortOrders,
+  setEntryAccompaniment,
   registerDrawNumber,
   setRoundDay,
   buildEmailSendPlan,
@@ -1744,6 +1745,50 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   // 没有回执链接时保持纯文本，不留空按钮
   const plain = competitionEmailBodyToHtml('正文', [], '')
   assert.doesNotMatch(plain, /我已收到/)
+})
+
+test('数据库：传/换伴奏会记下最后更新时间', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  const singer = createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000000',
+    qq: '3651784006',
+    email: '3651784006@qq.com'
+  })
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const entry = listRoundEntryRows(client, round.id).find(item => item.singerId === singer.id)!
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.accompanimentUpdatedAt, null)
+
+  const file = { filename: '晴天.mp3', data: Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)]) }
+  const first = await setEntryAccompaniment(client, round, entry.id, file)
+  const stampOne = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.accompanimentUpdatedAt
+  assert.ok(stampOne && stampOne > 0)
+  assert.equal(first.name, '甲一《晴天》.mp3')
+
+  await new Promise(resolve => setTimeout(resolve, 20))
+  const second = await setEntryAccompaniment(client, round, entry.id, { filename: '晴天2.mp3', data: Buffer.concat([Buffer.from('ID3'), Buffer.alloc(80, 2)]) })
+  const stampTwo = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.accompanimentUpdatedAt
+  assert.ok(stampTwo && stampTwo > stampOne)
+  assert.notEqual(second.url, first.url)
+
+  closeDatabase(':memory:')
 })
 
 test('数据库：现场手写号一次排序，抽签页选手自己登记号数', async () => {

@@ -1007,6 +1007,7 @@ function buildRoundRanking(
         advancedFromRank: row.entry.advancedFromRank,
         song: row.entry.song ?? null,
         accompaniment: serializeAccompaniment(row.entry),
+        accompanimentUpdatedAt: (row.entry as { accompanimentUpdatedAt?: number | null }).accompanimentUpdatedAt ?? null,
         average: row.average,
         scoreCount: row.scoreCount,
         rank: liveRank.get(row.entry.id) ?? null,
@@ -1033,6 +1034,7 @@ function buildRoundRanking(
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
       accompaniment: serializeAccompaniment(row.entry),
+      accompanimentUpdatedAt: (row.entry as { accompanimentUpdatedAt?: number | null }).accompanimentUpdatedAt ?? null,
       average: row.average,
       scoreCount: row.scoreCount,
       rank: lastRank,
@@ -1053,6 +1055,7 @@ function buildRoundRanking(
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
       accompaniment: serializeAccompaniment(row.entry),
+      accompanimentUpdatedAt: (row.entry as { accompanimentUpdatedAt?: number | null }).accompanimentUpdatedAt ?? null,
       average: null,
       scoreCount: 0,
       rank: null,
@@ -4416,6 +4419,7 @@ export async function setEntryAccompaniment(
       accompanimentUrl: stored.url,
       accompanimentName: name,
       accompanimentSize: stored.size,
+      accompanimentUpdatedAt: Date.now(),
       originalUrl,
       originalName,
       originalSize
@@ -4594,6 +4598,7 @@ export async function commitAccompanimentKey(
       accompanimentUrl: `cos:${sourceKey}`,
       accompanimentName: name,
       accompanimentSize: sourceSize,
+      accompanimentUpdatedAt: Date.now(),
       originalUrl: keptOriginal ? `cos:${originalKey}` : null,
       originalName: keptOriginal
         ? accompanimentDisplayName(singer?.name ?? '', songValue || singer?.song || '', originalExtension)

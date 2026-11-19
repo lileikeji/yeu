@@ -239,6 +239,7 @@ const accompanimentPreview = ref<{
   name: string
   url: string
   size: number | null
+  updatedAt: number | null
   original?: { name: string, url: string, size: number | null } | null
 } | null>(null)
 const accompanimentPreviewOpen = ref(false)
@@ -256,6 +257,7 @@ function openAccompaniment(entry: CompetitionRoundEntry): void {
     name: entry.accompaniment.name,
     url: entry.accompaniment.url,
     size: entry.accompaniment.size,
+    updatedAt: entry.accompanimentUpdatedAt ?? null,
     original: entry.accompaniment.original ?? null
   }
   accompanimentPreviewOpen.value = true
@@ -1736,6 +1738,18 @@ onBeforeUnmount(stopLiveRefresh)
                 class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 aria-label="搜索出场名单"
               >
+              <select
+                v-model="rosterOrderMode"
+                class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                aria-label="名单显示顺序"
+              >
+                <option value="pinyin">
+                  按姓名排
+                </option>
+                <option value="draw">
+                  按出场号排
+                </option>
+              </select>
               <UButton
                 v-if="activeRound.status !== 'closed'"
                 size="xs"
@@ -1908,6 +1922,12 @@ onBeforeUnmount(stopLiveRefresh)
                         <span class="ml-1 text-[11px]">
                           {{ entry.accompaniment.name }}
                           <span class="text-zinc-400">· {{ accompanimentSize(entry.accompaniment.size) }}</span>
+                          <span
+                            v-if="entry.accompanimentUpdatedAt"
+                            class="block text-[11px] text-zinc-400 tabular-nums"
+                          >
+                            更新于 {{ formatDateTime(entry.accompanimentUpdatedAt) }}
+                          </span>
                         </span>
                       </template>
                     </template>
@@ -3267,7 +3287,7 @@ onBeforeUnmount(stopLiveRefresh)
     <UModal
       v-model:open="accompanimentPreviewOpen"
       :title="accompanimentPreview?.name || '伴奏'"
-      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}，手机上直接点播放就能听，电脑也可以下载下来。` : '手机上直接点播放就能听，电脑也可以下载下来。'"
+      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}${accompanimentPreview.updatedAt ? `，更新于 ${formatDateTime(accompanimentPreview.updatedAt)}` : ''}，手机上直接点播放就能听，电脑也可以下载下来。` : '手机上直接点播放就能听，电脑也可以下载下来。'"
       :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
     >
       <template #body>

@@ -573,6 +573,8 @@ export interface CompetitionRoundEntry {
   song: string | null
   /** 这一轮上传的伴奏；复赛起使用，空 = 还没传。 */
   accompaniment: CompetitionEntryAccompaniment | null
+  /** 最近一次上传/更换伴奏的时间（毫秒），没传过为 null */
+  accompanimentUpdatedAt: number | null
   /** 1 = 已确认晋级下一轮，0 = 未晋级，null = 还没确认。 */
   advanced: number | null
   advancedFromRank: number | null

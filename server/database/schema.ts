@@ -1303,6 +1303,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   accompanimentUrl: text('accompaniment_url'),
   accompanimentName: text('accompaniment_name'),
   accompanimentSize: integer('accompaniment_size'),
+  /** 最近一次上传/更换伴奏的时间（毫秒） */
+  accompanimentUpdatedAt: integer('accompaniment_updated_at'),
   /** 选手上传的原始文件（m4a/wav 等），导出时优先用它 */
   originalUrl: text('original_url'),
   originalName: text('original_name'),
