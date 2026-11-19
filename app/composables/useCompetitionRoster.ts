@@ -10,6 +10,7 @@ import type {
   CompetitionRoundView
 } from '~~/shared/types'
 import { adminFetch } from '~~/app/utils/admin-request'
+import { plainSortName } from '~~/shared/utils/competition'
 import type { SettingsDraft } from './useCompetitionPayload'
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -117,10 +118,11 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   function rosterEntries(round: CompetitionRoundView): CompetitionRoundEntry[] {
     const list = [...round.entries]
     if (rosterOrderMode.value === 'pinyin') {
-      list.sort((left, right) => nameCollator.compare(left.singer.name, right.singer.name))
+      list.sort((left, right) => nameCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name)))
       return list
     }
-    return list.sort((left, right) => left.sortOrder - right.sortOrder || nameCollator.compare(left.singer.name, right.singer.name))
+    return list.sort((left, right) => left.sortOrder - right.sortOrder
+      || nameCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name)))
   }
 
   const rosterQuery = ref('')

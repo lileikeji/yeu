@@ -64,3 +64,29 @@ export function calculateCompetitionTotal(
   )
   return roundCompetitionScore((weighted / weightSum) * usable.length)
 }
+
+/** 多音姓氏按姓氏读音换成同音常用字，只为借用拼音排序规则定位（曾 zēng 不是 céng）。 */
+export const COMPETITION_SURNAME_HINTS: Record<string, string> = {
+  曾: '增',
+  单: '山',
+  仇: '求',
+  解: '谢',
+  查: '扎',
+  朴: '瓢',
+  区: '欧',
+  乐: '月',
+  覃: '秦',
+  缪: '妙',
+  盖: '葛',
+  尉: '玉',
+  种: '崇'
+}
+
+/** 排序用的名字：多音姓氏换成同音字，其余原样。 */
+export function plainSortName(name: string): string {
+  const trimmed = (name ?? '').trim()
+  if (!trimmed) return ''
+  const head = trimmed.slice(0, 1)
+  const hint = COMPETITION_SURNAME_HINTS[head]
+  return hint ? `${hint}${trimmed.slice(1)}` : trimmed
+}

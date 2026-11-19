@@ -8,7 +8,8 @@ import * as XLSX from '@e965/xlsx'
 import {
   calculateCompetitionTotal,
   competitionMaxTotal,
-  DEFAULT_COMPETITION_DIMENSIONS
+  DEFAULT_COMPETITION_DIMENSIONS,
+  plainSortName
 } from '../shared/utils/competition'
 import {
   competitionEmailBodyToHtml,
@@ -1745,6 +1746,14 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   // 没有回执链接时保持纯文本，不留空按钮
   const plain = competitionEmailBodyToHtml('正文', [], '')
   assert.doesNotMatch(plain, /我已收到/)
+})
+
+test('数据库：名单按姓名排时「曾」不会挤到第一个（按姓氏读音定位）', () => {
+  const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+  const names = ['曾晨希', '陈佳瑜', '黄炜霖', '林巧榕'] // 按拼音应为 陈、黄、林、曾
+  const sorted = [...names].sort((left, right) => collator.compare(plainSortName(left), plainSortName(right)))
+  assert.equal(sorted[0], '陈佳瑜')
+  assert.equal(sorted[sorted.length - 1], '曾晨希')
 })
 
 test('数据库：传/换伴奏会记下最后更新时间', async () => {

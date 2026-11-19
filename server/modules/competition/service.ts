@@ -33,6 +33,7 @@ import {
   DEFAULT_COMPETITION_DIMENSIONS,
   calculateCompetitionTotal,
   competitionMaxTotal,
+  plainSortName,
   roundCompetitionScore
 } from '../../../shared/utils/competition'
 import type {
@@ -1095,34 +1096,10 @@ function formatExportTime(value: number | null | undefined): string {
  * 后台看到的完全一致，不存在「导出另算一套」的偏差。
  */
 /** 多音姓氏按姓氏读音换成同音常用字，只为借用拼音排序规则定位。 */
-const COMPETITION_SURNAME_HINTS: Record<string, string> = {
-  曾: '增',
-  单: '山',
-  仇: '求',
-  解: '谢',
-  查: '扎',
-  朴: '瓢',
-  区: '欧',
-  乐: '月',
-  覃: '秦',
-  缪: '妙',
-  盖: '葛',
-  尉: '玉',
-  种: '崇'
-}
-
 function formatMegabytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '未知'
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
-}
-
-function plainSortName(name: string): string {
-  const trimmed = (name ?? '').trim()
-  if (!trimmed) return ''
-  const head = trimmed.slice(0, 1)
-  const hint = COMPETITION_SURNAME_HINTS[head]
-  return hint ? `${hint}${trimmed.slice(1)}` : trimmed
 }
 
 export function buildCompetitionExport(
