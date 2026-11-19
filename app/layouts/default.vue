@@ -301,12 +301,6 @@ function shareCurrentPage(): void {
             to="/sources"
             class="hover:text-green-700 dark:hover:text-green-400"
           >信息来源</NuxtLink>
-          <a
-            href="https://yeuca.huiliyill.cn/"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="font-medium text-sky-700 dark:text-sky-400 hover:underline"
-          >计算机协会主站 ↗</a>
         </div>
       </div>
     </footer>

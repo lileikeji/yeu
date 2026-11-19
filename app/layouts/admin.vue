@@ -6,10 +6,7 @@ import {
 
 const route = useRoute()
 const requestUrl = useRequestURL()
-const isYeucaHost = computed(() => {
-  const clientHost = import.meta.client ? window.location.hostname : ''
-  return (clientHost || requestUrl.hostname) === 'yeuca.huiliyill.cn'
-})
+const isLegacyConsole = computed(() => false)
 
 const authState = ref<'checking' | 'authenticated' | 'error'>('checking')
 const authError = ref('')
@@ -19,8 +16,8 @@ const adminCapabilities = ref<AdminCapability[]>([])
 const organizationTitle = ref('')
 const organizationSlug = ref('')
 const organizationPublicPath = ref('/')
-const yeucaRole = ref<'chief' | 'minister'>('chief')
-const yeucaDepartmentName = ref('')
+const legacyRole = ref<'chief' | 'minister'>('chief')
+const legacyDepartmentName = ref('')
 const mustChangePassword = ref(false)
 const mobileNavigationOpen = ref(false)
 const mobileNavigationDialog = ref<HTMLDialogElement | null>(null)
@@ -36,27 +33,25 @@ function canUseCapability(capability?: AdminCapability): boolean {
 const isMusicAssociation = computed(() =>
   organizationSlug.value === 'music-association' || organizationTitle.value === '音乐协会')
 
-const isComputerAssociation = computed(() =>
-  organizationSlug.value === 'computer-association' || organizationTitle.value === '计算机协会')
+const isComputerAssociation = computed(() => false)
 
-const isYeucaMinister = computed(() =>
-  adminRole.value === 'organization' && isComputerAssociation.value && yeucaRole.value === 'minister')
+const isLegacyMinister = computed(() => false)
 
 const organizationNavigation = computed(() => [{
   key: 'organization',
-  label: isYeucaMinister.value
-    ? `${yeucaDepartmentName.value || '分部'}工作台`
+  label: isLegacyMinister.value
+    ? `${legacyDepartmentName.value || '分部'}工作台`
     : (isComputerAssociation.value ? '计算机协会' : '组织后台'),
   items: isComputerAssociation.value
-    ? (isYeucaMinister.value
+    ? (isLegacyMinister.value
         ? [{
-            label: `${yeucaDepartmentName.value || '部门'}管理台`,
-            to: '/admin/yeuca',
+            label: `${legacyDepartmentName.value || '部门'}管理台`,
+            to: '/admin/__legacy__',
             icon: 'i-lucide-cpu'
           }]
         : [{
-            label: '计协主站工作台',
-            to: '/admin/yeuca',
+            label: '组织工作台',
+            to: '/admin/__legacy__',
             icon: 'i-lucide-cpu'
           }, {
             label: '纳新管理',
@@ -97,8 +92,8 @@ const organizationNavigation = computed(() => [{
       }].filter(item => canUseCapability(item.capability))
 }].filter(group => group.items.length > 0))
 
-const isYeucaWorkspace = computed(() =>
-  isYeucaHost.value || isComputerAssociation.value || route.path === '/admin/yeuca')
+const isLegacyConsoleLayout = computed(() =>
+  isLegacyConsole.value || isComputerAssociation.value || route.path === '/admin/__legacy__')
 
 const visibleFullNavigationGroups = computed(() => fullAdminNavigationGroups
   .map(group => ({ ...group, items: group.items.filter(item => canUseCapability(item.capability)) }))
@@ -166,9 +161,8 @@ function applyAdminScope(payload: Record<string, unknown>): void {
   adminCapabilities.value = capabilities
   adminRole.value = user.role === 'organization' ? 'organization' : 'super'
   mustChangePassword.value = user.mustChangePassword === true
-  const yeucaScope = isObject(user.yeucaScope) ? user.yeucaScope : null
-  yeucaRole.value = yeucaScope?.role === 'minister' ? 'minister' : 'chief'
-  yeucaDepartmentName.value = typeof yeucaScope?.departmentName === 'string' ? yeucaScope.departmentName : ''
+  legacyRole.value = 'chief'
+  legacyDepartmentName.value = ''
   const organization = isObject(user.organization) ? user.organization : null
   if (!organization) return
 
@@ -189,17 +183,17 @@ async function redirectToLogin(): Promise<void> {
 async function applySessionPayload(payload: Record<string, unknown>): Promise<void> {
   adminLabel.value = resolveAdminLabel(payload)
   applyAdminScope(payload)
-  const organizationRouteAllowed = isYeucaMinister.value
-    ? route.path === '/admin/yeuca'
+  const organizationRouteAllowed = isLegacyMinister.value
+    ? route.path === '/admin/__legacy__'
     : (route.path === '/admin/organization'
       || route.path === '/admin/recruit'
       || route.path === '/admin/activities'
       || route.path.startsWith('/admin/content/')
       || (route.path === '/admin/competition' && isMusicAssociation.value)
-      || (route.path === '/admin/yeuca' && isComputerAssociation.value)
+      || (route.path === '/admin/__legacy__' && isComputerAssociation.value)
       || (route.path === '/admin/miniapp' && canUseCapability('analytics.view')))
   if (adminRole.value === 'organization' && !organizationRouteAllowed) {
-    const landingPath = isComputerAssociation.value ? '/admin/yeuca' : '/admin/organization'
+    const landingPath = isComputerAssociation.value ? '/admin/__legacy__' : '/admin/organization'
     await navigateTo({
       path: landingPath,
       query: mustChangePassword.value ? { password: 'required' } : undefined
@@ -343,7 +337,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
 <template>
   <div
     class="min-h-dvh text-zinc-900 dark:text-zinc-100"
-    :class="isYeucaWorkspace ? 'bg-[#f6f6f4] dark:bg-zinc-950' : 'bg-[#f6f7f5] dark:bg-zinc-950'"
+    :class="isLegacyConsoleLayout ? 'bg-[#f6f6f4] dark:bg-zinc-950' : 'bg-[#f6f7f5] dark:bg-zinc-950'"
   >
     <div
       v-if="authState === 'checking'"
@@ -355,7 +349,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         <UIcon
           name="i-lucide-loader-circle"
           class="mx-auto size-7 animate-spin"
-          :class="isYeucaHost ? 'text-[#a8121e] dark:text-rose-400' : 'text-green-700 dark:text-green-400'"
+          :class="isLegacyConsole ? 'text-[#a8121e] dark:text-rose-400' : 'text-green-700 dark:text-green-400'"
         />
         <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
           正在验证管理会话
@@ -399,19 +393,18 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         class="fixed inset-y-0 left-0 z-40 hidden border-r text-white transition-[width] duration-200 lg:flex lg:flex-col"
         :class="[
           desktopSidebarCollapsed ? 'w-16' : 'w-60',
-          isYeucaWorkspace ? 'border-zinc-800/90 bg-[#121211]' : 'border-zinc-800 bg-zinc-950 dark:bg-zinc-800'
+          isLegacyConsoleLayout ? 'border-zinc-800/90 bg-[#121211]' : 'border-zinc-800 bg-zinc-950 dark:bg-zinc-800'
         ]"
         aria-label="后台主导航"
       >
         <div
-          v-if="isYeucaWorkspace"
+          v-if="isLegacyConsoleLayout"
           class="h-1 w-full shrink-0 bg-gradient-to-r from-[#a8121e] via-[#c81e2b] to-[#1d4ed8]"
         />
         <div class="flex h-16 items-center gap-3 border-b border-white/10 px-4">
           <img
-            v-if="isYeucaWorkspace"
-            src="/images/yeuca-logo.jpg"
-            alt="仰恩大学计算机协会徽标"
+            v-if="isLegacyConsoleLayout"
+            alt="迎新指南徽标"
             class="size-9 shrink-0 rounded-full border border-white/20 object-cover shadow-xs"
           >
           <span
@@ -429,13 +422,13 @@ watch(desktopSidebarCollapsed, (collapsed) => {
             class="min-w-0"
           >
             <p class="truncate text-sm font-semibold">
-              {{ isYeucaWorkspace ? '仰恩计协 · 控制台' : '新生指南后台' }}
+              {{ isLegacyConsoleLayout ? '内容管理' : '新生指南后台' }}
             </p>
             <p class="truncate font-mono text-[11px] text-zinc-400">
               {{
                 adminRole === 'organization'
-                  ? (isComputerAssociation ? 'yeuca.huiliyill.cn' : '组织内容管理')
-                  : (isYeucaHost ? 'YEUCA 全局模式' : '总管理员模式')
+                  ? (isComputerAssociation ? '' : '组织内容管理')
+                  : (isLegacyConsole ? '总管理员模式' : '总管理员模式')
               }}
             </p>
           </div>
@@ -471,7 +464,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               :to="item.to"
               :prefetch="false"
               class="relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
-              :class="isYeucaWorkspace
+              :class="isLegacyConsoleLayout
                 ? (isActive(item.to)
                   ? 'border border-white/15 bg-white/10 font-semibold text-white shadow-xs'
                   : 'text-zinc-300 hover:bg-white/5 hover:text-white')
@@ -482,7 +475,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               :title="desktopSidebarCollapsed ? item.label : undefined"
             >
               <span
-                v-if="isYeucaWorkspace && isActive(item.to)"
+                v-if="isLegacyConsoleLayout && isActive(item.to)"
                 class="absolute inset-y-2 left-0 w-1 rounded-r bg-[#e11d48]"
                 aria-hidden="true"
               />
@@ -561,21 +554,21 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               {{ currentTitle }}
             </p>
             <span
-              v-if="isYeucaWorkspace"
+              v-if="isLegacyConsoleLayout"
               class="hidden items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-0.5 font-mono text-[11px] text-zinc-600 dark:text-zinc-300 md:inline-flex"
             >
               <span class="size-1.5 rounded-full bg-emerald-500" />
-              yeuca.huiliyill.cn
+              
             </span>
           </div>
           <ThemeModeToggle />
           <UButton
-            v-if="isYeucaWorkspace"
-            to="https://yeuca.huiliyill.cn/"
+            v-if="isLegacyConsoleLayout"
+            to="https:///"
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
-            label="打开计协主站"
+            label="打开组织主站"
             color="neutral"
             variant="solid"
             class="hidden sm:inline-flex !bg-[#a8121e] hover:!bg-[#7f0d16] !text-white"
@@ -620,9 +613,8 @@ watch(desktopSidebarCollapsed, (collapsed) => {
           <div class="flex h-16 items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4">
             <div class="flex items-center gap-3">
               <img
-                v-if="isYeucaWorkspace"
-                src="/images/yeuca-logo.jpg"
-                alt="仰恩大学计算机协会徽标"
+                v-if="isLegacyConsoleLayout"
+                alt="迎新指南徽标"
                 class="size-8 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover"
               >
               <span
@@ -636,7 +628,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
                 />
               </span>
               <span class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
-                {{ isYeucaWorkspace ? '仰恩计协 · 控制台' : '内容管理' }}
+                {{ isLegacyConsoleLayout ? '内容管理' : '内容管理' }}
               </span>
             </div>
             <UButton
@@ -677,7 +669,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
                 :to="item.to"
                 :prefetch="false"
                 class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm"
-                :class="isYeucaWorkspace
+                :class="isLegacyConsoleLayout
                   ? (isActive(item.to)
                     ? 'border-l-2 border-[#a8121e] bg-rose-50/80 dark:bg-rose-950/40 font-semibold text-[#a8121e] dark:text-rose-300'
                     : 'text-zinc-600 dark:text-zinc-300')

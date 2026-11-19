@@ -31,11 +31,6 @@ import { adminFetch } from '~~/app/utils/admin-request'
 
 definePageMeta({ layout: 'admin' })
 
-const requestUrl = useRequestURL()
-if (requestUrl.hostname === 'yeuca.huiliyill.cn') {
-  await navigateTo('/admin/yeuca', { replace: true })
-}
-
 useSeoMeta({
   title: '管理概览',
   robots: 'noindex, nofollow'
@@ -441,10 +436,6 @@ async function loadDashboard(): Promise<void> {
 }
 
 onMounted(() => {
-  if (window.location.hostname === 'yeuca.huiliyill.cn') {
-    void navigateTo('/admin/yeuca', { replace: true })
-    return
-  }
   void loadDashboard()
 })
 </script>

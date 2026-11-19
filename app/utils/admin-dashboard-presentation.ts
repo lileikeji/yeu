@@ -233,7 +233,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' },
       { label: '纳新管理', icon: 'i-lucide-clipboard-list', to: '/admin/recruit' },
       { label: '歌手大赛', icon: 'i-lucide-mic-vocal', to: '/admin/competition' },
-      { label: '计协官网', icon: 'i-lucide-cpu', to: '/admin/yeuca' }
     ]
   },
   {

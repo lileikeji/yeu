@@ -86,10 +86,6 @@ install -o root -g root -m 0644 \
 install -o root -g root -m 0755 \
   "$OPS_DIR/systemd/yeu-backup.sh" \
   /opt/yeu-ops/yeu-backup.sh
-# 封禁表要落到 nginx 才拦得住静态页，脚本随单元一起装到 /opt/yeu-ops。
-install -o root -g root -m 0644 \
-  "$ROOT/repo/scripts/yeuca-nginx-blocklist.mjs" \
-  /opt/yeu-ops/yeuca-blocklist.mjs
 # wechatpadpro 的 relay 与 compose 同样不能放在 release 目录里：
 # 单元写的是 /opt/yeu-ops 下的固定副本，compose 只用命名卷，和路径无关。
 install -o root -g root -m 0644 \
@@ -111,7 +107,5 @@ install -o root -g root -m 0644 "$OPS_DIR/systemd/yeu-retention.service" /etc/sy
 install -o root -g root -m 0644 "$OPS_DIR/systemd/yeu-retention.timer" /etc/systemd/system/yeu-retention.timer
 install -o root -g root -m 0644 "$OPS_DIR/systemd/yeu-backup.service" /etc/systemd/system/yeu-backup.service
 install -o root -g root -m 0644 "$OPS_DIR/systemd/yeu-backup.timer" /etc/systemd/system/yeu-backup.timer
-install -o root -g root -m 0644 "$OPS_DIR/systemd/yeuca-blocklist.service" /etc/systemd/system/yeuca-blocklist.service
-install -o root -g root -m 0644 "$OPS_DIR/systemd/yeuca-blocklist.timer" /etc/systemd/system/yeuca-blocklist.timer
 systemctl daemon-reload
-systemctl enable --now yeu-retention.timer yeu-backup.timer yeuca-blocklist.timer
+systemctl enable --now yeu-retention.timer yeu-backup.timer

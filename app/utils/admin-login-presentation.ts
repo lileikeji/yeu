@@ -119,9 +119,7 @@ export function resolveAdminPostLoginTarget(
     return fallbackTarget
   }
   const organization = isAdminLoginPayloadObject(admin.organization) ? admin.organization : null
-  const isComputerAssociation = organization?.slug === 'computer-association'
-    || organization?.title === '计算机协会'
-  const basePath = isComputerAssociation ? '/admin/yeuca' : '/admin/organization'
+  const basePath = '/admin/organization'
   return admin.mustChangePassword === true
     ? { path: basePath, query: { password: 'required' } }
     : basePath
