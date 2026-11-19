@@ -519,6 +519,13 @@
       "when": 1795240000000,
       "tag": "0073_competition_accompaniment_original",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1795300000000,
+      "tag": "0074_yeuca_treasure",
+      "breakpoints": true
     }
   ]
 }
