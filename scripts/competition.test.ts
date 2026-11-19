@@ -73,7 +73,8 @@ import {
   updateEmailTemplate,
   updateSinger,
   updateJudge,
-  updateRound
+  updateRound,
+  cleanSongTitle
 } from '../server/modules/competition/service'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { verifyPassword } from '../server/utils/password'
@@ -1775,6 +1776,16 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
     (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
 
   closeDatabase(':memory:')
+})
+
+test('数据库：曲目名落库前清掉歌手名和选手自己的名字', () => {
+  assert.equal(cleanSongTitle('灰色 - 徐佳莹', '张晨捷'), '灰色')
+  assert.equal(cleanSongTitle('自立巷 吴泽嘉', '吴泽嘉'), '自立巷')
+  assert.equal(cleanSongTitle('《晴天》', '林晨威'), '晴天')
+  assert.equal(cleanSongTitle('永不失联的爱(伴奏)', '林晨威'), '永不失联的爱')
+  assert.equal(cleanSongTitle('鹿be free', '游安祺'), '鹿be free')
+  assert.equal(cleanSongTitle('阿楚姑娘—徐佳莹', '余孟依'), '阿楚姑娘')
+  assert.equal(cleanSongTitle('世界赠予我的 - 周深', '林艳阳'), '世界赠予我的')
 })
 
 test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人一个文件夹', async () => {

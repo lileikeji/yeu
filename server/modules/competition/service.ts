@@ -1935,7 +1935,9 @@ export function setEntrySong(
   if (!entry) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '这条出场记录不存在' } })
   }
-  const value = String(song ?? '').trim()
+  const entrySinger = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, entry.singerId)).get()
+  const value = cleanSongTitle(song, entrySinger?.name ?? '')
   if (!value) validationError('曲目必填', 'song')
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
     validationError('曲目要填具体歌名，不能填「待定」', 'song')
@@ -4143,7 +4145,7 @@ export function submitSongByThreeFactors(
   if (!stage.editable) {
     conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能改曲目')
   }
-  const value = String(song ?? '').trim()
+  const value = cleanSongTitle(song, singer.name)
   if (!value) validationError('曲目必填，请填具体歌名', 'song')
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
     validationError('曲目要填具体歌名，不能填「待定」', 'song')
@@ -4233,9 +4235,9 @@ export async function setEntryAccompaniment(
   const stored = await storeUploadedAudio(data)
   const singer = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, entry.singerId)).get()
-  const fromFilename = songTitleFromFilename(file.filename)
-  const currentSong = (entry.song ?? '').trim()
-  const songValue = currentSong || fromFilename || (singer?.song ?? '').trim()
+  const fromFilename = cleanSongTitle(songTitleFromFilename(file.filename), singer?.name ?? '')
+  const currentSong = cleanSongTitle(entry.song ?? '', singer?.name ?? '')
+  const songValue = currentSong || fromFilename || cleanSongTitle(singer?.song ?? '', singer?.name ?? '')
   const name = accompanimentDisplayName(
     singer?.name ?? '',
     songValue,
@@ -4285,16 +4287,34 @@ export async function setEntryAccompaniment(
 }
 
 /**
+ * 曲目名统一成干净歌名：去掉书名号、去掉文件名里常见的尾巴
+ * （`- 徐佳莹`、`(伴奏)`、`【纯音乐】`），去掉选手自己加在前后缀上的名字。
+ * 选手自己填/上传的文件名五花八门，落库前一律走这里。
+ */
+export function cleanSongTitle(value: string, singerName = ''): string {
+  let title = String(value ?? '')
+  title = title.replace(/\.[a-z0-9]{2,5}$/i, ' ')
+  title = title.replace(/[《》]/g, '')
+  title = title.replace(/[（(【[]\s*(伴奏|纯音乐|消音|和声|karaoke|instrumental)[^）)】\]]*[）)】\]]/gi, ' ')
+  title = title.replace(/(伴奏版?|纯音乐|消音版|和声版|karaoke|instrumental)/gi, ' ')
+  // 「歌名 - 歌手」「歌名—歌手」「歌名－歌手」：真人选手不会在曲目里写自己的名字，所以尾巴一律当歌手名去掉
+  title = title.replace(/\s*[-–—－~〜]\s*[^-–—－~〜]{1,20}$/u, ' ')
+  const name = String(singerName || '').trim()
+  if (name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    title = title.replace(new RegExp(`^${escaped}[\\s、,，.。:：]*`, 'u'), ' ')
+    title = title.replace(new RegExp(`[\\s、,，.。:：]*${escaped}$`, 'u'), ' ')
+  }
+  return title.replace(/\s+/g, ' ').trim()
+}
+
+/**
  * 伴奏在后台的展示名统一成「姓名《曲目》.扩展名」：现场按名单找人时一眼对上，
  * 不管选手传上来的原始文件名有多乱。
  */
 export function accompanimentDisplayName(singerName: string, song: string, extension: string): string {
   const cleanName = String(singerName || '').trim()
-  const cleanSong = String(song || '')
-    .replace(/[《》]/g, '')
-    .replace(/[（(]伴奏[)）]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const cleanSong = cleanSongTitle(song, cleanName)
   const cleanExt = String(extension || '').replace(/^\./, '').toLowerCase()
   const base = cleanSong ? `${cleanName}《${cleanSong}》` : cleanName
   return cleanExt ? `${base}.${cleanExt}` : base
@@ -4389,8 +4409,8 @@ export async function commitAccompanimentKey(
   const singer = entry
     ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
     : null
-  const entrySong = (entry?.song ?? '').trim()
-  const incoming = (song ?? '').trim() || songTitleFromFilename(file.name)
+  const entrySong = cleanSongTitle(entry?.song ?? '', singer?.name ?? '')
+  const incoming = cleanSongTitle((song ?? '').trim() || songTitleFromFilename(file.name), singer?.name ?? '')
   // 曲目必填：这一轮没有曲目、这次也没一起提交，就不许存伴奏（否则名单里会出现「有伴奏没歌」）。
   if (!entrySong && !incoming) {
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
