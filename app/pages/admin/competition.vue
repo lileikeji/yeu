@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
-import type { CompetitionRoundEntry, CompetitionRoundView } from '~~/shared/types'
+import type { CompetitionAdminPayload, CompetitionDimension, CompetitionRoundEntry, CompetitionRoundKey, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
 
@@ -66,10 +66,82 @@ const rankedEntries = computed(() => {
 
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
-  sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
-  load, saveSettings, addDimension, removeDimension, moveDimension, restoreDefaultDimensions,
+  sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, roundSummary,
+  load, saveSettings,
   saveRound, setRoundStatus
 } = useCompetitionPayload({ toast })
+
+/** 维度编辑按轮次分开：初赛 10 分制（满分 50）、复赛/决赛 20 分制（满分 100）。 */
+const dimensionRoundKey = ref<CompetitionRoundKey>('prelim')
+const dimensionRoundDraft = ref<CompetitionDimension[]>([])
+const dimensionMaxDraft = ref(COMPETITION_MAX_DIMENSION_SCORE)
+const savingDimensions = ref(false)
+
+const dimensionRound = computed(
+  () => payload.value?.rounds.find(round => round.key === dimensionRoundKey.value) ?? null
+)
+const dimensionRoundLocked = computed(() => dimensionRound.value?.hasScores === true || savingDimensions.value)
+const DIMENSION_ROUND_OPTIONS = [
+  { label: '初赛（满分 50）', value: 'prelim' },
+  { label: '复赛（满分 100）', value: 'semi' },
+  { label: '决赛（满分 100）', value: 'final' }
+]
+
+function syncDimensionDraft(): void {
+  const round = dimensionRound.value
+  dimensionRoundDraft.value = (round?.dimensions ?? []).map(item => ({ ...item }))
+  dimensionMaxDraft.value = round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE
+}
+
+watch([dimensionRoundKey, () => payload.value?.event.updatedAt], syncDimensionDraft, { immediate: true })
+
+function addRoundDimension(): void {
+  dimensionRoundDraft.value.push({ key: `dimension-${Date.now()}`, label: '', weight: 20 })
+}
+
+function removeRoundDimension(index: number): void {
+  if (dimensionRoundDraft.value.length <= 1) return
+  dimensionRoundDraft.value.splice(index, 1)
+}
+
+function moveRoundDimension(index: number, delta: number): void {
+  const target = index + delta
+  if (target < 0 || target >= dimensionRoundDraft.value.length) return
+  const [item] = dimensionRoundDraft.value.splice(index, 1)
+  if (item) dimensionRoundDraft.value.splice(target, 0, item)
+}
+
+function restoreRoundDimensions(): void {
+  dimensionRoundDraft.value = Array.from({ length: 5 }, (_, index) => {
+    const base = ['音准与节奏', '音色与技巧', '情感表达', '舞台表现', '选曲难度'][index] ?? `维度${index + 1}`
+    const keys = ['pitch_rhythm', 'timbre_skill', 'emotion', 'stage', 'difficulty']
+    return { key: keys[index] ?? `dimension-${index + 1}`, label: base, weight: 20 }
+  })
+}
+
+async function saveRoundDimensions(): Promise<void> {
+  const round = dimensionRound.value
+  if (!round || savingDimensions.value) return
+  const dimensions = dimensionRoundDraft.value
+    .map(item => ({ key: item.key, label: item.label.trim(), weight: Number(item.weight) }))
+  if (dimensions.some(item => !item.label)) {
+    toast.add({ title: '维度名称不能为空', color: 'warning' })
+    return
+  }
+  savingDimensions.value = true
+  try {
+    const data = await adminFetch<CompetitionAdminPayload>(
+      `/api/admin/competition/rounds/${round.key}`,
+      { method: 'PUT', body: { dimensions, dimensionMax: Number(dimensionMaxDraft.value) } }
+    )
+    payload.value = data
+    toast.add({ title: `${round.title}维度已保存`, color: 'success' })
+  } catch (error) {
+    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    savingDimensions.value = false
+  }
+}
 
 const {
   busyJudgeId, addingJudge, newJudgeUsername, newJudgePassword, newJudgeDisplayName,
@@ -515,10 +587,32 @@ onBeforeUnmount(stopLiveRefresh)
 
         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
+            <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 评分维度与占比
               </h2>
+              <USelect
+                v-model="dimensionRoundKey"
+                :items="DIMENSION_ROUND_OPTIONS"
+                size="xs"
+                class="w-40"
+              />
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                每维满分
+              </span>
+              <UInput
+                v-model.number="dimensionMaxDraft"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                size="xs"
+                class="w-20"
+                :disabled="dimensionRoundLocked"
+              />
+              <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                本轮满分 {{ dimensionRoundDraft.length * Number(dimensionMaxDraft || 0) }} 分
+              </span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <UButton
@@ -527,23 +621,31 @@ onBeforeUnmount(stopLiveRefresh)
                 label="恢复默认五维"
                 color="neutral"
                 variant="soft"
-                :disabled="hasAnyScores"
-                @click="restoreDefaultDimensions"
+                :disabled="dimensionRoundLocked"
+                @click="restoreRoundDimensions"
               />
               <UButton
                 size="xs"
                 icon="i-lucide-plus"
                 label="添加维度"
                 variant="soft"
-                :disabled="hasAnyScores"
-                @click="addDimension"
+                :disabled="dimensionRoundLocked"
+                @click="addRoundDimension"
+              />
+              <UButton
+                size="xs"
+                icon="i-lucide-save"
+                label="保存本轮维度"
+                :loading="savingDimensions"
+                :disabled="dimensionRoundLocked"
+                @click="saveRoundDimensions"
               />
             </div>
           </div>
 
           <div class="mt-3 space-y-2">
             <div
-              v-for="(dimension, index) in settings.dimensions"
+              v-for="(dimension, index) in dimensionRoundDraft"
               :key="dimension.key"
               class="flex flex-wrap items-end gap-2 rounded-md border border-zinc-200 p-2.5 dark:border-zinc-800"
             >
@@ -554,7 +656,7 @@ onBeforeUnmount(stopLiveRefresh)
                 <UInput
                   v-model="dimension.label"
                   class="w-full"
-                  :disabled="hasAnyScores"
+                  :disabled="dimensionRoundLocked"
                   placeholder="如：音准"
                 />
               </UFormField>
@@ -569,7 +671,7 @@ onBeforeUnmount(stopLiveRefresh)
                   max="100"
                   step="1"
                   class="w-full"
-                  :disabled="hasAnyScores"
+                  :disabled="dimensionRoundLocked"
                   @update:model-value="value => dimension.weight = Number(value) || 0"
                 />
               </UFormField>
@@ -583,8 +685,8 @@ onBeforeUnmount(stopLiveRefresh)
                   variant="soft"
                   icon="i-lucide-arrow-up"
                   aria-label="上移"
-                  :disabled="index === 0 || hasAnyScores"
-                  @click="moveDimension(index, -1)"
+                  :disabled="index === 0 || dimensionRoundLocked"
+                  @click="moveRoundDimension(index, -1)"
                 />
                 <UButton
                   size="xs"
@@ -592,8 +694,8 @@ onBeforeUnmount(stopLiveRefresh)
                   variant="soft"
                   icon="i-lucide-arrow-down"
                   aria-label="下移"
-                  :disabled="index === settings.dimensions.length - 1 || hasAnyScores"
-                  @click="moveDimension(index, 1)"
+                  :disabled="index === dimensionRoundDraft.length - 1 || dimensionRoundLocked"
+                  @click="moveRoundDimension(index, 1)"
                 />
                 <UButton
                   size="xs"
@@ -601,17 +703,17 @@ onBeforeUnmount(stopLiveRefresh)
                   variant="soft"
                   icon="i-lucide-trash-2"
                   aria-label="删除维度"
-                  :disabled="settings.dimensions.length <= 1 || hasAnyScores"
-                  @click="removeDimension(index)"
+                  :disabled="dimensionRoundDraft.length <= 1 || dimensionRoundLocked"
+                  @click="removeRoundDimension(index)"
                 />
               </div>
             </div>
           </div>
 
           <p class="mt-3 border-t border-zinc-100 pt-3 text-xs text-amber-700 dark:border-zinc-800 dark:text-amber-300">
-            {{ hasAnyScores
-              ? '比赛已有评分，维度与占比已锁定；已保存成绩按当时快照计算。'
-              : '评分开始后维度与占比会锁定，请在首轮评分前完成设置。' }}
+            {{ dimensionRound?.hasScores
+              ? '本轮已有评分，维度与满分已锁定；已保存成绩按当时快照计算。'
+              : '初赛默认五维、每维 0-10（满分 50）；复赛/决赛每维 0-20（满分 100）。改完点「保存本轮维度」。' }}
           </p>
         </div>
       </section>

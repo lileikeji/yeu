@@ -78,7 +78,6 @@ export const MUSIC_ASSOCIATION_SLUG = 'music-association'
 export const MUSIC_ASSOCIATION_TITLE = '音乐协会'
 
 const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-const MAX_SCORE = COMPETITION_MAX_DIMENSION_SCORE
 const MAX_COMMENT_LENGTH = 500
 /** 现场登记里这些写法等于没报歌，一律按未填处理。 */
 const COMPETITION_SONG_PLACEHOLDERS = new Set(['待定', '未定', '暂无', '无', '没有', '还没定', '没定', 'tbd', 'tba', 'na', 'n/a'])
@@ -173,6 +172,20 @@ type JudgeRow = typeof competitionJudges.$inferSelect
 type EntryRow = typeof competitionRoundEntries.$inferSelect
 type SingerRow = typeof competitionSingers.$inferSelect
 type ScoreRow = typeof competitionScores.$inferSelect
+
+/** 本轮评分维度：单独配置优先，否则回落赛事级维度。 */
+export function getRoundDimensions(round: RoundRow, eventRow?: EventRow | null): CompetitionDimension[] {
+  const parsed = parseJson<CompetitionDimension[]>(round.dimensionsJson ?? '', [])
+  if (Array.isArray(parsed) && parsed.length > 0) return parsed
+  return eventRow ? getCompetitionDimensions(eventRow) : [...DEFAULT_COMPETITION_DIMENSIONS]
+}
+
+/** 本轮每维满分：初赛 10（满分 50），复赛/决赛 20（满分 100）。 */
+export function getRoundDimensionMax(round: RoundRow): number {
+  const value = Number(round.dimensionMax ?? 0)
+  if (!Number.isFinite(value) || value < 1 || value > 100) return COMPETITION_MAX_DIMENSION_SCORE
+  return Math.round(value)
+}
 type PreRegistrationRow = typeof competitionPreRegistrations.$inferSelect
 
 // -- 音乐协会定位 --------------------------------------------------------------
@@ -422,7 +435,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
   }
 }
 
-export function serializeRound(row: RoundRow): CompetitionRound {
+export function serializeRound(row: RoundRow, eventRow?: EventRow | null): CompetitionRound {
   return {
     id: row.id,
     key: row.key,
@@ -434,6 +447,8 @@ export function serializeRound(row: RoundRow): CompetitionRound {
     rosterConfirmedAt: row.rosterConfirmedAt ?? null,
     resultQueryOpen: row.resultQueryOpen === 1,
     scorePrecision: row.scorePrecision === 'decimal' ? 'decimal' : 'integer',
+    dimensions: getRoundDimensions(row, eventRow),
+    dimensionMax: getRoundDimensionMax(row),
     activeDay: row.activeDay ?? null,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
@@ -546,11 +561,12 @@ export function adminUpsertRoundScore(
     .get()
   if (!judge) validationError('这位评委不在本轮', 'judgeId')
 
-  const dimensions = getCompetitionDimensions(eventRow)
+  const dimensions = getRoundDimensions(round, eventRow)
+  const dimensionMax = getRoundDimensionMax(round)
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(input.scores?.[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > MAX_SCORE) {
-      validationError(`「${dimension.label}」需为 0-${MAX_SCORE} 的分数`, `scores.${dimension.key}`)
+    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
+      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,
@@ -708,6 +724,10 @@ export interface UpdateRoundInput {
   judgeCount?: unknown
   advanceCount?: unknown
   scorePrecision?: unknown
+  /** 本轮评分维度（不传则沿用赛事级或上次设置）。 */
+  dimensions?: unknown
+  /** 本轮每维满分：初赛 10、复赛/决赛 20。 */
+  dimensionMax?: unknown
 }
 
 export function updateRound(
@@ -744,6 +764,26 @@ export function updateRound(
       validationError('打分精度只能是整数或小数', 'scorePrecision')
     }
     patch.scorePrecision = precision
+  }
+
+  if (input.dimensions !== undefined) {
+    if (scores > 0) {
+      conflictError('COMPETITION_HAS_SCORES', '本轮已有评分，不能修改评分维度')
+    }
+    patch.dimensionsJson = JSON.stringify(validateCompetitionDimensions(input.dimensions))
+  }
+
+  if (input.dimensionMax !== undefined || input.dimensions !== undefined) {
+    if (scores > 0 && input.dimensionMax !== undefined) {
+      conflictError('COMPETITION_HAS_SCORES', '本轮已有评分，不能修改每维满分')
+    }
+    if (input.dimensionMax !== undefined) {
+      const max = Number(input.dimensionMax)
+      if (!Number.isInteger(max) || max < 1 || max > 100) {
+        validationError('每维满分需为 1-100 的整数', 'dimensionMax')
+      }
+      patch.dimensionMax = max
+    }
   }
 
   if (input.judgeCount !== undefined) {
@@ -1542,7 +1582,7 @@ function roundView(
   client: DatabaseClient,
   round: RoundRow,
   singers: SingerRow[],
-  dimensions: CompetitionDimension[]
+  eventRow: EventRow | null
 ): CompetitionRoundView {
   const entries = listRoundEntryRows(client, round.id)
   const scoreRows = listRoundScores(client, round.id)
@@ -1567,11 +1607,11 @@ function roundView(
   })
 
   return {
-    ...serializeRound(round),
+    ...serializeRound(round, eventRow),
     entries: rankedEntries,
     judges: judges.map(judge => serializeJudge(judge, scoreCountByJudge.get(judge.id) ?? 0)),
     scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
-    maxTotal: competitionMaxTotal(dimensions),
+    maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round)),
     hasScores: scoreRows.length > 0,
     sequential: round.sequentialMode === 1,
     current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows)
@@ -1672,7 +1712,6 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
   }
 
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const dimensions = getCompetitionDimensions(eventRow)
   const singers = listSingers(client, eventRow.id)
   const rounds = listRounds(client, eventRow.id)
 
@@ -1686,7 +1725,7 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
   return {
     event: serializeCompetitionEvent(eventRow, club),
     singers: singers.map(serializeSinger),
-    rounds: rounds.map(round => roundView(client, round, singers, dimensions)),
+    rounds: rounds.map(round => roundView(client, round, singers, eventRow)),
     email: listEmailState(client, eventRow.id),
     preRegistrations: listPreRegistrations(client, eventRow.id),
     advance,
@@ -2648,7 +2687,10 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       status: round.status,
       advanceCount: round.advanceCount,
       sequential: round.sequentialMode === 1,
-      scorePrecision: round.scorePrecision === 'decimal' ? 'decimal' : 'integer'
+      scorePrecision: round.scorePrecision === 'decimal' ? 'decimal' : 'integer',
+      dimensions: getRoundDimensions(round, eventRow),
+      dimensionMax: getRoundDimensionMax(round),
+      maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round))
     },
     singers,
     roundResults,
@@ -2736,7 +2778,8 @@ export function submitJudgeScore(
     }
   }
 
-  const dimensions = getCompetitionDimensions(eventRow)
+  const dimensions = getRoundDimensions(round, eventRow)
+  const dimensionMax = getRoundDimensionMax(round)
   const rawScores = input.scores
   if (!rawScores || typeof rawScores !== 'object' || Array.isArray(rawScores)) {
     validationError('评分数据格式不正确', 'scores')
@@ -2745,8 +2788,8 @@ export function submitJudgeScore(
   const scoreMap = rawScores as Record<string, unknown>
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(scoreMap[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > MAX_SCORE) {
-      validationError(`「${dimension.label}」需为 0-${MAX_SCORE} 的分数`, `scores.${dimension.key}`)
+    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
+      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,

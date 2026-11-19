@@ -526,6 +526,13 @@
       "when": 1795300000000,
       "tag": "0074_yeuca_treasure",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1795400000000,
+      "tag": "0075_competition_round_dimensions",
+      "breakpoints": true
     }
   ]
 }

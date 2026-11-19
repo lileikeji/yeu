@@ -2256,6 +2256,70 @@ test('数据库：换届把旧届留档，新届从空白开始', () => {
   closeDatabase(':memory:')
 })
 
+test('数据库：初赛 10 分制、复赛 20 分制，各轮维度分开设置', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  let prelim = getRoundByKey(client, event.id, 'prelim')
+  const semi = getRoundByKey(client, event.id, 'semi')
+
+  // 默认：初赛沿用赛事级五维、每维 10（满分 50）。
+  const defaultView = getAdminCompetitionPayload(client, musicId).rounds.find(round => round.key === 'prelim')!
+  assert.equal(defaultView.dimensionMax, 10)
+  assert.equal(defaultView.maxTotal, defaultView.dimensions.length * 10)
+
+  // 复赛单独设成每维 20（满分 100）。
+  updateRound(client, semi, { dimensionMax: 20 })
+  const semiView = getAdminCompetitionPayload(client, musicId).rounds.find(round => round.key === 'semi')!
+  assert.equal(semiView.dimensionMax, 20)
+  assert.equal(semiView.maxTotal, semiView.dimensions.length * 20)
+
+  // 初赛换成自定义三维，满分 30。
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), {
+    dimensionMax: 10,
+    dimensions: [
+      { key: 'a', label: '音准', weight: 20 },
+      { key: 'b', label: '节奏', weight: 20 },
+      { key: 'c', label: '表现', weight: 20 }
+    ]
+  })
+  const customView = getAdminCompetitionPayload(client, musicId).rounds.find(round => round.key === 'prelim')!
+  assert.equal(customView.dimensions.length, 3)
+  assert.equal(customView.maxTotal, 30)
+
+  // 评分按本轮上限校验：初赛 11 分超限，10 分通过。
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  checkInEntries(client, musicId)
+  prelim = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const singerId = roster[0]!.singer.id
+  assert.throws(
+    () => submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singerId, {
+      scores: { a: 11, b: 8, c: 8 }
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'scores.a'
+  )
+  const submitted = submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singerId, {
+    scores: { a: 10, b: 8, c: 8 }
+  })
+  assert.equal(submitted.total, 26)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：每一轮可以单独设整数或小数打分', () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

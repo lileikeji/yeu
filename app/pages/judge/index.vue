@@ -64,7 +64,9 @@ const {
 
 const event = computed(() => payload.value?.event ?? null)
 const round = computed(() => payload.value?.round ?? null)
-const dimensions = computed<CompetitionDimension[]>(() => event.value?.dimensions ?? [])
+const dimensions = computed<CompetitionDimension[]>(
+  () => payload.value?.round?.dimensions ?? event.value?.dimensions ?? []
+)
 const singers = computed<SingerWithScore[]>(() => payload.value?.singers ?? [])
 const roundResults = computed<CompetitionRoundEntry[] | null>(() => payload.value?.roundResults ?? null)
 const finalResults = computed<CompetitionRoundEntry[] | null>(() => payload.value?.finalResults ?? null)
@@ -85,14 +87,16 @@ const singerList = computed(() => {
         || (singer.song ?? '').toLowerCase().includes(keyword)
     })
 })
-const maxTotal = computed(() => event.value?.maxTotal ?? dimensions.value.length * 10)
+const dimensionMax = computed(() => payload.value?.round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
+const maxTotal = computed(
+  () => payload.value?.round?.maxTotal ?? event.value?.maxTotal ?? dimensions.value.length * dimensionMax.value
+)
 /** 每个维度的满分（10 分制），供输入框与校验使用。 */
-const dimensionMax = COMPETITION_MAX_DIMENSION_SCORE
 /** 本轮打分精度：整数（默认）或小数（小数只能用拖滑块，输入框只读）。 */
 const scorePrecision = computed(() => payload.value?.round.scorePrecision ?? 'integer')
 const decimalMode = computed(() => scorePrecision.value === 'decimal')
 const scoreStep = computed(() => (decimalMode.value ? 0.1 : 1))
-const tapScoreChoices = Array.from({ length: dimensionMax }, (_, index) => index + 1)
+const tapScoreChoices = computed(() => Array.from({ length: dimensionMax.value }, (_, index) => index + 1))
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
 /** 顺序评分：主持人把全场指到同一位选手，所有人都只能给这一位打分。 */
@@ -127,7 +131,7 @@ const draftTotal = computed(() => {
     const value = draftScores.value[dimension.key]
     scores[dimension.key] = typeof value === 'number' ? Number(value) : 0
   }
-  return calculateCompetitionTotal(dimensions.value, scores)
+  return calculateCompetitionTotal(dimensions.value, scores, dimensionMax.value)
 })
 
 const progressPercent = computed(() => {
@@ -282,7 +286,7 @@ function normalizeScore(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  const bounded = Math.min(dimensionMax, Math.max(0, value))
+  const bounded = Math.min(dimensionMax.value, Math.max(0, value))
   if (decimalMode.value) return Math.round(bounded * 10) / 10
   // 整数模式：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
   return Math.round(bounded)
@@ -298,7 +302,7 @@ function setDraftScore(key: string, raw: unknown): void {
 function sliderFillPercent(key: string): string {
   const value = draftScores.value[key]
   if (typeof value !== 'number') return '0%'
-  return `${Math.round((value / dimensionMax) * 100)}%`
+  return `${Math.round((value / dimensionMax.value) * 100)}%`
 }
 
 /** 服务端明确拒绝的几种情况，提示完就同步成最新状态。 */

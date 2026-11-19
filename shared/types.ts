@@ -362,6 +362,10 @@ export interface CompetitionRound {
   resultQueryOpen: boolean
   /** 打分精度：integer 只能整数；decimal 只能拖滑块，可带一位小数。 */
   scorePrecision: CompetitionScorePrecision
+  /** 本轮使用的评分维度；未单独设置时回落到赛事级维度。 */
+  dimensions: CompetitionDimension[]
+  /** 每维满分：初赛 10（满分 50），复赛/决赛 20（满分 100）。 */
+  dimensionMax: number
   /** 分场天：1 / 2；null = 不分天（复赛、决赛）。 */
   activeDay: number | null
   createdAt: number
@@ -713,6 +717,12 @@ export interface CompetitionJudgePayload {
     sequential: boolean
     /** 打分精度：integer 整数；decimal 小数（只能拖滑块）。 */
     scorePrecision: CompetitionScorePrecision
+    /** 本轮评分维度（各轮可以不同）。 */
+    dimensions: CompetitionDimension[]
+    /** 每维满分：初赛 10、复赛/决赛 20。 */
+    dimensionMax: number
+    /** 本轮满分 = 维度数 × 每维满分。 */
+    maxTotal: number
   }
   singers: Array<CompetitionSingerPublic & {
     sortOrder: number

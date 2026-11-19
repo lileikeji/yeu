@@ -1114,6 +1114,10 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   resultQueryOpen: integer('result_query_open').notNull().default(0),
   /** 打分精度：integer = 只能整数，decimal = 小数（只能拖滑块）。 */
   scorePrecision: text('score_precision', { enum: ['integer', 'decimal'] }).notNull().default('integer'),
+  /** 本轮专用评分维度；空 = 用赛事级维度。 */
+  dimensionsJson: text('dimensions_json'),
+  /** 每维满分（初赛 10、复赛/决赛 20）；空 = 10。 */
+  dimensionMax: integer('dimension_max'),
   /**
    * 顺序评分模式下的当前出场条目（competition_round_entries.id）。
    * 为空 = 未开启顺序评分，评委可自由给任意选手打分（旧行为）。
@@ -1771,4 +1775,65 @@ export const yeucaDepartmentAdmins = sqliteTable('yeuca_department_admins', {
 }, table => [
   index('yeuca_dept_admins_content_idx').on(table.contentId),
   index('yeuca_dept_admins_dept_idx').on(table.departmentName)
+])
+
+/** 计协校园寻宝活动全局控制参数（单行 default 配置）。 */
+export const yeucaTreasureConfig = sqliteTable('yeuca_treasure_config', {
+  id: text('id').primaryKey(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  title: text('title').notNull().default('仰恩校园实景寻宝 · 计协联合集章'),
+  subtitle: text('subtitle').notNull().default('到指定地标半径内定位并核对现场暗号，或试玩探索全校点位。'),
+  goalCount: integer('goal_count').notNull().default(5),
+  requireMember: integer('require_member', { mode: 'boolean' }).notNull().default(false),
+  updatedByAdminId: text('updated_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+})
+
+/** 计协校园寻宝活动动态点位与题库表（总管可管全校，部长仅限操作自己部门名下点位）。 */
+export const yeucaTreasurePoints = sqliteTable('yeuca_treasure_points', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  alias: text('alias').notNull().default(''),
+  kind: text('kind', { enum: ['chest', 'oculus', 'finish', 'taffy', 'classroom'] }).notNull().default('chest'),
+  deptName: text('dept_name').notNull().default('协会全体'),
+  landmark: text('landmark').notNull(),
+  room: text('room').notNull().default(''),
+  region: text('region', { enum: ['new', 'old'] }).notNull().default('new'),
+  lng: real('lng').notNull(),
+  lat: real('lat').notNull(),
+  radiusMeters: integer('radius_meters').notNull().default(20),
+  verifyMode: text('verify_mode', { enum: ['gps_answer', 'gps_only', 'answer_or_trial'] }).notNull().default('gps_answer'),
+  clue: text('clue').notNull(),
+  question: text('question').notNull().default(''),
+  answer: text('answer').notNull().default(''),
+  characterKey: text('character_key').notNull().default(''),
+  glyph: text('glyph').notNull().default(''),
+  sortOrder: integer('sort_order').notNull().default(100),
+  isPublished: integer('is_published', { mode: 'boolean' }).notNull().default(true),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('yeuca_treasure_points_dept_idx').on(table.deptName),
+  index('yeuca_treasure_points_pub_idx').on(table.isPublished, table.sortOrder)
+])
+
+/** 计协校园寻宝统一集章表：兼容计协会员（yeuca_member）及迎新用户（user）。 */
+export const yeucaTreasureStamps = sqliteTable('yeuca_treasure_stamps', {
+  id: text('id').primaryKey(),
+  pointId: text('point_id').notNull().references(() => yeucaTreasurePoints.id, { onDelete: 'cascade' }),
+  actorType: text('actor_type', { enum: ['yeuca_member', 'user'] }).notNull(),
+  actorId: text('actor_id').notNull(),
+  actorLabel: text('actor_label').notNull().default(''),
+  verifyMode: text('verify_mode').notNull().default('gps_answer'),
+  distanceMeters: real('distance_meters'),
+  lng: real('lng'),
+  lat: real('lat'),
+  accuracy: real('accuracy'),
+  collectedAt: integer('collected_at').notNull()
+}, table => [
+  uniqueIndex('yeuca_treasure_stamps_actor_point_unique').on(table.actorType, table.actorId, table.pointId),
+  index('yeuca_treasure_stamps_point_idx').on(table.pointId),
+  index('yeuca_treasure_stamps_collected_idx').on(table.collectedAt)
 ])

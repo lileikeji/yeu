@@ -33,29 +33,33 @@ export function roundCompetitionScore(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-export function competitionMaxTotal(dimensions: CompetitionDimension[]): number {
-  return dimensions.length * COMPETITION_MAX_DIMENSION_SCORE
+export function competitionMaxTotal(
+  dimensions: CompetitionDimension[],
+  dimensionMax: number = COMPETITION_MAX_DIMENSION_SCORE
+): number {
+  return dimensions.length * dimensionMax
 }
 
-function clampScore(value: number): number {
+function clampScore(value: number, dimensionMax: number = COMPETITION_MAX_DIMENSION_SCORE): number {
   if (!Number.isFinite(value)) return 0
-  return Math.min(COMPETITION_MAX_DIMENSION_SCORE, Math.max(0, value))
+  return Math.min(dimensionMax, Math.max(0, value))
 }
 
 /**
  * 单个评委的总分：各维度按权重求加权平均，再乘以维度数。
- * 等权（默认五项）时等价于各维度直接累加，满分 10×维度数 = 50。
+* 等权（默认五项）时等价于各维度直接累加，满分 = 每维满分 × 维度数（初赛 10×5=50、复赛 20×5=100）。
  */
 export function calculateCompetitionTotal(
   dimensions: CompetitionDimension[],
-  scores: Record<string, number>
+  scores: Record<string, number>,
+  dimensionMax: number = COMPETITION_MAX_DIMENSION_SCORE
 ): number {
   const usable = dimensions.filter(dimension => Number.isFinite(dimension.weight) && dimension.weight > 0)
   const weightSum = usable.reduce((sum, dimension) => sum + dimension.weight, 0)
   if (usable.length === 0 || weightSum <= 0) return 0
 
   const weighted = usable.reduce(
-    (sum, dimension) => sum + clampScore(Number(scores[dimension.key] ?? 0)) * dimension.weight,
+    (sum, dimension) => sum + clampScore(Number(scores[dimension.key] ?? 0), dimensionMax) * dimension.weight,
     0
   )
   return roundCompetitionScore((weighted / weightSum) * usable.length)
