@@ -1434,6 +1434,20 @@ export const setCompetitionEntryDaySchema = z.object({
   day: z.number().int().min(1).max(2).nullable()
 }).strict()
 
+export const setCompetitionEntryOrderSchema = z.object({
+  orders: z.array(z.object({
+    entryId: z.string().min(1).max(64),
+    sortOrder: z.number().int().min(1).max(999)
+  }).strict()).min(1).max(200)
+}).strict()
+
+export const competitionDrawSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  sortOrder: z.number().int().min(1).max(999)
+}).strict()
+
 export const setCompetitionEntrySongSchema = z.object({
   entryId: z.string().min(1).max(64),
   song: z.string().trim().min(1).max(100)

@@ -52,6 +52,8 @@ import {
   setEntryDay,
   setEntryCheckIn,
   setEntrySong,
+  applyEntrySortOrders,
+  registerDrawNumber,
   setRoundDay,
   buildEmailSendPlan,
   buildReminderPlan,
@@ -1742,6 +1744,72 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   // 没有回执链接时保持纯文本，不留空按钮
   const plain = competitionEmailBodyToHtml('正文', [], '')
   assert.doesNotMatch(plain, /我已收到/)
+})
+
+test('数据库：现场手写号一次排序，抽签页选手自己登记号数', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singers = [
+    { name: '甲一', song: '晴天', studentNo: '111111111111', qq: '1111111' },
+    { name: '乙二', song: '后来', studentNo: '222222222222', qq: '2222222' },
+    { name: '丙三', song: '如愿', studentNo: '333333333333', qq: '3333333' }
+  ].map(item => createSinger(client, event.id, {
+    ...item,
+    className: '26测试1班',
+    phone: '13800000000',
+    email: `${item.qq}@qq.com`
+  }))
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const entries = listRoundEntryRows(client, round.id)
+  assert.equal(entries.length, 3)
+
+  // 手写号：丙三 1、甲一 2，乙二没填 → 接在最大号后面。
+  applyEntrySortOrders(client, round, [
+    { entryId: entries.find(item => item.singerId === singers[2]!.id)!.id, sortOrder: 1 },
+    { entryId: entries.find(item => item.singerId === singers[0]!.id)!.id, sortOrder: 2 }
+  ])
+  const afterApply = listRoundEntryRows(client, round.id)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map(item => singers.find(singer => singer.id === item.singerId)!.name)
+  assert.deepEqual(afterApply, ['丙三', '甲一', '乙二'])
+
+  // 重复号要被拦。
+  const dup = [
+    { entryId: entries[0]!.id, sortOrder: 5 },
+    { entryId: entries[1]!.id, sortOrder: 5 }
+  ]
+  assert.throws(() => applyEntrySortOrders(client, round, dup), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'SORT_ORDER_DUPLICATED')
+
+  // 选手自己在抽签页登记：号被占报 SORT_ORDER_TAKEN，改一个就成功。
+  const drawLookup = { name: '乙二', studentNo: '222222222222', contact: '2222222' }
+  assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 1), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'SORT_ORDER_TAKEN')
+  const drawn = registerDrawNumber(client, musicId, drawLookup, 9)
+  assert.equal(drawn.position, 9)
+  assert.equal(drawn.singerName, '乙二')
+  assert.equal(drawn.roundTitle, '初赛')
+  const stored = listRoundEntryRows(client, round.id).find(item => item.singerId === singers[1]!.id)!
+  assert.equal(stored.sortOrder, 9)
+
+  // 三要素对不上要报找不到。
+  assert.throws(() => registerDrawNumber(client, musicId, { name: '丁四', studentNo: '1', contact: '1' }, 3), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
+
+  closeDatabase(':memory:')
 })
 
 test('数据库：独立填歌页用三要素定位，晋级确认后才让改曲目', async () => {

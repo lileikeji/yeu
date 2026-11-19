@@ -2047,6 +2047,92 @@ export function setEntryDay(
   }
 }
 
+/**
+ * 批量写出场顺序。现场是手写号再一次性排：号必须两两不同，
+ * 没给号的按原顺序接在最大号后面，避免留空档。
+ */
+export function applyEntrySortOrders(
+  client: DatabaseClient,
+  round: RoundRow,
+  orders: { entryId: string, sortOrder: number }[]
+): void {
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，出场顺序已锁定')
+  const entries = listRoundEntryRows(client, round.id)
+  const byId = new Map(entries.map(entry => [entry.id, entry]))
+  const assigned = new Map<string, number>()
+  const used = new Set<number>()
+  for (const item of orders) {
+    if (!byId.has(item.entryId)) validationError('出场条目不存在', 'entryId')
+    const value = Number(item.sortOrder)
+    if (!Number.isInteger(value) || value < 1 || value > 999) {
+      validationError('出场顺序要填 1-999 的整数', 'sortOrder')
+    }
+    if (used.has(value)) conflictError('SORT_ORDER_DUPLICATED', `出场顺序 ${value} 重复了，改一下再排`)
+    used.add(value)
+    assigned.set(item.entryId, value)
+  }
+
+  let next = assigned.size ? Math.max(...assigned.values()) + 1 : 1
+  for (const entry of [...entries].sort((left, right) => left.sortOrder - right.sortOrder)) {
+    if (assigned.has(entry.id)) continue
+    while (used.has(next)) next += 1
+    assigned.set(entry.id, next)
+    used.add(next)
+    next += 1
+  }
+
+  // 先整体挪到负数区间，避免中途撞上已有号码
+  client.db.transaction(() => {
+    for (const entry of entries) {
+      client.db.update(competitionRoundEntries).set({ sortOrder: -Number(entry.sortOrder || 1) - 1000 })
+        .where(eq(competitionRoundEntries.id, entry.id)).run()
+    }
+    for (const [entryId, sortOrder] of assigned) {
+      client.db.update(competitionRoundEntries).set({ sortOrder })
+        .where(eq(competitionRoundEntries.id, entryId)).run()
+    }
+  })
+}
+
+/**
+ * 选手自己抽签后扫码登记号数：按三要素定位到本轮的条目，写入出场顺序。
+ * 号已经被别人占了就让他重新抽，不覆盖别人。
+ */
+export function registerDrawNumber(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name: string, studentNo: string, contact: string },
+  sortOrder: number
+): { position: number, singerName: string, roundTitle: string } {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const rounds = [getRoundByKey(client, eventRow.id, 'prelim'), getRoundByKey(client, eventRow.id, 'semi'), getRoundByKey(client, eventRow.id, 'final')]
+  let target: RoundRow | null = null
+  let entry: EntryRow | null = null
+  for (const round of [...rounds].reverse()) {
+    const hit = listRoundEntryRows(client, round.id).find(row => row.singerId === singer.id)
+    if (hit) {
+      target = round
+      entry = hit
+      break
+    }
+  }
+  if (!target || !entry) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '还没给你排出场名单，先找现场工作人员')
+  if (target.status === 'closed') conflictError('ROUND_CLOSED', '这一轮已经结束了，改不了号')
+
+  const value = Number(sortOrder)
+  if (!Number.isInteger(value) || value < 1 || value > 999) {
+    validationError('出场顺序要填 1-999 的整数', 'sortOrder')
+  }
+  const taken = listRoundEntryRows(client, target.id).find(row => row.id !== entry.id && row.sortOrder === value)
+  if (taken) {
+    const owner = listSingers(client, eventRow.id).find(item => item.id === taken.singerId)
+    conflictError('SORT_ORDER_TAKEN', `这个号被 ${owner?.name ?? '别人'} 先登记了，换一个再填`)
+  }
+  client.db.update(competitionRoundEntries).set({ sortOrder: value })
+    .where(eq(competitionRoundEntries.id, entry.id)).run()
+  return { position: value, singerName: singer.name, roundTitle: target.title }
+}
+
 // -- 评委账号 ------------------------------------------------------------------
 
 function generateJudgePassword(): string {

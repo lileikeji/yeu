@@ -175,6 +175,7 @@ const {
 const {
   SCHEDULE_KEY_OPTIONS, addScheduleRow, removeScheduleRow, restoreDefaultFormFields, formatDateTime,
   weightPercent, rosterEntries, rosterQuery, rosterVisible, missingJudgeCount,
+  rosterOrderMode, sortOrderBusy, sortOrderValue, setSortOrderDraft, applySortOrders,
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
@@ -1735,6 +1736,25 @@ onBeforeUnmount(stopLiveRefresh)
                 class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 aria-label="搜索出场名单"
               >
+              <UButton
+                v-if="activeRound.status !== 'closed'"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-list-ordered"
+                :loading="sortOrderBusy"
+                @click="applySortOrders(activeRound)"
+              >
+                按填的号排序
+              </UButton>
+              <a
+                href="/singer/draw"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-green-600 hover:text-green-700 dark:border-zinc-700 dark:text-zinc-200"
+              >
+                抽签登记
+              </a>
               <a
                 href="/singer/call"
                 target="_blank"
@@ -1785,7 +1805,7 @@ onBeforeUnmount(stopLiveRefresh)
               <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
                 <tr>
                   <th class="w-24 px-4 py-2 font-medium">
-                    出场序（可拖动）
+                    出场顺序
                   </th>
                   <th class="px-3 py-2 font-medium">
                     选手
@@ -1825,7 +1845,7 @@ onBeforeUnmount(stopLiveRefresh)
                   @drop.prevent="dropOnEntry(activeRound, entry)"
                   @dragend="endDragEntry"
                 >
-                  <td class="cursor-grab px-4 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
+                  <td class="cursor-grab px-3 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
                     <span class="inline-flex items-center gap-1">
                       <UIcon
                         v-if="activeRound.status !== 'closed'"
@@ -1833,7 +1853,17 @@ onBeforeUnmount(stopLiveRefresh)
                         class="size-3.5 text-zinc-300 dark:text-zinc-600"
                         aria-hidden="true"
                       />
-                      {{ entry.sortOrder || index + 1 }}
+                      <input
+                        v-if="activeRound.status !== 'closed'"
+                        :value="sortOrderValue(entry)"
+                        type="text"
+                        inputmode="numeric"
+                        class="w-12 rounded border border-zinc-200 px-1 py-0.5 text-center text-sm tabular-nums focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+                        :placeholder="String(entry.sortOrder || index + 1)"
+                        :aria-label="`${entry.singer.name} 出场顺序`"
+                        @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
+                      >
+                      <span v-else>{{ entry.sortOrder || index + 1 }}</span>
                     </span>
                   </td>
                   <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
