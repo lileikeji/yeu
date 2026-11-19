@@ -234,7 +234,12 @@ const {
   onCanvasMove, onCanvasUp, undoLastPatch, clearPatches, downloadQr, downloadPoster
 } = useCompetitionPoster()
 
-const accompanimentPreview = ref<{ name: string, url: string, size: number | null } | null>(null)
+const accompanimentPreview = ref<{
+  name: string
+  url: string
+  size: number | null
+  original?: { name: string, url: string, size: number | null } | null
+} | null>(null)
 const accompanimentPreviewOpen = ref(false)
 
 /** 伴奏体积：MB 保留一位，小的用 KB。 */
@@ -246,7 +251,12 @@ function accompanimentSize(bytes: number | null | undefined): string {
 
 function openAccompaniment(entry: CompetitionRoundEntry): void {
   if (!entry.accompaniment) return
-  accompanimentPreview.value = { name: entry.accompaniment.name, url: entry.accompaniment.url, size: entry.accompaniment.size }
+  accompanimentPreview.value = {
+    name: entry.accompaniment.name,
+    url: entry.accompaniment.url,
+    size: entry.accompaniment.size,
+    original: entry.accompaniment.original ?? null
+  }
   accompanimentPreviewOpen.value = true
 }
 
@@ -3245,6 +3255,17 @@ onBeforeUnmount(stopLiveRefresh)
           >
             <UIcon name="i-lucide-download" class="size-4" />
             下载这个伴奏
+          </a>
+          <a
+            v-if="accompanimentPreview?.original"
+            :href="accompanimentPreview.original.url"
+            :download="accompanimentPreview.original.name"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-sm text-zinc-600 underline dark:text-zinc-300"
+          >
+            <UIcon name="i-lucide-file-audio" class="size-4" />
+            下载原件（{{ accompanimentSize(accompanimentPreview.original.size) }}）
           </a>
         </div>
       </template>

@@ -161,12 +161,13 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
       link.click()
       link.remove()
     } catch {
-      const link = document.createElement('a')
-      link.href = `/api/admin/competition/rounds/${round.key}/accompaniment${original ? '?original=1' : ''}`
-      link.rel = 'noopener'
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      // 打包本身要几十秒，首次请求可能被网关超时掐断；对象存储里已经缓存了这一版，
+      // 直接回落到源站会把几百 MB 的包从 3Mbps 出口挤一遍，现场体验更差，所以只提示重试。
+      toast.add({
+        title: '打包超时了，再点一次',
+        description: '第一次打包要几十秒，包已经存好，第二次会立刻开始下载。',
+        color: 'warning'
+      })
     } finally {
       window.setTimeout(() => {
         exportingKind.value = ''
