@@ -119,7 +119,12 @@ export function createRelease(root, output, release, commit) {
     retrieval: retrievalMetadata(root),
     migrations: migrationFiles(join(directory, 'migrations')).map(({ tag, when, hash }) => ({ tag, when, hash })),
     native: { path: native, hash: hash(readFileSync(join(output, native))) },
-    history: ancestryCommits(commit)
+    history: ancestryCommits(commit),
+    // 只有 CI（GitHub Actions）跑出来的制品才带 ci 字段，部署脚本据此区分
+    // “CI 出的正式制品”和“某人本机 nuxt build 出来的包”。
+    ci: process.env.GITHUB_ACTIONS === 'true'
+      ? { workflow: process.env.GITHUB_WORKFLOW ?? '', runId: process.env.GITHUB_RUN_ID ?? '', sha: process.env.GITHUB_SHA ?? '' }
+      : null
   }
   writeFileSync(join(output, 'release.json'), `${JSON.stringify(manifest)}\n`)
   return manifest

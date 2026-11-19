@@ -130,6 +130,12 @@
 `scan-full-lockfile` 报「4 packages affected by 7 known vulnerabilities (2 High)」，而 `git diff` 显示依赖文件没动 —— 是 OSV 数据库当天新收录（`glob ≤14.0.1`、`minimatch <11.0.1`、`picomatch ≤4.0.7`、`deepmerge 4.3.1`）。
 落地做法：按 GHSA 补丁版本做定向 overrides（`glob@11.1.0/13.0.7 → 14.0.2`，去掉把 minimatch 钉在 `10.2.6` 的 `glob>minimatch`），`pnpm install --no-frozen-lockfile` 后必须实跑 `pnpm test` + `typecheck` + `nuxt build` + `pwa:build:test`（`glob` 的两个消费方 `@vercel/nft`、`workbox-build` 只在构建期暴露问题）。上游无修复的 `picomatch`/`deepmerge` 记录在案，不假装修掉。
 
+### 14. 本机直发的包和主线互相顶（2026-11-18 夜间连锁）
+
+- 现象：一晚四次「我发完、对方又发一版」，每次都得把对方提交并进主线重出制品；最紧时连续两次被新闸门拦下 —— 线上 commit 在我打包的十几分钟里又换了人。
+- 根因两条：一是并发发版没有互斥，二是有人拿本机 `nuxt build` 出来的包直接 `scp` 上去。那份包是 win32 + node 26 出的，原生模块全靠部署脚本替换，而且完全绕开了 CI 的测试与 e2e。
+- 落地做法：`release-tools.mjs` 只在 `GITHUB_ACTIONS=true` 时写 `ci: { runId, workflow, sha }`；`deploy-incoming.sh` 见到没有 `ci.runId` 的制品直接 `exit 1`（本机冒烟包要装才设 `ALLOW_LOCAL_BUILD=1`）。配合上面的祖先链闸门，两种事故形状都在切换之前被挡住。
+
 ## 三、固定约定
 - 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。
