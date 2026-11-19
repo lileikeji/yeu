@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -78,6 +78,7 @@ import {
 } from '../server/modules/competition/service'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { verifyPassword } from '../server/utils/password'
+import { StreamingZip } from '../server/utils/zip-archive'
 import { runMigrations } from '../server/database/migrate'
 import { competitionJudges, contents } from '../server/database/schema'
 import { competitionSingerSchema } from '../shared/schemas/server'
@@ -1776,6 +1777,24 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
     (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
 
   closeDatabase(':memory:')
+})
+
+test('流式打包：一次只吃一个文件，产物仍是合法 zip', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yeu-zip-'))
+  const target = join(dir, 'bundle.zip')
+  const zip = new StreamingZip(target)
+  await zip.add('01-甲一/曲目.txt', new TextEncoder().encode('出场序：1\n'))
+  await zip.add('01-甲一/甲一《后来》.mp3', Buffer.alloc(4096, 7))
+  const size = await zip.finish()
+  const bytes = readFileSync(target)
+  assert.equal(size, bytes.length)
+  assert.equal(bytes.readUInt32LE(0), 0x04034b50)
+  // 末尾 22 字节是 EOCD，条目数放在偏移 8 处
+  const eocd = bytes.length - 22
+  assert.equal(bytes.readUInt32LE(eocd), 0x06054b50)
+  assert.equal(bytes.readUInt16LE(eocd + 8), 2)
+  assert.ok(bytes.includes(Buffer.from('01-甲一/甲一《后来》.mp3', 'utf8')))
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test('数据库：曲目名落库前清掉歌手名和选手自己的名字', () => {

@@ -20,7 +20,7 @@ import {
 import { hashPasswordWithMinLength } from '../../utils/password'
 import { transcodeToMp3 } from '../../utils/audio-transcode'
 import { detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
-import { createZip } from '../../utils/zip-archive'
+import { createZip, StreamingZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
@@ -4511,6 +4511,62 @@ export async function submitAccompanimentByThreeFactors(
 }
 
 /** 后台导出伴奏：按出场顺序，一人一个文件夹（含曲目.txt）。 */
+/**
+ * 流式版本：一次只把一个伴奏读进内存写进 zip 文件，原件包（~500MB）不会把进程撑爆。
+ * 返回 zip 的落盘路径与大小，由调用方上传到对象存储后删掉。
+ */
+export async function buildAccompanimentArchiveToFile(
+  client: DatabaseClient,
+  round: RoundRow,
+  options: { useOriginal?: boolean, targetPath: string }
+): Promise<{ filename: string, size: number }> {
+  const useOriginal = options.useOriginal === true
+  const entries = [...listRoundEntryRows(client, round.id)].sort((left, right) => left.sortOrder - right.sortOrder)
+  const singers = listSingers(client, round.eventId)
+  const singerById = new Map(singers.map(singer => [singer.id, singer]))
+  const directory = uploadDirectory()
+  const config = cosConfig()
+  const zip = new StreamingZip(options.targetPath)
+  let index = 0
+  for (const entry of entries) {
+    index += 1
+    const singer = singerById.get(entry.singerId)
+    if (!singer) continue
+    const position = entry.sortOrder > 0 ? entry.sortOrder : index
+    const folder = `${String(position).padStart(2, '0')}-${sanitizePathPart(singer.name)}`
+    const song = ((entry.song ?? '').trim() || (singer.song ?? '').trim() || '未选曲')
+    await zip.add(
+      `${folder}/曲目.txt`,
+      new TextEncoder().encode(`出场序：${position}\n姓名：${singer.name}\n曲目：${song}\n班级：${singer.className ?? ''}\n`)
+    )
+    const originalRow = entry as { originalUrl?: string | null, originalName?: string | null }
+    const originalUrl = (originalRow.originalUrl ?? '').trim()
+    const usingOriginal = useOriginal && Boolean(originalUrl)
+    const url = (usingOriginal ? originalUrl : (entry.accompanimentUrl ?? '')).trim()
+    if (!url) continue
+    const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
+    const cosKey = url.startsWith('cos:') ? url.slice(4) : ''
+    const storedName = (usingOriginal ? (originalRow.originalName ?? '').trim() : (entry.accompanimentName ?? '').trim())
+    const displayName = storedName && !storedName.toLowerCase().endsWith(`.${extension}`)
+      ? storedName.replace(/\.[a-z0-9]{2,5}$/i, '') + `.${extension}`
+      : storedName
+    const fileName = displayName || accompanimentDisplayName(singer.name, song, extension)
+    try {
+      const data = cosKey && config
+        ? new Uint8Array(await (await fetch(presignCosGet(config, cosKey, 900))).arrayBuffer())
+        : await readFile(join(directory, url.split('/').at(-1) ?? ''))
+      await zip.add(`${folder}/${sanitizeFileName(fileName)}`, data)
+    } catch {
+      await zip.add(`${folder}/伴奏缺失.txt`, new TextEncoder().encode('文件读取失败，让选手重新上传一次。\n'))
+    }
+  }
+  const size = await zip.finish()
+  return {
+    filename: `competition-${round.key}-accompaniment${useOriginal ? '-original' : ''}-${Math.floor(Date.now() / 1000)}.zip`,
+    size
+  }
+}
+
 export async function buildAccompanimentArchive(
   client: DatabaseClient,
   round: RoundRow,
