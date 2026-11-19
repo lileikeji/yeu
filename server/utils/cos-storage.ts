@@ -188,7 +188,7 @@ export async function putCosObjectFromFile(
 ): Promise<void> {
   const { createReadStream, statSync } = await import('node:fs')
   const size = statSync(filePath).size
-  const url = `https://${cosHost(config)}${encodeCosKey(key)}?${signCosUrl(config, { method: 'PUT', key, expiresIn: 900 })}`
+  const url = `https://${cosHost(config)}/${encodeCosKey(key)}?${signCosUrl(config, { method: 'PUT', key, expiresIn: 900 })}`
   // undici 从 node:stream 的 ReadStream 需要 duplex，类型上 body 只接受 BodyInit，这里按运行时用法断言
   const body = createReadStream(filePath) as unknown as BodyInit
   const response = await fetch(url, {
