@@ -582,7 +582,8 @@ export function adminUpsertRoundScore(
 
   const total = calculateCompetitionTotal(
     dimensions,
-    Object.fromEntries(snapshot.map(item => [item.key, item.score]))
+    Object.fromEntries(snapshot.map(item => [item.key, item.score])),
+    dimensionMax
   )
   const now = Date.now()
   const where = and(
@@ -2806,7 +2807,8 @@ export function submitJudgeScore(
 
   const total = calculateCompetitionTotal(
     dimensions,
-    Object.fromEntries(snapshot.map(item => [item.key, item.score]))
+    Object.fromEntries(snapshot.map(item => [item.key, item.score])),
+    dimensionMax
   )
   const now = Date.now()
   const existing = client.db.select().from(competitionScores)

@@ -2317,6 +2317,36 @@ test('数据库：初赛 10 分制、复赛 20 分制，各轮维度分开设置
   })
   assert.equal(submitted.total, 26)
 
+  // 复赛 20 分制：先把初赛收尾、确认晋级，生成复赛名单，再验 21 分被拒、20 分通过。
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const semiRound = getRoundByKey(client, event.id, 'semi')
+  checkInEntries(client, musicId, 'semi')
+  assert.ok(roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries.length > 0)
+  updateRound(client, semiRound, {
+    status: 'open',
+    judgeCount: 1,
+    dimensionMax: 20,
+    dimensions: [
+      { key: 'a', label: '音准', weight: 20 },
+      { key: 'b', label: '节奏', weight: 20 },
+      { key: 'c', label: '表现', weight: 20 }
+    ]
+  })
+  const semiRoster = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
+  const semiSingerId = semiRoster[0]!.singer.id
+  const semiJudges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'semi'), 1)
+  assert.throws(
+    () => submitJudgeScore(client, { ...semiJudges[0]!, eventId: event.id, roundId: semiRound.id }, semiSingerId, {
+      scores: { a: 21, b: 20, c: 20 }
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'scores.a'
+  )
+  const semiScore = submitJudgeScore(client, { ...semiJudges[0]!, eventId: event.id, roundId: semiRound.id }, semiSingerId, {
+    scores: { a: 20, b: 20, c: 20 }
+  })
+  assert.equal(semiScore.total, 60)
+
   closeDatabase(':memory:')
 })
 

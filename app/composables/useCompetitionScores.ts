@@ -11,8 +11,10 @@ import { apiErrorMessage } from './useCompetitionRoster'
 export type CompetitionExportKind = 'detail' | 'summary' | 'advancing' | 'confirmed' | 'confirmed-plain' | 'songs'
 
 export interface UseCompetitionScoresOptions {
-  /** 当前维度定义（来自 settings.dimensions，改权重后立刻跟着变）。 */
+  /** 当前轮次的维度定义（初赛 10 分制、复赛/决赛 20 分制）。 */
   dimensions: Ref<CompetitionDimension[]>
+  /** 当前轮次每维满分。 */
+  dimensionMax: Ref<number>
   load: () => Promise<void>
   toast: ReturnType<typeof useToast>
 }
@@ -25,7 +27,7 @@ export interface UseCompetitionScoresOptions {
  * 平均分、名次、晋级标记一起变。
  */
 export function useCompetitionScores(options: UseCompetitionScoresOptions) {
-  const { dimensions, load, toast } = options
+  const { dimensions, dimensionMax, load, toast } = options
 
   const scoreEditorOpen = ref(false)
   const scoreEditorSinger = ref<CompetitionSingerPublic | null>(null)
@@ -47,7 +49,7 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
   })
 
   const scoreDraftTotal = computed(() =>
-    calculateCompetitionTotal(dimensions.value, scoreDraftNumbers.value)
+    calculateCompetitionTotal(dimensions.value, scoreDraftNumbers.value, dimensionMax.value)
   )
 
   const scoreDraftComplete = computed(() =>

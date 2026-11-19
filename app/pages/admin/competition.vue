@@ -43,7 +43,7 @@ async function copyMissingAccompaniment(): Promise<void> {
 }
 
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
-const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
+const dimensionScoreMax = computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
 function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: Event): void {
@@ -183,7 +183,8 @@ const {
   savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
   saveScoreEdit, exportingKind, exportRound, exportAccompaniment, exportOriginalAccompaniment
 } = useCompetitionScores({
-  dimensions: computed(() => settings.value?.dimensions ?? []),
+  dimensions: computed(() => activeRound.value?.dimensions ?? settings.value?.dimensions ?? []),
+  dimensionMax: computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE),
   load,
   toast
 })
