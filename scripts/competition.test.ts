@@ -1788,8 +1788,8 @@ test('数据库：现场手写号一次排序，抽签页选手自己登记号�
 
   // 重复号要被拦。
   const dup = [
-    { entryId: entries[0]!.id, sortOrder: 5 },
-    { entryId: entries[1]!.id, sortOrder: 5 }
+    { entryId: entries[0]!.id, sortOrder: 2 },
+    { entryId: entries[1]!.id, sortOrder: 2 }
   ]
   assert.throws(() => applyEntrySortOrders(client, round, dup), (error: unknown) =>
     (error as { data?: { code?: string } }).data?.code === 'SORT_ORDER_DUPLICATED')
@@ -1798,12 +1798,18 @@ test('数据库：现场手写号一次排序，抽签页选手自己登记号�
   const drawLookup = { name: '乙二', studentNo: '222222222222', contact: '2222222' }
   assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 1), (error: unknown) =>
     (error as { data?: { code?: string } }).data?.code === 'SORT_ORDER_TAKEN')
-  const drawn = registerDrawNumber(client, musicId, drawLookup, 9)
-  assert.equal(drawn.position, 9)
+  const drawn = registerDrawNumber(client, musicId, drawLookup, 3)
+  assert.equal(drawn.position, 3)
   assert.equal(drawn.singerName, '乙二')
   assert.equal(drawn.roundTitle, '初赛')
   const stored = listRoundEntryRows(client, round.id).find(item => item.singerId === singers[1]!.id)!
-  assert.equal(stored.sortOrder, 9)
+  assert.equal(stored.sortOrder, 3)
+
+  // 号不能超过本轮人数（3 人 → 只能 1-3）。
+  assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 4), (error: unknown) =>
+    (error as { data?: { code?: string, message?: string } }).data?.code === 'VALIDATION_ERROR')
+  assert.throws(() => applyEntrySortOrders(client, round, [{ entryId: entries[0]!.id, sortOrder: 9 }]), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR')
 
   // 三要素对不上要报找不到。
   assert.throws(() => registerDrawNumber(client, musicId, { name: '丁四', studentNo: '1', contact: '1' }, 3), (error: unknown) =>

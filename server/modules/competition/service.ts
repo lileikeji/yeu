@@ -2058,14 +2058,15 @@ export function applyEntrySortOrders(
 ): void {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，出场顺序已锁定')
   const entries = listRoundEntryRows(client, round.id)
+  const limit = Math.max(1, entries.length)
   const byId = new Map(entries.map(entry => [entry.id, entry]))
   const assigned = new Map<string, number>()
   const used = new Set<number>()
   for (const item of orders) {
     if (!byId.has(item.entryId)) validationError('出场条目不存在', 'entryId')
     const value = Number(item.sortOrder)
-    if (!Number.isInteger(value) || value < 1 || value > 999) {
-      validationError('出场顺序要填 1-999 的整数', 'sortOrder')
+    if (!Number.isInteger(value) || value < 1 || value > limit) {
+      validationError(`出场顺序只能填 1-${limit}（本轮共 ${limit} 人）`, 'sortOrder')
     }
     if (used.has(value)) conflictError('SORT_ORDER_DUPLICATED', `出场顺序 ${value} 重复了，改一下再排`)
     used.add(value)
@@ -2119,11 +2120,13 @@ export function registerDrawNumber(
   if (!target || !entry) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '还没给你排出场名单，先找现场工作人员')
   if (target.status === 'closed') conflictError('ROUND_CLOSED', '这一轮已经结束了，改不了号')
 
+  const roundEntries = listRoundEntryRows(client, target.id)
+  const limit = Math.max(1, roundEntries.length)
   const value = Number(sortOrder)
-  if (!Number.isInteger(value) || value < 1 || value > 999) {
-    validationError('出场顺序要填 1-999 的整数', 'sortOrder')
+  if (!Number.isInteger(value) || value < 1 || value > limit) {
+    validationError(`号只能填 1-${limit}（这一轮共 ${limit} 人）`, 'sortOrder')
   }
-  const taken = listRoundEntryRows(client, target.id).find(row => row.id !== entry.id && row.sortOrder === value)
+  const taken = roundEntries.find(row => row.id !== entry.id && row.sortOrder === value)
   if (taken) {
     const owner = listSingers(client, eventRow.id).find(item => item.id === taken.singerId)
     conflictError('SORT_ORDER_TAKEN', `这个号被 ${owner?.name ?? '别人'} 先登记了，换一个再填`)
