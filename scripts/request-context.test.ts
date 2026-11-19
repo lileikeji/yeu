@@ -65,14 +65,6 @@ test('public read APIs only enable short caching after successful data preparati
     const source = readFileSync(join(publicApiRoot, relativePath), 'utf8')
     const initialNoStore = source.indexOf('setHeader(event, \'Cache-Control\', \'no-store\')')
     const normalizedPath = relativePath.replaceAll('\\', '/')
-    if (normalizedPath === 'yeuca/member/me.get.ts') {
-      // 会员会话接口按 Cookie 回本人数据：既不能上 CDN，也不能进浏览器缓存，
-      // 成功响应同样保持 no-store，因此这条只要求 no-store 起步。
-      assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
-      assert.doesNotMatch(source, /setPublicCache/)
-      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
-      continue
-    }
     if (normalizedPath === 'panorama/campus.get.ts') {
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
       assert.match(source, /sendRedirect\(event, BAIDU_CAMPUS_PAGE_URL, 302\)/)

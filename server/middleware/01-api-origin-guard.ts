@@ -1,7 +1,6 @@
 import { getMethod, getRequestURL } from 'h3'
 import { assertApiOrigin } from '../utils/api-origin'
 import { isMiniAppPostRoute, isMiniAppReadRoute } from '../utils/miniapp'
-import { applyYeucaCors, isYeucaPublicPath } from '../utils/yeuca-cors'
 
 /**
  * Native mini-program reads, telemetry and AI queries have no browser Origin/Referer.
@@ -20,11 +19,5 @@ export default defineEventHandler((event) => {
   const method = getMethod(event).toUpperCase()
   if (isMiniAppReadRoute(pathname, method) || isMiniAppPostRoute(pathname, method)) return
   if (method === 'GET' && pathname.startsWith('/api/admin/recruit/')) return
-  if (isYeucaPublicPath(pathname)) {
-    applyYeucaCors(event)
-    if (method === 'OPTIONS' || (method === 'GET' && pathname === '/api/public/yeuca/site')) return
-    // POST 等写入类交由 handler 内的 assertYeucaPostOrigin 复核来源白名单
-    return
-  }
   assertApiOrigin(event)
 })
