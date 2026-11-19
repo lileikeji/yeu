@@ -136,6 +136,19 @@
 - 根因两条：一是并发发版没有互斥，二是有人拿本机 `nuxt build` 出来的包直接 `scp` 上去。那份包是 win32 + node 26 出的，原生模块全靠部署脚本替换，而且完全绕开了 CI 的测试与 e2e。
 - 落地做法：`release-tools.mjs` 只在 `GITHUB_ACTIONS=true` 时写 `ci: { runId, workflow, sha }`；`deploy-incoming.sh` 见到没有 `ci.runId` 的制品直接 `exit 1`（本机冒烟包要装才设 `ALLOW_LOCAL_BUILD=1`）。配合上面的祖先链闸门，两种事故形状都在切换之前被挡住。
 
+### 9. 清理旧 release 把线上正在用的那个删了（2026-11-19）
+
+清理脚本用 `/www/wwwroot/yeu/releases`（软链）与 `readlink -f` 出来的 `/data/yeu/releases/...` 做字符串比较，
+两者永远不相等；`ls -1dt | head -4` 的保留名单也没写进 `case` 判断，结果 321 个 release 全删，包括正在跑的那个。
+现象很有迷惑性：首页仍 200（node 进程的 cwd 变成 `(deleted)`，文件句柄还开着），但 `/_nuxt/*` 全 404。
+
+规矩：
+
+1. 路径一律 `readlink -f` 之后再比较，不要拿软链路径和真实路径混着比。
+2. 删除前先打印 `current`，保留列表存成变量，用 `for d in ...; do case ... esac` 逐个判断，不要直接用 `head -4` 的裸输出。
+3. current 单独兜一次：`[ "$d" = "$CUR" ] && continue`。
+4. 删完立刻验：`curl -s -o /dev/null -w "%{http_code}" https://<域名>/` 与一个真实的 `/_nuxt/*.js`，两个都 200 才算过。
+
 ## 三、固定约定
 - 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。
