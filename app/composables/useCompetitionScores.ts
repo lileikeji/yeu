@@ -158,25 +158,20 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
     exportProgress.value = null
     try {
       // 用原生 fetch：$fetch 的模板字面量路由推导在这里会触发 TS2321（路由联合类型过深）
-      const start = await fetch(`/api/admin/competition/rounds/${round.key}/accompaniment-job`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json', 'accept': 'application/json' },
-        body: JSON.stringify({ original })
-      })
-      if (!start.ok) throw new Error(`start ${start.status}`)
-      const started = await start.json() as { jobId?: string, total?: number }
+      // adminFetch 会自动带上 CSRF 头（__Host-yeu_admin_csrf），裸 fetch 会被判 401/403
+      const started = await adminFetch<{ jobId?: string, total?: number }>(
+        `/api/admin/competition/rounds/${round.key}/accompaniment-job`,
+        { method: 'POST', body: { original } }
+      )
       if (!started.jobId) throw new Error('no jobId')
       exportProgress.value = { done: 0, total: started.total ?? 0 }
 
       for (let attempt = 0; attempt < 300; attempt += 1) {
         await new Promise(resolve => window.setTimeout(resolve, 1000))
-        const status = await fetch(`/api/admin/competition/rounds/${round.key}/accompaniment-job?jobId=${started.jobId}`, {
-          credentials: 'include',
-          headers: { accept: 'application/json' }
-        })
-        if (!status.ok) throw new Error(`poll ${status.status}`)
-        const job = await status.json() as { status: string, done: number, total: number, url?: string | null, message?: string | null }
+        const job = await adminFetch<{ status: string, done: number, total: number, url?: string | null, message?: string | null }>(
+          `/api/admin/competition/rounds/${round.key}/accompaniment-job`,
+          { query: { jobId: started.jobId } }
+        )
         exportProgress.value = { done: job.done, total: job.total }
         if (job.status === 'error') throw new Error(job.message || '打包失败')
         if (job.status === 'done') {
