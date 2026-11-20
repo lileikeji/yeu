@@ -136,7 +136,8 @@ export function parseEventDateHint(title: string, summary: string, anchorMs: num
   if (!haystack) return null
   const anchor = new Date(anchorMs)
   if (Number.isNaN(anchor.getTime())) return null
-  const todayStart = new Date(new Date().toDateString()).getTime()
+  // 以抓取/锚点当天为“今天”，否则固定锚点的用例会随系统日期漂移。
+  const todayStart = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate()).getTime()
   const candidates: number[] = []
   for (const match of haystack.matchAll(new RegExp(EVENT_DATE_RE.source, 'g'))) {
     const [, rawYear, rawMonth, rawDay] = match

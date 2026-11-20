@@ -186,26 +186,37 @@ async function redirectToLogin(): Promise<void> {
   }, { replace: true })
 }
 
+function isOrganizationRouteAllowed(path: string): boolean {
+  if (isYeucaMinister.value) {
+    return path === '/admin/yeuca'
+  }
+  return (
+    path === '/admin/organization'
+    || path === '/admin/recruit'
+    || path === '/admin/activities'
+    || path.startsWith('/admin/content/')
+    || (path === '/admin/competition' && isMusicAssociation.value)
+    || (path === '/admin/yeuca' && isComputerAssociation.value)
+    || (path === '/admin/miniapp' && canUseCapability('analytics.view'))
+  )
+}
+
+async function enforceOrganizationRouteScope(): Promise<boolean> {
+  if (adminRole.value !== 'organization' || isOrganizationRouteAllowed(route.path)) {
+    return true
+  }
+  const landingPath = isComputerAssociation.value ? '/admin/yeuca' : '/admin/organization'
+  await navigateTo({
+    path: landingPath,
+    query: mustChangePassword.value ? { password: 'required' } : undefined
+  }, { replace: true })
+  return false
+}
+
 async function applySessionPayload(payload: Record<string, unknown>): Promise<void> {
   adminLabel.value = resolveAdminLabel(payload)
   applyAdminScope(payload)
-  const organizationRouteAllowed = isYeucaMinister.value
-    ? route.path === '/admin/yeuca'
-    : (route.path === '/admin/organization'
-      || route.path === '/admin/recruit'
-      || route.path === '/admin/activities'
-      || route.path.startsWith('/admin/content/')
-      || (route.path === '/admin/competition' && isMusicAssociation.value)
-      || (route.path === '/admin/yeuca' && isComputerAssociation.value)
-      || (route.path === '/admin/miniapp' && canUseCapability('analytics.view')))
-  if (adminRole.value === 'organization' && !organizationRouteAllowed) {
-    const landingPath = isComputerAssociation.value ? '/admin/yeuca' : '/admin/organization'
-    await navigateTo({
-      path: landingPath,
-      query: mustChangePassword.value ? { password: 'required' } : undefined
-    }, { replace: true })
-    return
-  }
+  if (!(await enforceOrganizationRouteScope())) return
   authState.value = 'authenticated'
 }
 
@@ -329,6 +340,9 @@ watch(mobileNavigationOpen, async (open) => {
 
 watch(() => route.path, () => {
   closeMobileNavigation()
+  if (authState.value === 'authenticated') {
+    void enforceOrganizationRouteScope()
+  }
 })
 
 onMounted(() => {
