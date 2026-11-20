@@ -1022,6 +1022,19 @@ export const recruitForms = sqliteTable('recruit_forms', {
   uniqueIndex('recruit_forms_content_unique').on(table.contentId)
 ])
 
+/**
+ * 纳新提交表。
+ *
+ * 按 `created_at` 单条件查询（看板接口取最近 N 天）走全表扫：现有的
+ * `(form_id, created_at)` 复合索引前缀是 form_id，单条件用不上。
+ * 2026-11-20 实测线上 171 行，全表扫 0.1ms 量级，补单列索引是纯负担，
+ * 已否决（曾加过 0078，已 revert）。表涨到五万行以上再评估。
+ *
+ * 另注意：0075–0077 的 `when` 被写成 1795400000000 / 1795404000000 /
+ * 1795480000000，最后一个是 2026-11-24，晚于当前时间。新增迁移的 `when`
+ * 必须大于 1795480000000，否则 `scripts/release-tools.mjs:213` 的
+ * `entry.when > applied.at(-1).created_at` 判定会把它永久跳过。
+ */
 export const recruitSubmissions = sqliteTable('recruit_submissions', {
   id: text('id').primaryKey(),
   formId: text('form_id').notNull().references(() => recruitForms.id, { onDelete: 'cascade' }),
