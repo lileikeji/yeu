@@ -338,6 +338,9 @@ onMounted(() => {
 watch(desktopSidebarCollapsed, (collapsed) => {
   if (import.meta.client) localStorage.setItem('yeu-admin-sidebar-collapsed', String(collapsed))
 })
+function openCommandPalette() {
+  window.dispatchEvent(new CustomEvent('admin-command-palette'))
+}
 </script>
 
 <template>
@@ -568,6 +571,15 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               yeuca.huiliyill.cn
             </span>
           </div>
+          <UButton
+            icon="i-lucide-search"
+            label="搜索页面"
+            color="neutral"
+            variant="ghost"
+            class="hidden md:inline-flex"
+            aria-label="打开命令面板，快捷键 Ctrl 加 K 或 Command 加 K"
+            @click="openCommandPalette"
+          />
           <ThemeModeToggle />
           <UButton
             v-if="isYeucaWorkspace"
@@ -708,5 +720,6 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         </aside>
       </dialog>
     </template>
+    <AdminCommandPalette />
   </div>
 </template>

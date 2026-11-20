@@ -17,6 +17,14 @@ const error = ref('')
 
 const toast = useToast()
 
+/* 现场抽签接口：显式窄签名，绕开 Nuxt 生成的路由联合类型在类型检查时的深度爆炸（TS2589/TS2321） */
+const submitDraw = $fetch as unknown as (payload: {
+  name: string
+  studentNo: string
+  contact: string
+  sortOrder: number
+}) => Promise<DrawResult>
+
 useSeoMeta({ title: '现场抽签登记', robots: 'noindex, nofollow' })
 
 function messageOf(caught: unknown): string {
@@ -41,14 +49,11 @@ async function submit() {
   }
   saving.value = true
   try {
-    result.value = await $fetch<DrawResult>('/api/public/competition/draw', {
-      method: 'POST',
-      body: {
-        name: name.value.trim(),
-        studentNo: studentNo.value.trim(),
-        contact: contact.value.trim(),
-        sortOrder: position
-      }
+    result.value = await submitDraw({
+      name: name.value.trim(),
+      studentNo: studentNo.value.trim(),
+      contact: contact.value.trim(),
+      sortOrder: position
     })
     toast.add({ title: `登记好了，你是第 ${result.value.position} 位`, color: 'success' })
   } catch (caught) {
@@ -66,7 +71,7 @@ function reset() {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-[var(--page-bg)] px-4 py-8">
+  <div class="singer-canvas min-h-dvh bg-[var(--page-bg)] px-4 py-8">
     <div class="mx-auto w-full max-w-md space-y-4">
       <div class="text-center">
         <p class="text-xs font-medium tracking-wide text-[var(--muted-ink)]">

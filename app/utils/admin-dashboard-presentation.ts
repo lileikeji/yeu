@@ -209,7 +209,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     key: 'overview',
     label: '工作台',
     items: [
-      { label: '概览', icon: 'i-lucide-layout-dashboard', to: '/admin' }
+      { label: '概览', icon: 'i-lucide-layout-dashboard', to: '/admin' },
+      { label: '数据看板', icon: 'i-lucide-line-chart', to: '/admin/overview' }
     ]
   },
   {
