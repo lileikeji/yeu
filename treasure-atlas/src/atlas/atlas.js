@@ -2,14 +2,15 @@
   'use strict'
   const $ = id => document.getElementById(id)
   const data = JSON.parse($('atlas-data').textContent)
-  const { activity, pins, style, tileData, icons, characters, taffy, goal, paradeDemo,
+  const { pins, style, tileData, icons, characters, taffy, paradeDemo,
     artworkIds, artBounds, bridgeRoute, pilot, pendingPlanNames } = data
   const bridgeConfig = JSON.parse($('bridge-config').textContent)
-  const bridgeEntry = activity.find(entry => entry.id === paradeDemo)
-  const routeMatchesPilot = !bridgeConfig.point || pilot.point.every((coordinate, index) => Math.abs(coordinate - bridgeConfig.point[index]) < 1e-7)
-  if (bridgeConfig.point) bridgeEntry.point = bridgeConfig.point
-  const entries = [...activity, ...pins]
-  const byId = new Map(entries.map(entry => [entry.id, entry]))
+  let activity = bridgeConfig.state?.points?.length ? bridgeConfig.state.points : data.activity
+  let goal = bridgeConfig.state?.goalCount ?? data.goal
+  let routeMatchesPilot = true
+  let entries = [...activity, ...pins]
+  let activityIds = new Set(activity.map(entry => entry.id))
+  let byId = new Map(entries.map(entry => [entry.id, entry]))
   const names = { all: '全校', new: '新区', old: '旧区' }
   const keys = { chest: '角色立牌', oculus: '校园神瞳', finish: '终点立牌', waypoint: '传送锚点', landmark: '校园地标' }
   const initialKinds = ['chest', 'oculus', 'finish', 'waypoint', 'landmark', 'taffy', 'classroom']
@@ -24,9 +25,9 @@
   }
   const groups = ['教学与图书馆', '餐厅', '行政与公共建筑', '校园地标']
   const storageKey = 'yeu-atlas-share-playtest-progress'
-  const collectibles = activity.filter(entry => entry.kind === 'chest' || entry.kind === 'oculus')
-  const taffyChests = activity.filter(entry => entry.kind === 'taffy')
-  const classroomStandees = activity.filter(entry => entry.kind === 'classroom')
+  let collectibles = activity.filter(entry => entry.kind !== 'finish')
+  let taffyChests = activity.filter(entry => entry.kind === 'taffy')
+  let classroomStandees = activity.filter(entry => entry.kind === 'classroom')
   const classroomEffects = {
     phoebe: '<span class="unbox-halo"></span>',
     guga: '<span class="unbox-cookie"></span>',
@@ -49,16 +50,20 @@
   let lastLiveWeather = null
   const media = window.matchMedia('(max-width: 767px)')
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
-  const bridge = createBridgePilot(bridgeConfig, onBridgeStampChange, characters.frog.still)
+  const bridge = createBridgePilot(bridgeConfig, onServerStateSync, onBridgeStampChange, characters.frog.still)
   const motion = () => reduce.matches ? 0 : 550
-  const isActivity = entry => Object.hasOwn(entry, 'question')
+  const isActivity = entry => activityIds.has(entry.id)
   const regionEntries = source => source.filter(entry => state.region === 'all' || entry.region === state.region)
-  const isCollected = entry => entry.id === paradeDemo ? bridge.collected() : collected.has(entry.id)
+  const isCollected = entry => {
+    if (bridge.isAuthenticated()) return bridge.isCollectedRemote(entry.id)
+    if (entry.verifyMode === 'gps_answer' || entry.verifyMode === 'gps_only') return bridge.isCollectedRemote(entry.id)
+    return collected.has(entry.id)
+  }
   const stampCount = () => collectibles.filter(isCollected).length
   const isStandee = entry => entry.kind === 'chest' || entry.kind === 'finish'
   const isHidden = entry => entry.kind === 'oculus' || entry.kind === 'taffy' || entry.kind === 'classroom'
-  const isDiscovered = entry => revealed.has(entry.id) || collected.has(entry.id)
-  const displayName = entry => entry.kind === 'classroom' && !collected.has(entry.id) ? '教学楼隐藏立牌' : entry.name
+  const isDiscovered = entry => revealed.has(entry.id) || isCollected(entry)
+  const displayName = entry => entry.kind === 'classroom' && !isCollected(entry) ? '教学楼隐藏立牌' : entry.name
   const openedIcon = (entry) => {
     if (!isCollected(entry)) return entry.kind
     if (isHidden(entry)) return `${entry.kind}-done`
@@ -69,14 +74,16 @@
     const motionSource = avatar.animated && !still ? `<source media="(prefers-reduced-motion: no-preference)" srcset="${avatar.animated}">` : ''
     return `<picture class="${className}">${motionSource}<img alt="" src="${avatar.still}"></picture>`
   }
+  const taffyFallback = Object.values(taffy)[0]
   const image = (kind, entryId, still = false) => {
     if (kind === 'classroom') return '<span class="classroom-seal" aria-hidden="true">?</span>'
     if (kind === 'taffy' || kind === 'taffy-done') {
-      const avatar = taffy[entryId]
+      const avatar = taffy[entryId] || taffyFallback
+      if (!avatar) return icons.chest ? `<img alt="" src="${icons.chest}">` : ''
       return `<span class="taffy-art" data-state="${kind}" aria-hidden="true">${characterPicture(avatar, 'taffy-avatar', still)}<span class="taffy-chest">${kind === 'taffy-done' ? '✓' : `<img alt="" src="${icons.chest}">`}</span></span>`
     }
     const character = byId.get(entryId)?.character
-    if (character) {
+    if (character && characters[character]) {
       const avatar = characters[character]
       const animal = avatar.animal ? `<span class="zodiac-label">${avatar.animal}</span>` : ''
       const motion = avatar.animal ? `<canvas class="zodiac-motion" data-zodiac="${character}" width="${zodiacCanvasSize}" height="${zodiacCanvasSize}"></canvas>` : ''
@@ -84,6 +91,22 @@
     }
     return icons[kind] ? `<img alt="" src="${icons[kind]}">` : ''
   }
+
+  function rebuildIndexes(nextActivity) {
+    activity = nextActivity
+    const bridgeEntry = activity.find(entry => entry.id === paradeDemo)
+    routeMatchesPilot = Boolean(bridgeEntry) && pilot.point.every((coordinate, index) => Math.abs(coordinate - bridgeEntry.point[index]) < 1e-7)
+    entries = [...activity, ...pins]
+    activityIds = new Set(activity.map(entry => entry.id))
+    byId = new Map(entries.map(entry => [entry.id, entry]))
+    collectibles = activity.filter(entry => entry.kind !== 'finish')
+    taffyChests = activity.filter(entry => entry.kind === 'taffy')
+    classroomStandees = activity.filter(entry => entry.kind === 'classroom')
+    if (state.selected) {
+      state.selected = byId.get(state.selected.id) ?? null
+    }
+  }
+  rebuildIndexes(activity)
   const renderRows = (items, label) => items.map(entry => `<li><button type="button" data-id="${safe(entry.id)}">${safe(entry.name)}<small>${safe(label(entry))}</small></button></li>`).join('')
   const markerPriority = { finish: 6, chest: 5, classroom: 4, taffy: 4, oculus: 4, waypoint: 3, landmark: 2, dorm: 1 }
 
@@ -114,7 +137,7 @@
     $('place-pane').hidden = Boolean(query) || state.tab !== 'places'
     for (const button of document.querySelectorAll('[data-tab]')) button.setAttribute('aria-pressed', String(button.dataset.tab === state.tab && !query))
     if (query) {
-      const matches = entries.filter(entry => (entry.kind === 'classroom' ? collected.has(entry.id) : !isHidden(entry) || isDiscovered(entry))
+      const matches = entries.filter(entry => (entry.kind === 'classroom' ? isCollected(entry) : !isHidden(entry) || isDiscovered(entry))
         && [entry.name, entry.alias, entry.landmark, entry.group, names[entry.region]].some(part => part?.toLowerCase().includes(query)))
         .sort((a, b) => (b.name.toLowerCase() === query) - (a.name.toLowerCase() === query))
       const missing = pendingPlanNames.filter(name => name.includes(query))
@@ -129,7 +152,7 @@
       const standees = scopedActivity.filter(entry => entry.kind === 'chest')
       const opened = standees.filter(isCollected).length
       $('standee-title').textContent = `立牌图鉴 · 已收集 ${opened}/${standees.length}`
-      const standeesByCharacter = new Map(standees.map(entry => [entry.character, entry]))
+      const standeesByCharacter = new Map(standees.filter(entry => entry.character).map(entry => [entry.character, entry]))
       $('standee-list').innerHTML = Object.entries(characters).map(([key, avatar]) => {
         const entry = standeesByCharacter.get(key)
         if (!entry) return ''
@@ -140,18 +163,19 @@
       const hintRows = scopedActivity.filter(entry => entry.kind === 'oculus')
       $('hint-title').innerHTML = image('oculus') + `神瞳线索 · ${hintRows.length} 处`
       $('hints').innerHTML = hintRows.map((entry, index) => `<li><button type="button" data-id="${entry.id}">${safe(revealed.has(entry.id) ? entry.name : `${names[entry.region]}线索 ${index + 1}`)}<small>${safe(entry.clue)}</small></button></li>`).join('')
-      const taffyCollected = taffyChests.filter(entry => collected.has(entry.id)).length
-      $('taffy-title').innerHTML = `${image('taffy', taffyChests[0].id, true)}塔菲宝箱线索 · ${taffyCollected}/${taffyChests.length}`
+      const taffyCollected = taffyChests.filter(isCollected).length
+      const taffyIconHtml = taffyChests.length ? image('taffy', taffyChests[0].id, true) : (icons.chest ? `<img alt="" src="${icons.chest}">` : '')
+      $('taffy-title').innerHTML = `${taffyIconHtml}塔菲宝箱线索 · ${taffyCollected}/${taffyChests.length}`
       const scopedTaffy = scopedActivity.filter(entry => entry.kind === 'taffy')
       $('taffy-hints').innerHTML = scopedTaffy.map((entry, index) => {
         const label = isDiscovered(entry) ? entry.name : `${names[entry.region]}隐藏线索 ${index + 1}`
         return `<li><button type="button" data-id="${entry.id}">${safe(label)}<small>${safe(entry.clue)}</small></button></li>`
       }).join('')
       const scopedClassroom = regionEntries(classroomStandees)
-      const classroomCollected = scopedClassroom.filter(entry => collected.has(entry.id)).length
+      const classroomCollected = scopedClassroom.filter(isCollected).length
       $('classroom-title').textContent = `教学楼隐藏款 · ${classroomCollected}/${scopedClassroom.length}`
       $('classroom-hints').innerHTML = scopedClassroom.map((entry) => {
-        const label = collected.has(entry.id) ? entry.name : `${names[entry.region]} · ${entry.room}线索`
+        const label = isCollected(entry) ? entry.name : `${names[entry.region]} · ${entry.room || entry.landmark}线索`
         return `<li><button type="button" data-id="${safe(entry.id)}">${safe(label)}<small>${safe(entry.clue)}</small></button></li>`
       }).join('')
       const open = new Set([...$('directory-list').querySelectorAll('details[open]')].map(el => el.dataset.group))
@@ -161,7 +185,25 @@
         return `<details class="folder" data-group="${group}" ${open.has(group) || (!open.size && index === 0) ? 'open' : ''}><summary>${group} · ${rows.length}</summary><ul class="results">${renderRows(rows, entry => `${names[entry.region]}${entry.plan ? ' · 校图 ' + entry.plan : ''}`)}</ul></details>`
       }).join('')
     }
-    $('progress-text').textContent = `本机试玩 · 已收集 ${stampCount()} / ${collectibles.length}`
+    const serverState = bridge.getState()
+    if (serverState?.title && $('hunt-heading')) $('hunt-heading').textContent = serverState.title
+    if (serverState?.subtitle && $('hunt-instruction')) $('hunt-instruction').textContent = serverState.subtitle
+    const actor = serverState?.actor
+    const loginEl = $('actor-login-link')
+    if (actor?.authenticated) {
+      const prefix = actor.type === 'yeuca_member' ? `计协会员 ${actor.label}` : `迎新账号 ${actor.label}`
+      $('progress-text').textContent = `${prefix} · 正式集章 ${stampCount()} / ${collectibles.length}`
+      if (loginEl) loginEl.hidden = true
+    } else {
+      $('progress-text').textContent = `未登录 · 本机试玩 ${stampCount()} / ${collectibles.length}`
+      if (loginEl) {
+        loginEl.hidden = false
+        loginEl.href = bridge.loginUrl(state.selected?.id)
+        loginEl.textContent = (Boolean(bridgeConfig.isYeucaHost) || location.hostname === 'yeuca.huiliyill.cn' || serverState?.requireMember)
+          ? '计协会员登录 ↗'
+          : '登录账号存印章 ↗'
+      }
+    }
     $('stamps').textContent = `探索印章 · ${Math.min(stampCount(), goal)} / ${goal}`
   }
 
@@ -337,7 +379,7 @@
     const features = []
     if (entry && isActivity(entry)) {
       const [longitude, latitude] = entry.point
-      const radius = (entry.id === paradeDemo ? bridgeConfig.radius ?? pilot.radius : pilot.radius) / 6371000
+      const radius = (entry.radiusMeters ?? bridgeConfig.radius ?? pilot.radius) / 6371000
       const phi = latitude * Math.PI / 180
       const ring = Array.from({ length: 65 }, (_, i) => {
         const az = i * Math.PI / 32
@@ -409,27 +451,42 @@
     panel.hidden = !entry
     if (!entry) { panel.innerHTML = ''; return }
     const demo = entry.id === paradeDemo
+    const gpsManaged = entry.verifyMode === 'gps_answer' || entry.verifyMode === 'gps_only' || demo
     const classroom = entry.kind === 'classroom'
-    const showUnboxing = classroom && collected.has(entry.id) && Object.hasOwn(classroomEffects, entry.character)
+    const showUnboxing = classroom && isCollected(entry) && Object.hasOwn(classroomEffects, entry.character)
     panel.classList.toggle('parade-detail', demo)
     panel.classList.toggle('classroom-result', showUnboxing)
     const icon = image(openedIcon(entry), entry.id) || '<span class="detail-icon" aria-hidden="true">◎</span>'
-    const subtitle = `${names[entry.region]} · ${entry.landmark || entry.group}${entry.room ? ' · ' + entry.room : ''}${entry.plan ? ' · 校图 ' + entry.plan : ''}`
+    const deptBadge = entry.deptName && entry.deptName !== '协会全体' ? ` · ${entry.deptName}` : ''
+    const subtitle = `${names[entry.region]} · ${entry.landmark || entry.group}${entry.room ? ' · ' + entry.room : ''}${entry.plan ? ' · 校图 ' + entry.plan : ''}${deptBadge}`
     let body
     if (isActivity(entry)) {
-      body = `<p>${safe(entry.clue)}</p><p class="location-note">${safe(entry.review.detail)}</p>`
+      const serverState = bridge.getState()
+      const memberGateBlock = Boolean(serverState?.requireMember && serverState?.actor?.type !== 'yeuca_member')
+      body = `<p>${safe(entry.clue)}</p><p class="location-note">${safe(entry.review?.detail || '后台动态寻宝点')}</p>`
       if (isCollected(entry)) {
         const messages = { finish: '终点立牌已验证', taffy: '已开启 · 收集 1 个塔菲隐藏款', classroom: '已收集 · 教学楼隐藏款' }
         body += demo ? paradeReward() : showUnboxing ? classroomReward(entry) : `<p class="done" tabindex="-1">${messages[entry.kind] ?? '已收集 · 计入 1 枚印章'}</p>`
-      } else if (demo) body += '<div id="bridge-pilot"></div>'
-      else if (entry.kind === 'finish' && stampCount() < goal) body += `<p class="feedback">还需 ${goal - stampCount()} 枚印章。</p>`
-      else {
-        body += `<div class="samples" role="group" aria-label="离线模拟位置">模拟距离 ${[19, 20, 21].map(value => `<button type="button" data-sample="${value}" aria-pressed="${state.sample === value}">${value} 米</button>`).join('')}</div>`
+      } else if (entry.kind === 'finish' && stampCount() < goal) {
+        body += `<p class="feedback">还需 ${goal - stampCount()} 枚印章解锁终点。</p>`
+      } else if (gpsManaged) {
+        body += '<div id="bridge-pilot"></div>'
+      } else if (memberGateBlock) {
+        body += `<p class="feedback">后台已启用仅计协在册会员参与。</p><p><a class="pill" href="${safe(bridge.loginUrl(entry.id))}">登录计协会员账号参加</a></p>`
+      } else {
+        const r = Number(entry.radiusMeters || 20)
+        const sampleSet = [Math.max(1, r - 1), r, r + 1]
+        body += `<div class="samples" role="group" aria-label="模拟距离测试">模拟距离 ${sampleSet.map(value => `<button type="button" data-sample="${value}" aria-pressed="${state.sample === value}">${value} 米</button>`).join('')}</div>`
         body += '<p id="feedback" class="feedback" role="status"></p>'
-        if (classroom) body += `<details class="demo-placard" id="demo-placard" hidden><summary>查看模拟立牌</summary><div class="demo-placard-face"><span class="classroom-glyph" aria-hidden="true">${entry.glyph}</span><div>立牌暗号<strong>${safe(entry.answer)}</strong></div></div></details>`
+        if (classroom && !bridge.isAuthenticated()) {
+          body += '<p class="detail-trial-hint" id="demo-placard" hidden>提示：现场立牌位于对应教学楼一层，请结合线索输入两字暗号。</p>'
+        }
         const prompt = classroom ? '输入两字暗号' : '输入答案'
         const action = classroom ? '揭晓隐藏款' : entry.kind === 'taffy' ? '开启宝箱' : entry.kind === 'oculus' ? '收集神瞳' : '提交验证'
-        body += `<form id="answer" class="answer" hidden><label for="answer-input">${entry.kind !== 'oculus' ? '试玩题 · ' : ''}${safe(entry.question)}</label><div><input id="answer-input" placeholder="${prompt}" maxlength="40" autocomplete="off" required><button type="submit" class="pill">${action}</button></div></form>`
+        body += `<form id="answer" class="answer" hidden><label for="answer-input">${entry.kind !== 'oculus' ? '题目 · ' : ''}${safe(entry.question)}</label><div><input id="answer-input" placeholder="${prompt}" maxlength="64" autocomplete="off" required><button type="submit" class="pill">${action}</button></div></form>`
+        if (!bridge.isAuthenticated()) {
+          body += `<p class="detail-trial-hint">未登录仅作试玩；<a href="${safe(bridge.loginUrl(entry.id))}">登录计协会员</a>可保存正式集章档案。</p>`
+        }
       }
     } else {
       body = `<p>${safe(entry.review.detail)}</p>`
@@ -440,20 +497,33 @@
       if (entry.kind === 'waypoint') body += '<button type="button" class="pill" data-transfer>传送到此处</button>'
     }
     panel.innerHTML = `<header>${icon}<div><h2 tabindex="-1">${safe(displayName(entry))}</h2><p>${safe(subtitle)}</p></div><button type="button" class="detail-close" aria-label="关闭点位详情" data-close>×</button></header>${body}`
-    if ($('bridge-pilot')) bridge.mount($('bridge-pilot'))
+    if ($('bridge-pilot')) bridge.mount($('bridge-pilot'), entry)
     placeDetail()
   }
 
-  function onBridgeStampChange(claimed) {
+  function onServerStateSync(nextState) {
+    if (!nextState) return
+    if (typeof nextState.goalCount === 'number' && nextState.goalCount > 0) goal = nextState.goalCount
+    if (Array.isArray(nextState.points)) {
+      rebuildIndexes(nextState.points)
+    }
     refreshSidebar()
     refreshMarkers()
-    if (state.selected?.kind === 'finish') refreshDetail()
-    if (state.selected?.id !== paradeDemo) return
+    refreshZone()
     refreshDetail()
-    if (claimed) {
-      playReward()
-      $('reward-status').focus({ preventScroll: true })
-      $('parade-reward').scrollIntoView({ block: 'nearest' })
+  }
+
+  function onBridgeStampChange(pointId, claimed) {
+    refreshSidebar()
+    refreshMarkers()
+    if (!state.selected) return
+    if (state.selected.id === pointId || state.selected.kind === 'finish') {
+      refreshDetail()
+      if (claimed && pointId === paradeDemo && $('parade-reward')) {
+        playReward()
+        $('reward-status')?.focus({ preventScroll: true })
+        $('parade-reward')?.scrollIntoView({ block: 'nearest' })
+      }
     }
   }
 
@@ -526,38 +596,71 @@
     } else if (control.dataset.sample) {
       state.sample = Number(control.dataset.sample)
       for (const item of $('detail').querySelectorAll('[data-sample]')) item.setAttribute('aria-pressed', String(item === control))
-      const inRange = state.sample <= 20
+      const radius = Number(state.selected?.radiusMeters || 20)
+      const inRange = state.sample <= radius
       const classroom = state.selected?.kind === 'classroom'
-      $('feedback').textContent = inRange ? (classroom ? '已进入 20 米范围，可以输入暗号。' : '已进入 20 米范围，可以答题。') : '还在 20 米圈外，选 20 米或 19 米就能答题。'
+      $('feedback').textContent = inRange ? (classroom ? `已进入 ${radius} 米范围，可以输入暗号。` : `已进入 ${radius} 米范围，可以答题。`) : `还在 ${radius} 米圈外，请走近或选 ${radius} 米内。`
       $('answer').hidden = !inRange
-      if (classroom) {
+      if (classroom && $('demo-placard')) {
         $('demo-placard').hidden = !inRange
-        if (!inRange) $('demo-placard').open = false
       }
     }
   })
-  $('detail').addEventListener('submit', (event) => {
+  let trialBusy = false
+  $('detail').addEventListener('submit', async (event) => {
     if (event.target.id !== 'answer') return
     event.preventDefault()
     const entry = state.selected
-    if (!entry || entry.id === paradeDemo || state.sample === null || state.sample > 20 || isCollected(entry)) return
-    const answer = $('answer-input').value.normalize('NFKC').trim().toLowerCase()
-    if (answer !== entry.answer && !(entry.answer === '四' && ['4', '四片', '4片'].includes(answer))) {
-      $('feedback').textContent = '答案不对，再看看线索。'
-      return
-    }
-    collected.add(entry.id)
-    try { localStorage.setItem(storageKey, JSON.stringify([...collected])) } catch {}
-    refreshSidebar()
-    refreshMarkers()
-    refreshDetail()
-    if (entry.kind === 'classroom') {
-      $('detail').querySelector('h2').focus({ preventScroll: true })
-      const reward = $('classroom-reward')
-      if (reward) {
-        reward.querySelector('.classroom-stage').scrollIntoView({ block: 'nearest' })
-        playReward(reward)
+    const radius = Number(entry?.radiusMeters || 20)
+    if (trialBusy || !entry || entry.verifyMode === 'gps_answer' || entry.verifyMode === 'gps_only') return
+    if (state.sample === null || state.sample > radius || isCollected(entry)) return
+    const answer = $('answer-input').value.trim()
+    if (!answer) return
+    trialBusy = true
+    $('feedback').textContent = '正在核对答案…'
+    try {
+      const result = await bridge.submitTrialClaim(entry.id, state.sample, answer)
+      if (result.status === 'wrong-answer') {
+        $('feedback').textContent = '答案不对，再看看线索。'
+        return
       }
+      if (result.status === 'goal-unmet') {
+        $('feedback').textContent = `还需集齐 ${goal} 枚印章才能开启终点。`
+        return
+      }
+      if (result.status === 'member-required') {
+        $('feedback').textContent = '仅限计协会员账号参与，请登录后重试。'
+        return
+      }
+      if (result.status === 'closed') {
+        $('feedback').textContent = '寻宝活动暂未开放。'
+        return
+      }
+      if (result.status !== 'collected') {
+        $('feedback').textContent = '暂时无法校验，请稍后重试。'
+        return
+      }
+      if (bridge.isAuthenticated() && bridge.getState()) {
+        bridge.getState().collectedMap = { ...(bridge.getState().collectedMap || {}), [entry.id]: result.collectedAt }
+      } else {
+        collected.add(entry.id)
+        try { localStorage.setItem(storageKey, JSON.stringify([...collected])) } catch {}
+      }
+      refreshSidebar()
+      refreshMarkers()
+      refreshDetail()
+      if (entry.kind === 'classroom') {
+        $('detail').querySelector('h2').focus({ preventScroll: true })
+        const reward = $('classroom-reward')
+        if (reward) {
+          reward.querySelector('.classroom-stage').scrollIntoView({ block: 'nearest' })
+          playReward(reward)
+        }
+      }
+    } catch (error) {
+      $('feedback').textContent = error.message || '提交校验失败，请重试。'
+    } finally {
+      trialBusy = false
     }
   })
   $('search').addEventListener('input', refreshSidebar)
@@ -570,7 +673,21 @@
   setInterval(() => {
     if (!document.hidden && navigator.onLine) void refreshLiveWeather()
   }, 15 * 60 * 1000)
+  function openTargetFromQuery() {
+    const rawPoint = new URLSearchParams(location.search).get('point')
+    if (!rawPoint || state.selected) return
+    const targetId = rawPoint === 'rainbow-bridge' ? paradeDemo : rawPoint
+    const found = byId.get(targetId)
+    if (found) {
+      if (state.region !== 'all' && state.region !== found.region) state.region = found.region
+      state.tab = 'hunt'
+      select(found, true)
+      $('detail').querySelector('h2')?.focus({ preventScroll: true })
+    }
+  }
   function openBridge() {
+    const bridgeEntry = byId.get(paradeDemo)
+    if (!bridgeEntry) return
     if (state.region !== 'all' && state.region !== bridgeEntry.region) state.region = bridgeEntry.region
     state.tab = 'hunt'
     $('search').value = ''
@@ -639,7 +756,20 @@
     $('relief').disabled = true
     $('overview').disabled = true
     $('map-status').textContent = '正在显示静态地图。可从试玩入口或点位列表继续答题。'
-    if (new URLSearchParams(location.search).get('point') === 'rainbow-bridge' && !state.selected) openBridge()
+    openTargetFromQuery()
+  }
+
+  const pickMode = new URLSearchParams(location.search).get('pick') === '1'
+  let pickedCoordText = ''
+  if (pickMode && $('coord-picker-bar')) {
+    $('coord-picker-bar').hidden = false
+    $('coord-picker-copy')?.addEventListener('click', () => {
+      if (!pickedCoordText) return
+      navigator.clipboard?.writeText(pickedCoordText).then(() => {
+        $('coord-picker-copy').textContent = '已复制 ✓'
+        setTimeout(() => { $('coord-picker-copy').textContent = '复制坐标' }, 1500)
+      }).catch(() => {})
+    })
   }
 
   sidebar(!media.matches)
@@ -706,10 +836,19 @@
       setWeather($('viewport').dataset.weather)
       refreshMarkers()
       updatePinSize()
-      if (new URLSearchParams(location.search).get('point') === 'rainbow-bridge' && !state.selected) openBridge()
+      openTargetFromQuery()
     })
     map.on('move', () => { placeDetail(); updatePinSize() })
-    map.on('click', (event) => { if (!event.originalEvent.target.closest('.map-pin')) closeDetail() })
+    map.on('click', (event) => {
+      if (!event.originalEvent.target.closest('.map-pin')) closeDetail()
+      if (pickMode && event.lngLat && $('coord-picker-text')) {
+        const lng = event.lngLat.lng.toFixed(7)
+        const lat = event.lngLat.lat.toFixed(7)
+        pickedCoordText = `${lng}, ${lat}`
+        $('coord-picker-text').textContent = `拾取 WGS84：${pickedCoordText}`
+        if ($('coord-picker-copy')) $('coord-picker-copy').hidden = false
+      }
+    })
   } catch {
     fallback()
   }

@@ -1,0 +1,394 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SEASONAL_RHYTHM, VERIFIED_DEPARTMENTS } from '../../data/club';
+---
+
+<Base
+  title="协会动态"
+  description="仰恩大学计算机协会通知公告、技术分享回顾、按月归档与日常发布节律。"
+  canonicalPath="/news/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1>协会动态</h1>
+      <p>协会通知、日常技术分享记录和竞赛消息，点击条目可直接打开正文阅读。</p>
+    </div>
+  </section>
+
+  <section class="page-section" style="padding-top: 0.9rem;">
+    <div class="wrap journal-side-layout">
+      <!-- 左侧：动态筛选与正文 -->
+      <div>
+        <div class="filter-bar" id="news-filters" style="margin-top: 0.35rem;">
+          <button type="button" class="filter-chip active" data-dept="全部">全部</button>
+          {
+            VERIFIED_DEPARTMENTS.map((dept) => (
+              <button type="button" class="filter-chip" data-dept={dept.name}>{dept.name}</button>
+            ))
+          }
+          <input
+            id="news-keyword"
+            type="search"
+            class="input"
+            placeholder="搜标题或标签…"
+            style="width: 210px; margin-left: auto; padding: 0.32rem 0.65rem; font-size: 0.84rem;"
+          />
+        </div>
+
+        <div id="news-tag-bar" class="tag-row" style="margin-bottom: 1rem;" hidden></div>
+
+        <div id="news-list-wrap">
+          <div class="empty-panel">正在读取已发布的动态记录……</div>
+        </div>
+
+        <div style="margin-top: 2.2rem;">
+          <div class="band-head" style="margin-bottom: 0.95rem;">
+            <div>
+              <h2 style="font-size: 1.24rem; margin: 0;">每学期一般什么时候发通知</h2>
+            </div>
+            <a class="link-btn" href="/activities/">去活动排期 →</a>
+          </div>
+
+          <div class="cards-2">
+            {
+              SEASONAL_RHYTHM.map((item) => (
+                <article class="card">
+                  <div class="card-top">
+                    <span class="pill pill-red">{item.phase}</span>
+                    <div class="tag-row">
+                      {item.tags.map((t) => <span class="pill">{t}</span>)}
+                    </div>
+                  </div>
+                  <h3>{item.title}</h3>
+                  <p>{item.detail}</p>
+                </article>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：部门统计与常用链接 -->
+      <aside class="side-stack">
+        <div class="card">
+          <div class="card-top">
+            <strong style="font-size: 0.94rem;">各部门公开动态</strong>
+            <span id="news-sync-badge" class="pill">读取中</span>
+          </div>
+          <p id="news-sync-desc" style="font-size: 0.82rem;">
+            按发文部门归类统计，支持在左侧按部门或标签过滤。
+          </p>
+          <div class="stat-pair-list" id="news-dept-stats">
+            {
+              VERIFIED_DEPARTMENTS.map((dept) => (
+                <div class="stat-pair-row">
+                  <span style="font-size: 0.84rem; font-weight: 600; color: var(--ink);">{dept.name}</span>
+                  <span class="mono muted" style="font-size: 0.76rem;" data-stat-dept={dept.name}>
+                    0 篇
+                  </span>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size: 0.96rem;">常用工具和常驻页面</h3>
+          <p>没有新通知时，下面这些常用入口一样能直接打开：</p>
+          <div style="display: grid; gap: 0.45rem;">
+            <a class="btn btn-ghost btn-sm" href="/mirrors/" style="justify-content: flex-start;">
+              PyPI / npm 镜像与一键换源工具 →
+            </a>
+            <a class="btn btn-ghost btn-sm js-git-link" href="/git/" target="_blank" rel="noreferrer" style="justify-content: flex-start;">
+              YEUCA Git 代码托管站 ↗
+            </a>
+            <a class="btn btn-ghost btn-sm" href="/departments/" style="justify-content: flex-start;">
+              各部门具体学什么 →
+            </a>
+            <a class="btn btn-ghost btn-sm" href="/about/#checklist" style="justify-content: flex-start;">
+              变动信息核对表 →
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size: 0.96rem;">临时调课和群通知</h3>
+          <p>
+            招新面试分组或临时换教室一般先发迎新交流群，长期通知会整理传到本页。
+          </p>
+          <div>
+            <a class="btn btn-primary btn-sm" href="/join/">看迎新群与报名 →</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import {
+    escapeHtml,
+    fetchPublicSiteData,
+    getMonthArchiveLabel,
+    renderSafeMarkdown,
+    type PublicPost,
+  } from '../../lib/yeuca-client';
+
+  const params = new URLSearchParams(window.location.search);
+  let allPosts: PublicPost[] = [];
+  let selectedDept = (params.get('dept') || '全部').trim() || '全部';
+  let selectedTag = (params.get('tag') || '').trim();
+  let keyword = '';
+
+  function openPostModal(post: PublicPost) {
+    const modal = document.getElementById('reader-modal');
+    const titleNode = document.getElementById('reader-modal-title');
+    const metaNode = document.getElementById('reader-modal-meta');
+    const tagsNode = document.getElementById('reader-modal-tags');
+    const bodyNode = document.getElementById('reader-modal-body');
+    if (!modal || !titleNode || !metaNode || !tagsNode || !bodyNode) return;
+
+    titleNode.textContent = post.title;
+    metaNode.textContent = `${post.publishedAt || post.updatedAt} · ${post.deptName}`;
+    tagsNode.innerHTML = [
+      `<span class="pill ${post.deptName === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(post.deptName)}</span>`,
+      ...(post.pinned ? ['<span class="pill pill-red">置顶</span>'] : []),
+      ...post.tags.map((t) => `<span class="pill">${escapeHtml(t)}</span>`),
+    ].join('');
+    bodyNode.innerHTML = renderSafeMarkdown(post.body || post.summary);
+    modal.hidden = false;
+  }
+
+  function renderTagBar() {
+    const bar = document.getElementById('news-tag-bar');
+    if (!bar) return;
+    const tagCounts = new Map<string, number>();
+    allPosts.forEach((p) => {
+      p.tags.forEach((t) => {
+        const clean = t.trim();
+        if (clean) tagCounts.set(clean, (tagCounts.get(clean) || 0) + 1);
+      });
+    });
+    if (!tagCounts.size) {
+      bar.hidden = true;
+      return;
+    }
+    const entries = Array.from(tagCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    bar.hidden = false;
+    bar.innerHTML = [
+      `<button type="button" class="filter-chip ${selectedTag === '' ? 'active' : ''}" data-tag="">全部标签</button>`,
+      ...entries.map(
+        ([tag, count]) =>
+          `<button type="button" class="filter-chip ${selectedTag === tag ? 'active' : ''}" data-tag="${escapeHtml(tag)}">#${escapeHtml(tag)} (${count})</button>`,
+      ),
+    ].join('');
+
+    bar.querySelectorAll<HTMLButtonElement>('[data-tag]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedTag = btn.dataset.tag || '';
+        renderTagBar();
+        renderNewsList();
+      });
+    });
+  }
+
+  function renderDeptStats() {
+    const countMap = new Map<string, number>();
+    allPosts.forEach((p) => countMap.set(p.deptName, (countMap.get(p.deptName) || 0) + 1));
+    document.querySelectorAll<HTMLElement>('[data-stat-dept]').forEach((el) => {
+      const dept = el.dataset.statDept || '';
+      const count = countMap.get(dept) || 0;
+      el.textContent = `${count} 篇`;
+      if (count > 0) {
+        el.style.color = 'var(--ink)';
+        el.style.fontWeight = '700';
+      }
+    });
+  }
+
+  function renderNewsList() {
+    const wrap = document.getElementById('news-list-wrap');
+    if (!wrap) return;
+
+    const q = keyword.trim().toLowerCase();
+    const filtered = allPosts.filter((post) => {
+      const hitDept = selectedDept === '全部' || post.deptName === selectedDept;
+      const hitTag = !selectedTag || post.tags.includes(selectedTag);
+      const hitQ =
+        !q ||
+        post.title.toLowerCase().includes(q) ||
+        post.summary.toLowerCase().includes(q) ||
+        post.tags.some((t) => t.toLowerCase().includes(q));
+      return hitDept && hitTag && hitQ;
+    });
+
+    if (!filtered.length) {
+      if (allPosts.length) {
+        wrap.innerHTML =
+          '<div class="empty-panel" style="display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap;"><span>没有找到匹配当前筛选条件的动态。</span><button type="button" id="reset-news-filter" class="btn btn-ghost btn-sm">重置筛选</button></div>';
+        document.getElementById('reset-news-filter')?.addEventListener('click', () => {
+          selectedDept = '全部';
+          selectedTag = '';
+          keyword = '';
+          const kwInput = document.getElementById('news-keyword') as HTMLInputElement | null;
+          if (kwInput) kwInput.value = '';
+          document
+            .querySelectorAll<HTMLButtonElement>('#news-filters .filter-chip')
+            .forEach((b) => b.classList.toggle('active', b.dataset.dept === '全部'));
+          renderTagBar();
+          renderNewsList();
+        });
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="empty-panel" style="display: grid; gap: 0.7rem;">
+          <div>
+            <strong style="color: var(--ink);">目前暂无公开动态。</strong>
+            <span style="margin-left: 0.35rem;">后台还没发新公告，发完后会按月份列在下面。可以先看镜像源或自建 Git 仓库：</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.55rem;">
+            <a class="btn btn-primary btn-sm" href="/join/">迎新与招新通道</a>
+            <a class="btn btn-ghost btn-sm" href="/mirrors/">镜像站与换源工具 →</a>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const groups = new Map<string, PublicPost[]>();
+    filtered.forEach((post) => {
+      const label = getMonthArchiveLabel(post.publishedAt || post.updatedAt);
+      const arr = groups.get(label) || [];
+      arr.push(post);
+      groups.set(label, arr);
+    });
+
+    const renderedIndexMap: PublicPost[] = [];
+    const blocks: string[] = [];
+
+    groups.forEach((items, monthLabel) => {
+      blocks.push(
+        `<div class="month-group-head"><span>${escapeHtml(monthLabel)}</span><span>${items.length} 篇</span></div>`,
+      );
+      blocks.push(
+        `<div class="news-list list-stagger">${items
+          .map((post) => {
+            const idx = renderedIndexMap.length;
+            renderedIndexMap.push(post);
+            return `
+              <article class="news-row" data-news-row="${idx}">
+                <div class="mono muted" style="font-size: 0.82rem; padding-top: 0.14rem;">${escapeHtml(post.publishedAt || post.updatedAt)}</div>
+                <div style="min-width: 0;">
+                  <div class="tag-row">
+                    <span class="pill ${post.deptName === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(post.deptName)}</span>
+                    ${post.pinned ? '<span class="pill pill-red">置顶</span>' : ''}
+                    ${post.tags.map((t) => `<span class="pill">${escapeHtml(t)}</span>`).join('')}
+                  </div>
+                  <h3 style="margin: 0.35rem 0 0.25rem; font-size: 1.04rem;">${escapeHtml(post.title)}</h3>
+                  <p class="muted" style="margin: 0; font-size: 0.88rem;">${escapeHtml(post.summary)}</p>
+                </div>
+              </article>`;
+          })
+          .join('')}</div>`,
+      );
+    });
+
+    wrap.innerHTML = blocks.join('');
+    wrap.querySelectorAll<HTMLElement>('[data-news-row]').forEach((row) => {
+      row.addEventListener('click', () => {
+        const post = renderedIndexMap[Number(row.dataset.newsRow) || 0];
+        if (post) openPostModal(post);
+      });
+    });
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('#news-filters .filter-chip').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.dept === selectedDept);
+    btn.addEventListener('click', () => {
+      selectedDept = btn.dataset.dept || '全部';
+      document
+        .querySelectorAll<HTMLButtonElement>('#news-filters .filter-chip')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+      renderNewsList();
+    });
+  });
+
+  document.getElementById('news-keyword')?.addEventListener('input', (e) => {
+    keyword = (e.target as HTMLInputElement).value;
+    renderNewsList();
+  });
+
+  function syncDeptChipsAndStats(depts: Array<{ name: string }>) {
+    const filterBar = document.getElementById('news-filters');
+    const keywordEl = document.getElementById('news-keyword');
+    if (filterBar && keywordEl && depts.length) {
+      const names = ['全部', ...depts.map((d) => d.name)];
+      if (!names.includes(selectedDept)) selectedDept = '全部';
+      filterBar.querySelectorAll('.filter-chip').forEach((el) => el.remove());
+      names
+        .slice()
+        .reverse()
+        .forEach((name) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `filter-chip${selectedDept === name ? ' active' : ''}`;
+          btn.dataset.dept = name;
+          btn.textContent = name;
+          btn.addEventListener('click', () => {
+            selectedDept = name;
+            filterBar.querySelectorAll<HTMLButtonElement>('.filter-chip').forEach((b) => b.classList.toggle('active', b === btn));
+            renderNewsList();
+          });
+          filterBar.insertBefore(btn, filterBar.firstChild);
+        });
+    }
+
+    const statsWrap = document.getElementById('news-dept-stats');
+    if (statsWrap && depts.length) {
+      statsWrap.innerHTML = depts
+        .map(
+          (d) => `
+          <div class="stat-pair-row">
+            <span style="font-size: 0.84rem; font-weight: 600; color: var(--ink);">${escapeHtml(d.name)}</span>
+            <span class="mono muted" style="font-size: 0.76rem;" data-stat-dept="${escapeHtml(d.name)}">0 篇</span>
+          </div>`,
+        )
+        .join('');
+    }
+  }
+
+  async function init() {
+    const badge = document.getElementById('news-sync-badge');
+    const desc = document.getElementById('news-sync-desc');
+    const payload = await fetchPublicSiteData();
+
+    if (!payload) {
+      if (badge) {
+        badge.className = 'pill';
+        badge.textContent = '基础导览';
+      }
+      if (desc) desc.textContent = '公告接口暂未接入时展示右侧基础入口。';
+      allPosts = [];
+    } else {
+      if (payload.settings?.departments?.length) {
+        syncDeptChipsAndStats(payload.settings.departments);
+      }
+      allPosts = payload.news ?? [];
+      if (badge) {
+        badge.className = 'pill pill-ok';
+        badge.textContent = `已同步 ${allPosts.length} 篇`;
+      }
+      if (desc) {
+        desc.textContent = allPosts.length
+          ? '已按部门归类统计，可在左侧按部门和标签过滤。'
+          : '公告接口已连通，当前暂无公开文章。';
+      }
+    }
+
+    renderTagBar();
+    renderDeptStats();
+    renderNewsList();
+  }
+
+  void init();
+</script>

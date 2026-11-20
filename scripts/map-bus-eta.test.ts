@@ -51,8 +51,8 @@ test('胶囊文案是到站名（退站点名再退车名），不是车名', ()
 })
 
 test('胶囊层只在地图折叠态出现，且避开点按（pointer-events-none）', () => {
-  const layerAt = pageSource.indexOf('pointer-events-none absolute inset-0 z-[19] md:hidden')
-  assert.ok(layerAt >= 0, '页面上找不到 z-[19] 的胶囊层')
+  const layerAt = pageSource.indexOf('pointer-events-none absolute inset-0 z-[var(--z-glass-top)] md:hidden')
+  assert.ok(layerAt >= 0, '页面上找不到 z-[var(--z-glass-top)] 的胶囊层')
   const layerWindow = pageSource.slice(Math.max(0, layerAt - 200), layerAt + 200)
   assert.match(layerWindow, /v-if="mobileSheetState === 'collapsed'"/)
 })

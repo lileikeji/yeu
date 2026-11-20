@@ -1,0 +1,574 @@
+---
+import Base from '../../layouts/Base.astro';
+import {
+  DEV_MIRRORS,
+  FLAGSHIP_LINKED_PROJECT,
+  PRACTICE_TOPICS,
+  STARTER_LINKS,
+  VERIFIED_DEPARTMENTS,
+} from '../../data/club';
+---
+
+<Base
+  title="项目与笔记"
+  description="仰恩大学计算机协会重点联动校园工程 YeU、自建 Git 代码仓、成员项目档案、技术文档与常用源站。"
+  canonicalPath="/projects/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1>项目、笔记与大项目简介</h1>
+      <p>
+        这里放了计协做的校园大项目 YeU、自建 Git 代码站、平时写的笔记和常用国内镜像。
+      </p>
+    </div>
+  </section>
+
+  <section class="page-section">
+    <div class="wrap" style="display: grid; gap: 3rem; grid-template-columns: minmax(0, 1fr);">
+      <!-- 00 在跑的大项目（YeU 仰恩大学迎新指南平台） -->
+      <div id="yeu-flagship">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">00 · 在跑的大项目（YeU 校园迎新网）</h2>
+            <p class="band-desc">
+              <code>yeuca.huiliyill.cn</code> 是计协主站；下面这个迎新指南网站是协会成员写并一直在维护的校园应用，两个站共用同一套后台数据。
+            </p>
+          </div>
+          <a class="btn btn-primary btn-sm" href={FLAGSHIP_LINKED_PROJECT.url} target="_blank" rel="noreferrer">
+            打开 YeU 迎新网 ↗
+          </a>
+        </div>
+
+        <article class="card" style="border-color: var(--ai-line); background: var(--bg-alt);">
+          <div class="card-top">
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+              <span class="pill pill-ai">{FLAGSHIP_LINKED_PROJECT.tag}</span>
+              <span class="pill pill-ok">在线运行中</span>
+            </div>
+            <span class="ext-host">{FLAGSHIP_LINKED_PROJECT.host}</span>
+          </div>
+
+          <h3 style="font-size: 1.24rem; margin: 0;">{FLAGSHIP_LINKED_PROJECT.name}</h3>
+          <p id="flagship-proj-desc" style="color: var(--ink); font-size: 0.92rem;">
+            {FLAGSHIP_LINKED_PROJECT.summary}
+          </p>
+          <p id="flagship-proj-note" class="muted" style="margin: 0; font-size: 0.86rem;">
+            {FLAGSHIP_LINKED_PROJECT.maintainersNote}
+          </p>
+
+          <div class="cards-2" style="margin-top: 0.25rem;">
+            <div style="background: var(--surface); padding: 0.85rem 1rem; border-radius: 7px; border: 1px solid var(--line);">
+              <strong style="font-size: 0.84rem; display: block; margin-bottom: 0.4rem;">主要线上功能</strong>
+              <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.84rem; color: var(--muted); display: grid; gap: 0.28rem;">
+                {FLAGSHIP_LINKED_PROJECT.modules.map((mod) => <li>{mod}</li>)}
+              </ul>
+            </div>
+            <div style="background: var(--surface); padding: 0.85rem 1rem; border-radius: 7px; border: 1px solid var(--line); display: grid; gap: 0.65rem; align-content: space-between;">
+              <div>
+                <strong style="font-size: 0.84rem; display: block; margin-bottom: 0.4rem;">用到哪些技术</strong>
+                <div class="tag-row">
+                  {FLAGSHIP_LINKED_PROJECT.stack.map((s) => <span class="pill">{s}</span>)}
+                </div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                <a class="ext-link" href={FLAGSHIP_LINKED_PROJECT.url} target="_blank" rel="noreferrer">
+                  访问站点 ↗ <span class="ext-host">yx.huiliyill.cn</span>
+                </a>
+                <a class="ext-link" href={FLAGSHIP_LINKED_PROJECT.clubProfileUrl} target="_blank" rel="noreferrer">
+                  YeU 内计协名片 ↗
+                </a>
+                <a class="ext-link" href={FLAGSHIP_LINKED_PROJECT.githubUrl} target="_blank" rel="noreferrer">
+                  GitHub 仓库 ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- 自建 Git 托管仓库实时列表 -->
+      <div id="git-repos">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">01 · 自建 Git 代码仓库</h2>
+            <p class="band-desc" id="git-repos-desc">来自 yeuca.huiliyill.cn/git/（仅协会在册激活成员登录后可见与克隆）。</p>
+          </div>
+          <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+            <a class="btn btn-ghost btn-sm" href="/member/">会员登录 / 名录激活</a>
+            <a class="btn btn-primary btn-sm js-git-link" href="/git/" target="_blank" rel="noreferrer">
+              打开 Git 代码站 ↗
+            </a>
+          </div>
+        </div>
+
+        <div id="git-repos-grid">
+          <div class="empty-panel">正在核对会员状态与 Git 代码站入口……</div>
+        </div>
+      </div>
+
+      <!-- 成员项目墙 -->
+      <div>
+        <div class="band-head" style="margin-bottom: 0.85rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">02 · 成员项目档案</h2>
+          </div>
+          <span id="proj-count-pill" class="mono muted" style="font-size: 0.78rem;">核对项目中…</span>
+        </div>
+
+        <div class="filter-bar" id="proj-filters" style="margin-top: 0.4rem;">
+          <button type="button" class="filter-chip active" data-proj-dept="全部">全部</button>
+          {
+            VERIFIED_DEPARTMENTS.map((dept) => (
+              <button type="button" class="filter-chip" data-proj-dept={dept.name}>{dept.name}</button>
+            ))
+          }
+        </div>
+
+        <div id="projects-grid">
+          <div class="empty-panel">正在读取项目档案……</div>
+        </div>
+
+        <!-- 若尚无正式上线项目，提供明确标记的「入门练习参考选题」，不冒充已发布成果 -->
+        <div id="starter-topics-fallback" style="margin-top: 1.25rem;" hidden>
+          <div style="font-size: 0.84rem; color: var(--muted); margin-bottom: 0.65rem;">
+            <strong>入门练习参考方向：</strong>在正式项目卡片发布前，大一同学可按以下参考小题目开始第一个实验（非虚构历史项目）。
+          </div>
+          <div class="cards-3" id="practice-topics-grid">
+            {
+              PRACTICE_TOPICS.map((item) => (
+                <article class="card">
+                  <div class="card-top">
+                    <span class="pill pill-red">练手参考</span>
+                    <span class="muted" style="font-size: 0.74rem;">{item.dept}</span>
+                  </div>
+                  <h3>{item.title}</h3>
+                  <p>{item.desc}</p>
+                  <div class="tag-row">
+                    {item.stack.map((s) => <span class="pill">{s}</span>)}
+                  </div>
+                </article>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- 03 后台学习笔记 -->
+      <div>
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">03 · 学习笔记</h2>
+          </div>
+          <a class="link-btn" href="/news/">去动态页查公告 →</a>
+        </div>
+
+        <div id="resources-grid">
+          <div class="empty-panel">正在读取公开学习笔记……</div>
+        </div>
+      </div>
+
+      <!-- 04 常用国内镜像速查（紧凑表格 + 完整中心跳转） -->
+      <div id="mirrors">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">04 · 常用国内源快捷配置</h2>
+            <p class="band-desc">
+              装包太慢可以先用这 4 条常用命令；需要 PyPI / npm 计协缓存节点与一键脚本生成请去镜像页。
+            </p>
+          </div>
+          <a class="btn btn-primary btn-sm" href="/mirrors/">打开镜像站与换源工具 →</a>
+        </div>
+
+        <div class="spec-table-wrap">
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th style="width: 28%;">软件 / 场景</th>
+                <th>直接运行命令</th>
+              </tr>
+            </thead>
+            <tbody id="proj-mirrors-tbody">
+              {
+                DEV_MIRRORS.map((m) => (
+                  <tr>
+                    <td>
+                      <strong style="color: var(--ink); display: block;">{m.name}</strong>
+                      <span class="muted" style="font-size: 0.76rem;">{m.source}</span>
+                    </td>
+                    <td>
+                      <div class="copy-cmd-bar" style="padding: 0.36rem 0.55rem;">
+                        <code>{m.cmd}</code>
+                        <button type="button" class="copy-cmd-btn" data-copy-cmd={m.cmd}>复制</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 05 常用免费练题与文档网站（明确标注外部域名） -->
+      <div>
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">05 · 常用免费练题与文档网站</h2>
+            <p class="band-desc">第三方外部链接都在按钮里直接写了域名，点开新窗口访问。</p>
+          </div>
+        </div>
+
+        <div class="cards-3" id="proj-starter-links">
+          {
+            STARTER_LINKS.map((item) => (
+              <article class="card">
+                <div class="card-top">
+                  <span class={`pill ${item.dept === 'AI 部' ? 'pill-ai' : ''}`}>{item.dept}</span>
+                  <span class="ext-host">↗ {item.host}</span>
+                </div>
+                <h3>{item.title}</h3>
+                <p>{item.note}</p>
+                <div style="margin-top: auto; padding-top: 0.35rem;">
+                  <a class="ext-link" href={item.url} target="_blank" rel="noreferrer">
+                    前往官网 ↗ <span class="ext-host">{item.host}</span>
+                  </a>
+                </div>
+              </article>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import {
+    escapeHtml,
+    extractHostname,
+    fetchMemberSession,
+    fetchPublicSiteData,
+    isSafePublicHref,
+    renderSafeMarkdown,
+    resolveAssetUrl,
+    type MemberSessionPayload,
+    type PublicProject,
+  } from '../../lib/yeuca-client';
+
+  let allProjects: PublicProject[] = [];
+  let selectedProjDept = '全部';
+
+  function openResourceModal(title: string, meta: string, kind: string, dept: string, body: string) {
+    const modal = document.getElementById('reader-modal');
+    const titleNode = document.getElementById('reader-modal-title');
+    const metaNode = document.getElementById('reader-modal-meta');
+    const tagsNode = document.getElementById('reader-modal-tags');
+    const bodyNode = document.getElementById('reader-modal-body');
+    if (!modal || !titleNode || !metaNode || !tagsNode || !bodyNode) return;
+    titleNode.textContent = title;
+    metaNode.textContent = meta;
+    tagsNode.innerHTML = `<span class="pill pill-red">${escapeHtml(kind || '资料')}</span><span class="pill">${escapeHtml(dept)}</span>`;
+    bodyNode.innerHTML = renderSafeMarkdown(body);
+    modal.hidden = false;
+  }
+
+  function renderProjectsGrid() {
+    const projBox = document.getElementById('projects-grid');
+    const countPill = document.getElementById('proj-count-pill');
+    const fallbackTopics = document.getElementById('starter-topics-fallback');
+    if (!projBox) return;
+
+    const statusLabel = { active: '进行中', maintaining: '维护中', planning: '规划中' } as const;
+    const filtered = allProjects.filter(
+      (p) => selectedProjDept === '全部' || p.deptName === selectedProjDept,
+    );
+
+    if (countPill) {
+      countPill.textContent = allProjects.length
+        ? `共 ${filtered.length} / ${allProjects.length} 项`
+        : '公开库 0 项';
+    }
+
+    if (!filtered.length) {
+      if (fallbackTopics) fallbackTopics.hidden = allProjects.length > 0;
+      projBox.innerHTML = allProjects.length
+        ? '<div class="empty-panel">这个部门下还没有关联单独录入的项目卡片，切回「全部」可查看其他部门。</div>'
+        : `<div class="empty-panel">
+            <strong style="color: var(--ink);">后台暂未额外上架项目展示。</strong>
+            <span style="margin-left: 0.35rem;">可以直接先看上面的自建 Git 仓库；下面也留了几个新手能动手做的小题目：</span>
+          </div>`;
+      return;
+    }
+
+    if (fallbackTopics) fallbackTopics.hidden = true;
+    projBox.innerHTML = `<div class="cards-2">${filtered
+      .map((p) => {
+        const img = p.previewImage ? resolveAssetUrl(p.previewImage) : '';
+        const safeRepo = p.repoUrl && /^https?:\/\//i.test(p.repoUrl) ? p.repoUrl : '';
+        const safeDemo = p.demoUrl && /^https?:\/\//i.test(p.demoUrl) ? p.demoUrl : '';
+        const repoHost = safeRepo ? extractHostname(safeRepo) : '';
+        const demoHost = safeDemo ? extractHostname(safeDemo) : '';
+
+        return `
+          <article class="card">
+            <div class="card-top">
+              <span class="pill pill-ok">${escapeHtml(statusLabel[p.status] || p.status)}</span>
+              <span class="pill ${p.deptName === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(p.deptName)}</span>
+            </div>
+            ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.title)}" style="width: 100%; height: 180px; object-fit: cover; object-position: top center; border-radius: 6px; border: 1px solid var(--line);" />` : ''}
+            <h3>${escapeHtml(p.title)}</h3>
+            <p>${escapeHtml(p.summary)}</p>
+            ${p.highlights.length ? `<ul style="margin: 0; padding-left: 1.1rem; font-size: 0.82rem; color: var(--muted);">${p.highlights.slice(0, 3).map((h) => `<li>${escapeHtml(h)}</li>`).join('')}</ul>` : ''}
+            <div class="tag-row">${p.stack.map((s) => `<span class="pill">${escapeHtml(s)}</span>`).join('')}</div>
+            ${
+              safeRepo || safeDemo
+                ? `<div style="border-top: 1px dashed var(--line); padding-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    ${safeRepo ? `<a class="ext-link" href="${escapeHtml(safeRepo)}" target="_blank" rel="noreferrer">仓库源码 ↗ ${repoHost ? `<span class="ext-host">${escapeHtml(repoHost)}</span>` : ''}</a>` : ''}
+                    ${safeDemo ? `<a class="ext-link" href="${escapeHtml(safeDemo)}" target="_blank" rel="noreferrer">在线演示 ↗ ${demoHost ? `<span class="ext-host">${escapeHtml(demoHost)}</span>` : ''}</a>` : ''}
+                  </div>`
+                : ''
+            }
+          </article>`;
+      })
+      .join('')}</div>`;
+  }
+
+  function bindProjFilterClicks() {
+    document.querySelectorAll<HTMLButtonElement>('#proj-filters [data-proj-dept]').forEach((btn) => {
+      if (btn.dataset.filterBound === '1') return;
+      btn.dataset.filterBound = '1';
+      btn.addEventListener('click', () => {
+        selectedProjDept = btn.dataset.projDept || '全部';
+        document
+          .querySelectorAll<HTMLButtonElement>('#proj-filters [data-proj-dept]')
+          .forEach((b) => b.classList.toggle('active', b === btn));
+        renderProjectsGrid();
+      });
+    });
+  }
+
+  bindProjFilterClicks();
+
+  function bindCopyHandlers(root: ParentNode = document) {
+    root.querySelectorAll<HTMLButtonElement>('[data-copy-cmd]').forEach((btn) => {
+      if (btn.dataset.copyBound === '1') return;
+      btn.dataset.copyBound = '1';
+      btn.addEventListener('click', async () => {
+        const cmd = btn.dataset.copyCmd || '';
+        if (!cmd) return;
+        try {
+          await navigator.clipboard.writeText(cmd);
+          btn.dataset.copied = 'true';
+          btn.textContent = '已复制';
+          setTimeout(() => {
+            btn.dataset.copied = 'false';
+            btn.textContent = '复制';
+          }, 1800);
+        } catch {
+          btn.textContent = '请手动选中复制';
+        }
+      });
+    });
+  }
+
+  bindCopyHandlers();
+
+  function renderGitReposPanel(memberSession: MemberSessionPayload | null, gateHint?: string) {
+    const gitBox = document.getElementById('git-repos-grid');
+    if (!gitBox) return;
+
+    if (!memberSession?.authenticated || !memberSession.member) {
+      const hint =
+        gateHint?.trim() ||
+        'Git 代码站已开启登录门禁：仅导入协会成员名录并完成官网注册的成员可登录访问与拉取代码。';
+      gitBox.innerHTML = `
+        <div class="status-banner">
+          <div class="status-banner-head">
+            <strong>需要协会成员账号登录后访问 Git 站</strong>
+            <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+              <a class="btn btn-primary btn-sm" href="/member/">去登录或核验名单注册 →</a>
+              <a class="btn btn-ghost btn-sm" href="https://yeuca.huiliyill.cn/git/" target="_blank" rel="noreferrer">直接前往 Git 站登录页 ↗</a>
+            </div>
+          </div>
+          <p class="muted" style="margin: 0; font-size: 0.86rem;">${escapeHtml(hint)}</p>
+        </div>`;
+      return;
+    }
+
+    const repos = memberSession.repos || [];
+    if (!repos.length) {
+      gitBox.innerHTML = `
+        <div class="status-banner">
+          <div class="status-banner-head">
+            <strong>已登录成员：${escapeHtml(memberSession.member.name)} (@${escapeHtml(memberSession.member.gitUsername)})</strong>
+            <a class="btn btn-primary btn-sm" href="${escapeHtml(memberSession.gitPublicUrl || 'https://yeuca.huiliyill.cn/git/')}" target="_blank" rel="noreferrer">进入 Git 站新建仓库 ↗</a>
+          </div>
+          <p class="muted" style="margin: 0; font-size: 0.86rem;">您名下暂未创建或归属仓库，使用同一套账号密码登录 Git 站后即可建仓、看协会仓库或提交实验代码。</p>
+        </div>`;
+      return;
+    }
+
+    gitBox.innerHTML = `<div class="cards-2">${repos
+      .map((repo) => {
+        const cloneCmd = `git clone ${repo.cloneUrl}`;
+        const updatedDate = (repo.updatedAt || '').slice(0, 10);
+        return `
+          <article class="card" style="border-color: var(--ai-line);">
+            <div class="card-top">
+              <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <span class="pill pill-ai">Git 仓库</span>
+                ${repo.isPrivate ? '<span class="pill">内部/私有</span>' : '<span class="pill pill-ok">队内可见</span>'}
+                ${updatedDate ? `<span class="muted mono" style="font-size: 0.72rem;">更新 ${escapeHtml(updatedDate)}</span>` : ''}
+              </div>
+              <a class="ext-link" href="${escapeHtml(repo.htmlUrl)}" target="_blank" rel="noreferrer">
+                看源码 ↗ <span class="ext-host">${escapeHtml(repo.fullName)}</span>
+              </a>
+            </div>
+            <h3>${escapeHtml(repo.fullName)}</h3>
+            <p>${escapeHtml(repo.description || '仰恩大学计算机协会内部代码仓库与实验记录。')}</p>
+            <div class="copy-cmd-bar">
+              <code>${escapeHtml(cloneCmd)}</code>
+              <button type="button" class="copy-cmd-btn" data-copy-cmd="${escapeHtml(cloneCmd)}">复制</button>
+            </div>
+          </article>`;
+      })
+      .join('')}</div>`;
+    bindCopyHandlers(gitBox);
+  }
+
+  async function loadProjectsAndNotes() {
+    const [payload, memberSess] = await Promise.all([
+      fetchPublicSiteData(),
+      fetchMemberSession(),
+    ]);
+    renderGitReposPanel(memberSess, payload?.settings?.extras?.featureFlags?.gitGateHint);
+    if (payload?.settings?.departments?.length) {
+      const filterBar = document.getElementById('proj-filters');
+      if (filterBar) {
+        const names = ['全部', ...payload.settings.departments.map((d) => d.name)];
+        if (!names.includes(selectedProjDept)) selectedProjDept = '全部';
+        filterBar.innerHTML = names
+          .map(
+            (name) =>
+              `<button type="button" class="filter-chip${selectedProjDept === name ? ' active' : ''}" data-proj-dept="${escapeHtml(name)}">${escapeHtml(name)}</button>`,
+          )
+          .join('');
+        bindProjFilterClicks();
+      }
+    }
+    const flagshipNote = document.getElementById('flagship-proj-note');
+    if (flagshipNote && payload?.settings?.extras?.flagshipNote) {
+      flagshipNote.textContent = payload.settings.extras.flagshipNote;
+    }
+    allProjects = payload?.projects ?? [];
+    renderProjectsGrid();
+
+    const resBox = document.getElementById('resources-grid');
+    const resources = payload?.resources ?? [];
+    if (resBox) {
+      if (!resources.length) {
+        resBox.innerHTML =
+          '<div class="status-banner"><div class="status-banner-head"><strong>暂无额外后台学习讲义</strong><span class="pill">0 篇讲义</span></div><p class="muted" style="margin: 0; font-size: 0.86rem;">各部门整理好的图文教程后续发布至后台后即可直接弹窗阅读；目前可优先参考下方的国内镜像速查与推荐练习平台。</p></div>';
+      } else {
+        resBox.innerHTML = `<div class="cards-3">${resources
+          .map(
+            (r, idx) => `
+            <article class="card" style="cursor: pointer;" data-res-idx="${idx}">
+              <div class="card-top">
+                <span class="pill pill-red">${escapeHtml(r.category || '资料')}</span>
+                <span class="pill ${r.deptName === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(r.deptName)}</span>
+              </div>
+              <h3>${escapeHtml(r.title)}</h3>
+              <p>${escapeHtml(r.summary)}</p>
+              <div class="muted mono" style="font-size: 0.76rem; margin-top: auto; padding-top: 0.45rem; border-top: 1px dashed var(--line);">
+                阅读全文 → · ${escapeHtml(r.publishedAt || r.updatedAt)}
+              </div>
+            </article>`,
+          )
+          .join('')}</div>`;
+
+        resBox.querySelectorAll<HTMLElement>('[data-res-idx]').forEach((card) => {
+          card.addEventListener('click', () => {
+            const r = resources[Number(card.dataset.resIdx) || 0];
+            if (!r) return;
+            openResourceModal(
+              r.title,
+              `${r.deptName} · ${r.publishedAt || r.updatedAt}`,
+              r.category || '资料',
+              r.deptName,
+              r.body || r.summary,
+            );
+          });
+        });
+      }
+    }
+
+    const topicsBox = document.getElementById('practice-topics-grid');
+    if (topicsBox && payload?.settings?.extras?.practiceTopics?.length) {
+      topicsBox.innerHTML = payload.settings.extras.practiceTopics
+        .map(
+          (item) => `
+          <article class="card">
+            <div class="card-top">
+              <span class="pill pill-red">练手参考</span>
+              <span class="muted" style="font-size: 0.74rem;">${escapeHtml(item.dept)}</span>
+            </div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.desc)}</p>
+            <div class="tag-row">
+              ${(item.stack || []).map((s) => `<span class="pill">${escapeHtml(s)}</span>`).join('')}
+            </div>
+          </article>`,
+        )
+        .join('');
+    }
+
+    const mirrorsBody = document.getElementById('proj-mirrors-tbody');
+    if (mirrorsBody && payload?.settings?.extras?.mirrors?.length) {
+      mirrorsBody.innerHTML = payload.settings.extras.mirrors
+        .slice(0, 4)
+        .map(
+          (m) => `
+          <tr>
+            <td>
+              <strong style="color: var(--ink); display: block;">${escapeHtml(m.name)}</strong>
+              <span class="muted" style="font-size: 0.76rem;">${escapeHtml(m.upstream)}</span>
+            </td>
+            <td>
+              <div class="copy-cmd-bar" style="padding: 0.36rem 0.55rem;">
+                <code>${escapeHtml(m.cmd)}</code>
+                <button type="button" class="copy-cmd-btn" data-copy-cmd="${escapeHtml(m.cmd)}">复制</button>
+              </div>
+            </td>
+          </tr>`,
+        )
+        .join('');
+      bindCopyHandlers(mirrorsBody);
+    }
+
+    const starterBox = document.getElementById('proj-starter-links');
+    if (starterBox && payload?.settings?.extras?.starterLinks?.length) {
+      starterBox.innerHTML = payload.settings.extras.starterLinks
+        .map((item) => {
+          const safeUrl = isSafePublicHref(item.url) || '#';
+          return `
+            <article class="card">
+              <div class="card-top">
+                <span class="pill ${item.dept === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(item.dept)}</span>
+                <span class="ext-host">↗ ${escapeHtml(item.host || extractHostname(safeUrl))}</span>
+              </div>
+              <h3>${escapeHtml(item.title)}</h3>
+              <p>${escapeHtml(item.note)}</p>
+              <div style="margin-top: auto; padding-top: 0.35rem;">
+                <a class="ext-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noreferrer">
+                  前往官网 ↗ <span class="ext-host">${escapeHtml(item.host || extractHostname(safeUrl))}</span>
+                </a>
+              </div>
+            </article>`;
+        })
+        .join('');
+    }
+  }
+
+  void loadProjectsAndNotes();
+</script>
