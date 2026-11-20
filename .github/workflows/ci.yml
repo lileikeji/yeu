@@ -23,6 +23,9 @@ jobs:
       # CI 无本地 .env：按生产形态构建（高德外链），否则落到 nuxt.config
       # 默认 maplibre-dev，整个 maplibre 打进包直接撑爆包体预算。
       NUXT_PUBLIC_MAP_PROVIDER: amap
+      # nuxt typecheck 在默认 2G 堆上会 OOM（deploy 分支历史 ci 同样崩在这里），
+      # 4 核 runner 内存足够，抬到 6G 一次跑通。
+      NODE_OPTIONS: --max-old-space-size=6144
 
     strategy:
       matrix:

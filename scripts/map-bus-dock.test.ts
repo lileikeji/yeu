@@ -17,7 +17,7 @@ test('D1 叮叮车面板让开合成块：根节点暴露 data-bus-dock，层外
   assert.match(pageSource, /\.map-workspace\[data-bus-dock='on'\] > aside\.map-glass-sheet \{\s*bottom: calc\(var\(--shell-dock-map-height, 6\.25rem\) \+ var\(--mobile-dock-inset, 0\.625rem\)\)/)
   // 过渡只在稳态生效：bloom 首帧与收起三相位必须保持瞬时
   assert.match(pageSource, /\.map-workspace\[data-sheet-bloom='off'\]\[data-sheet-collapse='off'\] > aside\.map-glass-sheet \{\s*transition:/)
-  assert.match(pageSource, /bottom 220ms cubic-bezier\(0\.24, 1, 0\.32, 1\)/)
+  assert.match(pageSource, /bottom 220ms var\(--ease-sheet\)/)
   assert.equal((pageSource.match(/:data-bus-dock=/g) ?? []).length, 1, '只暴露一处，别在别的分支重复绑定')
 })
 

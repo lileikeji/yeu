@@ -49,9 +49,9 @@ test('动效时长与曲线照 spec：进入 240ms、离开 180ms 延迟 60ms、
   assert.match(dock, /transform: translateY\(10px\) scale\(0\.98\);/)
   assert.match(dock, /transform: translateY\(6px\);/)
   assert.match(dock, /transform: translateY\(12px\);/)
-  assert.match(dock, /transform 260ms cubic-bezier\(0\.24, 1, 0\.32, 1\) 80ms/)
+  assert.match(dock, /transform 260ms var\(--ease-sheet\) 80ms/)
   // 面板自己的 320ms 曲线不许被这次改动碰
-  assert.match(mapPage, /duration-\[320ms\] ease-\[cubic-bezier\(0\.24,1,0\.32,1\)\]/)
+  assert.match(mapPage, /duration-\[320ms\] ease-\[var\(--ease-sheet\)\]/)
 })
 
 test('R2 收窄与不透明底色：块左右各 10px 内衬、dock 底色不透明（T-033 R7）', () => {
@@ -162,7 +162,7 @@ test('F-40 面板从搜索条放大：origin 50% calc(100% - 84px)、首帧 scal
   )
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: scale\(1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,320}?transform 300ms cubic-bezier\(0\.24, 1, 0\.32, 1\),[\s\S]{0,200}?opacity 220ms cubic-bezier\(0\.24, 1, 0\.32, 1\),[\s\S]{0,200}?height 320ms cubic-bezier\(0\.24, 1, 0\.32, 1\);/,
+    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: scale\(1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,320}?transform 300ms var\(--ease-sheet\),[\s\S]{0,200}?opacity 220ms var\(--ease-sheet\),[\s\S]{0,200}?height 320ms var\(--ease-sheet\);/,
     '放大相缺 300ms transform / 220ms opacity，或把面板自己的 320ms 高度过渡冲掉了'
   )
   assert.match(mapPage, /const sheetBlooming = ref\(false\)/)
@@ -181,7 +181,7 @@ test('F-40 面板从搜索条放大：origin 50% calc(100% - 84px)、首帧 scal
   // reduce 下直接到位，不许先缩再放大
   assert.match(mapPage, /window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)/)
   // 面板自己的 320ms 曲线未被这次改动碰
-  assert.match(mapPage, /duration-\[320ms\] ease-\[cubic-bezier\(0\.24,1,0\.32,1\)\]/)
+  assert.match(mapPage, /duration-\[320ms\] ease-\[var\(--ease-sheet\)\]/)
 })
 
 test('F-42 五槽统一：38px 图标盒 + 22px 图标 + label 常显 + 全站只留当前页一个实心墨圆（T-033 R7）', () => {

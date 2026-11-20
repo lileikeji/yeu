@@ -1,0 +1,33 @@
+# ===== 依赖与构建产物 =====
+node_modules/
+.pnpm-store/
+dist/
+.astro/
+*.tgz
+
+# ===== 过程产物：探测脚本 / 日志 / 截图（不是项目资产，永不入库）=====
+runs/
+_tmp/
+.rt/
+_shots/
+__pycache__/
+*.py[cod]
+*.log
+
+# ===== 秘密 =====
+.env
+.env.*
+.secrets-*
+*credentials*.json
+*.pem
+*.key
+
+# ===== 系统垃圾 =====
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*
+
+# 本地备份与临时 worktree
+_backup-yeu-all-*.bundle
+.treasure-worktree/
