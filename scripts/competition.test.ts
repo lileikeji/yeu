@@ -1859,6 +1859,14 @@ test('数据库：现场手写号一次排序，抽签页选手自己登记号�
   const stored = listRoundEntryRows(client, round.id).find(item => item.singerId === singers[1]!.id)!
   assert.equal(stored.sortOrder, 3)
 
+  // 填号即签到：把丙三的签到撤掉，他重新登记自己的 1 号后应重新算签到。
+  const bingEntry = listRoundEntryRows(client, round.id).find(item => item.singerId === singers[2]!.id)!
+  setEntryCheckIn(client, round, bingEntry.id, false)
+  assert.equal(listRoundEntryRows(client, round.id).find(item => item.id === bingEntry.id)!.checkedInAt, null)
+  registerDrawNumber(client, musicId, { name: '丙三', studentNo: '333333333333', contact: '3333333' }, 1)
+  const bingAfter = listRoundEntryRows(client, round.id).find(item => item.id === bingEntry.id)!
+  assert.ok(bingAfter.checkedInAt && bingAfter.checkedInAt > 0)
+
   // 号不能超过本轮人数（3 人 → 只能 1-3）。
   assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 4), (error: unknown) =>
     (error as { data?: { code?: string, message?: string } }).data?.code === 'VALIDATION_ERROR')

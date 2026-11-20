@@ -2084,7 +2084,7 @@ export function registerDrawNumber(
   contentId: string,
   input: { name: string, studentNo: string, contact: string },
   sortOrder: number
-): { position: number, singerName: string, roundTitle: string } {
+): { position: number, singerName: string, roundTitle: string, checkedInAt: number } {
   const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
   const rounds = [getRoundByKey(client, eventRow.id, 'prelim'), getRoundByKey(client, eventRow.id, 'semi'), getRoundByKey(client, eventRow.id, 'final')]
   let target: RoundRow | null = null
@@ -2111,9 +2111,16 @@ export function registerDrawNumber(
     const owner = listSingers(client, eventRow.id).find(item => item.id === taken.singerId)
     conflictError('SORT_ORDER_TAKEN', `这个号被 ${owner?.name ?? '别人'} 先登记了，换一个再填`)
   }
-  client.db.update(competitionRoundEntries).set({ sortOrder: value })
+  // 现场规则：填出场顺序就算签到——评委名单只认已签到的人。
+  client.db.update(competitionRoundEntries)
+    .set({ sortOrder: value, checkedInAt: entry.checkedInAt ?? Date.now() })
     .where(eq(competitionRoundEntries.id, entry.id)).run()
-  return { position: value, singerName: singer.name, roundTitle: target.title }
+  return {
+    position: value,
+    singerName: singer.name,
+    roundTitle: target.title,
+    checkedInAt: entry.checkedInAt ?? Date.now()
+  }
 }
 
 // -- 评委账号 ------------------------------------------------------------------

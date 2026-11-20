@@ -3,6 +3,7 @@ interface DrawResult {
   position: number
   singerName: string
   roundTitle: string
+  checkedInAt: number
 }
 
 definePageMeta({ layout: false })
@@ -76,7 +77,7 @@ function reset() {
           现场抽签登记
         </h1>
         <p class="mt-2 text-xs leading-relaxed text-[var(--muted-ink)]">
-          抽到几号就填几号，填完点下面的按钮。号被别人先登记了会提示你换一个。
+          抽到几号就填几号，填完点下面的按钮——登记成功就算签到，评委那边才会看到你。号被别人先登记了会提示你换一个。
         </p>
       </div>
 
@@ -91,7 +92,7 @@ function reset() {
           第 {{ result.position }} 位
         </p>
         <p class="mt-3 text-xs text-[var(--muted-ink)]">
-          记住这个号，叫到号就上场。要改号直接重新填一次。
+          已签到。记住这个号，叫到号就上场；要改号直接重新填一次。
         </p>
         <button
           type="button"
@@ -157,7 +158,7 @@ function reset() {
           class="w-full rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
           :disabled="saving"
         >
-          {{ saving ? '登记中…' : '登记这个号' }}
+          {{ saving ? '登记中…' : '登记这个号并签到' }}
         </button>
       </form>
 
