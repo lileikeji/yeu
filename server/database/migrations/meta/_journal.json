@@ -547,6 +547,13 @@
       "when": 1795480000000,
       "tag": "0077_competition_accompaniment_updated_at",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1795188817602,
+      "tag": "0078_recruit_submissions_created_index",
+      "breakpoints": true
     }
   ]
 }

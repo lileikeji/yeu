@@ -1041,6 +1041,7 @@ export const recruitSubmissions = sqliteTable('recruit_submissions', {
   createdAt: timestamp('created_at')
 }, table => [
   index('recruit_submissions_form_created_idx').on(table.formId, table.createdAt),
+  index('recruit_submissions_created_idx').on(table.createdAt),
   index('recruit_submissions_class_idx').on(table.className)
 ])
 
