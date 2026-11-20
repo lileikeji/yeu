@@ -1,0 +1,77 @@
+---
+import { CLUB_META } from '../data/club';
+---
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-columns">
+      <div class="footer-brand">
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem;">
+          <img
+            class="brand-logo"
+            src="/images/yeuca-logo.jpg"
+            alt="仰恩大学计算机协会徽标"
+            width="30"
+            height="30"
+            loading="lazy"
+          />
+          <strong style="color: var(--ink); font-size: 0.94rem;">
+            {CLUB_META.name}
+          </strong>
+        </div>
+        <p style="margin: 0 0 0.35rem; font-size: 0.8rem; color: var(--muted);">
+          1999 年创会 · 2019 年合并更名 · {CLUB_META.campus}
+        </p>
+        <div class="mono footer-motto" style="font-size: 0.74rem; color: var(--subtle);">
+          {CLUB_META.motto}
+        </div>
+      </div>
+
+      <div class="footer-nav-col">
+        <div class="footer-col-title">站内栏目</div>
+        <div class="footer-links">
+          <a href="/departments/">各部门分工详表</a>
+          <a href="/activities/">近期活动排期</a>
+          <a href="/projects/">项目与学习笔记</a>
+          <a href="/news/">协会动态公告</a>
+        </div>
+      </div>
+
+      <div class="footer-nav-col">
+        <div class="footer-col-title">代码与镜像</div>
+        <div class="footer-links">
+          <a class="js-git-link" data-nav-key="git" href="/git/">YEUCA Git 代码站 ↗</a>
+          <a data-nav-key="mirrors" href="/mirrors/">镜像站与换源脚本</a>
+          <a data-nav-key="tools" href="/tools/">小工具：子网计算 / JSON</a>
+          <a data-nav-key="member" href="/member/">会员登录与白名单激活</a>
+        </div>
+      </div>
+
+      <div class="footer-nav-col footer-nav-wide">
+        <div class="footer-col-title">招新与关联项目</div>
+        <div class="footer-links" id="footer-friend-links">
+          <a href="/join/">在线招新报名</a>
+          <a href="https://yx.huiliyill.cn/" target="_blank" rel="noopener noreferrer">YeU 仰恩迎新指南 ↗</a>
+          <a href="/projects/#yeu-flagship">YeU 迎新平台简介</a>
+          <a href="/about/#cooperation">校内互助与分享</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span id="footer-extra-note">{CLUB_META.name} · 洛江校区官方网站主站</span>
+      <div class="footer-bottom-meta">
+        <a
+          class="beian-link"
+          href="https://beian.miit.gov.cn/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          闽ICP备2025101370号
+        </a>
+        <span aria-hidden="true">·</span>
+        <span class="mono">yeuca.huiliyill.cn</span>
+      </div>
+    </div>
+  </div>
+</footer>

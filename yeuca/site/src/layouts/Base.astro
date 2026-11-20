@@ -1,0 +1,521 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+import { CLUB_META } from '../data/club';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+}
+
+const { title, description, canonicalPath } = Astro.props;
+const fullTitle = title.includes(CLUB_META.name) ? title : `${title} · ${CLUB_META.name}`;
+const canonical = new URL(canonicalPath ?? Astro.url.pathname, Astro.site ?? Astro.url);
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical.href} />
+    <meta name="theme-color" content="#a8121e" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- 首屏防闪白：同步读取本地偏好，必须在样式生效前执行 -->
+    <script is:inline>
+      (function () {
+        var meta = document.querySelector('meta[name="color-scheme"]');
+        if (!meta) return;
+        try {
+          var saved = localStorage.getItem('color-scheme');
+          if (saved === 'light' || saved === 'dark') meta.setAttribute('content', saved);
+        } catch (error) {
+          /* 隐私模式下 localStorage 会抛错，保持跟随系统 */
+        }
+      })();
+    </script>
+    <link rel="icon" type="image/jpeg" href="/images/yeuca-logo.jpg" />
+    <link rel="apple-touch-icon" href="/images/yeuca-logo.jpg" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div id="site-global-banner" class="site-global-banner" hidden>
+      <div class="wrap banner-inner">
+        <div class="banner-body">
+          <span class="pill pill-red" id="site-banner-tag">通知</span>
+          <span id="site-banner-text"></span>
+          <a id="site-banner-link" class="banner-link" href="/join/" hidden>查看详情 →</a>
+        </div>
+        <button id="site-banner-close" class="banner-close" type="button" aria-label="收起公告">×</button>
+      </div>
+    </div>
+    <Header />
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    <Footer />
+
+    <!-- 站内全文阅读通用弹窗 -->
+    <div id="reader-modal" class="modal-backdrop" hidden>
+      <article class="modal-box" role="dialog" aria-modal="true" aria-labelledby="reader-modal-title">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.65rem;">
+          <div id="reader-modal-tags" class="tag-row"></div>
+          <button id="reader-modal-close" class="btn btn-ghost btn-sm" type="button">关闭</button>
+        </div>
+        <h2 id="reader-modal-title" style="margin: 0 0 0.5rem;"></h2>
+        <div id="reader-modal-meta" class="muted" style="font-size: 0.86rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--line-strong);"></div>
+        <div id="reader-modal-body" class="prose-view" style="margin-top: 0.9rem;"></div>
+      </article>
+    </div>
+
+    <!-- 全局回到顶部按钮与轻提示 -->
+    <button
+      id="back-to-top"
+      class="back-to-top"
+      type="button"
+      data-visible="false"
+      aria-label="回到页面顶部"
+    >
+      ↑ 顶部
+    </button>
+    <div id="site-toast" class="site-toast" role="status" aria-live="polite" data-show="false"></div>
+
+    <script>
+      const modal = document.getElementById('reader-modal');
+      const closeBtn = document.getElementById('reader-modal-close');
+      let closeTimer: number | null = null;
+      function closeModal() {
+        if (!modal || modal.hidden) return;
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduce) {
+          modal.hidden = true;
+          modal.classList.remove('is-closing');
+          return;
+        }
+        modal.classList.add('is-closing');
+        if (closeTimer !== null) window.clearTimeout(closeTimer);
+        closeTimer = window.setTimeout(() => {
+          modal.hidden = true;
+          modal.classList.remove('is-closing');
+        }, 145);
+      }
+      (window as unknown as { __yeucaCloseModal?: () => void }).__yeucaCloseModal = closeModal;
+      closeBtn?.addEventListener('click', closeModal);
+      modal?.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal && !modal.hidden) closeModal();
+      });
+
+      // 桌面悬停卡片指尖聚光追光（纯 CSS 变量，零排版重排）
+      const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      const reduceMotionPref = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (canHover && !reduceMotionPref) {
+        let glowRaf: number | null = null;
+        let lastTarget: HTMLElement | null = null;
+        let lastX = 0;
+        let lastY = 0;
+        document.addEventListener(
+          'pointermove',
+          (e) => {
+            const el = e.target instanceof HTMLElement
+              ? e.target.closest<HTMLElement>('.pillar-card, .swiss-cell')
+              : null;
+            if (!el) return;
+            lastTarget = el;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            if (glowRaf !== null) return;
+            glowRaf = window.requestAnimationFrame(() => {
+              glowRaf = null;
+              if (!lastTarget) return;
+              const r = lastTarget.getBoundingClientRect();
+              lastTarget.style.setProperty('--mx', `${(lastX - r.left).toFixed(1)}px`);
+              lastTarget.style.setProperty('--my', `${(lastY - r.top).toFixed(1)}px`);
+            });
+          },
+          { passive: true }
+        );
+      }
+
+      // 全局轻提示（复用复制到剪贴板等微回馈）
+      const toastEl = document.getElementById('site-toast');
+      let toastTimer: number | null = null;
+      const showToast = (msg: string) => {
+        if (!toastEl || !msg) return;
+        toastEl.textContent = msg;
+        toastEl.dataset.show = 'true';
+        if (toastTimer !== null) window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => {
+          toastEl.dataset.show = 'false';
+        }, 1900);
+      };
+      (window as unknown as { __yeucaToast?: (msg: string) => void }).__yeucaToast = showToast;
+
+      // 统一监听站内命令复制按钮，弹出温和文字反馈
+      document.addEventListener('click', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const copyBtn = target.closest<HTMLElement>('[data-copy-cmd], #stage-git-copy, #json-copy');
+        if (copyBtn) {
+          window.setTimeout(() => {
+            showToast('内容已复制到剪贴板 ✓');
+          }, 60);
+        }
+      });
+
+      // 回到顶部悬浮按钮
+      const topBtn = document.getElementById('back-to-top');
+      if (topBtn) {
+        const syncTopBtn = () => {
+          topBtn.dataset.visible = (window.scrollY || 0) > 380 ? 'true' : 'false';
+        };
+        syncTopBtn();
+        window.addEventListener('scroll', syncTopBtn, { passive: true });
+        topBtn.addEventListener('click', () => {
+          const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+        });
+      }
+
+      // 全站轻量滚动渐现（尊重大屏/小屏和 prefers-reduced-motion，永不锁死隐藏）
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduceMotion && 'IntersectionObserver' in window) {
+        const revealNodes = document.querySelectorAll<HTMLElement>(
+          '.band, .lab-band, .comp-cell, .timeline-row, .cards-2 > *, .cards-3 > *, .swiss-cell, .faq-item, .form-panel, .spec-table-wrap, .flagship-link-strip'
+        );
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-revealed');
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.05, rootMargin: '0px 0px -18px 0px' }
+        );
+        revealNodes.forEach((el, idx) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.top > window.innerHeight * 0.94) {
+            el.classList.add('reveal-ready');
+            el.style.transitionDelay = `${Math.min((idx % 5) * 40, 160)}ms`;
+            io.observe(el);
+          }
+        });
+        window.setTimeout(() => {
+          document.querySelectorAll('.reveal-ready:not(.is-revealed)').forEach((el) => {
+            el.classList.add('is-revealed');
+          });
+        }, 1200);
+      }
+    </script>
+
+    <script>
+      import {
+        escapeHtml,
+        fetchMemberSession,
+        fetchPublicSiteData,
+        isSafePublicHref,
+      } from '../lib/yeuca-client';
+
+      async function syncGlobalRuntime() {
+        const [sitePayload, memberSession] = await Promise.all([
+          fetchPublicSiteData(),
+          fetchMemberSession(),
+        ]);
+
+        // 1. 头部会员登录徽章同步
+        const memberBtn = document.getElementById('header-member-btn');
+        const memberText = document.getElementById('header-member-text');
+        const mobileNavMember = document.querySelector<HTMLAnchorElement>('.nav-link-mobile-only[data-nav-key="member"]');
+        if (memberSession?.authenticated && memberSession.member) {
+          if (memberBtn) memberBtn.classList.add('is-authed');
+          if (memberText) memberText.textContent = memberSession.member.name;
+          if (mobileNavMember) mobileNavMember.textContent = `会员中心 · ${memberSession.member.name}`;
+        } else {
+          if (memberBtn) memberBtn.classList.remove('is-authed');
+          if (memberText) memberText.textContent = '会员登录';
+          if (mobileNavMember) mobileNavMember.textContent = '会员登录 / 名录激活';
+        }
+
+        if (!sitePayload) return;
+        const extras = sitePayload.settings.extras || {};
+
+        // 2. 全站顶部公告条
+        const ann = extras.homeAnnouncement;
+        const banner = document.getElementById('site-global-banner');
+        const closeBanner = document.getElementById('site-banner-close');
+        if (banner && ann?.enabled && ann.text?.trim()) {
+          let dismissed = false;
+          try {
+            dismissed = sessionStorage.getItem('yeuca_banner_dismissed') === ann.text.trim();
+          } catch {
+            dismissed = false;
+          }
+          if (!dismissed) {
+            const tagEl = document.getElementById('site-banner-tag');
+            const textEl = document.getElementById('site-banner-text');
+            const linkEl = document.getElementById('site-banner-link') as HTMLAnchorElement | null;
+            if (tagEl) tagEl.textContent = ann.tag || '通知';
+            if (textEl) textEl.textContent = ann.text;
+            const safeUrl = isSafePublicHref(ann.href || '');
+            if (linkEl) {
+              if (safeUrl) {
+                linkEl.href = safeUrl;
+                linkEl.hidden = false;
+              } else {
+                linkEl.hidden = true;
+              }
+            }
+            banner.hidden = false;
+            closeBanner?.addEventListener('click', () => {
+              banner.hidden = true;
+              try {
+                sessionStorage.setItem('yeuca_banner_dismissed', ann.text.trim());
+              } catch {
+                // ignore
+              }
+            });
+          }
+        }
+
+        // 3. 导航显隐开关
+        const flags = extras.featureFlags;
+        if (flags) {
+          if (flags.showGitNav === false) {
+            document.querySelectorAll<HTMLElement>('[data-nav-key="git"]').forEach((el) => {
+              el.hidden = true;
+            });
+          }
+          if (flags.showMirrorsNav === false) {
+            document.querySelectorAll<HTMLElement>('[data-nav-key="mirrors"]').forEach((el) => {
+              el.hidden = true;
+            });
+          }
+          if (flags.showToolsNav === false) {
+            document.querySelectorAll<HTMLElement>('[data-nav-key="tools"]').forEach((el) => {
+              el.hidden = true;
+            });
+          }
+          if (flags.showMemberEntry === false) {
+            document.querySelectorAll<HTMLElement>('[data-nav-key="member"]').forEach((el) => {
+              el.hidden = true;
+            });
+          }
+        }
+
+        // 4. 页脚补充说明与友链
+        const footerNoteEl = document.getElementById('footer-extra-note');
+        if (footerNoteEl && extras.footerNote?.trim()) {
+          footerNoteEl.textContent = extras.footerNote.trim();
+        }
+        const friendBox = document.getElementById('footer-friend-links');
+        if (friendBox && Array.isArray(extras.friendLinks) && extras.friendLinks.length > 0) {
+          const validLinks = extras.friendLinks
+            .map((fl) => ({ label: fl.label, href: isSafePublicHref(fl.href) }))
+            .filter((fl) => fl.label && fl.href);
+          if (validLinks.length > 0) {
+            friendBox.innerHTML = [
+              '<a href="/join/">在线招新报名</a>',
+              '<a href="/projects/#yeu-flagship">YeU 迎新平台简介</a>',
+              ...validLinks.map((fl) => {
+                const isExt = /^https?:\/\//i.test(fl.href);
+                return `<a href="${escapeHtml(fl.href)}"${isExt ? ' target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(fl.label)}${isExt ? ' ↗' : ''}</a>`;
+              }),
+            ].join('');
+          }
+        }
+      }
+
+      void syncGlobalRuntime();
+    </script>
+
+    <script>
+      import { trackYeucaPageView } from '../lib/yeuca-client';
+
+      trackYeucaPageView();
+    </script>
+    <script is:inline>
+      (function () {
+        var meta = document.querySelector('meta[name="color-scheme"]');
+        var button = document.querySelector('[data-theme-toggle]');
+        if (!meta) return;
+        var LABEL = { system: '跟随系统', light: '浅色', dark: '深色' };
+        var NEXT = { system: 'light', light: 'dark', dark: 'system' };
+        var seq = 0;
+        var pending = null;
+        var activeCleanup = null;
+
+        function readStored() {
+          try {
+            var v = localStorage.getItem('color-scheme');
+            return v === 'light' || v === 'dark' ? v : 'system';
+          } catch (error) {
+            return 'system';
+          }
+        }
+        function currentMode() {
+          var v = meta.getAttribute('content');
+          return v === 'light' || v === 'dark' ? v : 'system';
+        }
+        function syncLabel() {
+          if (!button) return;
+          var mode = currentMode();
+          var text = '配色：' + LABEL[mode] + '，点击切到' + LABEL[NEXT[mode]];
+          button.setAttribute('aria-label', text);
+          button.setAttribute('title', text);
+          button.setAttribute('data-mode', mode);
+        }
+        function commit(mode) {
+          meta.setAttribute('content', mode === 'system' ? 'light dark' : mode);
+          try {
+            if (mode === 'system') localStorage.removeItem('color-scheme');
+            else localStorage.setItem('color-scheme', mode);
+          } catch (error) {
+            /* 存储不可用时仅本次生效 */
+          }
+          pending = null;
+          syncLabel();
+        }
+        /* 分层错峰：把「页头页脚 / 区块底 / 卡片组件」各自变成独立快照并依次推迟。
+           只命名自带不透明底色的元素 —— 文字与它的底色同处一张快照，
+           既保留分层层次，又不会出现前景背景互相撞灰的闪烁。 */
+        var LAYERS = [
+          [90, '.site-header, .site-footer, .band, .lab-band, .hero, .page-head, .flagship-link-strip, .campus-live-bar'],
+          [180, '.card, .pillar-card, .swiss-cell, .comp-cell, .comp-strip, .timeline-row, .timeline-list, .faq-item, .form-panel, .spec-table-wrap, .modal-box, .dept-focus-card, .wf-node, .wf-inspector, .status-banner, .empty-panel, .member-tab-bar, .theme-toggle, .mobile-menu-btn, .nav-member, .back-to-top, .btn, .filter-chip'],
+        ];
+        function opaqueBox(el) {
+          var style = getComputedStyle(el);
+          /* backdrop-filter 依赖背后的内容，快照里只剩一块纯色，页头的模糊会瞬间消失。
+             这类元素不单独命名，跟随 root 整页快照一起切换。 */
+          var backdrop = style.backdropFilter || style.webkitBackdropFilter || 'none';
+          if (backdrop && backdrop !== 'none') return false;
+          var rect = el.getBoundingClientRect();
+          if (rect.width < 4 || rect.height < 4) return false;
+          var bg = style.backgroundColor || '';
+          if (!bg || bg === 'transparent') return false;
+          var match = bg.match(/rgba?\(([^)]+)\)/);
+          if (!match) return true;
+          var parts = match[1].split(',');
+          return parts.length < 4 || parseFloat(parts[3]) > 0.5;
+        }
+        /* 上限卡在 60：每个候选元素都要读一次几何与计算样式，数量翻倍换来的
+           层次感提升远小于点击瞬间的手感损耗；到量就整轮停，别继续扫后面的层。 */
+        var MAX_PLAN = 60;
+        function layerPlan() {
+          var seen = [];
+          var plan = [];
+          outer:
+          for (var i = 0; i < LAYERS.length; i += 1) {
+            var delay = LAYERS[i][0];
+            var list = document.querySelectorAll(LAYERS[i][1]);
+            for (var j = 0; j < list.length; j += 1) {
+              if (plan.length >= MAX_PLAN) break outer;
+              var el = list[j];
+              if (seen.indexOf(el) >= 0) continue;
+              seen.push(el);
+              if (!opaqueBox(el)) continue;
+              plan.push([el, delay]);
+            }
+          }
+          return plan;
+        }
+        function layerStyles() {
+          var style = document.getElementById('theme-vt-layers');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'theme-vt-layers';
+            document.head.appendChild(style);
+          }
+          var plan = layerPlan();
+          /* 快照按 plan 顺序叠放：页头页脚排到最后，避免被区块快照盖住。 */
+          plan.sort(function (left, right) {
+            var rank = function (el) {
+              return el.classList.contains('site-header') || el.classList.contains('site-footer') ? 1 : 0;
+            };
+            return rank(left[0]) - rank(right[0]);
+          });
+          var rules = [];
+          plan.forEach(function (item, index) {
+            var name = 'yt-' + index;
+            item[0].style.setProperty('view-transition-name', name);
+            var delay = item[1];
+            rules.push('::view-transition-group(' + name + '){animation-delay:' + delay + 'ms}');
+            rules.push('::view-transition-old(' + name + '){animation-delay:' + delay + 'ms}');
+            rules.push('::view-transition-new(' + name + '){animation-delay:' + delay + 'ms}');
+          });
+          style.textContent = rules.join('');
+          return function cleanup() {
+            plan.forEach(function (item) { item[0].style.removeProperty('view-transition-name'); });
+          };
+        }
+        /* 撤掉当前这一轮设下的快照命名。view-transition-name 全局唯一，
+           上一轮没撤干净时新的 startViewTransition 会直接抛错。 */
+        function releasePlan() {
+          if (!activeCleanup) return;
+          var previous = activeCleanup;
+          activeCleanup = null;
+          previous();
+        }
+        function applyMode(mode, animate) {
+          var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          /* 色值不能插值：浅底深字与深底浅字同时过渡，中途必然撞成同一种灰，
+             卡片标题、贴图卡片会「闪白/闪灰」。改为整页快照交叉淡化，
+             快照里永远是一整套完整配色。 */
+          seq += 1;
+          var mine = seq;
+          if (!animate || reduce || typeof document.startViewTransition !== 'function') {
+            commit(mode);
+            return;
+          }
+          /* 连点时以最后一次为准：快照回调只在仍是当前请求时才写入状态。
+             上一轮的命名必须先撤掉，否则新的 startViewTransition 会因重名被拒；
+             旧动画的 finished 回调也要能被令牌挡住，不能回头清理本轮刚设好的命名。 */
+          releasePlan();
+          var cleanup = function () {};
+          try {
+            cleanup = layerStyles();
+            activeCleanup = cleanup;
+            var transition = document.startViewTransition(function () {
+              if (mine === seq) commit(mode);
+            });
+            var done = function () {
+              if (activeCleanup !== cleanup) return;
+              activeCleanup = null;
+              cleanup();
+            };
+            if (transition && transition.finished && transition.finished.then) transition.finished.then(done, done);
+            else window.setTimeout(done, 900);
+          } catch (error) {
+            /* 快照命名冲突或浏览器拒绝快照时，退回直接切换，配色一定要生效。 */
+            if (activeCleanup === cleanup) activeCleanup = null;
+            cleanup();
+            commit(mode);
+          }
+        }
+
+        if (button) {
+          button.addEventListener('click', function () {
+            var target = NEXT[pending || currentMode()];
+            pending = target;
+            applyMode(target, true);
+          });
+        }
+        window.addEventListener('storage', function (event) {
+          if (event.key !== 'color-scheme' && event.key !== null) return;
+          pending = null;
+          var stored = readStored();
+          meta.setAttribute('content', stored === 'system' ? 'light dark' : stored);
+          syncLabel();
+        });
+        syncLabel();
+      })();
+    </script>
+  </body>
+</html>

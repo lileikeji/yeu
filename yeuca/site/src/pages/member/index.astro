@@ -1,0 +1,749 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="会员入口与 Git 账号激活"
+  description="仰恩大学计算机协会成员登录、白名单开放注册激活、个人活动报名及自建 Git 代码站直通入口。"
+  canonicalPath="/member/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1>计协会员中心 · 登录与名录注册</h1>
+      <p id="member-page-lead">
+        导入协会成员名单的同学完成核验注册后，可使用同一套账号密码登录官网与自建 Git 代码站（Git 站已启用成员登录门禁）。
+      </p>
+    </div>
+  </section>
+
+  <section class="page-section" style="padding-top: 1.2rem;">
+    <div class="wrap">
+      <!-- 未登录态：登录 / 名录白名单注册 -->
+      <div id="member-guest-view" class="member-auth-shell">
+        <div class="form-panel">
+          <div class="member-tab-bar" role="tablist">
+            <button
+              type="button"
+              class="member-tab-btn active"
+              id="tab-btn-login"
+              role="tab"
+              aria-selected="true"
+            >
+              已有账号 · 会员登录
+            </button>
+            <button
+              type="button"
+              class="member-tab-btn"
+              id="tab-btn-register"
+              role="tab"
+              aria-selected="false"
+            >
+              名单白名单 · 首次注册激活
+            </button>
+          </div>
+
+          <div id="member-auth-alert" class="member-alert" hidden style="margin-bottom: 1rem;"></div>
+
+          <!-- 面板 A：会员登录 -->
+          <form id="member-login-form" style="display: grid; gap: 0.9rem;">
+            <div class="field" style="margin: 0;">
+              <label for="login-account">学号或 Git 用户名 *</label>
+              <input
+                id="login-account"
+                type="text"
+                class="input"
+                autocomplete="username"
+                placeholder="输入学号（如 125920250165）或注册时的 Git 用户名"
+                required
+              />
+            </div>
+
+            <div class="field" style="margin: 0;">
+              <label for="login-password">登录密码 *</label>
+              <input
+                id="login-password"
+                type="password"
+                class="input"
+                autocomplete="current-password"
+                placeholder="输入登录密码（与 Git 代码站密码一致）"
+                required
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="login-submit-btn">
+              登录计协会员中心
+            </button>
+
+            <div class="muted" style="font-size: 0.82rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem;">
+              <span>尚未激活？需先由管理员导入成员名单，再切换到右侧页签激活。</span>
+              <a href="/join/">新生先填招新表 →</a>
+            </div>
+          </form>
+
+          <!-- 面板 B：名录核验开放注册 -->
+          <div id="member-register-pane" hidden style="display: grid; gap: 1rem;">
+            <div class="muted" style="font-size: 0.84rem; line-height: 1.6;">
+              为保证 Git 代码站安全，<strong>仅已在协会成员名单中的在册成员</strong>可开放注册。请先核验您的学号与真实姓名。
+            </div>
+
+            <form id="member-verify-form" style="display: grid; gap: 0.8rem;">
+              <div class="form-row">
+                <div class="field" style="margin: 0;">
+                  <label for="reg-student-no">学号 *</label>
+                  <input
+                    id="reg-student-no"
+                    type="text"
+                    class="input mono"
+                    placeholder="如 125920250165"
+                    required
+                  />
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label for="reg-real-name">真实姓名 *</label>
+                  <input
+                    id="reg-real-name"
+                    type="text"
+                    class="input"
+                    placeholder="与导入名录一致"
+                    required
+                  />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-ghost" id="verify-submit-btn">
+                第 1 步 · 核验名录资格
+              </button>
+            </form>
+
+            <!-- 第 2 步：核验通过后显示匹配档案与开户设密 -->
+            <form id="member-complete-reg-form" hidden style="display: grid; gap: 0.9rem; border-top: 1px dashed var(--line-strong); padding-top: 1rem;">
+              <div class="member-verified-box" id="verified-profile-card"></div>
+
+              <div class="form-row">
+                <div class="field" style="margin: 0;">
+                  <label for="reg-git-username">Git 站用户名 *</label>
+                  <input
+                    id="reg-git-username"
+                    type="text"
+                    class="input mono"
+                    placeholder="字母/数字/下划线（至少 3 位）"
+                    required
+                  />
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label for="reg-email">常用邮箱（选填）</label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    class="input"
+                    placeholder="留空自动生成会员邮箱"
+                  />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="field" style="margin: 0;">
+                  <label for="reg-class">专业年级班级</label>
+                  <input
+                    id="reg-class"
+                    type="text"
+                    class="input"
+                    placeholder="如 25电子专升本1班"
+                  />
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label for="reg-qq">联系 QQ（选填）</label>
+                  <input
+                    id="reg-qq"
+                    type="text"
+                    class="input"
+                    placeholder="便于社团联系"
+                  />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="field" style="margin: 0;">
+                  <label for="reg-password">设置登录密码 *</label>
+                  <input
+                    id="reg-password"
+                    type="password"
+                    class="input"
+                    autocomplete="new-password"
+                    placeholder="至少 8 位（同步用于 Git 站）"
+                    required
+                  />
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label for="reg-password2">确认密码 *</label>
+                  <input
+                    id="reg-password2"
+                    type="password"
+                    class="input"
+                    autocomplete="new-password"
+                    placeholder="再输入一遍密码"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" id="complete-reg-btn">
+                第 2 步 · 完成注册并开通 Git 站账号
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- 已登录态：会员工作台 -->
+      <div id="member-authed-view" hidden style="display: grid; gap: 1.5rem;">
+        <article class="card" style="border-color: var(--ai-line); background: var(--bg-alt);">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+            <div style="display: grid; gap: 0.35rem;">
+              <div class="tag-row">
+                <span class="pill pill-ok" id="dash-status-pill">在册已激活</span>
+                <span class="pill pill-ai" id="dash-dept-pill">部门</span>
+                <span class="pill" id="dash-role-pill">会员</span>
+                <span class="pill" id="dash-git-pill">Git 已同步</span>
+              </div>
+              <h2 style="margin: 0; font-size: 1.35rem;" id="dash-member-name">加载中…</h2>
+              <div class="muted mono" style="font-size: 0.82rem;" id="dash-member-meta"></div>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 0.55rem;">
+              <a class="btn btn-primary btn-sm js-git-link" id="dash-open-git-btn" href="/git/" target="_blank" rel="noreferrer">
+                进入协会 Git 代码站 ↗
+              </a>
+              <button type="button" class="btn btn-ghost btn-sm" id="dash-logout-btn">
+                退出登录
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <div class="member-dash-grid">
+          <!-- 左列：Git 个人工作区 + 校园寻宝集章 + 近期活动报名 -->
+          <div style="display: grid; gap: 1.25rem; align-content: start;">
+            <article class="card" id="dash-treasure-card">
+              <div class="card-top">
+                <strong>校园寻宝地图 · 会员集章</strong>
+                <span class="pill" id="dash-treasure-progress">读取中…</span>
+              </div>
+              <p id="dash-treasure-desc" style="margin: 0; font-size: 0.85rem; color: var(--muted);">
+                前往仰恩校园实景手绘地图，在打卡点半径内定位并核对现场暗号，印章直接记入当前计协会员账号。
+              </p>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.2rem;">
+                <a class="btn btn-primary btn-sm" href="/activities/treasure">进入校园寻宝地图 →</a>
+                <a class="btn btn-ghost btn-sm" href="/activities/">查看近期活动</a>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-top">
+                <strong>Git 代码站速配与个人仓库</strong>
+                <span class="mono" style="font-size: 0.78rem; color: var(--ai);" id="dash-git-username">@</span>
+              </div>
+              <p style="margin: 0; font-size: 0.85rem; color: var(--muted);">
+                使用注册时设置的 Git 用户名（<code id="dash-git-login-hint">@</code>）+ 本站密码登录 Git 站，克隆推送代码库。首次在电脑用 Git 可先运行下方初始化指令：
+              </p>
+              <div class="copy-cmd-bar">
+                <code id="dash-git-config-cmd">git config --global user.name "..."</code>
+                <button type="button" class="copy-cmd-btn" id="dash-copy-git-btn">复制</button>
+              </div>
+              <div id="dash-repo-list" style="display: grid; gap: 0.65rem; padding-top: 0.3rem;">
+                <div class="muted" style="font-size: 0.82rem;">正在获取名下仓库列表…</div>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-top">
+                <strong>协会近期可报名活动</strong>
+                <a class="link-btn" href="/activities/">全部排期 →</a>
+              </div>
+              <div id="dash-activities-list" style="display: grid; gap: 0.7rem;">
+                <div class="muted" style="font-size: 0.82rem;">正在读取开放报名的活动…</div>
+              </div>
+            </article>
+          </div>
+
+          <!-- 右列：个人资料更新 & 修改统一密码 -->
+          <div style="display: grid; gap: 1.25rem; align-content: start;">
+            <article class="card">
+              <div class="card-top">
+                <strong>维护个人资料与技术标签</strong>
+                <span class="muted" style="font-size: 0.75rem;">更新邮箱将同步到 Git 站</span>
+              </div>
+              <div id="profile-save-msg" class="member-alert" hidden></div>
+              <form id="member-profile-form" style="display: grid; gap: 0.75rem;">
+                <div class="form-row">
+                  <div class="field" style="margin: 0;">
+                    <label for="prof-class">专业年级班级</label>
+                    <input id="prof-class" type="text" class="input" />
+                  </div>
+                  <div class="field" style="margin: 0;">
+                    <label for="prof-email">邮箱</label>
+                    <input id="prof-email" type="email" class="input" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="field" style="margin: 0;">
+                    <label for="prof-qq">QQ</label>
+                    <input id="prof-qq" type="text" class="input" />
+                  </div>
+                  <div class="field" style="margin: 0;">
+                    <label for="prof-phone">手机号</label>
+                    <input id="prof-phone" type="text" class="input" />
+                  </div>
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label for="prof-skills">擅长技术栈（逗号分隔）</label>
+                  <input id="prof-skills" type="text" class="input" placeholder="如 Python, C++, Vue, Linux" />
+                </div>
+                <div class="field" style="margin: 0;">
+                  <label for="prof-bio">个人简介 / 关注方向</label>
+                  <textarea id="prof-bio" class="textarea" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn btn-ghost btn-sm" id="prof-save-btn">
+                  保存个人资料
+                </button>
+              </form>
+            </article>
+
+            <article class="card">
+              <div class="card-top">
+                <strong>修改统一登录密码</strong>
+                <span class="pill">同步修改 Git 站密码</span>
+              </div>
+              <div id="pwd-save-msg" class="member-alert" hidden></div>
+              <form id="member-pwd-form" style="display: grid; gap: 0.75rem;">
+                <div class="field" style="margin: 0;">
+                  <label for="pwd-old">当前密码 *</label>
+                  <input id="pwd-old" type="password" class="input" required />
+                </div>
+                <div class="form-row">
+                  <div class="field" style="margin: 0;">
+                    <label for="pwd-new">新密码（至少 8 位）*</label>
+                    <input id="pwd-new" type="password" class="input" required />
+                  </div>
+                  <div class="field" style="margin: 0;">
+                    <label for="pwd-new2">确认新密码 *</label>
+                    <input id="pwd-new2" type="password" class="input" required />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-dark btn-sm" id="pwd-save-btn">
+                  确认修改密码
+                </button>
+              </form>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import {
+    changeMemberPasswordApi,
+    escapeHtml,
+    fetchMemberSession,
+    fetchPublicSiteData,
+    fetchPublicTreasureState,
+    formatIsoDateParts,
+    loginMemberAccount,
+    logoutMemberAccount,
+    registerMemberAccount,
+    resolveGitBase,
+    toggleMemberActivityRegApi,
+    updateMemberProfileApi,
+    verifyMemberEligibility,
+    type MemberSessionPayload,
+  } from '../../lib/yeuca-client';
+
+  const guestView = document.getElementById('member-guest-view');
+  const authedView = document.getElementById('member-authed-view');
+  const tabLoginBtn = document.getElementById('tab-btn-login');
+  const tabRegBtn = document.getElementById('tab-btn-register');
+  const loginForm = document.getElementById('member-login-form') as HTMLFormElement | null;
+  const regPane = document.getElementById('member-register-pane');
+  const verifyForm = document.getElementById('member-verify-form') as HTMLFormElement | null;
+  const completeForm = document.getElementById('member-complete-reg-form') as HTMLFormElement | null;
+  const authAlert = document.getElementById('member-auth-alert');
+
+  let verifiedNo = '';
+  let verifiedName = '';
+
+  function resolveSafeRedirect(): string {
+    try {
+      const raw = new URLSearchParams(window.location.search).get('redirect') || '';
+      if (raw.startsWith('/') && !raw.startsWith('//')) return raw;
+    } catch {
+      // ignore
+    }
+    return '';
+  }
+
+  const pendingRedirect = resolveSafeRedirect();
+  if (pendingRedirect && authAlert) {
+    authAlert.textContent = '完成会员登录或名录激活后，将自动返回刚才打开的页面。';
+    authAlert.className = 'member-alert member-alert-ok';
+    authAlert.hidden = false;
+  }
+
+  function showAuthAlert(msg: string, isOk = false) {
+    if (!authAlert) return;
+    authAlert.textContent = msg;
+    authAlert.className = `member-alert ${isOk ? 'member-alert-ok' : 'member-alert-err'}`;
+    authAlert.hidden = !msg;
+  }
+
+  function showInlineAlert(el: HTMLElement | null, msg: string, isOk = false) {
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `member-alert ${isOk ? 'member-alert-ok' : 'member-alert-err'}`;
+    el.hidden = !msg;
+  }
+
+  function switchAuthTab(mode: 'login' | 'register') {
+    showAuthAlert('');
+    if (tabLoginBtn) {
+      tabLoginBtn.classList.toggle('active', mode === 'login');
+      tabLoginBtn.setAttribute('aria-selected', mode === 'login' ? 'true' : 'false');
+    }
+    if (tabRegBtn) {
+      tabRegBtn.classList.toggle('active', mode === 'register');
+      tabRegBtn.setAttribute('aria-selected', mode === 'register' ? 'true' : 'false');
+    }
+    if (loginForm) loginForm.hidden = mode !== 'login';
+    if (regPane) regPane.hidden = mode !== 'register';
+  }
+
+  tabLoginBtn?.addEventListener('click', () => switchAuthTab('login'));
+  tabRegBtn?.addEventListener('click', () => switchAuthTab('register'));
+
+  async function renderSessionView(forceFresh = false) {
+    const [session, sitePayload, treasureState] = await Promise.all([
+      fetchMemberSession(forceFresh),
+      fetchPublicSiteData(),
+      fetchPublicTreasureState(),
+    ]);
+
+    if (!session?.authenticated || !session.member) {
+      if (guestView) guestView.hidden = false;
+      if (authedView) authedView.hidden = true;
+      return;
+    }
+
+    if (pendingRedirect) {
+      window.location.replace(pendingRedirect);
+      return;
+    }
+
+    const treasureCard = document.getElementById('dash-treasure-card');
+    const treasureProg = document.getElementById('dash-treasure-progress');
+    const treasureDesc = document.getElementById('dash-treasure-desc');
+    if (treasureCard && treasureState) {
+      treasureCard.hidden = !treasureState.enabled;
+      const earned = Object.keys(treasureState.collectedMap || {}).length;
+      if (treasureProg) treasureProg.textContent = `已集 ${earned} / ${treasureState.goalCount} 枚`;
+      if (treasureDesc && treasureState.title) {
+        treasureDesc.textContent = `${treasureState.title}（当前开放 ${treasureState.points.length} 处点位）。`;
+      }
+    }
+
+    if (guestView) guestView.hidden = true;
+    if (authedView) authedView.hidden = false;
+
+    const m = session.member;
+    const setTxt = (id: string, txt: string) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
+    setTxt('dash-member-name', `${m.name}（${m.studentNo}）`);
+    setTxt('dash-dept-pill', m.department || '暂未分部');
+    setTxt('dash-role-pill', m.roleTitle || '会员');
+    setTxt('dash-git-pill', m.gitSynced ? 'Git 站账号已开通' : 'Git 待同步');
+    setTxt('dash-member-meta', `${m.gradeMajorClass || '在籍成员'} · ${m.term || '仰恩大学计算机协会'} · @${m.gitUsername}`);
+    setTxt('dash-git-username', `@${m.gitUsername}`);
+    setTxt('dash-git-login-hint', m.gitUsername || m.studentNo);
+
+    const gitOpenBtn = document.getElementById('dash-open-git-btn') as HTMLAnchorElement | null;
+    if (gitOpenBtn) {
+      gitOpenBtn.href = session.gitPublicUrl || `${resolveGitBase()}/`;
+    }
+
+    const gitCmd = `git config --global user.name "${m.gitUsername || m.studentNo}" && git config --global user.email "${m.email}"`;
+    const gitCmdEl = document.getElementById('dash-git-config-cmd');
+    if (gitCmdEl) gitCmdEl.textContent = gitCmd;
+
+    // 预填个人资料表单
+    const setVal = (id: string, val: string) => {
+      const el = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el) el.value = val;
+    };
+    setVal('prof-class', m.gradeMajorClass || '');
+    setVal('prof-email', m.email || '');
+    setVal('prof-qq', m.qq || '');
+    setVal('prof-phone', m.phone || '');
+    setVal('prof-skills', (m.skills || []).join(', '));
+    setVal('prof-bio', m.bio || '');
+
+    // 渲染名下 Git 仓库
+    const repoBox = document.getElementById('dash-repo-list');
+    if (repoBox) {
+      if (!session.repos.length) {
+        repoBox.innerHTML =
+          '<div class="empty-panel" style="font-size: 0.82rem;">名下暂未创建仓库。点击右上「进入协会 Git 代码站」，用账号 <code>' +
+          escapeHtml(m.gitUsername) +
+          '</code> 登录后即可建仓协作。</div>';
+      } else {
+        repoBox.innerHTML = session.repos
+          .map(
+            (r) => `
+            <div style="border: 1px solid var(--line); border-radius: 6px; padding: 0.55rem 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <div style="min-width: 0;">
+                <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noreferrer" style="font-weight: 600; font-size: 0.88rem;">${escapeHtml(r.fullName)}</a>
+                <div class="muted" style="font-size: 0.76rem;">${escapeHtml(r.description || '计协项目代码仓')}</div>
+              </div>
+              <span class="pill">${r.isPrivate ? '内部/私有' : '公开'}</span>
+            </div>`,
+          )
+          .join('');
+      }
+    }
+
+    // 渲染可报名协会活动
+    const actBox = document.getElementById('dash-activities-list');
+    if (actBox) {
+      const openActs = (sitePayload?.activities || []).filter(
+        (a) => a.source === 'yeuca' && a.allowRegistration,
+      );
+      if (!openActs.length) {
+        actBox.innerHTML = '<div class="muted" style="font-size: 0.82rem;">近期暂无开放线上报名的内部活动。</div>';
+      } else {
+        const regMap = new Map(session.registrations.map((r) => [r.activityId, r.status]));
+        actBox.innerHTML = openActs
+          .map((act) => {
+            const p = formatIsoDateParts(act.startsAt);
+            const curStatus = regMap.get(act.id);
+            const btnLabel =
+              curStatus === 'checked_in'
+                ? '已签到 ✓'
+                : curStatus === 'registered'
+                  ? '取消报名'
+                  : '报名参加';
+            return `
+              <div style="border: 1px solid var(--line); border-radius: 7px; padding: 0.68rem 0.8rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                <div style="min-width: 0;">
+                  <div style="font-weight: 600; font-size: 0.88rem;">${escapeHtml(act.title)}</div>
+                  <div class="muted mono" style="font-size: 0.75rem;">${escapeHtml(p.dateText)} ${escapeHtml(p.timeText)} · ${escapeHtml(act.placeName)}${act.room ? ` ${escapeHtml(act.room)}` : ''}</div>
+                </div>
+                <button
+                  type="button"
+                  class="btn ${curStatus === 'registered' ? 'btn-ghost' : curStatus === 'checked_in' ? 'btn-ghost' : 'btn-primary'} btn-sm"
+                  data-dash-act-id="${escapeHtml(act.id)}"
+                  data-dash-act-cur="${escapeHtml(curStatus || 'none')}"
+                  ${curStatus === 'checked_in' ? 'disabled' : ''}
+                >${btnLabel}</button>
+              </div>`;
+          })
+          .join('');
+
+        actBox.querySelectorAll<HTMLButtonElement>('[data-dash-act-id]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const actId = btn.dataset.dashActId || '';
+            const cur = btn.dataset.dashActCur || 'none';
+            if (!actId || cur === 'checked_in') return;
+            btn.disabled = true;
+            try {
+              await toggleMemberActivityRegApi(actId, cur === 'registered' ? 'cancel' : 'register');
+              await renderSessionView(true);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : '操作失败');
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+    }
+  }
+
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const account = (document.getElementById('login-account') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('login-password') as HTMLInputElement).value;
+    const btn = document.getElementById('login-submit-btn') as HTMLButtonElement;
+    if (!account || !password) return;
+    btn.disabled = true;
+    showAuthAlert('');
+    try {
+      await loginMemberAccount(account, password);
+      if (pendingRedirect) window.location.href = pendingRedirect;
+      else window.location.reload();
+    } catch (err) {
+      showAuthAlert(err instanceof Error ? err.message : '登录失败');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  verifyForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const studentNo = (document.getElementById('reg-student-no') as HTMLInputElement).value.trim();
+    const name = (document.getElementById('reg-real-name') as HTMLInputElement).value.trim();
+    const btn = document.getElementById('verify-submit-btn') as HTMLButtonElement;
+    if (!studentNo || !name) return;
+    btn.disabled = true;
+    showAuthAlert('');
+    try {
+      const res = await verifyMemberEligibility(studentNo, name);
+      if (!res.eligible || !res.profile) {
+        if (completeForm) completeForm.hidden = true;
+        showAuthAlert(res.message || '未在可注册成员名单内');
+        return;
+      }
+      verifiedNo = res.profile.studentNo;
+      verifiedName = res.profile.name;
+      const box = document.getElementById('verified-profile-card');
+      if (box) {
+        box.innerHTML = `
+          <div style="font-weight: 700; color: var(--ok-ink);">✓ 名单核验通过</div>
+          <div style="font-size: 0.85rem;">${escapeHtml(res.profile.name)} · <span class="mono">${escapeHtml(res.profile.studentNo)}</span> · ${escapeHtml(res.profile.department || '计协在册成员')}（${escapeHtml(res.profile.roleTitle || '会员')}）</div>
+        `;
+      }
+      const gitInput = document.getElementById('reg-git-username') as HTMLInputElement | null;
+      const classInput = document.getElementById('reg-class') as HTMLInputElement | null;
+      const emailInput = document.getElementById('reg-email') as HTMLInputElement | null;
+      if (gitInput) gitInput.value = res.profile.suggestedGitUsername;
+      if (classInput && res.profile.gradeMajorClass) classInput.value = res.profile.gradeMajorClass;
+      if (emailInput && res.profile.email) emailInput.value = res.profile.email;
+      if (completeForm) completeForm.hidden = false;
+      showAuthAlert('身份已匹配，请继续设置密码与 Git 用户名完成激活。', true);
+    } catch (err) {
+      showAuthAlert(err instanceof Error ? err.message : '核验请求失败');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  completeForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const gitUsername = (document.getElementById('reg-git-username') as HTMLInputElement).value.trim();
+    const email = (document.getElementById('reg-email') as HTMLInputElement).value.trim();
+    const gradeMajorClass = (document.getElementById('reg-class') as HTMLInputElement).value.trim();
+    const qq = (document.getElementById('reg-qq') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('reg-password') as HTMLInputElement).value;
+    const password2 = (document.getElementById('reg-password2') as HTMLInputElement).value;
+    const btn = document.getElementById('complete-reg-btn') as HTMLButtonElement;
+
+    if (password.length < 8) {
+      showAuthAlert('登录密码至少需要 8 位字符');
+      return;
+    }
+    if (password !== password2) {
+      showAuthAlert('两次输入的密码不一致');
+      return;
+    }
+
+    btn.disabled = true;
+    showAuthAlert('');
+    try {
+      await registerMemberAccount({
+        studentNo: verifiedNo,
+        name: verifiedName,
+        gitUsername,
+        email,
+        password,
+        gradeMajorClass,
+        qq,
+      });
+      if (pendingRedirect) window.location.href = pendingRedirect;
+      else window.location.reload();
+    } catch (err) {
+      showAuthAlert(err instanceof Error ? err.message : '注册失败');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('dash-logout-btn')?.addEventListener('click', async () => {
+    await logoutMemberAccount();
+    window.location.reload();
+  });
+
+  document.getElementById('member-profile-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById('profile-save-msg');
+    const btn = document.getElementById('prof-save-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    showInlineAlert(msgEl, '');
+    try {
+      const skillsRaw = (document.getElementById('prof-skills') as HTMLInputElement).value;
+      await updateMemberProfileApi({
+        gradeMajorClass: (document.getElementById('prof-class') as HTMLInputElement).value.trim(),
+        email: (document.getElementById('prof-email') as HTMLInputElement).value.trim(),
+        qq: (document.getElementById('prof-qq') as HTMLInputElement).value.trim(),
+        phone: (document.getElementById('prof-phone') as HTMLInputElement).value.trim(),
+        bio: (document.getElementById('prof-bio') as HTMLTextAreaElement).value.trim(),
+        skills: skillsRaw.split(/[,，、]/).map((s) => s.trim()).filter(Boolean),
+      });
+      showInlineAlert(msgEl, '个人资料已保存 ✓', true);
+      await renderSessionView(true);
+    } catch (err) {
+      showInlineAlert(msgEl, err instanceof Error ? err.message : '保存失败');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('member-pwd-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById('pwd-save-msg');
+    const btn = document.getElementById('pwd-save-btn') as HTMLButtonElement;
+    const oldPwd = (document.getElementById('pwd-old') as HTMLInputElement).value;
+    const newPwd = (document.getElementById('pwd-new') as HTMLInputElement).value;
+    const newPwd2 = (document.getElementById('pwd-new2') as HTMLInputElement).value;
+    if (newPwd.length < 8) {
+      showInlineAlert(msgEl, '新密码至少 8 位字符');
+      return;
+    }
+    if (newPwd !== newPwd2) {
+      showInlineAlert(msgEl, '两次输入的新密码不一致');
+      return;
+    }
+    btn.disabled = true;
+    showInlineAlert(msgEl, '');
+    try {
+      const res = await changeMemberPasswordApi(oldPwd, newPwd);
+      showInlineAlert(
+        msgEl,
+        res.gitSynced
+          ? '官网与 Git 代码站密码已同步更新 ✓'
+          : `官网密码已更新；Git 同步提示：${res.gitSyncError || '请稍后重试'}`,
+        true,
+      );
+      (document.getElementById('member-pwd-form') as HTMLFormElement).reset();
+    } catch (err) {
+      showInlineAlert(msgEl, err instanceof Error ? err.message : '修改密码失败');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  const copyGitBtn = document.getElementById('dash-copy-git-btn');
+  copyGitBtn?.addEventListener('click', async () => {
+    const cmdText = document.getElementById('dash-git-config-cmd')?.textContent?.trim() || '';
+    if (!cmdText) return;
+    try {
+      await navigator.clipboard.writeText(cmdText);
+      copyGitBtn.textContent = '已复制';
+      setTimeout(() => {
+        copyGitBtn.textContent = '复制';
+      }, 1600);
+    } catch {
+      // ignore
+    }
+  });
+
+  void renderSessionView();
+</script>
