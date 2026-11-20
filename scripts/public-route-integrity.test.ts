@@ -304,7 +304,7 @@ test('map page can select imported drawn areas directly from route and search te
   assert.match(filterComposableSource, /filterMapAreasForMapSearch/)
   assert.match(filterComposableSource, /const filteredAreas = computed/)
   assert.match(providerLifecycleSource, /provider\.setSelectedArea\(snapshot\.selectedAreaId\)/)
-  assert.match(source, /v-if="selectedArea"\s+class="[^"]*z-30[^"]*"/)
+  assert.match(source, /v-if="selectedArea"\s+class="[^"]*z-\[var\(--z-sheet\)\][^"]*"/)
   assert.match(routeStateSource, /mapQueryValue\(query\.area\)/)
   assert.match(routeStateSource, /areas\.find\(candidate => candidate\.id === area\)/)
   assert.match(routeStateSource, /query\.area = state\.selectedAreaId/)

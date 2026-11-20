@@ -1905,7 +1905,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   >
     <aside
       ref="mobileSheetElement"
-      class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[cubic-bezier(0.24,1,0.32,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="map-glass-sheet absolute inset-x-0 bottom-0 z-[var(--z-sheet)] flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[var(--ease-sheet)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       :class="[
         mapSheetView === 'bus'
@@ -2499,14 +2499,14 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
            必须在地图之上、所有浮层之下（z-18）；浮层自己只留白纱，弯折的底图由这一层画。 -->
       <div
         ref="glassLayerElement"
-        class="pointer-events-none absolute inset-0 z-[18] md:hidden"
+        class="pointer-events-none absolute inset-0 z-[var(--z-glass)] md:hidden"
         aria-hidden="true"
       />
       <!-- 校车 ETA 胶囊：只在折叠态浮在地图上方；位置由投影 seam 给出，半屏/展开不显示。 -->
       <div
         v-if="mobileSheetState === 'collapsed'"
         ref="busEtaLayerElement"
-        class="pointer-events-none absolute inset-0 z-[19] md:hidden"
+        class="pointer-events-none absolute inset-0 z-[var(--z-glass-top)] md:hidden"
         data-bus-eta-layer
       >
         <MapBusEtaPill
@@ -2544,7 +2544,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <!-- 移动端浮层（<768px）：搜索胶囊 / 分类 chips / 底图来源条 / 右侧定位与列表。
            桌面端整块 md:hidden，侧栏保持原样。 -->
       <div
-        class="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-[10px] pt-[calc(env(safe-area-inset-top)+8px)] md:hidden"
+        class="pointer-events-none absolute inset-x-0 top-0 z-[var(--z-overlay)] flex flex-col gap-2 px-[10px] pt-[calc(env(safe-area-inset-top)+8px)] md:hidden"
       >
         <div
           v-show="mobileSheetState === 'collapsed'"
@@ -2603,7 +2603,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <!-- 移动端不再显示这排徽章：新浮层里的「来源条」已经报了同样三条信息（高德 / 公交 / 减速带），
            两处并存会在 390px 宽度下压住搜索胶囊（实测徽章 top=12 与搜索框 top=61 重叠）。
            桌面端位置与内容保持原样。 -->
-      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 hidden flex-col items-start md:inset-x-auto md:right-4 md:top-auto md:bottom-14 md:flex md:items-end">
+      <div class="pointer-events-none absolute inset-x-3 top-3 z-[var(--z-overlay)] hidden flex-col items-start md:inset-x-auto md:right-4 md:top-auto md:bottom-14 md:flex md:items-end">
         <div class="map-provider-badges flex flex-col items-start gap-1.5 md:flex-col-reverse md:items-end">
           <!-- 桌面端 DOM 顺序按实测宽度从长到短排列：reverse 后视觉上短在上、长在下 -->
           <div
@@ -2662,7 +2662,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       </div>
 
       <!-- 展开地点栏：侧栏收起后桌面的唯一入口，固定在左上角（不放右下角徽章堆里） -->
-      <div class="pointer-events-none absolute left-3 top-3 z-20 hidden md:left-4 md:top-4 md:block">
+      <div class="pointer-events-none absolute left-3 top-3 z-[var(--z-overlay)] hidden md:left-4 md:top-4 md:block">
         <UTooltip
           v-if="sidebarCollapsed"
           text="展开地点栏"
@@ -2679,7 +2679,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       </div>
 
       <!-- 视图切换 + 右侧工具栏：保持在顶部一行（工具栏靠右） -->
-      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-end gap-3 md:inset-x-4 md:top-4">
+      <div class="pointer-events-none absolute inset-x-3 top-3 z-[var(--z-overlay)] flex items-start justify-end gap-3 md:inset-x-4 md:top-4">
         <div
           v-if="canShowOfficialPlan"
           class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-[var(--surface)] shadow-sm"
@@ -2813,7 +2813,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
-        class="app-bar absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 dark:border-green-800 px-4 py-3 shadow-lg md:bottom-14"
+        class="app-bar absolute left-1/2 z-[var(--z-overlay)] flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 dark:border-green-800 px-4 py-3 shadow-lg md:bottom-14"
         :class="selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+min(56dvh,30rem)+1rem)]'
           : 'bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+5.5rem)]'"
@@ -2899,7 +2899,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <!-- 路口级步行指引（点路线条展开） -->
       <div
         v-if="mapViewMode === 'geographic' && routeSummary && routeStepsOpen && routeSteps.length"
-        class="app-bar absolute left-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-md border border-green-200 dark:border-green-800 shadow-lg md:bottom-14"
+        class="app-bar absolute left-1/2 z-[var(--z-overlay)] w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-md border border-green-200 dark:border-green-800 shadow-lg md:bottom-14"
         :class="selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+min(56dvh,30rem)+3.5rem)]'
           : 'bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+8rem)]'"
@@ -3005,7 +3005,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
       <section
         v-if="selectedArea"
-        class="absolute left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] p-4 shadow-xl md:bottom-12 md:left-4"
+        class="absolute left-3 z-[var(--z-sheet)] w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] p-4 shadow-xl md:bottom-12 md:left-4"
         :class="mobileSheetState === 'collapsed' || selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+0.75rem)] md:bottom-12'
           : 'bottom-[calc(44%+1rem)] md:bottom-12'"
@@ -3505,9 +3505,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       transform: scale(1);
       opacity: 1;
       transition:
-        transform 300ms cubic-bezier(0.24, 1, 0.32, 1),
-        opacity 220ms cubic-bezier(0.24, 1, 0.32, 1),
-        height 320ms cubic-bezier(0.24, 1, 0.32, 1);
+        transform 300ms var(--ease-sheet),
+        opacity 220ms var(--ease-sheet),
+        height 320ms var(--ease-sheet);
     }
 
 /**
@@ -3529,8 +3529,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   transform: scale(0.86);
   opacity: 0.72;
   transition:
-    transform 260ms cubic-bezier(0.24, 1, 0.32, 1),
-    opacity 260ms cubic-bezier(0.24, 1, 0.32, 1);
+    transform 260ms var(--ease-sheet),
+    opacity 260ms var(--ease-sheet);
 }
 .map-workspace[data-sheet-collapse='drop'] .map-glass-sheet {
   transform-origin: 50% calc(100% - 84px);
@@ -3560,9 +3560,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
    展开 / 半屏切换时 bottom 与 height 一起动，否则顶边会先跳 110px 再长回去。 */
 .map-workspace[data-sheet-bloom='off'][data-sheet-collapse='off'] > aside.map-glass-sheet {
   transition:
-    bottom 220ms cubic-bezier(0.24, 1, 0.32, 1),
-    transform 300ms cubic-bezier(0.24, 1, 0.32, 1),
-    opacity 220ms cubic-bezier(0.24, 1, 0.32, 1),
-    height 320ms cubic-bezier(0.24, 1, 0.32, 1);
+    bottom 220ms var(--ease-sheet),
+    transform 300ms var(--ease-sheet),
+    opacity 220ms var(--ease-sheet),
+    height 320ms var(--ease-sheet);
 }
 </style>
