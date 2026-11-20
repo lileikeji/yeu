@@ -17,13 +17,15 @@ const error = ref('')
 
 const toast = useToast()
 
-/* 现场抽签接口：显式窄签名，绕开 Nuxt 生成的路由联合类型在类型检查时的深度爆炸（TS2589/TS2321） */
-const submitDraw = $fetch as unknown as (payload: {
+/* 现场抽签接口：显式窄签名，绕开 Nuxt 生成的路由联合类型在类型检查时的深度爆炸（TS2589/TS2321）。
+   注意不能把 $fetch 整个强转成单参函数——那样 URL 就丢了，请求会打到一个不存在的地址。 */
+const submitDraw = (payload: {
   name: string
   studentNo: string
   contact: string
   sortOrder: number
-}) => Promise<DrawResult>
+}): Promise<DrawResult> =>
+  $fetch('/api/public/competition/draw', { method: 'POST', body: payload })
 
 useSeoMeta({ title: '现场抽签登记', robots: 'noindex, nofollow' })
 
