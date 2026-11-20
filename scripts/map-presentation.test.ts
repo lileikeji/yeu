@@ -141,7 +141,7 @@ test('map bus dock clears the top switcher row and keeps its own expand entry', 
   assert.match(busRoutePanelSource, /md:top-16 md:bottom-auto md:right-auto md:left-\[var\(--bus-left,19rem\)\]/)
   assert.doesNotMatch(busRoutePanelSource, /md:top-4/)
   // 展开地点栏的入口固定在左上角独立容器里，不混进右下角徽章堆（侧栏收起后它是唯一入口）。
-  assert.match(pageSource, /<div class="pointer-events-none absolute left-3 top-3 z-20 hidden md:left-4 md:top-4 md:block">[\s\S]{0,400}?展开地点栏/)
+  assert.match(pageSource, /<div class="pointer-events-none absolute left-3 top-3 z-\[var\(--z-overlay\)\] hidden md:left-4 md:top-4 md:block">[\s\S]{0,400}?展开地点栏/)
   assert.match(pageSource, /class="justify-center pointer-events-auto size-11 shadow-sm"[\s\S]{0,80}?aria-label="展开地点栏"/)
   assert.equal(pageSource.split('aria-label="展开地点栏"').length - 1, 1)
 })

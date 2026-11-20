@@ -93,6 +93,17 @@
      页面里的浮动元素统一用「nav-height + inset + extra」让开底栏，其他页 extra = 0。 */
   --mobile-dock-extra: 0rem;
 
+  /* T-038：地图工作区的层叠与缓动 token。纯数值 / 纯曲线，浅色、暗色与四套 palette 共用，
+     不做主题覆盖。z 序：玻璃画布 < 玻璃顶层 < 浮层 < 面板 < 弹层 < toast。
+     每个值必须与替换前的裸值一一相等，否则地图视觉会变。 */
+  --z-glass: 18;
+  --z-glass-top: 19;
+  --z-overlay: 20;
+  --z-sheet: 30;
+  --z-popover: 50;
+  --z-toast: 60;
+  --ease-sheet: cubic-bezier(0.24, 1, 0.32, 1);
+
   /* 表面下沉档：卡片内的凹槽、表头、分段控件的槽底。四套 palette 各自覆盖。 */
   --surface-sunken: #f4f4f4;
 }
