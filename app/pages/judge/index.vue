@@ -88,6 +88,11 @@ const singerList = computed(() => {
     })
 })
 const dimensionMax = computed(() => payload.value?.round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
+/** 滑块中间刻度按满分一半：20 分制中间是 10，10 分制是 5。 */
+const midTick = computed(() => {
+  const half = dimensionMax.value / 2
+  return Number.isInteger(half) ? String(half) : half.toFixed(1)
+})
 const maxTotal = computed(
   () => payload.value?.round?.maxTotal ?? event.value?.maxTotal ?? dimensions.value.length * dimensionMax.value
 )
@@ -1119,7 +1124,7 @@ onBeforeUnmount(stopPolling)
                     >
                     <div class="flex justify-between px-[11px] text-[10px] leading-none tabular-nums text-zinc-400">
                       <span>0</span>
-                      <span>5</span>
+                      <span>{{ midTick }}</span>
                       <span>{{ dimensionMax }}</span>
                     </div>
                   </div>
