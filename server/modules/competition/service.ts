@@ -1722,12 +1722,34 @@ export function getRankBoard(client: DatabaseClient, contentId: string, roundKey
   }
 }
 
-export function getCallBoard(client: DatabaseClient, contentId: string): CompetitionCallBoard {
+/**
+ * 叫号台/排队页该看哪一轮：优先「正在评分」的那一轮，取最靠后的；
+ * 都结束了就取最近一个已有名单的轮次（初赛结束后复赛还没开始时也能用）。
+ */
+function currentCallRound(
+  client: DatabaseClient,
+  eventId: string,
+  preferred?: CompetitionRoundKey | null
+): RoundRow {
+  const rounds: RoundRow[] = (['prelim', 'semi', 'final'] as CompetitionRoundKey[])
+    .map(key => getRoundByKey(client, eventId, key))
+  if (preferred) return rounds.find(round => round.key === preferred) ?? rounds[0]!
+  const open = rounds.filter(round => round.status === 'open')
+  if (open.length > 0) return open[open.length - 1]!
+  const withEntries = rounds.filter(round => countEntries(client, round.id) > 0)
+  return withEntries[withEntries.length - 1] ?? rounds[0]!
+}
+
+export function getCallBoard(
+  client: DatabaseClient,
+  contentId: string,
+  roundKey?: CompetitionRoundKey | null
+): CompetitionCallBoard {
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
-  const entries = presentEntriesForDay(prelim, listRoundEntryRows(client, prelim.id))
-  const singersById = new Map(listSingers(client, prelim.eventId).map(singer => [singer.id, singer]))
-  const board = buildQueueBoard(prelim, entries, listRoundScores(client, prelim.id), true)
+  const round = currentCallRound(client, eventRow.id, roundKey ?? null)
+  const entries = presentEntriesForDay(round, listRoundEntryRows(client, round.id))
+  const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
+  const board = buildQueueBoard(round, entries, listRoundScores(client, round.id), true)
 
   const rows: CompetitionCallBoardRow[] = []
   entries.forEach((entry, index) => {
@@ -1746,10 +1768,10 @@ export function getCallBoard(client: DatabaseClient, contentId: string): Competi
 
   return {
     round: {
-      key: prelim.key,
-      title: prelim.title,
-      status: prelim.status,
-      activeDay: prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+      key: round.key,
+      title: round.title,
+      status: round.status,
+      activeDay: round.activeDay === 1 || round.activeDay === 2 ? round.activeDay : null
     },
     total: rows.length,
     current: rows.find(row => row.state === 'singing') ?? null,
@@ -1768,10 +1790,23 @@ export function getSingerQueuePosition(
   singerId: string
 ): CompetitionQueuePosition {
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
-  const entries = listRoundEntryRows(client, prelim.id)
-  const mine = entries.find(item => item.singerId === singerId)
-  const activeDay = prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+  // 先看当前正在用的那一轮（初赛结束后就是复赛），找不到这位再回头找别的轮次。
+  let round = currentCallRound(client, eventRow.id)
+  let entries = listRoundEntryRows(client, round.id)
+  let mine = entries.find(item => item.singerId === singerId)
+  if (!mine) {
+    for (const key of ['final', 'semi', 'prelim'] as CompetitionRoundKey[]) {
+      const candidate = getRoundByKey(client, eventRow.id, key)
+      const hit = listRoundEntryRows(client, candidate.id).find(item => item.singerId === singerId)
+      if (hit) {
+        round = candidate
+        entries = listRoundEntryRows(client, candidate.id)
+        mine = hit
+        break
+      }
+    }
+  }
+  const activeDay = round.activeDay === 1 || round.activeDay === 2 ? round.activeDay : null
   // 管理员已明确切到另一天时，前一天的旧浏览器缓存作废并按今天队列统计人数（避免继续显示昨天 44 人）。
   if (mine && activeDay !== null && mine.contestDay !== activeDay) {
     const todayEntries = entries.filter(item => item.contestDay === activeDay && item.checkedInAt != null)
@@ -1787,7 +1822,7 @@ export function getSingerQueuePosition(
   if (mine.checkedInAt == null) {
     return { state: 'idle', ahead: null, position: null, total: dayEntries.length }
   }
-  const board = buildQueueBoard(prelim, dayEntries, listRoundScores(client, prelim.id), true)
+  const board = buildQueueBoard(round, dayEntries, listRoundScores(client, round.id), true)
   const seat = board.get(mine.id)
   return {
     state: seat?.state ?? 'idle',
