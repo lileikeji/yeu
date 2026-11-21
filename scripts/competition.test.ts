@@ -28,6 +28,10 @@ import {
   getAdminCompetitionPayload,
   getCallBoard,
   getRankBoard,
+  getRoundDimensionMax,
+  getRoundDimensions,
+  clearRoundRoster,
+  clearRoundScores,
   getEmailTemplate,
   getJudgePayload,
   getRoundByKey,
@@ -1332,6 +1336,100 @@ test('数据库：去极值可以按轮次单独开关，不受赛事级设置�
   const trimmed = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
   assert.equal(trimmed.average, 30) // 去掉 20 与 50 只剩 30
   assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').trimExtremes, true)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：维度满分要么全填要么都不填，全填后本轮满分按各维相加', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+
+  // 只填一半：直接拒绝，避免「总分上限」和「单维折算」两套口径打架
+  assert.throws(
+    () => updateRound(client, round, {
+      dimensions: [
+        { key: 'a', label: 'A', weight: 20, max: 20 },
+        { key: 'b', label: 'B', weight: 20 }
+      ]
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'dimensions'
+  )
+
+  // 全填：满分 = 20 + 10，单维按各自满分折算
+  updateRound(client, round, {
+    dimensions: [
+      { key: 'a', label: 'A', weight: 20, max: 20 },
+      { key: 'b', label: 'B', weight: 10, max: 10 }
+    ]
+  })
+  const saved = getRoundByKey(client, event.id, 'prelim')
+  const savedDimensions = getRoundDimensions(saved)
+  const savedMax = getRoundDimensionMax(saved)
+  assert.equal(savedDimensions.length, 2)
+  assert.equal(competitionMaxTotal(savedDimensions, savedMax), 30)
+  assert.equal(calculateCompetitionTotal(savedDimensions, { a: 20, b: 10 }, savedMax), 30)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：清空评分在已确认晋级或下一轮已有名单时拒绝，否则连晋级标记一起清', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  createSinger(client, event.id, { name: '乙二', song: '后来' })
+  checkInEntries(client, musicId, 'prelim')
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const singerId = roster[0]!.singer.id
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singerId, { scores: scoresForAll(8) })
+
+  // 正常清：评分归零、晋级标记归零
+  const cleared = clearRoundScores(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.equal(cleared.cleared, 1)
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').scores.length, 0)
+
+  // 造一条评分再走确认晋级，之后清分必须被拒
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singerId, { scores: scoresForAll(8) })
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.throws(
+    () => clearRoundScores(client, getRoundByKey(client, event.id, 'prelim')),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'ROSTER_CONFIRMED'
+  )
+
+  // 重新打开并清掉下一轮名单后，才允许清分
+  reopenAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const semi = getRoundByKey(client, event.id, 'semi')
+  clearRoundRoster(client, semi)
+  const clearedAgain = clearRoundScores(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.equal(clearedAgain.cleared, 1)
 
   closeDatabase(':memory:')
 })
