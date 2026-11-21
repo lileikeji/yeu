@@ -368,6 +368,8 @@ export interface CompetitionRound {
   dimensions: CompetitionDimension[]
   /** 每维满分：初赛 10（满分 50），复赛/决赛 20（满分 100）。 */
   dimensionMax: number
+  /** 本轮满分（各维满分之和，或维度数 × 每维满分）。 */
+  maxTotal: number
   /** 本轮算平均分是否去掉一个最高一个最低；空=false 时沿用赛事级设置。 */
   trimExtremes: boolean
   /** 分场天：1 / 2；null = 不分天（复赛、决赛）。 */

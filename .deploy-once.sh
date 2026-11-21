@@ -5,7 +5,7 @@ cd /e/tmp-align || exit 1
 
 SHA=$(git rev-parse HEAD)
 SHORT=${SHA:0:8}
-echo "HEAD=$SHORT"
+echo "HEAD=$SHORT" >&2
 
 wait_build() {
   for _ in $(seq 1 40); do
@@ -18,9 +18,9 @@ for r in json.load(sys.stdin):
     if r['name']=='build-artifact' and r['headSha'].startswith(short):
         print(r['status'], r['conclusion'] or '-', r['databaseId']); break
 ")
-    echo "  build: ${line:-无}"
+    echo "  build: ${line:-无}" >&2
     case "$line" in
-      *"completed success"*) echo "$line" | awk '{print $3}'; return 0 ;;
+      *"completed success"*) echo "$line" | awk '{print $3}' ;;
       *"completed failure"*) return 1 ;;
     esac
     sleep 40
