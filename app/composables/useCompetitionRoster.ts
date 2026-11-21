@@ -112,8 +112,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
 
   const nameCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
 
-  /** 默认按姓名首字（拼音）排，方便现场挨个写号；排过号就按抽签顺序。 */
-  const rosterOrderMode = ref<'pinyin' | 'draw'>('pinyin')
+  /** 默认就按出场号排：现场登完号回到后台，顺序立刻就是上台顺序；要看姓名首字再切「按姓名排」。 */
+  const rosterOrderMode = ref<'pinyin' | 'draw'>('draw')
 
   function rosterEntries(round: CompetitionRoundView): CompetitionRoundEntry[] {
     const list = [...round.entries]
@@ -121,7 +121,9 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       list.sort((left, right) => nameCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name)))
       return list
     }
-    return list.sort((left, right) => left.sortOrder - right.sortOrder
+    // 已经登了号的按号从小到大；还没登号的（0）排到最后，内部按姓名首字。
+    const rank = (entry: CompetitionRoundEntry) => (entry.sortOrder > 0 ? entry.sortOrder : Number.MAX_SAFE_INTEGER)
+    return list.sort((left, right) => rank(left) - rank(right)
       || nameCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name)))
   }
 
