@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -8,7 +8,8 @@ import * as XLSX from '@e965/xlsx'
 import {
   calculateCompetitionTotal,
   competitionMaxTotal,
-  DEFAULT_COMPETITION_DIMENSIONS
+  DEFAULT_COMPETITION_DIMENSIONS,
+  plainSortName
 } from '../shared/utils/competition'
 import {
   competitionEmailBodyToHtml,
@@ -52,6 +53,9 @@ import {
   setEntryDay,
   setEntryCheckIn,
   setEntrySong,
+  applyEntrySortOrders,
+  setEntryAccompaniment,
+  registerDrawNumber,
   setRoundDay,
   buildEmailSendPlan,
   buildReminderPlan,
@@ -73,10 +77,12 @@ import {
   updateEmailTemplate,
   updateSinger,
   updateJudge,
-  updateRound
+  updateRound,
+  cleanSongTitle
 } from '../server/modules/competition/service'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { verifyPassword } from '../server/utils/password'
+import { StreamingZip } from '../server/utils/zip-archive'
 import { runMigrations } from '../server/database/migrate'
 import { competitionJudges, contents } from '../server/database/schema'
 import { competitionSingerSchema } from '../shared/schemas/server'
@@ -1294,6 +1300,41 @@ test('数据库：第一张评分自动开始叫号，当天评委评完自动�
   closeDatabase(':memory:')
 })
 
+test('数据库：去极值可以按轮次单独开关，不受赛事级设置影响', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  checkInEntries(client, musicId)
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 3 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 3)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const singerId = roster[0]!.singer.id
+  for (const [index, score] of [4, 6, 10].entries()) {
+    submitJudgeScore(client, { ...judges[index]!, eventId: event.id, roundId: roster[0]!.roundId ?? judges[index]!.roundId ?? getRoundByKey(client, event.id, 'prelim').id }, singerId, { scores: scoresForAll(score) })
+  }
+  const plain = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  assert.equal(plain.average, 33.33) // (20+30+50)/3
+
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { trimExtremes: true })
+  const trimmed = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  assert.equal(trimmed.average, 30) // 去掉 20 与 50 只剩 30
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').trimExtremes, true)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：可以选去掉最高分和最低分再算平均', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
@@ -1707,6 +1748,149 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   assert.doesNotMatch(plain, /我已收到/)
 })
 
+test('数据库：名单按姓名排时「曾」不会挤到第一个（按姓氏读音定位）', () => {
+  const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+  const names = ['曾晨希', '陈佳瑜', '黄炜霖', '林巧榕'] // 按拼音应为 陈、黄、林、曾
+  const sorted = [...names].sort((left, right) => collator.compare(plainSortName(left), plainSortName(right)))
+  assert.equal(sorted[0], '陈佳瑜')
+  assert.equal(sorted[sorted.length - 1], '曾晨希')
+})
+
+test('数据库：传/换伴奏会记下最后更新时间', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  const singer = createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000000',
+    qq: '3651784006',
+    email: '3651784006@qq.com'
+  })
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const entry = listRoundEntryRows(client, round.id).find(item => item.singerId === singer.id)!
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.accompanimentUpdatedAt, null)
+
+  const file = { filename: '晴天.mp3', data: Buffer.concat([Buffer.from('ID3'), Buffer.alloc(64, 1)]) }
+  const first = await setEntryAccompaniment(client, round, entry.id, file)
+  const stampOne = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.accompanimentUpdatedAt
+  assert.ok(stampOne && stampOne > 0)
+  assert.equal(first.name, '甲一《晴天》.mp3')
+
+  await new Promise(resolve => setTimeout(resolve, 20))
+  const second = await setEntryAccompaniment(client, round, entry.id, { filename: '晴天2.mp3', data: Buffer.concat([Buffer.from('ID3'), Buffer.alloc(80, 2)]) })
+  const stampTwo = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!.accompanimentUpdatedAt
+  assert.ok(stampTwo && stampTwo > stampOne)
+  assert.notEqual(second.url, first.url)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：现场手写号一次排序，抽签页选手自己登记号数', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singers = [
+    { name: '甲一', song: '晴天', studentNo: '111111111111', qq: '1111111' },
+    { name: '乙二', song: '后来', studentNo: '222222222222', qq: '2222222' },
+    { name: '丙三', song: '如愿', studentNo: '333333333333', qq: '3333333' }
+  ].map(item => createSinger(client, event.id, {
+    ...item,
+    className: '26测试1班',
+    phone: '13800000000',
+    email: `${item.qq}@qq.com`
+  }))
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const entries = listRoundEntryRows(client, round.id)
+  assert.equal(entries.length, 3)
+
+  // 手写号：丙三 1、甲一 2，乙二没填 → 接在最大号后面。
+  applyEntrySortOrders(client, round, [
+    { entryId: entries.find(item => item.singerId === singers[2]!.id)!.id, sortOrder: 1 },
+    { entryId: entries.find(item => item.singerId === singers[0]!.id)!.id, sortOrder: 2 }
+  ])
+  const afterApply = listRoundEntryRows(client, round.id)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map(item => singers.find(singer => singer.id === item.singerId)!.name)
+  assert.deepEqual(afterApply, ['丙三', '甲一', '乙二'])
+
+  // 重复号要被拦。
+  const dup = [
+    { entryId: entries[0]!.id, sortOrder: 2 },
+    { entryId: entries[1]!.id, sortOrder: 2 }
+  ]
+  assert.throws(() => applyEntrySortOrders(client, round, dup), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'SORT_ORDER_DUPLICATED')
+
+  // 选手自己在抽签页登记：号被占报 SORT_ORDER_TAKEN，改一个就成功。
+  const drawLookup = { name: '乙二', studentNo: '222222222222', contact: '2222222' }
+  assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 1), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'SORT_ORDER_TAKEN')
+  const drawn = registerDrawNumber(client, musicId, drawLookup, 3)
+  assert.equal(drawn.position, 3)
+  assert.equal(drawn.singerName, '乙二')
+  assert.equal(drawn.roundTitle, '初赛')
+  const stored = listRoundEntryRows(client, round.id).find(item => item.singerId === singers[1]!.id)!
+  assert.equal(stored.sortOrder, 3)
+
+  // 填号即签到：把丙三的签到撤掉，他重新登记自己的 1 号后应重新算签到。
+  const bingEntry = listRoundEntryRows(client, round.id).find(item => item.singerId === singers[2]!.id)!
+  setEntryCheckIn(client, round, bingEntry.id, false)
+  assert.equal(listRoundEntryRows(client, round.id).find(item => item.id === bingEntry.id)!.checkedInAt, null)
+  registerDrawNumber(client, musicId, { name: '丙三', studentNo: '333333333333', contact: '3333333' }, 1)
+  const bingAfter = listRoundEntryRows(client, round.id).find(item => item.id === bingEntry.id)!
+  assert.ok(bingAfter.checkedInAt && bingAfter.checkedInAt > 0)
+
+  // 后台手动改号也算签到：先全部撤掉签到，只给两个人填号。
+  for (const entry of listRoundEntryRows(client, round.id)) setEntryCheckIn(client, round, entry.id, false)
+  applyEntrySortOrders(client, round, [
+    { entryId: entries[0]!.id, sortOrder: 1 },
+    { entryId: entries[1]!.id, sortOrder: 2 }
+  ])
+  const afterCheckin = listRoundEntryRows(client, round.id)
+  assert.ok(afterCheckin.find(item => item.id === entries[0]!.id)!.checkedInAt)
+  assert.ok(afterCheckin.find(item => item.id === entries[1]!.id)!.checkedInAt)
+  assert.equal(afterCheckin.find(item => item.id === entries[2]!.id)!.checkedInAt, null)
+
+  // 号不能超过本轮人数（3 人 → 只能 1-3）。
+  assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 4), (error: unknown) =>
+    (error as { data?: { code?: string, message?: string } }).data?.code === 'VALIDATION_ERROR')
+  assert.throws(() => applyEntrySortOrders(client, round, [{ entryId: entries[0]!.id, sortOrder: 9 }]), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR')
+
+  // 三要素对不上要报找不到。
+  assert.throws(() => registerDrawNumber(client, musicId, { name: '丁四', studentNo: '1', contact: '1' }, 3), (error: unknown) =>
+    (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：独立填歌页用三要素定位，晋级确认后才让改曲目', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
@@ -1775,6 +1959,34 @@ test('数据库：独立填歌页用三要素定位，晋级确认后才让改�
     (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND')
 
   closeDatabase(':memory:')
+})
+
+test('流式打包：一次只吃一个文件，产物仍是合法 zip', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yeu-zip-'))
+  const target = join(dir, 'bundle.zip')
+  const zip = new StreamingZip(target)
+  await zip.add('01-甲一/曲目.txt', new TextEncoder().encode('出场序：1\n'))
+  await zip.add('01-甲一/甲一《后来》.mp3', Buffer.alloc(4096, 7))
+  const size = await zip.finish()
+  const bytes = readFileSync(target)
+  assert.equal(size, bytes.length)
+  assert.equal(bytes.readUInt32LE(0), 0x04034b50)
+  // 末尾 22 字节是 EOCD，条目数放在偏移 8 处
+  const eocd = bytes.length - 22
+  assert.equal(bytes.readUInt32LE(eocd), 0x06054b50)
+  assert.equal(bytes.readUInt16LE(eocd + 8), 2)
+  assert.ok(bytes.includes(Buffer.from('01-甲一/甲一《后来》.mp3', 'utf8')))
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('数据库：曲目名落库前清掉歌手名和选手自己的名字', () => {
+  assert.equal(cleanSongTitle('灰色 - 徐佳莹', '张晨捷'), '灰色')
+  assert.equal(cleanSongTitle('自立巷 吴泽嘉', '吴泽嘉'), '自立巷')
+  assert.equal(cleanSongTitle('《晴天》', '林晨威'), '晴天')
+  assert.equal(cleanSongTitle('永不失联的爱(伴奏)', '林晨威'), '永不失联的爱')
+  assert.equal(cleanSongTitle('鹿be free', '游安祺'), '鹿be free')
+  assert.equal(cleanSongTitle('阿楚姑娘—徐佳莹', '余孟依'), '阿楚姑娘')
+  assert.equal(cleanSongTitle('世界赠予我的 - 周深', '林艳阳'), '世界赠予我的')
 })
 
 test('数据库：复赛伴奏可以传可以换，导出按出场顺序一人一个文件夹', async () => {
@@ -2222,6 +2434,100 @@ test('数据库：换届把旧届留档，新届从空白开始', () => {
   assert.equal(listSingers(client, next.id).length, 0)
   assert.equal(getRoundByKey(client, next.id, 'prelim').status, 'draft')
   assert.equal(getRegistrationState(client, musicId).edition, '2027 第七届')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：初赛 10 分制、复赛 20 分制，各轮维度分开设置', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  let prelim = getRoundByKey(client, event.id, 'prelim')
+  const semi = getRoundByKey(client, event.id, 'semi')
+
+  // 默认：初赛沿用赛事级五维、每维 10（满分 50）。
+  const defaultView = getAdminCompetitionPayload(client, musicId).rounds.find(round => round.key === 'prelim')!
+  assert.equal(defaultView.dimensionMax, 10)
+  assert.equal(defaultView.maxTotal, defaultView.dimensions.length * 10)
+
+  // 复赛单独设成每维 20（满分 100）。
+  updateRound(client, semi, { dimensionMax: 20 })
+  const semiView = getAdminCompetitionPayload(client, musicId).rounds.find(round => round.key === 'semi')!
+  assert.equal(semiView.dimensionMax, 20)
+  assert.equal(semiView.maxTotal, semiView.dimensions.length * 20)
+
+  // 初赛换成自定义三维，满分 30。
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), {
+    dimensionMax: 10,
+    dimensions: [
+      { key: 'a', label: '音准', weight: 20 },
+      { key: 'b', label: '节奏', weight: 20 },
+      { key: 'c', label: '表现', weight: 20 }
+    ]
+  })
+  const customView = getAdminCompetitionPayload(client, musicId).rounds.find(round => round.key === 'prelim')!
+  assert.equal(customView.dimensions.length, 3)
+  assert.equal(customView.maxTotal, 30)
+
+  // 评分按本轮上限校验：初赛 11 分超限，10 分通过。
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  checkInEntries(client, musicId)
+  prelim = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, prelim, { status: 'open', judgeCount: 1 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const singerId = roster[0]!.singer.id
+  assert.throws(
+    () => submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singerId, {
+      scores: { a: 11, b: 8, c: 8 }
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'scores.a'
+  )
+  const submitted = submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: prelim.id }, singerId, {
+    scores: { a: 10, b: 8, c: 8 }
+  })
+  assert.equal(submitted.total, 26)
+
+  // 复赛 20 分制：先把初赛收尾、确认晋级，生成复赛名单，再验 21 分被拒、20 分通过。
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed', advanceCount: 1 })
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const semiRound = getRoundByKey(client, event.id, 'semi')
+  checkInEntries(client, musicId, 'semi')
+  assert.ok(roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries.length > 0)
+  updateRound(client, semiRound, {
+    status: 'open',
+    judgeCount: 1,
+    dimensionMax: 20,
+    dimensions: [
+      { key: 'a', label: '音准', weight: 20 },
+      { key: 'b', label: '节奏', weight: 20 },
+      { key: 'c', label: '表现', weight: 20 }
+    ]
+  })
+  const semiRoster = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries
+  const semiSingerId = semiRoster[0]!.singer.id
+  const semiJudges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'semi'), 1)
+  assert.throws(
+    () => submitJudgeScore(client, { ...semiJudges[0]!, eventId: event.id, roundId: semiRound.id }, semiSingerId, {
+      scores: { a: 21, b: 20, c: 20 }
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'scores.a'
+  )
+  const semiScore = submitJudgeScore(client, { ...semiJudges[0]!, eventId: event.id, roundId: semiRound.id }, semiSingerId, {
+    scores: { a: 20, b: 20, c: 20 }
+  })
+  assert.equal(semiScore.total, 60)
 
   closeDatabase(':memory:')
 })

@@ -20,7 +20,7 @@ import {
 import { hashPasswordWithMinLength } from '../../utils/password'
 import { transcodeToMp3 } from '../../utils/audio-transcode'
 import { detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
-import { createZip } from '../../utils/zip-archive'
+import { createZip, StreamingZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
@@ -33,6 +33,7 @@ import {
   DEFAULT_COMPETITION_DIMENSIONS,
   calculateCompetitionTotal,
   competitionMaxTotal,
+  plainSortName,
   roundCompetitionScore
 } from '../../../shared/utils/competition'
 import type {
@@ -78,7 +79,6 @@ export const MUSIC_ASSOCIATION_SLUG = 'music-association'
 export const MUSIC_ASSOCIATION_TITLE = '音乐协会'
 
 const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-const MAX_SCORE = COMPETITION_MAX_DIMENSION_SCORE
 const MAX_COMMENT_LENGTH = 500
 /** 现场登记里这些写法等于没报歌，一律按未填处理。 */
 const COMPETITION_SONG_PLACEHOLDERS = new Set(['待定', '未定', '暂无', '无', '没有', '还没定', '没定', 'tbd', 'tba', 'na', 'n/a'])
@@ -173,6 +173,20 @@ type JudgeRow = typeof competitionJudges.$inferSelect
 type EntryRow = typeof competitionRoundEntries.$inferSelect
 type SingerRow = typeof competitionSingers.$inferSelect
 type ScoreRow = typeof competitionScores.$inferSelect
+
+/** 本轮评分维度：单独配置优先，否则回落赛事级维度。 */
+export function getRoundDimensions(round: RoundRow, eventRow?: EventRow | null): CompetitionDimension[] {
+  const parsed = parseJson<CompetitionDimension[]>(round.dimensionsJson ?? '', [])
+  if (Array.isArray(parsed) && parsed.length > 0) return parsed
+  return eventRow ? getCompetitionDimensions(eventRow) : [...DEFAULT_COMPETITION_DIMENSIONS]
+}
+
+/** 本轮每维满分：初赛 10（满分 50），复赛/决赛 20（满分 100）。 */
+export function getRoundDimensionMax(round: RoundRow): number {
+  const value = Number(round.dimensionMax ?? 0)
+  if (!Number.isFinite(value) || value < 1 || value > 100) return COMPETITION_MAX_DIMENSION_SCORE
+  return Math.round(value)
+}
 type PreRegistrationRow = typeof competitionPreRegistrations.$inferSelect
 
 // -- 音乐协会定位 --------------------------------------------------------------
@@ -422,7 +436,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
   }
 }
 
-export function serializeRound(row: RoundRow): CompetitionRound {
+export function serializeRound(row: RoundRow, eventRow?: EventRow | null): CompetitionRound {
   return {
     id: row.id,
     key: row.key,
@@ -434,6 +448,11 @@ export function serializeRound(row: RoundRow): CompetitionRound {
     rosterConfirmedAt: row.rosterConfirmedAt ?? null,
     resultQueryOpen: row.resultQueryOpen === 1,
     scorePrecision: row.scorePrecision === 'decimal' ? 'decimal' : 'integer',
+    dimensions: getRoundDimensions(row, eventRow),
+    dimensionMax: getRoundDimensionMax(row),
+    trimExtremes: row.trimExtremes === null || row.trimExtremes === undefined
+      ? eventRow?.trimExtremes === 1
+      : row.trimExtremes === 1,
     activeDay: row.activeDay ?? null,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
@@ -546,11 +565,12 @@ export function adminUpsertRoundScore(
     .get()
   if (!judge) validationError('这位评委不在本轮', 'judgeId')
 
-  const dimensions = getCompetitionDimensions(eventRow)
+  const dimensions = getRoundDimensions(round, eventRow)
+  const dimensionMax = getRoundDimensionMax(round)
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(input.scores?.[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > MAX_SCORE) {
-      validationError(`「${dimension.label}」需为 0-${MAX_SCORE} 的分数`, `scores.${dimension.key}`)
+    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
+      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,
@@ -566,7 +586,8 @@ export function adminUpsertRoundScore(
 
   const total = calculateCompetitionTotal(
     dimensions,
-    Object.fromEntries(snapshot.map(item => [item.key, item.score]))
+    Object.fromEntries(snapshot.map(item => [item.key, item.score])),
+    dimensionMax
   )
   const now = Date.now()
   const where = and(
@@ -708,6 +729,12 @@ export interface UpdateRoundInput {
   judgeCount?: unknown
   advanceCount?: unknown
   scorePrecision?: unknown
+  /** 本轮评分维度（不传则沿用赛事级或上次设置）。 */
+  dimensions?: unknown
+  /** 本轮每维满分：初赛 10、复赛/决赛 20。 */
+  dimensionMax?: unknown
+  /** 本轮算平均分是否去掉一个最高分和一个最低分。 */
+  trimExtremes?: unknown
 }
 
 export function updateRound(
@@ -744,6 +771,30 @@ export function updateRound(
       validationError('打分精度只能是整数或小数', 'scorePrecision')
     }
     patch.scorePrecision = precision
+  }
+
+  if (input.dimensions !== undefined) {
+    if (scores > 0) {
+      conflictError('COMPETITION_HAS_SCORES', '本轮已有评分，不能修改评分维度')
+    }
+    patch.dimensionsJson = JSON.stringify(validateCompetitionDimensions(input.dimensions))
+  }
+
+  if (input.dimensionMax !== undefined || input.dimensions !== undefined) {
+    if (scores > 0 && input.dimensionMax !== undefined) {
+      conflictError('COMPETITION_HAS_SCORES', '本轮已有评分，不能修改每维满分')
+    }
+    if (input.dimensionMax !== undefined) {
+      const max = Number(input.dimensionMax)
+      if (!Number.isInteger(max) || max < 1 || max > 100) {
+        validationError('每维满分需为 1-100 的整数', 'dimensionMax')
+      }
+      patch.dimensionMax = max
+    }
+  }
+
+  if (input.trimExtremes !== undefined) {
+    patch.trimExtremes = input.trimExtremes === true ? 1 : 0
   }
 
   if (input.judgeCount !== undefined) {
@@ -883,6 +934,7 @@ function buildQueueBoard(
 }
 
 function trimExtremesFor(client: DatabaseClient, round: RoundRow): boolean {
+  if (round.trimExtremes === 0 || round.trimExtremes === 1) return round.trimExtremes === 1
   return getEvent(client, round.eventId)?.trimExtremes === 1
 }
 
@@ -956,6 +1008,7 @@ function buildRoundRanking(
         advancedFromRank: row.entry.advancedFromRank,
         song: row.entry.song ?? null,
         accompaniment: serializeAccompaniment(row.entry),
+        accompanimentUpdatedAt: (row.entry as { accompanimentUpdatedAt?: number | null }).accompanimentUpdatedAt ?? null,
         average: row.average,
         scoreCount: row.scoreCount,
         rank: liveRank.get(row.entry.id) ?? null,
@@ -982,6 +1035,7 @@ function buildRoundRanking(
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
       accompaniment: serializeAccompaniment(row.entry),
+      accompanimentUpdatedAt: (row.entry as { accompanimentUpdatedAt?: number | null }).accompanimentUpdatedAt ?? null,
       average: row.average,
       scoreCount: row.scoreCount,
       rank: lastRank,
@@ -1002,6 +1056,7 @@ function buildRoundRanking(
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
       accompaniment: serializeAccompaniment(row.entry),
+      accompanimentUpdatedAt: (row.entry as { accompanimentUpdatedAt?: number | null }).accompanimentUpdatedAt ?? null,
       average: null,
       scoreCount: 0,
       rank: null,
@@ -1041,34 +1096,10 @@ function formatExportTime(value: number | null | undefined): string {
  * 后台看到的完全一致，不存在「导出另算一套」的偏差。
  */
 /** 多音姓氏按姓氏读音换成同音常用字，只为借用拼音排序规则定位。 */
-const COMPETITION_SURNAME_HINTS: Record<string, string> = {
-  曾: '增',
-  单: '山',
-  仇: '求',
-  解: '谢',
-  查: '扎',
-  朴: '瓢',
-  区: '欧',
-  乐: '月',
-  覃: '秦',
-  缪: '妙',
-  盖: '葛',
-  尉: '玉',
-  种: '崇'
-}
-
 function formatMegabytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '未知'
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
-}
-
-function plainSortName(name: string): string {
-  const trimmed = (name ?? '').trim()
-  if (!trimmed) return ''
-  const head = trimmed.slice(0, 1)
-  const hint = COMPETITION_SURNAME_HINTS[head]
-  return hint ? `${hint}${trimmed.slice(1)}` : trimmed
 }
 
 export function buildCompetitionExport(
@@ -1542,7 +1573,7 @@ function roundView(
   client: DatabaseClient,
   round: RoundRow,
   singers: SingerRow[],
-  dimensions: CompetitionDimension[]
+  eventRow: EventRow | null
 ): CompetitionRoundView {
   const entries = listRoundEntryRows(client, round.id)
   const scoreRows = listRoundScores(client, round.id)
@@ -1567,11 +1598,11 @@ function roundView(
   })
 
   return {
-    ...serializeRound(round),
+    ...serializeRound(round, eventRow),
     entries: rankedEntries,
     judges: judges.map(judge => serializeJudge(judge, scoreCountByJudge.get(judge.id) ?? 0)),
     scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
-    maxTotal: competitionMaxTotal(dimensions),
+    maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round)),
     hasScores: scoreRows.length > 0,
     sequential: round.sequentialMode === 1,
     current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows)
@@ -1672,7 +1703,6 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
   }
 
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const dimensions = getCompetitionDimensions(eventRow)
   const singers = listSingers(client, eventRow.id)
   const rounds = listRounds(client, eventRow.id)
 
@@ -1686,7 +1716,7 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
   return {
     event: serializeCompetitionEvent(eventRow, club),
     singers: singers.map(serializeSinger),
-    rounds: rounds.map(round => roundView(client, round, singers, dimensions)),
+    rounds: rounds.map(round => roundView(client, round, singers, eventRow)),
     email: listEmailState(client, eventRow.id),
     preRegistrations: listPreRegistrations(client, eventRow.id),
     advance,
@@ -1935,7 +1965,9 @@ export function setEntrySong(
   if (!entry) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '这条出场记录不存在' } })
   }
-  const value = String(song ?? '').trim()
+  const entrySinger = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, entry.singerId)).get()
+  const value = cleanSongTitle(song, entrySinger?.name ?? '')
   if (!value) validationError('曲目必填', 'song')
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
     validationError('曲目要填具体歌名，不能填「待定」', 'song')
@@ -1992,6 +2024,110 @@ export function setEntryDay(
     .where(eq(competitionRoundEntries.id, entryId)).run()
   if (round.currentEntryId === entryId && round.activeDay && day !== round.activeDay) {
     setCurrentEntryId(client, round.id, null)
+  }
+}
+
+/**
+ * 批量写出场顺序。现场是手写号再一次性排：号必须两两不同，
+ * 没给号的按原顺序接在最大号后面，避免留空档。
+ */
+export function applyEntrySortOrders(
+  client: DatabaseClient,
+  round: RoundRow,
+  orders: { entryId: string, sortOrder: number }[]
+): void {
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，出场顺序已锁定')
+  const entries = listRoundEntryRows(client, round.id)
+  const limit = Math.max(1, entries.length)
+  const byId = new Map(entries.map(entry => [entry.id, entry]))
+  const assigned = new Map<string, number>()
+  const used = new Set<number>()
+  for (const item of orders) {
+    if (!byId.has(item.entryId)) validationError('出场条目不存在', 'entryId')
+    const value = Number(item.sortOrder)
+    if (!Number.isInteger(value) || value < 1 || value > limit) {
+      validationError(`出场顺序只能填 1-${limit}（本轮共 ${limit} 人）`, 'sortOrder')
+    }
+    if (used.has(value)) conflictError('SORT_ORDER_DUPLICATED', `出场顺序 ${value} 重复了，改一下再排`)
+    used.add(value)
+    assigned.set(item.entryId, value)
+  }
+
+  let next = assigned.size ? Math.max(...assigned.values()) + 1 : 1
+  for (const entry of [...entries].sort((left, right) => left.sortOrder - right.sortOrder)) {
+    if (assigned.has(entry.id)) continue
+    while (used.has(next)) next += 1
+    assigned.set(entry.id, next)
+    used.add(next)
+    next += 1
+  }
+
+  // 现场规则：只有「人手动填了号」的那几个算到场签到；自动续号的不算签到。
+  const checkedInAt = Date.now()
+  const explicitIds = orders.map(item => item.entryId)
+  for (const entryId of explicitIds) {
+    client.db.update(competitionRoundEntries).set({ checkedInAt })
+      .where(eq(competitionRoundEntries.id, entryId)).run()
+  }
+
+  // 先整体挪到负数区间，避免中途撞上已有号码
+  client.db.transaction(() => {
+    for (const entry of entries) {
+      client.db.update(competitionRoundEntries).set({ sortOrder: -Number(entry.sortOrder || 1) - 1000 })
+        .where(eq(competitionRoundEntries.id, entry.id)).run()
+    }
+    for (const [entryId, sortOrder] of assigned) {
+      client.db.update(competitionRoundEntries).set({ sortOrder })
+        .where(eq(competitionRoundEntries.id, entryId)).run()
+    }
+  })
+}
+
+/**
+ * 选手自己抽签后扫码登记号数：按三要素定位到本轮的条目，写入出场顺序。
+ * 号已经被别人占了就让他重新抽，不覆盖别人。
+ */
+export function registerDrawNumber(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name: string, studentNo: string, contact: string },
+  sortOrder: number
+): { position: number, singerName: string, roundTitle: string, checkedInAt: number } {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const rounds = [getRoundByKey(client, eventRow.id, 'prelim'), getRoundByKey(client, eventRow.id, 'semi'), getRoundByKey(client, eventRow.id, 'final')]
+  let target: RoundRow | null = null
+  let entry: EntryRow | null = null
+  for (const round of [...rounds].reverse()) {
+    const hit = listRoundEntryRows(client, round.id).find(row => row.singerId === singer.id)
+    if (hit) {
+      target = round
+      entry = hit
+      break
+    }
+  }
+  if (!target || !entry) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '还没给你排出场名单，先找现场工作人员')
+  if (target.status === 'closed') conflictError('ROUND_CLOSED', '这一轮已经结束了，改不了号')
+
+  const roundEntries = listRoundEntryRows(client, target.id)
+  const limit = Math.max(1, roundEntries.length)
+  const value = Number(sortOrder)
+  if (!Number.isInteger(value) || value < 1 || value > limit) {
+    validationError(`号只能填 1-${limit}（这一轮共 ${limit} 人）`, 'sortOrder')
+  }
+  const taken = roundEntries.find(row => row.id !== entry.id && row.sortOrder === value)
+  if (taken) {
+    const owner = listSingers(client, eventRow.id).find(item => item.id === taken.singerId)
+    conflictError('SORT_ORDER_TAKEN', `这个号被 ${owner?.name ?? '别人'} 先登记了，换一个再填`)
+  }
+  // 现场规则：填出场顺序就算签到——评委名单只认已签到的人。
+  client.db.update(competitionRoundEntries)
+    .set({ sortOrder: value, checkedInAt: entry.checkedInAt ?? Date.now() })
+    .where(eq(competitionRoundEntries.id, entry.id)).run()
+  return {
+    position: value,
+    singerName: singer.name,
+    roundTitle: target.title,
+    checkedInAt: entry.checkedInAt ?? Date.now()
   }
 }
 
@@ -2646,7 +2782,10 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       status: round.status,
       advanceCount: round.advanceCount,
       sequential: round.sequentialMode === 1,
-      scorePrecision: round.scorePrecision === 'decimal' ? 'decimal' : 'integer'
+      scorePrecision: round.scorePrecision === 'decimal' ? 'decimal' : 'integer',
+      dimensions: getRoundDimensions(round, eventRow),
+      dimensionMax: getRoundDimensionMax(round),
+      maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round))
     },
     singers,
     roundResults,
@@ -2734,7 +2873,8 @@ export function submitJudgeScore(
     }
   }
 
-  const dimensions = getCompetitionDimensions(eventRow)
+  const dimensions = getRoundDimensions(round, eventRow)
+  const dimensionMax = getRoundDimensionMax(round)
   const rawScores = input.scores
   if (!rawScores || typeof rawScores !== 'object' || Array.isArray(rawScores)) {
     validationError('评分数据格式不正确', 'scores')
@@ -2743,8 +2883,8 @@ export function submitJudgeScore(
   const scoreMap = rawScores as Record<string, unknown>
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(scoreMap[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > MAX_SCORE) {
-      validationError(`「${dimension.label}」需为 0-${MAX_SCORE} 的分数`, `scores.${dimension.key}`)
+    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
+      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,
@@ -2761,7 +2901,8 @@ export function submitJudgeScore(
 
   const total = calculateCompetitionTotal(
     dimensions,
-    Object.fromEntries(snapshot.map(item => [item.key, item.score]))
+    Object.fromEntries(snapshot.map(item => [item.key, item.score])),
+    dimensionMax
   )
   const now = Date.now()
   const existing = client.db.select().from(competitionScores)
@@ -4143,7 +4284,7 @@ export function submitSongByThreeFactors(
   if (!stage.editable) {
     conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能改曲目')
   }
-  const value = String(song ?? '').trim()
+  const value = cleanSongTitle(song, singer.name)
   if (!value) validationError('曲目必填，请填具体歌名', 'song')
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
     validationError('曲目要填具体歌名，不能填「待定」', 'song')
@@ -4233,9 +4374,9 @@ export async function setEntryAccompaniment(
   const stored = await storeUploadedAudio(data)
   const singer = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, entry.singerId)).get()
-  const fromFilename = songTitleFromFilename(file.filename)
-  const currentSong = (entry.song ?? '').trim()
-  const songValue = currentSong || fromFilename || (singer?.song ?? '').trim()
+  const fromFilename = cleanSongTitle(songTitleFromFilename(file.filename), singer?.name ?? '')
+  const currentSong = cleanSongTitle(entry.song ?? '', singer?.name ?? '')
+  const songValue = currentSong || fromFilename || cleanSongTitle(singer?.song ?? '', singer?.name ?? '')
   const name = accompanimentDisplayName(
     singer?.name ?? '',
     songValue,
@@ -4270,6 +4411,7 @@ export async function setEntryAccompaniment(
       accompanimentUrl: stored.url,
       accompanimentName: name,
       accompanimentSize: stored.size,
+      accompanimentUpdatedAt: Date.now(),
       originalUrl,
       originalName,
       originalSize
@@ -4285,16 +4427,34 @@ export async function setEntryAccompaniment(
 }
 
 /**
+ * 曲目名统一成干净歌名：去掉书名号、去掉文件名里常见的尾巴
+ * （`- 徐佳莹`、`(伴奏)`、`【纯音乐】`），去掉选手自己加在前后缀上的名字。
+ * 选手自己填/上传的文件名五花八门，落库前一律走这里。
+ */
+export function cleanSongTitle(value: string, singerName = ''): string {
+  let title = String(value ?? '')
+  title = title.replace(/\.[a-z0-9]{2,5}$/i, ' ')
+  title = title.replace(/[《》]/g, '')
+  title = title.replace(/[（(【[]\s*(伴奏|纯音乐|消音|和声|karaoke|instrumental)[^）)】\]]*[）)】\]]/gi, ' ')
+  title = title.replace(/(伴奏版?|纯音乐|消音版|和声版|karaoke|instrumental)/gi, ' ')
+  // 「歌名 - 歌手」「歌名—歌手」「歌名－歌手」：真人选手不会在曲目里写自己的名字，所以尾巴一律当歌手名去掉
+  title = title.replace(/\s*[-–—－~〜]\s*[^-–—－~〜]{1,20}$/u, ' ')
+  const name = String(singerName || '').trim()
+  if (name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    title = title.replace(new RegExp(`^${escaped}[\\s、,，.。:：]*`, 'u'), ' ')
+    title = title.replace(new RegExp(`[\\s、,，.。:：]*${escaped}$`, 'u'), ' ')
+  }
+  return title.replace(/\s+/g, ' ').trim()
+}
+
+/**
  * 伴奏在后台的展示名统一成「姓名《曲目》.扩展名」：现场按名单找人时一眼对上，
  * 不管选手传上来的原始文件名有多乱。
  */
 export function accompanimentDisplayName(singerName: string, song: string, extension: string): string {
   const cleanName = String(singerName || '').trim()
-  const cleanSong = String(song || '')
-    .replace(/[《》]/g, '')
-    .replace(/[（(]伴奏[)）]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const cleanSong = cleanSongTitle(song, cleanName)
   const cleanExt = String(extension || '').replace(/^\./, '').toLowerCase()
   const base = cleanSong ? `${cleanName}《${cleanSong}》` : cleanName
   return cleanExt ? `${base}.${cleanExt}` : base
@@ -4389,8 +4549,8 @@ export async function commitAccompanimentKey(
   const singer = entry
     ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
     : null
-  const entrySong = (entry?.song ?? '').trim()
-  const incoming = (song ?? '').trim() || songTitleFromFilename(file.name)
+  const entrySong = cleanSongTitle(entry?.song ?? '', singer?.name ?? '')
+  const incoming = cleanSongTitle((song ?? '').trim() || songTitleFromFilename(file.name), singer?.name ?? '')
   // 曲目必填：这一轮没有曲目、这次也没一起提交，就不许存伴奏（否则名单里会出现「有伴奏没歌」）。
   if (!entrySong && !incoming) {
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
@@ -4430,6 +4590,7 @@ export async function commitAccompanimentKey(
       accompanimentUrl: `cos:${sourceKey}`,
       accompanimentName: name,
       accompanimentSize: sourceSize,
+      accompanimentUpdatedAt: Date.now(),
       originalUrl: keptOriginal ? `cos:${originalKey}` : null,
       originalName: keptOriginal
         ? accompanimentDisplayName(singer?.name ?? '', songValue || singer?.song || '', originalExtension)
@@ -4491,6 +4652,64 @@ export async function submitAccompanimentByThreeFactors(
 }
 
 /** 后台导出伴奏：按出场顺序，一人一个文件夹（含曲目.txt）。 */
+/**
+ * 流式版本：一次只把一个伴奏读进内存写进 zip 文件，原件包（~500MB）不会把进程撑爆。
+ * 返回 zip 的落盘路径与大小，由调用方上传到对象存储后删掉。
+ */
+export async function buildAccompanimentArchiveToFile(
+  client: DatabaseClient,
+  round: RoundRow,
+  options: { useOriginal?: boolean, targetPath: string, onProgress?: (done: number, total: number) => void }
+): Promise<{ filename: string, size: number }> {
+  const useOriginal = options.useOriginal === true
+  const entries = [...listRoundEntryRows(client, round.id)].sort((left, right) => left.sortOrder - right.sortOrder)
+  const singers = listSingers(client, round.eventId)
+  const singerById = new Map(singers.map(singer => [singer.id, singer]))
+  const directory = uploadDirectory()
+  const config = cosConfig()
+  const zip = new StreamingZip(options.targetPath)
+  let index = 0
+  options.onProgress?.(0, entries.length)
+  for (const entry of entries) {
+    index += 1
+    const singer = singerById.get(entry.singerId)
+    if (!singer) continue
+    const position = entry.sortOrder > 0 ? entry.sortOrder : index
+    const folder = `${String(position).padStart(2, '0')}-${sanitizePathPart(singer.name)}`
+    const song = ((entry.song ?? '').trim() || (singer.song ?? '').trim() || '未选曲')
+    await zip.add(
+      `${folder}/曲目.txt`,
+      new TextEncoder().encode(`出场序：${position}\n姓名：${singer.name}\n曲目：${song}\n班级：${singer.className ?? ''}\n`)
+    )
+    const originalRow = entry as { originalUrl?: string | null, originalName?: string | null }
+    const originalUrl = (originalRow.originalUrl ?? '').trim()
+    const usingOriginal = useOriginal && Boolean(originalUrl)
+    const url = (usingOriginal ? originalUrl : (entry.accompanimentUrl ?? '')).trim()
+    if (!url) continue
+    const extension = url.split('.').at(-1)?.toLowerCase() || 'mp3'
+    const cosKey = url.startsWith('cos:') ? url.slice(4) : ''
+    const storedName = (usingOriginal ? (originalRow.originalName ?? '').trim() : (entry.accompanimentName ?? '').trim())
+    const displayName = storedName && !storedName.toLowerCase().endsWith(`.${extension}`)
+      ? storedName.replace(/\.[a-z0-9]{2,5}$/i, '') + `.${extension}`
+      : storedName
+    const fileName = displayName || accompanimentDisplayName(singer.name, song, extension)
+    try {
+      const data = cosKey && config
+        ? new Uint8Array(await (await fetch(presignCosGet(config, cosKey, 900))).arrayBuffer())
+        : await readFile(join(directory, url.split('/').at(-1) ?? ''))
+      await zip.add(`${folder}/${sanitizeFileName(fileName)}`, data)
+    } catch {
+      await zip.add(`${folder}/伴奏缺失.txt`, new TextEncoder().encode('文件读取失败，让选手重新上传一次。\n'))
+    }
+    options.onProgress?.(index, entries.length)
+  }
+  const size = await zip.finish()
+  return {
+    filename: `competition-${round.key}-accompaniment${useOriginal ? '-original' : ''}-${Math.floor(Date.now() / 1000)}.zip`,
+    size
+  }
+}
+
 export async function buildAccompanimentArchive(
   client: DatabaseClient,
   round: RoundRow,

@@ -125,6 +125,20 @@ function putFileWithProgress(url: string, file: File, contentType: string): Prom
   })
 }
 
+const GENERIC_SONG_WORDS = new Set(['伴奏', '纯音乐', '音乐', '未知', '录音', '新录音', 'audio', 'track', 'demo', '未命名'])
+
+/** 从文件名里猜歌名：去掉扩展名、去掉「伴奏 / (伴奏) / 纯音乐」等字样。 */
+function guessSongFromFilename(filename: string): string {
+  let title = String(filename || '').split('/').at(-1) || ''
+  title = title.replace(/\.[a-z0-9]{2,5}$/i, '')
+  title = title.replace(/[（(【[][^）)】\]]{0,12}[）)】\]]/g, ' ')
+  title = title.replace(/(伴奏|纯音乐|消音|和声|karaoke|instrumental)/gi, ' ')
+  title = title.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (title.length < 2 || title.length > 40) return ''
+  if (GENERIC_SONG_WORDS.has(title.toLowerCase())) return ''
+  return title
+}
+
 /** 伴奏不是必填；传过也可以再传一次覆盖旧的。 */
 async function uploadAccompaniment(event: Event) {
   const input = event.target as HTMLInputElement
@@ -134,6 +148,14 @@ async function uploadAccompaniment(event: Event) {
   if (file.size > 400 * 1024 * 1024) {
     toast.add({ title: '伴奏别超过 400MB', color: 'warning' })
     return
+  }
+  // 文件名里往往就是真歌名：输入框还是旧歌（没手改过）时按文件名纠正，
+  // 免得换歌后伴奏被记到上一首名下。
+  const guessed = guessSongFromFilename(file.name)
+  const current = (song.value || '').trim()
+  if (guessed && current && guessed !== current) {
+    song.value = guessed
+    toast.add({ title: `已按文件名改成《${guessed}》`, description: '不对就在输入框里改回来', color: 'warning' })
   }
   const songValue = (song.value || '').trim()
   if (!songValue) {

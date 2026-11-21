@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
-import type { CompetitionRoundEntry, CompetitionRoundView } from '~~/shared/types'
+import type { CompetitionAdminPayload, CompetitionDimension, CompetitionRoundEntry, CompetitionRoundKey, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
 
@@ -43,7 +43,7 @@ async function copyMissingAccompaniment(): Promise<void> {
 }
 
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
-const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
+const dimensionScoreMax = computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
 function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: Event): void {
@@ -66,10 +66,104 @@ const rankedEntries = computed(() => {
 
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
-  sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
-  load, saveSettings, addDimension, removeDimension, moveDimension, restoreDefaultDimensions,
+  sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, roundSummary,
+  load, saveSettings,
   saveRound, setRoundStatus
 } = useCompetitionPayload({ toast })
+
+/** 维度编辑按轮次分开：初赛 10 分制（满分 50）、复赛/决赛 20 分制（满分 100）。 */
+const dimensionRoundKey = ref<CompetitionRoundKey>('prelim')
+const dimensionRoundDraft = ref<CompetitionDimension[]>([])
+const dimensionMaxDraft = ref(COMPETITION_MAX_DIMENSION_SCORE)
+const trimExtremesDraft = ref(false)
+const savingTrimExtremes = ref(false)
+const savingDimensions = ref(false)
+
+const dimensionRound = computed(
+  () => payload.value?.rounds.find(round => round.key === dimensionRoundKey.value) ?? null
+)
+const dimensionRoundLocked = computed(() => dimensionRound.value?.hasScores === true || savingDimensions.value)
+const DIMENSION_ROUND_OPTIONS = [
+  { label: '初赛（满分 50）', value: 'prelim' },
+  { label: '复赛（满分 100）', value: 'semi' },
+  { label: '决赛（满分 100）', value: 'final' }
+]
+
+function syncDimensionDraft(): void {
+  const round = dimensionRound.value
+  dimensionRoundDraft.value = (round?.dimensions ?? []).map(item => ({ ...item }))
+  dimensionMaxDraft.value = round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE
+  trimExtremesDraft.value = round?.trimExtremes === true
+}
+
+watch([dimensionRoundKey, () => payload.value?.event.updatedAt], syncDimensionDraft, { immediate: true })
+
+function addRoundDimension(): void {
+  dimensionRoundDraft.value.push({ key: `dimension-${Date.now()}`, label: '', weight: 20 })
+}
+
+function removeRoundDimension(index: number): void {
+  if (dimensionRoundDraft.value.length <= 1) return
+  dimensionRoundDraft.value.splice(index, 1)
+}
+
+function moveRoundDimension(index: number, delta: number): void {
+  const target = index + delta
+  if (target < 0 || target >= dimensionRoundDraft.value.length) return
+  const [item] = dimensionRoundDraft.value.splice(index, 1)
+  if (item) dimensionRoundDraft.value.splice(target, 0, item)
+}
+
+function restoreRoundDimensions(): void {
+  dimensionRoundDraft.value = Array.from({ length: 5 }, (_, index) => {
+    const base = ['音准与节奏', '音色与技巧', '情感表达', '舞台表现', '选曲难度'][index] ?? `维度${index + 1}`
+    const keys = ['pitch_rhythm', 'timbre_skill', 'emotion', 'stage', 'difficulty']
+    return { key: keys[index] ?? `dimension-${index + 1}`, label: base, weight: 20 }
+  })
+}
+
+/** 去极值只影响平均分口径，不受「已有评分锁定」限制，单独保存。 */
+async function saveRoundTrimExtremes(): Promise<void> {
+  const round = dimensionRound.value
+  if (!round || savingTrimExtremes.value) return
+  savingTrimExtremes.value = true
+  try {
+    const data = await adminFetch<CompetitionAdminPayload>(
+      `/api/admin/competition/rounds/${round.key}`,
+      { method: 'PUT', body: { trimExtremes: trimExtremesDraft.value } }
+    )
+    payload.value = data
+    toast.add({ title: `${round.title}${trimExtremesDraft.value ? '已开启' : '已关闭'}去极值`, color: 'success' })
+  } catch (error) {
+    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    savingTrimExtremes.value = false
+  }
+}
+
+async function saveRoundDimensions(): Promise<void> {
+  const round = dimensionRound.value
+  if (!round || savingDimensions.value) return
+  const dimensions = dimensionRoundDraft.value
+    .map(item => ({ key: item.key, label: item.label.trim(), weight: Number(item.weight) }))
+  if (dimensions.some(item => !item.label)) {
+    toast.add({ title: '维度名称不能为空', color: 'warning' })
+    return
+  }
+  savingDimensions.value = true
+  try {
+    const data = await adminFetch<CompetitionAdminPayload>(
+      `/api/admin/competition/rounds/${round.key}`,
+      { method: 'PUT', body: { dimensions, dimensionMax: Number(dimensionMaxDraft.value) } }
+    )
+    payload.value = data
+    toast.add({ title: `${round.title}维度已保存`, color: 'success' })
+  } catch (error) {
+    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    savingDimensions.value = false
+  }
+}
 
 const {
   busyJudgeId, addingJudge, newJudgeUsername, newJudgePassword, newJudgeDisplayName,
@@ -81,6 +175,7 @@ const {
 const {
   SCHEDULE_KEY_OPTIONS, addScheduleRow, removeScheduleRow, restoreDefaultFormFields, formatDateTime,
   weightPercent, rosterEntries, rosterQuery, rosterVisible, missingJudgeCount,
+  rosterOrderMode, sortOrderBusy, sortOrderValue, setSortOrderDraft, applySortOrders,
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
@@ -109,9 +204,10 @@ function editDetailScore(): void {
 const {
   scoreEditorOpen, scoreEditorSinger, scoreEditorJudgeName, scoreDraft, scoreCommentDraft,
   savingScore, scoreDraftTotal, scoreDraftComplete, openScoreEditor, closeScoreEditor,
-  saveScoreEdit, exportingKind, exportRound, exportAccompaniment, exportOriginalAccompaniment
+  saveScoreEdit, exportingKind, exportProgress, exportRound, exportAccompaniment, exportOriginalAccompaniment
 } = useCompetitionScores({
-  dimensions: computed(() => settings.value?.dimensions ?? []),
+  dimensions: computed(() => activeRound.value?.dimensions ?? settings.value?.dimensions ?? []),
+  dimensionMax: computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE),
   load,
   toast
 })
@@ -139,7 +235,13 @@ const {
   onCanvasMove, onCanvasUp, undoLastPatch, clearPatches, downloadQr, downloadPoster
 } = useCompetitionPoster()
 
-const accompanimentPreview = ref<{ name: string, url: string, size: number | null } | null>(null)
+const accompanimentPreview = ref<{
+  name: string
+  url: string
+  size: number | null
+  updatedAt: number | null
+  original?: { name: string, url: string, size: number | null } | null
+} | null>(null)
 const accompanimentPreviewOpen = ref(false)
 
 /** 伴奏体积：MB 保留一位，小的用 KB。 */
@@ -151,7 +253,13 @@ function accompanimentSize(bytes: number | null | undefined): string {
 
 function openAccompaniment(entry: CompetitionRoundEntry): void {
   if (!entry.accompaniment) return
-  accompanimentPreview.value = { name: entry.accompaniment.name, url: entry.accompaniment.url, size: entry.accompaniment.size }
+  accompanimentPreview.value = {
+    name: entry.accompaniment.name,
+    url: entry.accompaniment.url,
+    size: entry.accompaniment.size,
+    updatedAt: entry.accompanimentUpdatedAt ?? null,
+    original: entry.accompaniment.original ?? null
+  }
   accompanimentPreviewOpen.value = true
 }
 
@@ -515,10 +623,32 @@ onBeforeUnmount(stopLiveRefresh)
 
         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
+            <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 评分维度与占比
               </h2>
+              <USelect
+                v-model="dimensionRoundKey"
+                :items="DIMENSION_ROUND_OPTIONS"
+                size="xs"
+                class="w-40"
+              />
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                每维满分
+              </span>
+              <UInput
+                v-model.number="dimensionMaxDraft"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                size="xs"
+                class="w-20"
+                :disabled="dimensionRoundLocked"
+              />
+              <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                本轮满分 {{ dimensionRoundDraft.length * Number(dimensionMaxDraft || 0) }} 分
+              </span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <UButton
@@ -527,23 +657,42 @@ onBeforeUnmount(stopLiveRefresh)
                 label="恢复默认五维"
                 color="neutral"
                 variant="soft"
-                :disabled="hasAnyScores"
-                @click="restoreDefaultDimensions"
+                :disabled="dimensionRoundLocked"
+                @click="restoreRoundDimensions"
               />
               <UButton
                 size="xs"
                 icon="i-lucide-plus"
                 label="添加维度"
                 variant="soft"
-                :disabled="hasAnyScores"
-                @click="addDimension"
+                :disabled="dimensionRoundLocked"
+                @click="addRoundDimension"
+              />
+              <UButton
+                size="xs"
+                icon="i-lucide-save"
+                label="保存本轮维度"
+                :loading="savingDimensions"
+                :disabled="dimensionRoundLocked"
+                @click="saveRoundDimensions"
               />
             </div>
           </div>
 
+          <label class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+            <input
+              v-model="trimExtremesDraft"
+              type="checkbox"
+              class="size-4 accent-emerald-600"
+              :disabled="savingTrimExtremes"
+              @change="saveRoundTrimExtremes"
+            >
+            算平均分时去掉一个最高分和一个最低分（本轮，至少 3 位评委）
+          </label>
+
           <div class="mt-3 space-y-2">
             <div
-              v-for="(dimension, index) in settings.dimensions"
+              v-for="(dimension, index) in dimensionRoundDraft"
               :key="dimension.key"
               class="flex flex-wrap items-end gap-2 rounded-md border border-zinc-200 p-2.5 dark:border-zinc-800"
             >
@@ -554,7 +703,7 @@ onBeforeUnmount(stopLiveRefresh)
                 <UInput
                   v-model="dimension.label"
                   class="w-full"
-                  :disabled="hasAnyScores"
+                  :disabled="dimensionRoundLocked"
                   placeholder="如：音准"
                 />
               </UFormField>
@@ -569,7 +718,7 @@ onBeforeUnmount(stopLiveRefresh)
                   max="100"
                   step="1"
                   class="w-full"
-                  :disabled="hasAnyScores"
+                  :disabled="dimensionRoundLocked"
                   @update:model-value="value => dimension.weight = Number(value) || 0"
                 />
               </UFormField>
@@ -583,8 +732,8 @@ onBeforeUnmount(stopLiveRefresh)
                   variant="soft"
                   icon="i-lucide-arrow-up"
                   aria-label="上移"
-                  :disabled="index === 0 || hasAnyScores"
-                  @click="moveDimension(index, -1)"
+                  :disabled="index === 0 || dimensionRoundLocked"
+                  @click="moveRoundDimension(index, -1)"
                 />
                 <UButton
                   size="xs"
@@ -592,8 +741,8 @@ onBeforeUnmount(stopLiveRefresh)
                   variant="soft"
                   icon="i-lucide-arrow-down"
                   aria-label="下移"
-                  :disabled="index === settings.dimensions.length - 1 || hasAnyScores"
-                  @click="moveDimension(index, 1)"
+                  :disabled="index === dimensionRoundDraft.length - 1 || dimensionRoundLocked"
+                  @click="moveRoundDimension(index, 1)"
                 />
                 <UButton
                   size="xs"
@@ -601,17 +750,17 @@ onBeforeUnmount(stopLiveRefresh)
                   variant="soft"
                   icon="i-lucide-trash-2"
                   aria-label="删除维度"
-                  :disabled="settings.dimensions.length <= 1 || hasAnyScores"
-                  @click="removeDimension(index)"
+                  :disabled="dimensionRoundDraft.length <= 1 || dimensionRoundLocked"
+                  @click="removeRoundDimension(index)"
                 />
               </div>
             </div>
           </div>
 
           <p class="mt-3 border-t border-zinc-100 pt-3 text-xs text-amber-700 dark:border-zinc-800 dark:text-amber-300">
-            {{ hasAnyScores
-              ? '比赛已有评分，维度与占比已锁定；已保存成绩按当时快照计算。'
-              : '评分开始后维度与占比会锁定，请在首轮评分前完成设置。' }}
+            {{ dimensionRound?.hasScores
+              ? '本轮已有评分，维度与满分已锁定；已保存成绩按当时快照计算。'
+              : '初赛默认五维、每维 0-10（满分 50）；复赛/决赛每维 0-20（满分 100）。改完点「保存本轮维度」。' }}
           </p>
         </div>
       </section>
@@ -1589,6 +1738,38 @@ onBeforeUnmount(stopLiveRefresh)
                 class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 aria-label="搜索出场名单"
               >
+              <select
+                v-model="rosterOrderMode"
+                class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                aria-label="名单显示顺序"
+              >
+                <option value="pinyin">
+                  按姓名排
+                </option>
+                <option value="draw">
+                  按出场号排
+                </option>
+              </select>
+              <span class="hidden text-[11px] text-zinc-500 sm:inline dark:text-zinc-400">填号=签到</span>
+              <UButton
+                v-if="activeRound.status !== 'closed'"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-list-ordered"
+                :loading="sortOrderBusy"
+                @click="applySortOrders(activeRound)"
+              >
+                保存号码并排序
+              </UButton>
+              <a
+                href="/singer/draw"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-green-600 hover:text-green-700 dark:border-zinc-700 dark:text-zinc-200"
+              >
+                抽签登记
+              </a>
               <a
                 href="/singer/call"
                 target="_blank"
@@ -1606,7 +1787,9 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="exportingKind === 'accompaniment'"
                 @click="exportAccompaniment(activeRound)"
               >
-                下载全部伴奏
+                {{ exportProgress && exportingKind === 'accompaniment'
+                  ? `打包中 ${exportProgress.done}/${exportProgress.total}`
+                  : '下载全部伴奏' }}
               </UButton>
               <UButton
                 color="neutral"
@@ -1615,7 +1798,9 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="exportingKind === 'accompaniment-original'"
                 @click="exportOriginalAccompaniment(activeRound)"
               >
-                下载全部原件
+                {{ exportProgress && exportingKind === 'accompaniment-original'
+                  ? `打包中 ${exportProgress.done}/${exportProgress.total}`
+                  : '下载全部原件' }}
               </UButton>
             </div>
           </div>
@@ -1635,7 +1820,7 @@ onBeforeUnmount(stopLiveRefresh)
               <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
                 <tr>
                   <th class="w-24 px-4 py-2 font-medium">
-                    出场序（可拖动）
+                    出场顺序
                   </th>
                   <th class="px-3 py-2 font-medium">
                     选手
@@ -1675,7 +1860,7 @@ onBeforeUnmount(stopLiveRefresh)
                   @drop.prevent="dropOnEntry(activeRound, entry)"
                   @dragend="endDragEntry"
                 >
-                  <td class="cursor-grab px-4 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
+                  <td class="cursor-grab px-3 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
                     <span class="inline-flex items-center gap-1">
                       <UIcon
                         v-if="activeRound.status !== 'closed'"
@@ -1683,7 +1868,17 @@ onBeforeUnmount(stopLiveRefresh)
                         class="size-3.5 text-zinc-300 dark:text-zinc-600"
                         aria-hidden="true"
                       />
-                      {{ entry.sortOrder || index + 1 }}
+                      <input
+                        v-if="activeRound.status !== 'closed'"
+                        :value="sortOrderValue(entry)"
+                        type="text"
+                        inputmode="numeric"
+                        class="w-12 rounded border border-zinc-200 px-1 py-0.5 text-center text-sm tabular-nums focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+                        :placeholder="String(index + 1)"
+                        :aria-label="`${entry.singer.name} 出场顺序`"
+                        @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
+                      >
+                      <span v-else>{{ rosterOrderMode === 'draw' ? (entry.sortOrder || index + 1) : index + 1 }}</span>
                     </span>
                   </td>
                   <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
@@ -1728,6 +1923,12 @@ onBeforeUnmount(stopLiveRefresh)
                         <span class="ml-1 text-[11px]">
                           {{ entry.accompaniment.name }}
                           <span class="text-zinc-400">· {{ accompanimentSize(entry.accompaniment.size) }}</span>
+                          <span
+                            v-if="entry.accompanimentUpdatedAt"
+                            class="block text-[11px] text-zinc-400 tabular-nums"
+                          >
+                            更新于 {{ formatDateTime(entry.accompanimentUpdatedAt) }}
+                          </span>
                         </span>
                       </template>
                     </template>
@@ -2007,19 +2208,6 @@ onBeforeUnmount(stopLiveRefresh)
                 @click="copyMissingAccompaniment"
               />
             </div>
-            <label
-              v-if="settings"
-              class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
-            >
-              <input
-                v-model="settings.trimExtremes"
-                type="checkbox"
-                class="size-4 accent-emerald-600"
-                :disabled="savingSettings"
-                @change="saveSettings"
-              >
-              算平均分时去掉一个最高分和一个最低分（至少 3 位评委）
-            </label>
           </div>
 
           <div
@@ -3100,7 +3288,7 @@ onBeforeUnmount(stopLiveRefresh)
     <UModal
       v-model:open="accompanimentPreviewOpen"
       :title="accompanimentPreview?.name || '伴奏'"
-      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}，手机上直接点播放就能听，电脑也可以下载下来。` : '手机上直接点播放就能听，电脑也可以下载下来。'"
+      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}${accompanimentPreview.updatedAt ? `，更新于 ${formatDateTime(accompanimentPreview.updatedAt)}` : ''}，手机上直接点播放就能听，电脑也可以下载下来。` : '手机上直接点播放就能听，电脑也可以下载下来。'"
       :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
     >
       <template #body>
@@ -3122,6 +3310,17 @@ onBeforeUnmount(stopLiveRefresh)
           >
             <UIcon name="i-lucide-download" class="size-4" />
             下载这个伴奏
+          </a>
+          <a
+            v-if="accompanimentPreview?.original"
+            :href="accompanimentPreview.original.url"
+            :download="accompanimentPreview.original.name"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-sm text-zinc-600 underline dark:text-zinc-300"
+          >
+            <UIcon name="i-lucide-file-audio" class="size-4" />
+            下载原件（{{ accompanimentSize(accompanimentPreview.original.size) }}）
           </a>
         </div>
       </template>

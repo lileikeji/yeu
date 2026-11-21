@@ -1,4 +1,5 @@
 /** 极简 ZIP 打包（store 不压缩，文件名 UTF-8）。只用于后台导出，不引第三方依赖。 */
+import { createWriteStream, type WriteStream } from 'node:fs'
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)
@@ -93,4 +94,88 @@ export function createZip(entries: ZipEntry[], now = new Date()): Buffer {
   end.writeUInt16LE(0, 20)
 
   return Buffer.concat([...chunks, centralBuffer, end])
+}
+
+/**
+ * 边读边写的 ZIP：一次只把一个条目读进内存，写进文件后再读下一个。
+ * 复赛原件包接近 500MB，全塞进 Buffer 会把进程撑爆（生产 2026-11-19 就是这么 OOM 的）。
+ */
+export class StreamingZip {
+  private readonly stream: WriteStream
+  private readonly stamp: { time: number, date: number }
+  private offset = 0
+  private readonly directory: Buffer[] = []
+
+  constructor(target: string, now = new Date()) {
+    this.stream = createWriteStream(target)
+    this.stamp = dosDateTime(now)
+  }
+
+  private write(buffer: Buffer): Promise<void> {
+    this.offset += buffer.length
+    return new Promise((resolve, reject) => {
+      this.stream.write(buffer, error => (error ? reject(error) : resolve()))
+    })
+  }
+
+  async add(name: string, data: Uint8Array): Promise<void> {
+    const nameBytes = Buffer.from(name, 'utf8')
+    const crc = crc32(data)
+    const header = Buffer.alloc(30)
+    header.writeUInt32LE(0x04034b50, 0)
+    header.writeUInt16LE(20, 4)
+    header.writeUInt16LE(0x0800, 6)
+    header.writeUInt16LE(0, 8)
+    header.writeUInt16LE(this.stamp.time, 10)
+    header.writeUInt16LE(this.stamp.date, 12)
+    header.writeUInt32LE(crc, 14)
+    header.writeUInt32LE(data.length, 18)
+    header.writeUInt32LE(data.length, 22)
+    header.writeUInt16LE(nameBytes.length, 26)
+    header.writeUInt16LE(0, 28)
+    const localOffset = this.offset
+    await this.write(Buffer.concat([header, nameBytes]))
+    await this.write(Buffer.from(data))
+    const record = Buffer.alloc(46)
+    record.writeUInt32LE(0x02014b50, 0)
+    record.writeUInt16LE(20, 4)
+    record.writeUInt16LE(20, 6)
+    record.writeUInt16LE(0x0800, 8)
+    record.writeUInt16LE(0, 10)
+    record.writeUInt16LE(this.stamp.time, 12)
+    record.writeUInt16LE(this.stamp.date, 14)
+    record.writeUInt32LE(crc, 16)
+    record.writeUInt32LE(data.length, 20)
+    record.writeUInt32LE(data.length, 24)
+    record.writeUInt16LE(nameBytes.length, 28)
+    record.writeUInt16LE(0, 30)
+    record.writeUInt16LE(0, 32)
+    record.writeUInt16LE(0, 34)
+    record.writeUInt16LE(0, 36)
+    record.writeUInt32LE(0, 38)
+    record.writeUInt32LE(localOffset, 42)
+    this.directory.push(Buffer.concat([record, nameBytes]))
+  }
+
+  async finish(): Promise<number> {
+    const directoryOffset = this.offset
+    for (const record of this.directory) await this.write(record)
+    const size = this.offset
+    const end = Buffer.alloc(22)
+    end.writeUInt32LE(0x06054b50, 0)
+    end.writeUInt16LE(0, 4)
+    end.writeUInt16LE(0, 6)
+    end.writeUInt16LE(this.directory.length, 8)
+    end.writeUInt16LE(this.directory.length, 10)
+    end.writeUInt32LE(size - directoryOffset, 12)
+    end.writeUInt32LE(directoryOffset, 16)
+    end.writeUInt16LE(0, 20)
+    await this.write(end)
+    const total = this.offset
+    await new Promise<void>((resolve, reject) => {
+      this.stream.end(() => resolve())
+      this.stream.on('error', reject)
+    })
+    return total
+  }
 }

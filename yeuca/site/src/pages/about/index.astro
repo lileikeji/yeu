@@ -1,0 +1,297 @@
+---
+import Base from '../../layouts/Base.astro';
+import {
+  ARCHIVE_TIMELINE,
+  CLUB_FAQS,
+  CLUB_META,
+  VERIFIED_COMPETITIONS,
+  VERIFIED_DEPARTMENTS,
+  VOLATILE_CHECKLIST,
+} from '../../data/club';
+---
+
+<Base
+  title="关于协会"
+  description="仰恩大学计算机协会发展沿革、各部门介绍、变动信息核对表、比赛列表与新生常见问题。"
+  canonicalPath="/about/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1>关于仰恩大学计算机协会</h1>
+      <p id="about-lead">
+        前身 1999 年成立，2019 年合并更名为现名，平时按部门带大家写代码、组网、打比赛。
+      </p>
+    </div>
+  </section>
+
+  <section class="page-section">
+    <div class="wrap" style="display: grid; gap: 2.8rem; grid-template-columns: minmax(0, 1fr);">
+      <!-- 01 宗旨定位 + 档案沿革时间线 -->
+      <div id="archive" style="min-width: 0;">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">01 · 协会宗旨与沿革</h2>
+            <p class="band-desc">宗旨：{CLUB_META.motto}</p>
+          </div>
+          <span class="pill">创立于 {CLUB_META.foundedYear} 年</span>
+        </div>
+
+        <div class="timeline-list" id="about-timeline-list">
+          {
+            ARCHIVE_TIMELINE.map((node) => (
+              <div class="timeline-row">
+                <div class="timeline-period">
+                  <span class="pill" style="width: fit-content;">{node.tag}</span>
+                  <strong>{node.period}</strong>
+                </div>
+                <div class="timeline-body">
+                  <h3>{node.title}</h3>
+                  <p>{node.detail}</p>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <!-- 02 部门速览（支持后台增删改查实时同步） -->
+      <div>
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">02 · 部门分工</h2>
+          </div>
+          <a class="link-btn" href="/departments/">看各部细节与报名 →</a>
+        </div>
+        <div class="cards-3" id="about-dept-grid">
+          {
+            VERIFIED_DEPARTMENTS.map((dept) => (
+              <article class="card" style={dept.isFeatured ? 'border-color: var(--ai-line);' : ''}>
+                <div class="card-top">
+                  <span class={`pill ${dept.isFeatured ? 'pill-ai' : ''}`}>{dept.code}</span>
+                  <strong>{dept.name}</strong>
+                </div>
+                <p>{dept.summary}</p>
+              </article>
+            ))
+          }
+        </div>
+      </div>
+
+      <!-- 03 变动信息核对表 -->
+      <div id="checklist">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">03 · 变动信息核对表</h2>
+            <p class="band-desc">
+              每届负责人、每周教室和迎新群码都在变，页面不写死这些信息，按下面对应途径去查：
+            </p>
+          </div>
+        </div>
+
+        <div class="spec-table-wrap">
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th style="width: 26%;">变动项</th>
+                <th style="width: 32%;">以哪里为准</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody id="about-checklist-tbody">
+              {
+                VOLATILE_CHECKLIST.map((row) => (
+                  <tr>
+                    <td>
+                      <strong style="color: var(--ink);">{row.item}</strong>
+                    </td>
+                    <td>
+                      <span class="pill pill-red">{row.source}</span>
+                    </td>
+                    <td class="muted">{row.note}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 04 真实参赛清单 + 交流协作 -->
+      <div id="competitions">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">04 · 常规竞赛与校内协作</h2>
+          </div>
+        </div>
+
+        <div class="comp-strip" id="about-comp-strip" style="margin-bottom: 1rem;">
+          {
+            VERIFIED_COMPETITIONS.map((item) => (
+              <div class="comp-cell">
+                <span class="pill">{item.track}</span>
+                <strong style="font-size: 0.92rem; line-height: 1.4;">{item.name}</strong>
+                <span class="muted" style="font-size: 0.78rem;">参与部门：{item.dept}</span>
+                {
+                  item.href ? (
+                    <a
+                      class="ext-link"
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      style="margin-top: auto; width: fit-content;"
+                    >
+                      官网 ↗ <span class="ext-host">{item.site}</span>
+                    </a>
+                  ) : (
+                    <span class="ext-host" style="margin-top: auto;">{item.site}</span>
+                  )
+                }
+              </div>
+            ))
+          }
+        </div>
+
+        <div class="cards-2" id="cooperation">
+          <article class="card">
+            <h3 style="margin: 0;">计协官网主站与 YeU 迎新平台</h3>
+            <p>
+              <code>yeuca.huiliyill.cn</code> 是计算机协会官方网站主站，放部门分工、活动通知、Git 代码站和镜像加速地址；
+              <a href="https://yx.huiliyill.cn/" target="_blank" rel="noreferrer">YeU 迎新指南 (yx.huiliyill.cn ↗)</a>
+              是协会成员写并一直在维护的校园应用，两个站共用同一套后台数据。
+            </p>
+          </article>
+
+          <article class="card">
+            <h3 style="margin: 0;">校内实验室互助与校友分享</h3>
+            <p>
+              平时和校内兄弟技术社团一起维护实验设备，也会请已经毕业的学长姐回校或线上聊聊校外工程和求职。如果要谈校内联合分享或比赛协办，直接去
+              <a href="/join/#contact-box">加入我们页的联络区</a> 找当届值班同学。
+            </p>
+          </article>
+        </div>
+      </div>
+
+      <!-- 05 常见疑问手风琴 -->
+      <div id="faq">
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.38rem; margin: 0;">05 · 常见问题</h2>
+          </div>
+          <a class="btn btn-primary btn-sm" href="/join/">去报名 →</a>
+        </div>
+
+        <div class="faq-accordion" id="about-faq-accordion">
+          {
+            CLUB_FAQS.map((item, idx) => (
+              <details class="faq-item" open={idx === 0}>
+                <summary>{item.q}</summary>
+                <div class="faq-answer">{item.a}</div>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { escapeHtml, fetchPublicSiteData } from '../../lib/yeuca-client';
+
+  async function syncAboutPage() {
+    const payload = await fetchPublicSiteData();
+    if (!payload) return;
+
+    const leadEl = document.getElementById('about-lead');
+    const deptGrid = document.getElementById('about-dept-grid');
+    if (payload.settings.departments.length && deptGrid) {
+      if (leadEl) {
+        leadEl.textContent = `前身创立于 1999 年，2019 年合并更名为现名，目前设 ${payload.settings.departments.length} 个方向部门日常开展训练和竞赛。`;
+      }
+      deptGrid.innerHTML = payload.settings.departments
+        .map(
+          (dept) => `
+          <article class="card" style="${dept.isFeatured ? 'border-color: var(--ai-line);' : ''}">
+            <div class="card-top">
+              <span class="pill ${dept.isFeatured ? 'pill-ai' : ''}">${escapeHtml(dept.code)}</span>
+              <strong>${escapeHtml(dept.name)}</strong>
+            </div>
+            <p>${escapeHtml(dept.summary)}</p>
+          </article>`,
+        )
+        .join('');
+    }
+
+    const compStrip = document.getElementById('about-comp-strip');
+    const comps = payload.settings.extras?.competitions;
+    if (compStrip && comps?.length) {
+      compStrip.innerHTML = comps
+        .map((item) => {
+          const safeHref = item.href && /^https?:\/\//i.test(item.href) ? item.href : '';
+          return `
+            <div class="comp-cell">
+              <span class="pill">${escapeHtml(item.track)}</span>
+              <strong style="font-size: 0.92rem; line-height: 1.4;">${escapeHtml(item.name)}</strong>
+              <span class="muted" style="font-size: 0.78rem;">参与部门：${escapeHtml(item.dept)}</span>
+              ${
+                safeHref
+                  ? `<a class="ext-link" href="${escapeHtml(safeHref)}" target="_blank" rel="noreferrer" style="margin-top: auto; width: fit-content;">官网 ↗ <span class="ext-host">${escapeHtml(item.site || '')}</span></a>`
+                  : `<span class="ext-host" style="margin-top: auto;">${escapeHtml(item.site || '以当届校内通知为准')}</span>`
+              }
+            </div>`;
+        })
+        .join('');
+    }
+
+    const faqWrap = document.getElementById('about-faq-accordion');
+    const faqs = payload.settings.extras?.faqs;
+    if (faqWrap && faqs?.length) {
+      faqWrap.innerHTML = faqs
+        .map(
+          (item, idx) => `
+          <details class="faq-item"${idx === 0 ? ' open' : ''}>
+            <summary>${escapeHtml(item.q)}</summary>
+            <div class="faq-answer">${escapeHtml(item.a)}</div>
+          </details>`,
+        )
+        .join('');
+    }
+
+    const timelineBox = document.getElementById('about-timeline-list');
+    const timeline = payload.settings.extras?.archiveTimeline;
+    if (timelineBox && timeline?.length) {
+      timelineBox.innerHTML = timeline
+        .map(
+          (node) => `
+          <div class="timeline-row">
+            <div class="timeline-period">
+              <span class="pill" style="width: fit-content;">${escapeHtml(node.tag)}</span>
+              <strong>${escapeHtml(node.period)}</strong>
+            </div>
+            <div class="timeline-body">
+              <h3>${escapeHtml(node.title)}</h3>
+              <p>${escapeHtml(node.detail)}</p>
+            </div>
+          </div>`,
+        )
+        .join('');
+    }
+
+    const checklistTbody = document.getElementById('about-checklist-tbody');
+    const checklist = payload.settings.extras?.volatileChecklist;
+    if (checklistTbody && checklist?.length) {
+      checklistTbody.innerHTML = checklist
+        .map(
+          (row) => `
+          <tr>
+            <td><strong style="color: var(--ink);">${escapeHtml(row.item)}</strong></td>
+            <td><span class="pill pill-red">${escapeHtml(row.source)}</span></td>
+            <td class="muted">${escapeHtml(row.note)}</td>
+          </tr>`,
+        )
+        .join('');
+    }
+  }
+
+  void syncAboutPage();
+</script>

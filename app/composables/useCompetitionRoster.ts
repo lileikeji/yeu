@@ -10,6 +10,7 @@ import type {
   CompetitionRoundView
 } from '~~/shared/types'
 import { adminFetch } from '~~/app/utils/admin-request'
+import { plainSortName } from '~~/shared/utils/competition'
 import type { SettingsDraft } from './useCompetitionPayload'
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -109,12 +110,65 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     return payload.value?.rounds.find(item => item.position === round.position + 1) ?? null
   }
 
-  /** 出场名单按抽签顺序，而不是成绩排名顺序。 */
+  const nameCollator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
+
+  /** 默认按姓名首字（拼音）排，方便现场挨个写号；排过号就按抽签顺序。 */
+  const rosterOrderMode = ref<'pinyin' | 'draw'>('pinyin')
+
   function rosterEntries(round: CompetitionRoundView): CompetitionRoundEntry[] {
-    return [...round.entries].sort((left, right) => left.sortOrder - right.sortOrder)
+    const list = [...round.entries]
+    if (rosterOrderMode.value === 'pinyin') {
+      list.sort((left, right) => nameCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name)))
+      return list
+    }
+    return list.sort((left, right) => left.sortOrder - right.sortOrder
+      || nameCollator.compare(plainSortName(left.singer.name), plainSortName(right.singer.name)))
   }
 
   const rosterQuery = ref('')
+
+  const sortOrderDraft = ref<Record<string, string>>({})
+  const sortOrderBusy = ref(false)
+
+  function sortOrderValue(entry: CompetitionRoundEntry): string {
+    const draft = sortOrderDraft.value[entry.id]
+    if (draft !== undefined) return draft
+    // 按姓名排时不要显示上一版留下的号，免得看着像「已经排好了」；按号排才显示真实号。
+    if (rosterOrderMode.value === 'pinyin') return ''
+    return entry.sortOrder > 0 ? String(entry.sortOrder) : ''
+  }
+
+  function setSortOrderDraft(entryId: string, value: string): void {
+    sortOrderDraft.value = { ...sortOrderDraft.value, [entryId]: value.replace(/[^0-9]/g, '').slice(0, 3) }
+  }
+
+  async function applySortOrders(round: CompetitionRoundView): Promise<void> {
+    const orders: { entryId: string, sortOrder: number }[] = []
+    for (const entry of round.entries) {
+      const raw = sortOrderDraft.value[entry.id]
+      if (!raw) continue
+      orders.push({ entryId: entry.id, sortOrder: Number(raw) })
+    }
+    if (orders.length === 0) {
+      toast.add({ title: '先把每行的出场顺序填上', color: 'warning' })
+      return
+    }
+    sortOrderBusy.value = true
+    try {
+      await adminFetch(`/api/admin/competition/rounds/${round.key}/entry-order`, {
+        method: 'POST',
+        body: { orders }
+      })
+      sortOrderDraft.value = {}
+      rosterOrderMode.value = 'draw'
+      toast.add({ title: '已按填的号排好，填了号的人同时算签到', color: 'success' })
+      await load()
+    } catch (error) {
+      toast.add({ title: '排序失败', description: apiErrorMessage(error, '号码可能有重复'), color: 'warning' })
+    } finally {
+      sortOrderBusy.value = false
+    }
+  }
 
   /** 搜索只筛显示，不动排序与拖动用的真实下标。 */
   function rosterVisible(round: CompetitionRoundView): CompetitionRoundEntry[] {
@@ -571,6 +625,12 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     rosterEntries,
     rosterQuery,
     rosterVisible,
+    rosterOrderMode,
+    sortOrderDraft,
+    sortOrderBusy,
+    sortOrderValue,
+    setSortOrderDraft,
+    applySortOrders,
     missingJudgeCount,
     queueStateText,
     queueStateClass,

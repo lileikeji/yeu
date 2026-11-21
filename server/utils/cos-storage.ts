@@ -175,3 +175,34 @@ export async function headCosObject(
   const length = Number(response.headers.get('content-length') || 0)
   return { size: Number.isFinite(length) ? length : 0, contentType: response.headers.get('content-type') || '' }
 }
+
+/**
+ * 从磁盘流式上传（原件包 500MB 级别不读进内存）。
+ * undici 的 fetch 支持 ReadStream，但要显式 duplex: 'half'。
+ */
+export async function putCosObjectFromFile(
+  config: CosConfig,
+  key: string,
+  filePath: string,
+  contentType: string
+): Promise<void> {
+  const { createReadStream, statSync } = await import('node:fs')
+  const size = statSync(filePath).size
+  const url = signCosUrl(config, { method: 'PUT', key, expiresIn: 900 })
+  // undici 从 node:stream 的 ReadStream 需要 duplex，类型上 body 只接受 BodyInit，这里按运行时用法断言
+  const body = createReadStream(filePath) as unknown as BodyInit
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType, 'Content-Length': String(size) },
+    body,
+    // @ts-expect-error undici 专有选项
+    duplex: 'half'
+  })
+  if (!response.ok) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Storage upload failed',
+      data: { code: 'STORAGE_UPLOAD_FAILED', message: `对象存储上传失败（${response.status}）：${(await response.text()).slice(0, 200)}` }
+    })
+  }
+}

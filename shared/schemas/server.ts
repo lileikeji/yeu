@@ -1379,7 +1379,10 @@ export const updateCompetitionRoundSchema = z.object({
   status: z.enum(['draft', 'open', 'closed']).optional(),
   judgeCount: z.number().int().min(1).max(20).optional(),
   advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional(),
-  scorePrecision: z.enum(['integer', 'decimal']).optional()
+  scorePrecision: z.enum(['integer', 'decimal']).optional(),
+  dimensions: z.array(competitionDimensionSchema).min(1).max(10).optional(),
+  dimensionMax: z.number().int().min(1).max(100).optional(),
+  trimExtremes: z.boolean().optional()
 }).strict()
 
 export const moveCompetitionEntrySchema = z.object({
@@ -1431,6 +1434,20 @@ export const setCompetitionEntryDaySchema = z.object({
   day: z.number().int().min(1).max(2).nullable()
 }).strict()
 
+export const setCompetitionEntryOrderSchema = z.object({
+  orders: z.array(z.object({
+    entryId: z.string().min(1).max(64),
+    sortOrder: z.number().int().min(1).max(999)
+  }).strict()).min(1).max(200)
+}).strict()
+
+export const competitionDrawSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  sortOrder: z.number().int().min(1).max(999)
+}).strict()
+
 export const setCompetitionEntrySongSchema = z.object({
   entryId: z.string().min(1).max(64),
   song: z.string().trim().min(1).max(100)
@@ -1445,7 +1462,7 @@ export const setCompetitionEntryCheckInSchema = z.object({
 export const adminCompetitionScoreSchema = z.object({
   singerId: z.string().min(1).max(64),
   judgeId: z.string().min(1).max(64),
-  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
+  scores: z.record(z.string().max(64), z.number().min(0).max(100)),
   comment: z.string().trim().max(500).optional()
 }).strict()
 
@@ -1543,7 +1560,7 @@ export const judgeLoginSchema = z.object({
 }).strict()
 
 export const submitCompetitionScoreSchema = z.object({
-  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
+  scores: z.record(z.string().max(64), z.number().min(0).max(100)),
   comment: z.string().trim().max(500).optional()
 }).strict()
 

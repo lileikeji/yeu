@@ -64,7 +64,9 @@ const {
 
 const event = computed(() => payload.value?.event ?? null)
 const round = computed(() => payload.value?.round ?? null)
-const dimensions = computed<CompetitionDimension[]>(() => event.value?.dimensions ?? [])
+const dimensions = computed<CompetitionDimension[]>(
+  () => payload.value?.round?.dimensions ?? event.value?.dimensions ?? []
+)
 const singers = computed<SingerWithScore[]>(() => payload.value?.singers ?? [])
 const roundResults = computed<CompetitionRoundEntry[] | null>(() => payload.value?.roundResults ?? null)
 const finalResults = computed<CompetitionRoundEntry[] | null>(() => payload.value?.finalResults ?? null)
@@ -85,14 +87,23 @@ const singerList = computed(() => {
         || (singer.song ?? '').toLowerCase().includes(keyword)
     })
 })
-const maxTotal = computed(() => event.value?.maxTotal ?? dimensions.value.length * 10)
+const dimensionMax = computed(() => payload.value?.round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
+/** 滑块中间刻度按满分一半：20 分制中间是 10，10 分制是 5。 */
+const midTick = computed(() => {
+  const half = dimensionMax.value / 2
+  return Number.isInteger(half) ? String(half) : half.toFixed(1)
+})
+const maxTotal = computed(
+  () => payload.value?.round?.maxTotal ?? event.value?.maxTotal ?? dimensions.value.length * dimensionMax.value
+)
 /** 每个维度的满分（10 分制），供输入框与校验使用。 */
-const dimensionMax = COMPETITION_MAX_DIMENSION_SCORE
 /** 本轮打分精度：整数（默认）或小数（小数只能用拖滑块，输入框只读）。 */
 const scorePrecision = computed(() => payload.value?.round.scorePrecision ?? 'integer')
 const decimalMode = computed(() => scorePrecision.value === 'decimal')
-const scoreStep = computed(() => (decimalMode.value ? 0.1 : 1))
-const tapScoreChoices = Array.from({ length: dimensionMax }, (_, index) => index + 1)
+// 滑块用 0.5 的粗档（0.1 在手机上根本点不准），加减按钮与输入框负责 0.1 的细调。
+const scoreStep = computed(() => (decimalMode.value ? 0.5 : 1))
+const scoreNudgeStep = computed(() => (decimalMode.value ? 0.1 : 1))
+const tapScoreChoices = computed(() => Array.from({ length: dimensionMax.value }, (_, index) => index + 1))
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
 /** 顺序评分：主持人把全场指到同一位选手，所有人都只能给这一位打分。 */
@@ -127,7 +138,7 @@ const draftTotal = computed(() => {
     const value = draftScores.value[dimension.key]
     scores[dimension.key] = typeof value === 'number' ? Number(value) : 0
   }
-  return calculateCompetitionTotal(dimensions.value, scores)
+  return calculateCompetitionTotal(dimensions.value, scores, dimensionMax.value)
 })
 
 const progressPercent = computed(() => {
@@ -282,7 +293,7 @@ function normalizeScore(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  const bounded = Math.min(dimensionMax, Math.max(0, value))
+  const bounded = Math.min(dimensionMax.value, Math.max(0, value))
   if (decimalMode.value) return Math.round(bounded * 10) / 10
   // 整数模式：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
   return Math.round(bounded)
@@ -295,10 +306,49 @@ function setDraftScore(key: string, raw: unknown): void {
   }
 }
 
+function nudgeScore(key: string, delta: number): void {
+  const current = Number(draftScores.value[key])
+  const base = Number.isFinite(current) ? current : 0
+  setDraftScore(key, base + delta)
+}
+
+let nudgeTimer: ReturnType<typeof setTimeout> | null = null
+let nudgeInterval: ReturnType<typeof setInterval> | null = null
+
+/** 加减按钮：小数模式每下 0.1；按住 450ms 后每 140ms 连发一档。 */
+function startNudge(key: string, direction: 1 | -1): void {
+  stopNudge()
+  nudgeScore(key, direction * scoreNudgeStep.value)
+  nudgeTimer = setTimeout(() => {
+    nudgeInterval = setInterval(() => nudgeScore(key, direction * scoreNudgeStep.value), 140)
+  }, 450)
+}
+
+function stopNudge(): void {
+  if (nudgeTimer) {
+    clearTimeout(nudgeTimer)
+    nudgeTimer = null
+  }
+  if (nudgeInterval) {
+    clearInterval(nudgeInterval)
+    nudgeInterval = null
+  }
+}
+
+/** 点选：小数模式下再点一次同一个整数就是加半档（18 → 18.5 → 18）。 */
+function tapScore(key: string, point: number): void {
+  const current = draftScores.value[key]
+  if (decimalMode.value && current === point && point + 0.5 <= dimensionMax.value) {
+    setDraftScore(key, point + 0.5)
+    return
+  }
+  setDraftScore(key, point)
+}
+
 function sliderFillPercent(key: string): string {
   const value = draftScores.value[key]
   if (typeof value !== 'number') return '0%'
-  return `${Math.round((value / dimensionMax) * 100)}%`
+  return `${Math.round((value / dimensionMax.value) * 100)}%`
 }
 
 /** 服务端明确拒绝的几种情况，提示完就同步成最新状态。 */
@@ -915,7 +965,7 @@ onBeforeUnmount(stopPolling)
                       :aria-pressed="scoreInputMode === 'tap'"
                       @click="setScoreInputMode('tap')"
                     >
-                      点选 1-{{ dimensionMax }}
+                      {{ decimalMode ? `点选 1-${dimensionMax}（再点加 .5）` : `点选 1-${dimensionMax}` }}
                     </button>
                     <button
                       type="button"
@@ -989,6 +1039,18 @@ onBeforeUnmount(stopPolling)
                       v-else
                       class="flex shrink-0 items-center gap-1"
                     >
+                      <button
+                        type="button"
+                        class="h-9 w-9 shrink-0 rounded-md border border-zinc-300 bg-zinc-50 text-base font-bold leading-none text-zinc-700 select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                        :aria-label="`${dimension.label}减 ${scoreNudgeStep}`"
+                        :disabled="!scoringOpen || currentSubmitted"
+                        @pointerdown.prevent="startNudge(dimension.key, -1)"
+                        @pointerup="stopNudge"
+                        @pointerleave="stopNudge"
+                        @pointercancel="stopNudge"
+                      >
+                        −
+                      </button>
                       <input
                         type="number"
                         min="0"
@@ -996,16 +1058,28 @@ onBeforeUnmount(stopPolling)
                         :step="scoreStep"
                         :inputmode="decimalMode ? 'decimal' : 'numeric'"
                         enterkeyhint="next"
-                        :readonly="decimalMode"
                         :data-score-input="dimension.key"
-                        class="w-12 rounded-md border border-zinc-300 bg-[var(--surface)] px-1 py-0.5 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800 sm:w-14 sm:py-1"
+                        class="w-16 shrink-0 rounded-md border border-zinc-300 bg-[var(--surface)] px-1 py-1 text-center text-base font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800 sm:w-14 sm:py-1 sm:text-sm"
                         :value="draftScores[dimension.key] ?? ''"
                         :disabled="!scoringOpen || currentSubmitted"
                         :aria-label="`${dimension.label}评分`"
                         :placeholder="`0-${dimensionMax}`"
                         @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
                         @keydown.enter.prevent="focusNextScore(dimension.key)"
+                        @focus="($event.target as HTMLInputElement).select()"
                       >
+                      <button
+                        type="button"
+                        class="h-9 w-9 shrink-0 rounded-md border border-zinc-300 bg-zinc-50 text-base font-bold leading-none text-zinc-700 select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                        :aria-label="`${dimension.label}加 ${scoreNudgeStep}`"
+                        :disabled="!scoringOpen || currentSubmitted"
+                        @pointerdown.prevent="startNudge(dimension.key, 1)"
+                        @pointerup="stopNudge"
+                        @pointerleave="stopNudge"
+                        @pointercancel="stopNudge"
+                      >
+                        +
+                      </button>
                       <span class="text-[11px] text-zinc-400">/ {{ dimensionMax }}</span>
                     </div>
                   </div>
@@ -1025,7 +1099,7 @@ onBeforeUnmount(stopPolling)
                       :class="draftScores[dimension.key] === point
                         ? 'border-green-600 bg-green-600 text-white shadow-xs dark:border-green-500 dark:bg-green-500 dark:text-zinc-950'
                         : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-200 dark:hover:bg-zinc-800'"
-                      @click="setDraftScore(dimension.key, point)"
+                      @click="tapScore(dimension.key, point)"
                     >
                       {{ point }}
                     </button>
@@ -1050,7 +1124,7 @@ onBeforeUnmount(stopPolling)
                     >
                     <div class="flex justify-between px-[11px] text-[10px] leading-none tabular-nums text-zinc-400">
                       <span>0</span>
-                      <span>5</span>
+                      <span>{{ midTick }}</span>
                       <span>{{ dimensionMax }}</span>
                     </div>
                   </div>

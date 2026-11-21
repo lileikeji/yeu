@@ -1,0 +1,407 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SEASONAL_RHYTHM, VERIFIED_COMPETITIONS } from '../../data/club';
+
+const categories = ['全部', '技术培训', '竞赛备赛', '分享交流', '招新迎新'];
+---
+
+<Base
+  title="近期活动"
+  description="仰恩大学计算机协会近期培训、上机工作坊、竞赛训练排期与常规活动形式。"
+  canonicalPath="/activities/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1>活动排期</h1>
+      <p>协会培训、工作坊、竞赛训练和招新宣讲的时间与教室安排，按时间倒序展示。</p>
+    </div>
+  </section>
+
+  <section class="page-section" style="padding-top: 0.9rem;">
+    <div class="wrap" style="display: grid; gap: 2.2rem; grid-template-columns: minmax(0, 1fr);">
+      <!-- 仰恩校园实景寻宝联合入口卡片 -->
+      <article class="card" id="treasure-banner-card" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+        <div style="min-width: 0; flex: 1 1 320px; display: grid; gap: 0.35rem;">
+          <div class="tag-row">
+            <span class="pill pill-red">校园寻宝地图</span>
+            <span class="pill" id="treasure-banner-count">实时定位集章</span>
+          </div>
+          <h2 id="treasure-banner-title" style="margin: 0; font-size: 1.15rem;">仰恩校园实景寻宝 · 计协联合集章</h2>
+          <p id="treasure-banner-sub" style="margin: 0; font-size: 0.86rem; color: var(--muted);">
+            各部联合在全校手绘地形图设立探索点位与现场暗号；登录后按范围验证打卡，正式印章写入计协会员档案。
+          </p>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.55rem;">
+          <a class="btn btn-primary btn-sm" href="/activities/treasure">打开寻宝手绘地图 →</a>
+          <a class="btn btn-ghost btn-sm" id="treasure-banner-login" href="/member/?redirect=%2Factivities%2Ftreasure">计协会员登录集章</a>
+        </div>
+      </article>
+
+      <div>
+        <div class="filter-bar" id="act-filters" style="margin-top: 0.35rem;">
+          {
+            categories.map((cat, idx) => (
+              <button
+                type="button"
+                class={`filter-chip${idx === 0 ? ' active' : ''}`}
+                data-act-cat={cat}
+              >
+                {cat}
+              </button>
+            ))
+          }
+          <span
+            id="act-count-pill"
+            class="mono muted"
+            style="margin-left: auto; font-size: 0.78rem;"
+          >
+            读取中…
+          </span>
+        </div>
+
+        <div id="activities-container">
+          <div class="empty-panel">正在读取已发布的活动排期……</div>
+        </div>
+      </div>
+
+      <!-- 一年里的常规安排 -->
+      <div>
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.32rem; margin: 0;">一学年里平时什么时候有活动</h2>
+          </div>
+          <a class="link-btn" href="/join/">想参加可直接报名 →</a>
+        </div>
+
+        <div class="cards-2" id="act-seasonal-grid">
+          {
+            SEASONAL_RHYTHM.map((item) => (
+              <article class="card">
+                <div class="card-top">
+                  <span class="pill">{item.phase}</span>
+                  <div class="tag-row">
+                    {item.tags.map((t) => <span class="pill">{t}</span>)}
+                  </div>
+                </div>
+                <h3>{item.title}</h3>
+                <p>{item.detail}</p>
+              </article>
+            ))
+          }
+        </div>
+      </div>
+
+      <div>
+        <div class="band-head" style="margin-bottom: 1rem;">
+          <div>
+            <h2 style="font-size: 1.32rem; margin: 0;">定期组织报名的比赛</h2>
+          </div>
+          <a class="link-btn" href="/about/#competitions">在关于页看全部 →</a>
+        </div>
+
+        <div class="comp-strip" id="act-comp-strip">
+          {
+            VERIFIED_COMPETITIONS.map((item) => (
+              <div class="comp-cell">
+                <span class="pill">{item.track}</span>
+                <strong style="font-size: 0.92rem; line-height: 1.4;">{item.name}</strong>
+                <span class="muted" style="font-size: 0.78rem;">{item.dept}</span>
+                {
+                  item.href ? (
+                    <a
+                      class="ext-link"
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      style="margin-top: auto; width: fit-content;"
+                    >
+                      官网 ↗ <span class="ext-host">{item.site}</span>
+                    </a>
+                  ) : (
+                    <span class="ext-host" style="margin-top: auto;">{item.site}</span>
+                  )
+                }
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import {
+    escapeHtml,
+    fetchMemberSession,
+    fetchPublicSiteData,
+    fetchPublicTreasureState,
+    formatIsoDateParts,
+    inferActivityCategory,
+    renderSafeMarkdown,
+    toggleMemberActivityRegApi,
+    type ActivityCategory,
+    type PublicActivity,
+  } from '../../lib/yeuca-client';
+
+  let allActivities: PublicActivity[] = [];
+  let selectedCategory: ActivityCategory = '全部';
+  let isAuthedMember = false;
+  const regStateMap = new Map<string, 'registered' | 'checked_in' | 'cancelled'>();
+
+  function openActModal(title: string, meta: string, kind: string, body: string) {
+    const modal = document.getElementById('reader-modal');
+    const titleNode = document.getElementById('reader-modal-title');
+    const metaNode = document.getElementById('reader-modal-meta');
+    const tagsNode = document.getElementById('reader-modal-tags');
+    const bodyNode = document.getElementById('reader-modal-body');
+    if (!modal || !titleNode || !metaNode || !tagsNode || !bodyNode) return;
+    titleNode.textContent = title;
+    metaNode.textContent = meta;
+    tagsNode.innerHTML = `<span class="pill pill-ok">${escapeHtml(kind)}</span><span class="pill">协会活动</span>`;
+    bodyNode.innerHTML = renderSafeMarkdown(body);
+    modal.hidden = false;
+  }
+
+  function renderActivities() {
+    const box = document.getElementById('activities-container');
+    const countPill = document.getElementById('act-count-pill');
+    if (!box) return;
+
+    const filtered = allActivities.filter((act) => {
+      if (selectedCategory === '全部') return true;
+      const cat = act.category || inferActivityCategory(act.title, act.summary);
+      return cat === selectedCategory;
+    });
+
+    if (countPill) {
+      countPill.textContent = allActivities.length
+        ? `共 ${filtered.length} / ${allActivities.length} 场`
+        : '暂无近期排期';
+    }
+
+    if (!filtered.length) {
+      if (allActivities.length) {
+        box.innerHTML =
+          '<div class="empty-panel">该分类下暂未安排活动，切回「全部」可查看其他场次。</div>';
+        return;
+      }
+
+      box.innerHTML = `
+        <div class="empty-panel" style="display: grid; gap: 0.65rem;">
+          <div>
+            <strong style="color: var(--ink);">近期暂无已公布的公开排期。</strong>
+            <span style="margin-left: 0.4rem;">新一期培训或宣讲敲定时间教室后会第一时间挂在这里；临时变动以迎新群通知为准。</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.55rem;">
+            <a class="btn btn-primary btn-sm" href="/join/">迎新群与报名入口</a>
+            <a class="btn btn-ghost btn-sm" href="/news/">去动态页看看 →</a>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const nowMs = Date.now();
+    box.innerHTML = `<div class="event-rows list-stagger">${filtered
+      .map((act, idx) => {
+        const parts = formatIsoDateParts(act.startsAt);
+        const startMs = Date.parse(act.startsAt);
+        const endMs = act.endsAt ? Date.parse(act.endsAt) : startMs;
+        const isPast = !Number.isNaN(endMs) && endMs < nowMs;
+        const kind = act.category || inferActivityCategory(act.title, act.summary);
+        const placeText = [act.placeName, act.room].filter(Boolean).join(' · ');
+        const canReg = act.source === 'yeuca' && act.allowRegistration && !isPast;
+        const myReg = regStateMap.get(act.id);
+        const regCount = Number(act.registrationCount || 0);
+        const maxCap = Number(act.maxParticipants || 0);
+
+        let regBtnHtml = '';
+        if (canReg) {
+          if (myReg === 'checked_in') {
+            regBtnHtml = '<button class="btn btn-ghost btn-sm" type="button" disabled>已签到 ✓</button>';
+          } else if (myReg === 'registered') {
+            regBtnHtml = `<button class="btn btn-ghost btn-sm" type="button" data-act-reg-btn="${escapeHtml(act.id)}" data-cur="registered">已报名（取消）</button>`;
+          } else if (maxCap > 0 && regCount >= maxCap) {
+            regBtnHtml = '<button class="btn btn-ghost btn-sm" type="button" disabled>名额已满</button>';
+          } else {
+            regBtnHtml = `<button class="btn btn-primary btn-sm" type="button" data-act-reg-btn="${escapeHtml(act.id)}" data-cur="none">${isAuthedMember ? '我要报名' : '会员报名'}</button>`;
+          }
+        }
+
+        return `
+          <article class="event-row" data-act-row="${idx}">
+            <div class="cal-date">
+              <span class="cal-m">${escapeHtml(parts.month)}</span>
+              <span class="cal-d">${escapeHtml(parts.day)}</span>
+            </div>
+            <div style="min-width: 0;">
+              <div class="tag-row" style="margin-bottom: 0.25rem;">
+                <span class="pill ${isPast ? '' : 'pill-ok'}">${isPast ? '已结束' : '待开展'}</span>
+                <span class="pill">${escapeHtml(kind)}</span>
+                ${act.deptName ? `<span class="pill ${act.deptName === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(act.deptName)}</span>` : ''}
+                ${act.source === 'yeuca' && act.allowRegistration ? `<span class="pill">已报 ${regCount}${maxCap > 0 ? `/${maxCap}` : ''}</span>` : ''}
+                <span class="muted mono" style="font-size: 0.76rem;">
+                  ${escapeHtml(parts.dateText)} ${escapeHtml(parts.timeText)}${placeText ? ` · ${escapeHtml(placeText)}` : ''}
+                </span>
+              </div>
+              <h3>${escapeHtml(act.title)}</h3>
+              <p>${escapeHtml(act.summary)}</p>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end;">
+              ${regBtnHtml}
+              <button class="btn btn-ghost btn-sm" type="button" data-act-detail="${idx}">详情</button>
+            </div>
+          </article>`;
+      })
+      .join('')}</div>`;
+
+    box.querySelectorAll<HTMLButtonElement>('[data-act-detail]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const act = filtered[Number(btn.dataset.actDetail) || 0];
+        if (!act) return;
+        const parts = formatIsoDateParts(act.startsAt);
+        const placeText = [act.placeName, act.room].filter(Boolean).join(' ');
+        const kind = act.category || inferActivityCategory(act.title, act.summary);
+        openActModal(
+          act.title,
+          `时间：${parts.dateText} ${parts.timeText}${placeText ? ` ｜ 地点：${placeText}` : ''}`,
+          kind,
+          act.body || act.summary,
+        );
+      });
+    });
+
+    box.querySelectorAll<HTMLElement>('[data-act-row]').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('[data-act-reg-btn]')) return;
+        const act = filtered[Number(row.dataset.actRow) || 0];
+        if (!act) return;
+        const parts = formatIsoDateParts(act.startsAt);
+        const placeText = [act.placeName, act.room].filter(Boolean).join(' ');
+        const kind = act.category || inferActivityCategory(act.title, act.summary);
+        openActModal(
+          act.title,
+          `时间：${parts.dateText} ${parts.timeText}${placeText ? ` ｜ 地点：${placeText}` : ''}`,
+          kind,
+          act.body || act.summary,
+        );
+      });
+    });
+
+    box.querySelectorAll<HTMLButtonElement>('[data-act-reg-btn]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!isAuthedMember) {
+          window.location.href = '/member/';
+          return;
+        }
+        const actId = btn.dataset.actRegBtn || '';
+        const cur = btn.dataset.cur || 'none';
+        if (!actId) return;
+        btn.disabled = true;
+        try {
+          const action = cur === 'registered' ? 'cancel' : 'register';
+          const res = await toggleMemberActivityRegApi(actId, action);
+          if (action === 'cancel') regStateMap.delete(actId);
+          else regStateMap.set(actId, 'registered');
+          const target = allActivities.find((a) => a.id === actId);
+          if (target) target.registrationCount = res.registrationCount;
+          const toastFn = (window as unknown as { __yeucaToast?: (m: string) => void }).__yeucaToast;
+          toastFn?.(action === 'register' ? '活动报名成功 ✓' : '已取消活动报名');
+          renderActivities();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : '操作失败');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('#act-filters [data-act-cat]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedCategory = (btn.dataset.actCat as ActivityCategory) || '全部';
+      document
+        .querySelectorAll<HTMLButtonElement>('#act-filters [data-act-cat]')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+      renderActivities();
+    });
+  });
+
+  async function initActivities() {
+    const [payload, memberSess, treasureState] = await Promise.all([
+      fetchPublicSiteData(),
+      fetchMemberSession(),
+      fetchPublicTreasureState(),
+    ]);
+
+    const treasureCard = document.getElementById('treasure-banner-card');
+    if (treasureCard && treasureState) {
+      treasureCard.hidden = !treasureState.enabled;
+      const tTitle = document.getElementById('treasure-banner-title');
+      const tSub = document.getElementById('treasure-banner-sub');
+      const tCount = document.getElementById('treasure-banner-count');
+      const tLogin = document.getElementById('treasure-banner-login');
+      if (tTitle && treasureState.title) tTitle.textContent = treasureState.title;
+      if (tSub && treasureState.subtitle) tSub.textContent = treasureState.subtitle;
+      if (tCount) tCount.textContent = `开放 ${treasureState.points.length} 个点位 · 集满 ${treasureState.goalCount} 枚兑奖`;
+      if (tLogin && memberSess?.authenticated) {
+        const earned = Object.keys(treasureState.collectedMap || {}).length;
+        tLogin.textContent = `已登录 · 已集 ${earned} 枚`;
+        tLogin.setAttribute('href', '/member/');
+      }
+    }
+
+    if (memberSess?.authenticated) {
+      isAuthedMember = true;
+      memberSess.registrations.forEach((r) => regStateMap.set(r.activityId, r.status));
+    }
+
+    allActivities = payload?.activities ?? [];
+    renderActivities();
+
+    const seasonalBox = document.getElementById('act-seasonal-grid');
+    const seasonalList = payload?.settings?.extras?.seasonalRhythm;
+    if (seasonalBox && seasonalList?.length) {
+      seasonalBox.innerHTML = seasonalList
+        .map(
+          (item) => `
+          <article class="card">
+            <div class="card-top">
+              <span class="pill">${escapeHtml(item.phase)}</span>
+              <div class="tag-row">
+                ${(item.tags || []).map((t) => `<span class="pill">${escapeHtml(t)}</span>`).join('')}
+              </div>
+            </div>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.detail)}</p>
+          </article>`,
+        )
+        .join('');
+    }
+
+    const compStrip = document.getElementById('act-comp-strip');
+    const comps = payload?.settings?.extras?.competitions;
+    if (compStrip && comps?.length) {
+      compStrip.innerHTML = comps
+        .map((item) => {
+          const safeHref = item.href && /^https?:\/\//i.test(item.href) ? item.href : '';
+          return `
+            <div class="comp-cell">
+              <span class="pill">${escapeHtml(item.track)}</span>
+              <strong style="font-size: 0.92rem; line-height: 1.4;">${escapeHtml(item.name)}</strong>
+              <span class="muted" style="font-size: 0.78rem;">${escapeHtml(item.dept)}</span>
+              ${
+                safeHref
+                  ? `<a class="ext-link" href="${escapeHtml(safeHref)}" target="_blank" rel="noreferrer" style="margin-top: auto; width: fit-content;">官网 ↗ <span class="ext-host">${escapeHtml(item.site || '')}</span></a>`
+                  : `<span class="ext-host" style="margin-top: auto;">${escapeHtml(item.site || '以当届校内通知为准')}</span>`
+              }
+            </div>`;
+        })
+        .join('');
+    }
+  }
+
+  void initActivities();
+</script>

@@ -19,10 +19,13 @@ definePageMeta({ layout: false })
 
 const route = useRoute()
 const requestUrl = useRequestURL()
-const isLegacyConsole = computed(() => false)
+const isYeucaHost = computed(() => {
+  const clientHost = import.meta.client ? window.location.hostname : ''
+  return (clientHost || requestUrl.hostname) === 'yeuca.huiliyill.cn'
+})
 
 useSeoMeta({
-  title: () => isLegacyConsole.value ? '后台登录' : '后台登录',
+  title: () => isYeucaHost.value ? '计协主站后台登录｜仰恩大学计算机协会' : '后台登录',
   robots: 'noindex, nofollow'
 })
 
@@ -47,7 +50,7 @@ async function checkExistingSession(): Promise<boolean> {
     if (isAdminSessionAuthenticated(payload)) {
       const baseRedirect = resolveAdminLoginRedirectTarget(route.query.redirect)
       await navigateTo(
-        resolveAdminPostLoginTarget(payload, baseRedirect, isLegacyConsole.value ? '/admin/__legacy__' : undefined),
+        resolveAdminPostLoginTarget(payload, baseRedirect, isYeucaHost.value ? '/admin/yeuca' : undefined),
         { replace: true }
       )
       return true
@@ -81,7 +84,7 @@ async function loginWithDevice(): Promise<void> {
     })
     clearNuxtData('admin-session')
     await navigateTo(
-      resolveAdminPostLoginTarget(payload, route.query.redirect, isLegacyConsole.value ? '/admin/__legacy__' : undefined),
+      resolveAdminPostLoginTarget(payload, route.query.redirect, isYeucaHost.value ? '/admin/yeuca' : undefined),
       { replace: true }
     )
   } catch (error) {
@@ -140,7 +143,7 @@ async function login(): Promise<void> {
     })
     clearNuxtData('admin-session')
     await navigateTo(
-      resolveAdminPostLoginTarget(payload, route.query.redirect, isLegacyConsole.value ? '/admin/__legacy__' : undefined),
+      resolveAdminPostLoginTarget(payload, route.query.redirect, isYeucaHost.value ? '/admin/yeuca' : undefined),
       { replace: true }
     )
   } catch (error) {
@@ -164,38 +167,31 @@ onMounted(async () => {
 <template>
   <div
     class="grid min-h-dvh lg:grid-cols-[minmax(22rem,0.82fr)_minmax(28rem,1fr)]"
-    :class="isLegacyConsole ? 'bg-[#f6f6f4] dark:bg-zinc-950' : 'bg-[#f5f7f4] dark:bg-zinc-950'"
+    :class="isYeucaHost ? 'bg-[#f6f6f4] dark:bg-zinc-950' : 'bg-[#f5f7f4] dark:bg-zinc-950'"
   >
-    
+    <!-- 计协主站专属视觉品牌栏 -->
     <section
-      v-if="isLegacyConsole"
+      v-if="isYeucaHost"
       class="relative hidden overflow-hidden border-r border-zinc-800 bg-[#121211] px-10 py-11 text-white lg:flex lg:flex-col lg:justify-between"
     >
       <div
-        class="pointer-events-none absolute inset-0 opacity-25"
+        class="pointer-events-none absolute inset-0 opacity-15"
         style="background-image: radial-gradient(rgba(255,255,255,0.22) 1px, transparent 1px); background-size: 22px 22px;"
-        aria-hidden="true"
-      />
-      <div
-        class="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[#a8121e]/25 blur-3xl"
-        aria-hidden="true"
-      />
-      <div
-        class="pointer-events-none absolute -bottom-24 -left-16 size-72 rounded-full bg-sky-600/20 blur-3xl"
         aria-hidden="true"
       />
 
       <div class="relative flex items-center gap-3.5">
         <img
-          alt="迎新指南徽标"
+          src="/images/yeuca-logo.jpg"
+          alt="仰恩大学计算机协会徽标"
           class="size-11 rounded-full border border-white/25 object-cover shadow-md"
         >
         <div>
           <p class="font-bold tracking-tight text-white">
-            迎新指南
+            仰恩大学计算机协会
           </p>
           <p class="font-mono text-xs text-zinc-400">
-            管理控制台
+            YEUCA STUDIO · 管理控制台
           </p>
         </div>
       </div>
@@ -203,8 +199,8 @@ onMounted(async () => {
       <div class="relative max-w-md space-y-6">
         <div>
           <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-[11px] text-zinc-200">
-            <span class="size-1.5 rounded-full bg-emerald-400" />
-            数据同步
+            <span class="size-1.5 rounded-full bg-zinc-400" />
+            yeuca.huiliyill.cn / yx.huiliyill.cn 数据同步
           </span>
           <h1 class="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-white">
             维护官网部门、动态、项目与图片素材
@@ -218,7 +214,7 @@ onMounted(async () => {
           <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
             <UIcon
               name="i-lucide-layers"
-              class="mt-0.5 size-4 shrink-0 text-sky-400"
+              class="mt-0.5 size-4 shrink-0 text-zinc-300"
             />
             <div>
               <p class="font-semibold text-zinc-100">
@@ -232,7 +228,7 @@ onMounted(async () => {
           <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
             <UIcon
               name="i-lucide-newspaper"
-              class="mt-0.5 size-4 shrink-0 text-rose-400"
+              class="mt-0.5 size-4 shrink-0 text-zinc-300"
             />
             <div>
               <p class="font-semibold text-zinc-100">
@@ -246,7 +242,7 @@ onMounted(async () => {
           <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
             <UIcon
               name="i-lucide-images"
-              class="mt-0.5 size-4 shrink-0 text-amber-400"
+              class="mt-0.5 size-4 shrink-0 text-zinc-300"
             />
             <div>
               <p class="font-semibold text-zinc-100">
@@ -262,7 +258,7 @@ onMounted(async () => {
 
       <div class="relative flex items-center justify-between border-t border-white/10 pt-4 text-xs text-zinc-400">
         <span>1999 年创会 · 仰恩大学洛江校区</span>
-        <span class="font-mono text-zinc-500"></span>
+        <span class="font-mono text-zinc-500">yeuca.huiliyill.cn</span>
       </div>
     </section>
 
@@ -308,8 +304,9 @@ onMounted(async () => {
       <div class="w-full max-w-md">
         <div class="mb-7 flex items-center gap-3 lg:hidden">
           <img
-            v-if="isLegacyConsole"
-            alt="迎新指南徽标"
+            v-if="isYeucaHost"
+            src="/images/yeuca-logo.jpg"
+            alt="仰恩大学计算机协会徽标"
             class="size-10 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover shadow-xs"
           >
           <span
@@ -324,36 +321,31 @@ onMounted(async () => {
           </span>
           <div>
             <p class="font-semibold text-zinc-950 dark:text-zinc-100">
-              {{ isLegacyConsole ? '迎新指南' : '迎新指南' }}
+              {{ isYeucaHost ? '仰恩大学计算机协会' : '迎新指南' }}
             </p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
-              {{ isLegacyConsole ? '内容管理后台' : '内容管理后台' }}
+              {{ isYeucaHost ? 'YEUCA STUDIO · 主站内容后台' : '内容管理后台' }}
             </p>
           </div>
         </div>
 
         <div
           class="overflow-hidden rounded-xl border bg-[var(--surface)] dark:bg-zinc-900"
-          :class="isLegacyConsole ? 'border-zinc-200/90 dark:border-zinc-800 shadow-[0_14px_36px_rgba(17,17,16,0.06)]' : 'border-zinc-200 dark:border-zinc-800 shadow-sm'"
+          :class="isYeucaHost ? 'border-zinc-200/90 dark:border-zinc-800 shadow-[0_14px_36px_rgba(17,17,16,0.06)]' : 'border-zinc-200 dark:border-zinc-800 shadow-sm'"
         >
-          <div
-            v-if="isLegacyConsole"
-            class="h-1.5 w-full bg-gradient-to-r from-[#a8121e] via-[#c81e2b] to-[#1d4ed8]"
-          />
-
           <div class="p-5 sm:p-7">
             <div>
               <p
                 class="font-mono text-xs font-semibold"
-                :class="isLegacyConsole ? 'text-[#a8121e] dark:text-rose-400' : 'text-green-700 dark:text-green-400'"
+                :class="isYeucaHost ? 'text-zinc-500 dark:text-zinc-400' : 'text-green-700 dark:text-green-400'"
               >
-                {{ isLegacyConsole ? 'ADMIN' : 'ADMIN' }}
+                {{ isYeucaHost ? 'YEUCA ADMIN CONSOLE' : 'ADMIN' }}
               </p>
               <h1 class="mt-1.5 text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100">
-                {{ isLegacyConsole ? '管理员登录' : '管理员登录' }}
+                {{ isYeucaHost ? '计协官网管理登录' : '管理员登录' }}
               </h1>
               <p
-                v-if="isLegacyConsole"
+                v-if="isYeucaHost"
                 class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
               >
                 仅限社团维护者与管理员访问，普通访问官网无需登录。
@@ -422,11 +414,11 @@ onMounted(async () => {
               <UButton
                 type="submit"
                 icon="i-lucide-log-in"
-                :label="isLegacyConsole ? '登录' : '登录'"
+                :label="isYeucaHost ? '登录计协控制台' : '登录'"
                 size="lg"
                 block
                 :loading="submitting || checkingSession"
-                :class="isLegacyConsole ? '!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white transition-colors' : ''"
+                :class="isYeucaHost ? '!bg-[#a8121e] hover:!bg-[#7f0d16] !text-white transition-colors' : ''"
               />
             </form>
 
@@ -466,13 +458,13 @@ onMounted(async () => {
         </div>
 
         <div class="mt-5 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-          <span>{{ isLegacyConsole ? '仅限维护者访问' : '仅限维护者访问' }}</span>
+          <span>{{ isYeucaHost ? '支持计协管理员 / 总管理员账号' : '仅限维护者访问' }}</span>
           <a
-            v-if="isLegacyConsole"
+            v-if="isYeucaHost"
             href="/"
-            class="inline-flex items-center gap-1 font-medium text-[#a8121e] dark:text-rose-400 hover:underline"
+            class="inline-flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:underline"
           >
-            返回组织主站
+            返回计协主站
             <UIcon
               name="i-lucide-arrow-right"
               class="size-3.5"
