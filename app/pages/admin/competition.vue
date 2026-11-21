@@ -3296,7 +3296,7 @@ onBeforeUnmount(stopLiveRefresh)
 
           <div class="space-y-2">
             <div
-              v-for="dimension in (settings?.dimensions ?? [])"
+              v-for="dimension in (activeRound?.dimensions ?? [])"
               :key="dimension.key"
               class="flex items-center justify-between gap-3"
             >
@@ -3312,7 +3312,7 @@ onBeforeUnmount(stopLiveRefresh)
                 v-model="scoreDraft[dimension.key]"
                 type="number"
                 min="0"
-                :max="dimensionScoreMax"
+                :max="maxOfKey(dimension.key)"
                 step="0.5"
                 class="w-24 rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               >

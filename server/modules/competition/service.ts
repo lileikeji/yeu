@@ -460,6 +460,7 @@ export function serializeRound(row: RoundRow, eventRow?: EventRow | null): Compe
     scorePrecision: row.scorePrecision === 'decimal' ? 'decimal' : 'integer',
     dimensions: getRoundDimensions(row, eventRow),
     dimensionMax: getRoundDimensionMax(row),
+    maxTotal: competitionMaxTotal(getRoundDimensions(row, eventRow), getRoundDimensionMax(row)),
     trimExtremes: row.trimExtremes === null || row.trimExtremes === undefined
       ? eventRow?.trimExtremes === 1
       : row.trimExtremes === 1,

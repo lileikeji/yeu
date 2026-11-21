@@ -55,7 +55,8 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
   ] as const
 
   const event = computed<CompetitionEvent | null>(() => payload.value?.event ?? null)
-  const maxTotal = computed(() => event.value?.maxTotal ?? 0)
+  // 满分跟当前轮次走：复赛 100 分制、初赛 50 分制，别再拿赛事级的值。
+  const maxTotal = computed(() => activeRound.value?.maxTotal ?? event.value?.maxTotal ?? 0)
   const singers = computed(() => payload.value?.singers ?? [])
 
   /** 「轮次:选手 id」→ 该轮条目，只有真正进了这一轮的人才会有。 */
