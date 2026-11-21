@@ -13,6 +13,9 @@ const failed = ref('')
 const loading = ref(false)
 const updatedAt = ref('')
 
+// 标题跟着接口给的轮次走：初赛结束、复赛开起来之后这里就是「复赛」。
+const roundTitle = computed(() => board.value?.round.title || '初赛')
+
 const dayLabel = computed(() => {
   const day = board.value?.round.activeDay
   if (day === 1) return '第一天 · 11月14号'
@@ -97,7 +100,7 @@ onBeforeUnmount(stopPolling)
             仰恩大学音乐协会 · 叫号台
           </p>
           <h1 class="mt-1 text-2xl font-black tracking-wide sm:text-3xl">
-            新声歌手大赛 · 初赛
+            新声歌手大赛 · {{ roundTitle }}
           </h1>
         </div>
         <div class="flex items-center gap-2 text-xs text-[var(--muted-ink)]">
