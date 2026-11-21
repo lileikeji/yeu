@@ -27,6 +27,7 @@ import {
   listAdvanceRows,
   getAdminCompetitionPayload,
   getCallBoard,
+  getRankBoard,
   getEmailTemplate,
   getJudgePayload,
   getRoundByKey,
@@ -1746,6 +1747,54 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   // 没有回执链接时保持纯文本，不留空按钮
   const plain = competitionEmailBodyToHtml('正文', [], '')
   assert.doesNotMatch(plain, /我已收到/)
+})
+
+test('数据库：公开排行只给名次/姓名/歌曲/出场序和照片，不带联系方式', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  for (const name of ['甲一', '乙二']) {
+    createSinger(client, event.id, {
+      name,
+      song: '晴天',
+      className: '26测试1班',
+      studentNo: `${name.length}23456789012`,
+      phone: '13800000000',
+      qq: '3651784006',
+      email: '3651784006@qq.com'
+    })
+  }
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 1)
+  const roster = listRoundEntryRows(client, round.id)
+  updateRound(client, round, { status: 'open', judgeCount: 1 })
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, roster[1]!.singerId, { scores: scoresForAll(8) })
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, roster[0]!.singerId, { scores: scoresForAll(6) })
+
+  const board = getRankBoard(client, musicId, 'prelim')
+  assert.equal(board.rows.length, 2)
+  assert.equal(board.rows[0]!.name, '乙二')
+  assert.equal(board.rows[0]!.rank, 1)
+  assert.equal(board.rows[1]!.rank, 2)
+  assert.equal(board.rows[0]!.position, 1)
+  assert.equal(board.rows[0]!.song, '晴天')
+  assert.equal('phone' in board.rows[0]!, false)
+  assert.equal('email' in board.rows[0]!, false)
+  assert.equal(board.maxTotal, 50)
+
+  closeDatabase(':memory:')
 })
 
 test('数据库：复赛评分表六个维度各自满分，总分 100，超过该维满分会被拒', async () => {

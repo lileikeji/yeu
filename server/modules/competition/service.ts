@@ -58,6 +58,8 @@ import type {
   CompetitionJudgePayload,
   CompetitionPreRegistration,
   CompetitionQueuePosition,
+  CompetitionRankBoard,
+  CompetitionRankRow,
   CompetitionQueueState,
   CompetitionReceiptState,
   CompetitionRegistrationStatus,
@@ -494,6 +496,15 @@ export function entrySingerPublic(
   return { ...base, song: '' }
 }
 
+/** 照片：库里存对象存储 key，读的时候现签 6 小时地址；没配 COS 时给出空值。 */
+export function singerPhotoUrl(row: SingerRow): string | null {
+  const key = String(row.photoKey ?? '').trim()
+  if (!key) return null
+  const config = cosConfig()
+  if (!config) return null
+  return presignCosGet(config, key, 6 * 60 * 60, 'image/jpeg')
+}
+
 export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
   return {
     id: row.id,
@@ -502,9 +513,37 @@ export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
     className: row.className,
     remark: row.remark,
     sortOrder: row.sortOrder,
+    photoUrl: singerPhotoUrl(row),
+    photoUpdatedAt: row.photoUpdatedAt == null ? null : Number(row.photoUpdatedAt),
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
   }
+}
+
+/** 上传/替换选手照片：写对象存储后只记 key，读的时候现签地址。 */
+export async function setSingerPhoto(
+  client: DatabaseClient,
+  singerId: string,
+  file: { filename: string, data: Uint8Array }
+): Promise<{ url: string | null }> {
+  const singer = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, singerId))
+    .get()
+  if (!singer) conflictError('SINGER_NOT_FOUND', '找不到这位选手')
+
+  const config = cosConfig()
+  if (!config) conflictError('STORAGE_NOT_CONFIGURED', '对象存储还没配置')
+  const extension = (file.filename.split('.').pop() ?? '').toLowerCase()
+  const safe = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(extension) ? extension : 'jpg'
+  const key = `competition/photos/${randomUUID()}.${safe}`
+  const contentType = safe === 'png' ? 'image/png' : safe === 'webp' ? 'image/webp' : 'image/jpeg'
+  await putCosObject(config, key, file.data, contentType)
+  client.db.update(competitionSingers)
+    .set({ photoKey: key, photoUpdatedAt: Date.now() })
+    .where(eq(competitionSingers.id, singerId))
+    .run()
+  const row = client.db.select().from(competitionSingers).where(eq(competitionSingers.id, singerId)).get()
+  return { url: row ? singerPhotoUrl(row) : null }
 }
 
 export function serializeSinger(row: SingerRow): CompetitionSinger {
@@ -1626,6 +1665,45 @@ function roundView(
  * 免登录叫号台：只列当天已经签到的选手，按出场顺序给序号与状态。
  * 不返回电话、邮箱、评分——叫号的人只需要知道谁该上台。
  */
+/** 公开排行页：名次 + 姓名 + 歌曲 + 出场顺序 + 照片。只给公开字段，不含联系方式与评分明细。 */
+export function getRankBoard(client: DatabaseClient, contentId: string, roundKey?: string): CompetitionRankBoard {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const key = roundKey === 'prelim' || roundKey === 'semi' || roundKey === 'final' ? roundKey : 'semi'
+  const round = getRoundByKey(client, eventRow.id, key)
+  const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
+  const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
+  const ranking = buildRoundRanking(round, entries, singersById, listRoundScores(client, round.id), {
+    trimExtremes: trimExtremesFor(client, round)
+  })
+
+  const rows: CompetitionRankRow[] = ranking
+    .slice()
+    .sort((left, right) => {
+      const rankLeft = left.rank ?? Number.MAX_SAFE_INTEGER
+      const rankRight = right.rank ?? Number.MAX_SAFE_INTEGER
+      if (rankLeft !== rankRight) return rankLeft - rankRight
+      return left.sortOrder - right.sortOrder
+    })
+    .map((row, index) => ({
+      entryId: row.id,
+      rank: row.rank,
+      position: index + 1,
+      name: row.singer.name,
+      song: (row.song ?? '').trim() || row.singer.song || '',
+      className: row.singer.className ?? '',
+      average: row.average,
+      scoreCount: row.scoreCount,
+      photoUrl: row.singer.photoUrl ?? null
+    }))
+
+  return {
+    round: { key: round.key, title: round.title, status: round.status },
+    maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round)),
+    rows,
+    updatedAt: Date.now()
+  }
+}
+
 export function getCallBoard(client: DatabaseClient, contentId: string): CompetitionCallBoard {
   const eventRow = ensureCompetitionEvent(client, contentId)
   const prelim = getRoundByKey(client, eventRow.id, 'prelim')
@@ -1985,6 +2063,16 @@ export function setEntrySong(
   if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'song')
   client.db.update(competitionRoundEntries).set({ song: value })
     .where(eq(competitionRoundEntries.id, entryId)).run()
+}
+
+/** 测试用：清空本轮所有评委评分，并把「正在唱」的指针收回（签到状态不动）。 */
+export function clearRoundScores(client: DatabaseClient, round: RoundRow): { cleared: number } {
+  const rows = client.db.select().from(competitionScores)
+    .where(eq(competitionScores.roundId, round.id))
+    .all()
+  client.db.delete(competitionScores).where(eq(competitionScores.roundId, round.id)).run()
+  setCurrentEntryId(client, round.id, null, false)
+  return { cleared: rows.length }
 }
 
 export function setEntryCheckIn(

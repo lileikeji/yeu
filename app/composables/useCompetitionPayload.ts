@@ -42,6 +42,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
   const savingSettings = ref(false)
   const savingRoundKey = ref('')
   const generatingRoundKey = ref('')
+  const clearingScoresKey = ref('')
 
   const sections = [
     { key: 'settings', label: '赛事设置', icon: 'i-lucide-sliders-horizontal' },
@@ -278,6 +279,25 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
     }
   }
 
+  /** 测试用：清空本轮所有评分（签到与出场号不动），清完评委可以重新打分。 */
+  async function clearRoundScores(round: CompetitionRoundView): Promise<void> {
+    if (clearingScoresKey.value) return
+    if (!window.confirm(`清空${round.title}的全部评分？这条只用于测试，清空后评委要重新打分。`)) return
+    clearingScoresKey.value = round.key
+    try {
+      const data = await adminFetch<{ cleared: number, payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/scores-clear`,
+        { method: 'POST' }
+      )
+      payload.value = data.payload
+      toast.add({ title: `已清空 ${data.cleared} 条评分`, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '清理失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      clearingScoresKey.value = ''
+    }
+  }
+
   async function setRoundStatus(round: CompetitionRoundView, status: 'open' | 'closed'): Promise<void> {
     if (savingRoundKey.value) return
     if (status === 'closed' && !window.confirm(`结束${round.title}评分？结束后成绩锁定。`)) {
@@ -332,6 +352,8 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
     moveDimension,
     restoreDefaultDimensions,
     saveRound,
-    setRoundStatus
+    setRoundStatus,
+    clearRoundScores,
+    clearingScoresKey
   }
 }
