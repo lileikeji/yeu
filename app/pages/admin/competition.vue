@@ -1878,7 +1878,7 @@ onBeforeUnmount(stopLiveRefresh)
                         :aria-label="`${entry.singer.name} 出场顺序`"
                         @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
                       >
-                      <span v-else>{{ entry.sortOrder || index + 1 }}</span>
+                      <span v-else>{{ rosterOrderMode === 'draw' ? (entry.sortOrder || index + 1) : index + 1 }}</span>
                     </span>
                   </td>
                   <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
