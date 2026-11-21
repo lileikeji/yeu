@@ -74,7 +74,8 @@ const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
   sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, roundSummary,
   load, saveSettings,
-  saveRound, setRoundStatus
+  saveRound, setRoundStatus,
+  clearRoundScores, clearingScoresKey
 } = useCompetitionPayload({ toast })
 
 /** 维度编辑按轮次分开：初赛 10 分制（满分 50）、复赛/决赛 20 分制（满分 100）。 */
@@ -1287,6 +1288,15 @@ onBeforeUnmount(stopLiveRefresh)
                 :disabled="!canClearRoster(activeRound)"
                 :loading="generatingRoundKey === activeRound.key"
                 @click="clearRoster(activeRound)"
+              />
+              <UButton
+                icon="i-lucide-eraser"
+                label="清空评分"
+                color="error"
+                variant="soft"
+                :disabled="!(activeRound.entries.some(entry => entry.average !== null) || (activeRound.scores?.length ?? 0) > 0)"
+                :loading="clearingScoresKey === activeRound.key"
+                @click="clearRoundScores(activeRound)"
               />
               <UButton
                 icon="i-lucide-copy"
