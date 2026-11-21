@@ -404,6 +404,9 @@ export interface CompetitionSingerPublic {
   className: string | null
   remark: string | null
   sortOrder: number
+  /** 选手照片的临时地址（对象存储现签，6 小时）；空 = 还没传。 */
+  photoUrl?: string | null
+  photoUpdatedAt?: number | null
   createdAt: number
   updatedAt: number
 }
@@ -529,6 +532,26 @@ export interface CompetitionQueuePosition {
 }
 
 /** 叫号台的一行：出场序、姓名、歌曲、班级、当前状态。 */
+/** 公开排行页：一行一位选手（含照片与平均分）。 */
+export interface CompetitionRankRow {
+  entryId: string
+  rank: number | null
+  position: number
+  name: string
+  song: string
+  className: string
+  average: number | null
+  scoreCount: number
+  photoUrl: string | null
+}
+
+export interface CompetitionRankBoard {
+  round: { key: string, title: string, status: string }
+  maxTotal: number
+  rows: CompetitionRankRow[]
+  updatedAt: number
+}
+
 export interface CompetitionCallBoardRow {
   position: number
   name: string

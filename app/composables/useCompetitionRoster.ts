@@ -377,6 +377,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   /** 各轮曲目草稿：初赛/复赛/决赛分开存，改哪轮只写哪轮条目的 song。 */
   const entrySongBusyId = ref('')
   const accompanimentBusyId = ref('')
+  const photoBusyId = ref('')
   const entrySongDraft = ref<Record<string, string>>({})
 
   function entrySongValue(entry: CompetitionRoundEntry, roundKey?: string): string {
@@ -415,6 +416,29 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   }
 
   /** 后台代传伴奏：选手自己传不上来时（iOS 微信选不到聊天文件）由工作人员补。 */
+  /** 选手照片：走对象存储，后台只记 key；传完立刻回填到名单里的缩略图。 */
+  async function uploadEntryPhoto(entry: CompetitionRoundEntry, file: File): Promise<void> {
+    if (photoBusyId.value) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.add({ title: '照片别超过 10MB', color: 'warning' })
+      return
+    }
+    photoBusyId.value = entry.id
+    try {
+      const data = await readFileAsBase64(file)
+      await adminFetch<{ url: string | null }>(
+        `/api/admin/competition/singers/${entry.singer.id}/photo`,
+        { method: 'POST', body: { filename: file.name, data } }
+      )
+      await load()
+      toast.add({ title: `${entry.singer.name} 的照片已上传`, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '照片上传失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      photoBusyId.value = ''
+    }
+  }
+
   async function uploadEntryAccompaniment(
     round: CompetitionRoundView,
     entry: CompetitionRoundEntry,
@@ -656,6 +680,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     toggleEntryCheckIn,
     entrySongBusyId,
     accompanimentBusyId,
+    photoBusyId,
+    uploadEntryPhoto,
     uploadEntryAccompaniment,
     entrySongDraft,
     entrySongValue,

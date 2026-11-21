@@ -44,6 +44,12 @@ async function copyMissingAccompaniment(): Promise<void> {
 
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
+/** 明细里每一维按它自己的满分显示（复赛 20/20/20/15/15/10）。 */
+function maxOfKey(key: string): number {
+  const dimension = activeRound.value?.dimensions.find(item => item.key === key)
+  const own = Number(dimension?.max)
+  return Number.isFinite(own) && own > 0 ? own : dimensionScoreMax.value
+}
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
 function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: Event): void {
@@ -184,7 +190,8 @@ const {
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
   changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn,
-  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment, changeJudgeDay, redrawRound, clearRoster,
+  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment,
+  photoBusyId, uploadEntryPhoto, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -246,6 +253,27 @@ const accompanimentPreview = ref<{
   updatedAt: number | null
   original?: { name: string, url: string, size: number | null } | null
 } | null>(null)
+
+const photoPreview = ref<{ name: string, url: string } | null>(null)
+const photoInput = ref<HTMLInputElement | null>(null)
+const photoTargetEntryId = ref('')
+function openPhoto(entry: { singer: { name: string, photoUrl?: string | null } }): void {
+  if (!entry.singer.photoUrl) return
+  photoPreview.value = { name: entry.singer.name, url: entry.singer.photoUrl }
+}
+function pickPhoto(entry: { id: string }): void {
+  photoTargetEntryId.value = entry.id
+  photoInput.value?.click()
+}
+function onPhotoPicked(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  const entry = activeRound.value?.entries.find(item => item.id === photoTargetEntryId.value)
+  if (!file || !entry) return
+  void uploadEntryPhoto(entry, file)
+}
+
 const accompanimentPreviewOpen = ref(false)
 
 /** 伴奏体积：MB 保留一位，小的用 KB。 */
@@ -1854,6 +1882,9 @@ onBeforeUnmount(stopLiveRefresh)
                   <th class="px-3 py-2 font-medium">
                     来源
                   </th>
+                  <th class="px-3 py-2 font-medium">
+                    照片
+                  </th>
                   <th class="w-24 px-3 py-2 font-medium">
                     状态
                   </th>
@@ -1959,6 +1990,34 @@ onBeforeUnmount(stopLiveRefresh)
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.advancedFromRank ? `上一轮第 ${entry.advancedFromRank} 名` : '选手库' }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex items-center gap-1">
+                      <button
+                        v-if="entry.singer.photoUrl"
+                        type="button"
+                        class="size-10 overflow-hidden rounded border border-zinc-200 dark:border-zinc-700"
+                        :aria-label="`查看${entry.singer.name}的照片`"
+                        @click="openPhoto(entry)"
+                      >
+                        <img
+                          :src="entry.singer.photoUrl"
+                          :alt="entry.singer.name"
+                          class="size-10 object-cover"
+                        >
+                      </button>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="outline"
+                        :icon="entry.singer.photoUrl ? 'i-lucide-image-up' : 'i-lucide-upload'"
+                        :loading="photoBusyId === entry.id"
+                        :aria-label="`上传${entry.singer.name}的照片`"
+                        @click="pickPhoto(entry)"
+                      >
+                        {{ entry.singer.photoUrl ? '换' : '上传' }}
+                      </UButton>
+                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <span
@@ -2260,7 +2319,7 @@ onBeforeUnmount(stopLiveRefresh)
                     天
                   </th>
                   <th class="px-3 py-2 text-right font-medium">
-                    平均分
+                    平均分（满分 {{ maxTotal }}）
                   </th>
                   <th class="px-3 py-2 text-right font-medium">
                     评分人数
@@ -3186,7 +3245,7 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ dimension.weight }}
                   </td>
                   <td class="px-3 py-2 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ dimension.score }} / {{ dimensionScoreMax }}
+                    {{ dimension.score }} / {{ maxOfKey(dimension.key) }}
                   </td>
                 </tr>
               </tbody>
@@ -3345,5 +3404,30 @@ onBeforeUnmount(stopLiveRefresh)
         </div>
       </template>
     </UModal>
+
+    <input
+      ref="photoInput"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      @change="onPhotoPicked"
+    >
+
+    <div
+      v-if="photoPreview"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      @click="photoPreview = null"
+    >
+      <figure class="max-h-full w-full max-w-lg text-center">
+        <img
+          :src="photoPreview.url"
+          :alt="photoPreview.name"
+          class="mx-auto max-h-[80vh] w-auto rounded-lg object-contain"
+        >
+        <figcaption class="mt-3 text-sm text-white/80">
+          {{ photoPreview.name }}
+        </figcaption>
+      </figure>
+    </div>
   </div>
 </template>
