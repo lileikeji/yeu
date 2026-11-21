@@ -70,7 +70,12 @@ const organizationNavigation = computed(() => [{
             label: '社团名片（迎新站）',
             to: '/admin/organization',
             icon: 'i-lucide-panels-top-left'
-          }])
+          }, {
+            label: '数据看板',
+            to: '/admin/overview',
+            icon: 'i-lucide-line-chart',
+            capability: 'analytics.view' as const
+          }].filter(item => canUseCapability(item.capability)))
     : [{
         label: organizationTitle.value || '我的组织页面',
         to: '/admin/organization',
@@ -90,6 +95,11 @@ const organizationNavigation = computed(() => [{
             icon: 'i-lucide-mic-vocal'
           }]
         : []), {
+        label: '数据看板',
+        to: '/admin/overview',
+        icon: 'i-lucide-line-chart',
+        capability: 'analytics.view' as const
+      }, {
         label: '小程序分析',
         to: '/admin/miniapp',
         icon: 'i-lucide-smartphone',
@@ -734,6 +744,6 @@ function openCommandPalette() {
         </aside>
       </dialog>
     </template>
-    <AdminCommandPalette />
+    <AdminCommandPalette :groups="navigationGroups" />
   </div>
 </template>
