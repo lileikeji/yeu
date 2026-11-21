@@ -4,7 +4,7 @@ import type {
   CompetitionRoundView,
   CompetitionSingerPublic
 } from '~~/shared/types'
-import { calculateCompetitionTotal } from '~~/shared/utils/competition'
+import { calculateCompetitionTotal, dimensionMaxOf } from '~~/shared/utils/competition'
 import { adminFetch } from '~~/app/utils/admin-request'
 import { apiErrorMessage } from './useCompetitionRoster'
 
@@ -55,7 +55,8 @@ export function useCompetitionScores(options: UseCompetitionScoresOptions) {
   const scoreDraftComplete = computed(() =>
     dimensions.value.every((dimension) => {
       const raw = Number(scoreDraft.value[dimension.key])
-      return Number.isFinite(raw) && raw >= 0 && raw <= 10 && String(scoreDraft.value[dimension.key] ?? '') !== ''
+      const max = dimensionMaxOf(dimension, dimensionMax.value)
+      return Number.isFinite(raw) && raw >= 0 && raw <= max && String(scoreDraft.value[dimension.key] ?? '') !== ''
     })
   )
 
