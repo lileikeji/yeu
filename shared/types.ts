@@ -293,6 +293,8 @@ export interface CompetitionDimension {
   label: string
   /** 相对权重；总分为各维度加权平均分 × 维度数（默认等权时即为各项累加）。 */
   weight: number
+  /** 该维度自己的满分（复赛评分表：节奏/音准/技巧 20，情感/音色 15，舞台 10）；空 = 用本轮的每维满分。 */
+  max?: number
 }
 
 export type CompetitionRoundKey = 'prelim' | 'semi' | 'final'
@@ -366,6 +368,8 @@ export interface CompetitionRound {
   dimensions: CompetitionDimension[]
   /** 每维满分：初赛 10（满分 50），复赛/决赛 20（满分 100）。 */
   dimensionMax: number
+  /** 本轮满分（各维满分之和，或维度数 × 每维满分）。 */
+  maxTotal: number
   /** 本轮算平均分是否去掉一个最高一个最低；空=false 时沿用赛事级设置。 */
   trimExtremes: boolean
   /** 分场天：1 / 2；null = 不分天（复赛、决赛）。 */
@@ -402,6 +406,9 @@ export interface CompetitionSingerPublic {
   className: string | null
   remark: string | null
   sortOrder: number
+  /** 选手照片的临时地址（对象存储现签，6 小时）；空 = 还没传。 */
+  photoUrl?: string | null
+  photoUpdatedAt?: number | null
   createdAt: number
   updatedAt: number
 }
@@ -527,6 +534,26 @@ export interface CompetitionQueuePosition {
 }
 
 /** 叫号台的一行：出场序、姓名、歌曲、班级、当前状态。 */
+/** 公开排行页：一行一位选手（含照片与平均分）。 */
+export interface CompetitionRankRow {
+  entryId: string
+  rank: number | null
+  position: number
+  name: string
+  song: string
+  className: string
+  average: number | null
+  scoreCount: number
+  photoUrl: string | null
+}
+
+export interface CompetitionRankBoard {
+  round: { key: string, title: string, status: string }
+  maxTotal: number
+  rows: CompetitionRankRow[]
+  updatedAt: number
+}
+
 export interface CompetitionCallBoardRow {
   position: number
   name: string

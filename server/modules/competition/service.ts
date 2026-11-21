@@ -33,6 +33,7 @@ import {
   DEFAULT_COMPETITION_DIMENSIONS,
   calculateCompetitionTotal,
   competitionMaxTotal,
+  dimensionMaxOf,
   plainSortName,
   roundCompetitionScore
 } from '../../../shared/utils/competition'
@@ -57,6 +58,8 @@ import type {
   CompetitionJudgePayload,
   CompetitionPreRegistration,
   CompetitionQueuePosition,
+  CompetitionRankBoard,
+  CompetitionRankRow,
   CompetitionQueueState,
   CompetitionReceiptState,
   CompetitionRegistrationStatus,
@@ -91,6 +94,7 @@ export {
   DEFAULT_COMPETITION_DIMENSIONS,
   calculateCompetitionTotal,
   competitionMaxTotal,
+  dimensionMaxOf,
   roundCompetitionScore
 } from '../../../shared/utils/competition'
 
@@ -148,7 +152,13 @@ export function validateCompetitionDimensions(input: unknown): CompetitionDimens
     if (!Number.isFinite(weight) || weight <= 0 || weight > 100) {
       validationError(`「${label}」的占比需为 0-100 之间的正数`, 'dimensions')
     }
-    return { key, label, weight: roundCompetitionScore(weight) }
+    const ownMax = Number(record.max)
+    const dimension: CompetitionDimension = { key, label, weight: roundCompetitionScore(weight) }
+    if (Number.isFinite(ownMax) && ownMax > 0) {
+      if (ownMax > 100) validationError(`「${label}」的满分需为 1-100`, 'dimensions')
+      dimension.max = Math.round(ownMax)
+    }
+    return dimension
   })
 }
 
@@ -450,6 +460,7 @@ export function serializeRound(row: RoundRow, eventRow?: EventRow | null): Compe
     scorePrecision: row.scorePrecision === 'decimal' ? 'decimal' : 'integer',
     dimensions: getRoundDimensions(row, eventRow),
     dimensionMax: getRoundDimensionMax(row),
+    maxTotal: competitionMaxTotal(getRoundDimensions(row, eventRow), getRoundDimensionMax(row)),
     trimExtremes: row.trimExtremes === null || row.trimExtremes === undefined
       ? eventRow?.trimExtremes === 1
       : row.trimExtremes === 1,
@@ -486,6 +497,25 @@ export function entrySingerPublic(
   return { ...base, song: '' }
 }
 
+/** 照片：库里存对象存储 key，读的时候现签 6 小时地址；没配 COS 时给出空值。 */
+export function singerPhotoUrl(row: SingerRow): string | null {
+  const key = String(row.photoKey ?? '').trim()
+  if (!key) return null
+  const config = cosConfig()
+  if (!config) return null
+  // 按扩展名给正确的 Content-Type，别把 PNG/WebP/HEIC 一律当 jpeg，否则部分浏览器不渲染。
+  const extension = key.slice(key.lastIndexOf('.') + 1).toLowerCase()
+  const contentType =
+    extension === 'png'
+      ? 'image/png'
+      : extension === 'webp'
+        ? 'image/webp'
+        : extension === 'heic' || extension === 'heif'
+          ? 'image/heic'
+          : 'image/jpeg'
+  return presignCosGet(config, key, 6 * 60 * 60, contentType)
+}
+
 export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
   return {
     id: row.id,
@@ -494,9 +524,37 @@ export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
     className: row.className,
     remark: row.remark,
     sortOrder: row.sortOrder,
+    photoUrl: singerPhotoUrl(row),
+    photoUpdatedAt: row.photoUpdatedAt == null ? null : Number(row.photoUpdatedAt),
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
   }
+}
+
+/** 上传/替换选手照片：写对象存储后只记 key，读的时候现签地址。 */
+export async function setSingerPhoto(
+  client: DatabaseClient,
+  singerId: string,
+  file: { filename: string, data: Uint8Array }
+): Promise<{ url: string | null }> {
+  const singer = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, singerId))
+    .get()
+  if (!singer) conflictError('SINGER_NOT_FOUND', '找不到这位选手')
+
+  const config = cosConfig()
+  if (!config) conflictError('STORAGE_NOT_CONFIGURED', '对象存储还没配置')
+  const extension = (file.filename.split('.').pop() ?? '').toLowerCase()
+  const safe = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(extension) ? extension : 'jpg'
+  const key = `competition/photos/${randomUUID()}.${safe}`
+  const contentType = safe === 'png' ? 'image/png' : safe === 'webp' ? 'image/webp' : 'image/jpeg'
+  await putCosObject(config, key, file.data, contentType)
+  client.db.update(competitionSingers)
+    .set({ photoKey: key, photoUpdatedAt: Date.now() })
+    .where(eq(competitionSingers.id, singerId))
+    .run()
+  const row = client.db.select().from(competitionSingers).where(eq(competitionSingers.id, singerId)).get()
+  return { url: row ? singerPhotoUrl(row) : null }
 }
 
 export function serializeSinger(row: SingerRow): CompetitionSinger {
@@ -569,8 +627,9 @@ export function adminUpsertRoundScore(
   const dimensionMax = getRoundDimensionMax(round)
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(input.scores?.[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
-      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
+    const max = dimensionMaxOf(dimension, dimensionMax)
+    if (!Number.isFinite(value) || value < 0 || value > max) {
+      validationError(`「${dimension.label}」需为 0-${max} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,
@@ -1617,6 +1676,45 @@ function roundView(
  * 免登录叫号台：只列当天已经签到的选手，按出场顺序给序号与状态。
  * 不返回电话、邮箱、评分——叫号的人只需要知道谁该上台。
  */
+/** 公开排行页：名次 + 姓名 + 歌曲 + 出场顺序 + 照片。只给公开字段，不含联系方式与评分明细。 */
+export function getRankBoard(client: DatabaseClient, contentId: string, roundKey?: string): CompetitionRankBoard {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const key = roundKey === 'prelim' || roundKey === 'semi' || roundKey === 'final' ? roundKey : 'semi'
+  const round = getRoundByKey(client, eventRow.id, key)
+  const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
+  const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
+  const ranking = buildRoundRanking(round, entries, singersById, listRoundScores(client, round.id), {
+    trimExtremes: trimExtremesFor(client, round)
+  })
+
+  const rows: CompetitionRankRow[] = ranking
+    .slice()
+    .sort((left, right) => {
+      const rankLeft = left.rank ?? Number.MAX_SAFE_INTEGER
+      const rankRight = right.rank ?? Number.MAX_SAFE_INTEGER
+      if (rankLeft !== rankRight) return rankLeft - rankRight
+      return left.sortOrder - right.sortOrder
+    })
+    .map((row, index) => ({
+      entryId: row.id,
+      rank: row.rank,
+      position: index + 1,
+      name: row.singer.name,
+      song: (row.song ?? '').trim() || row.singer.song || '',
+      className: row.singer.className ?? '',
+      average: row.average,
+      scoreCount: row.scoreCount,
+      photoUrl: row.singer.photoUrl ?? null
+    }))
+
+  return {
+    round: { key: round.key, title: round.title, status: round.status },
+    maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round)),
+    rows,
+    updatedAt: Date.now()
+  }
+}
+
 export function getCallBoard(client: DatabaseClient, contentId: string): CompetitionCallBoard {
   const eventRow = ensureCompetitionEvent(client, contentId)
   const prelim = getRoundByKey(client, eventRow.id, 'prelim')
@@ -1978,6 +2076,16 @@ export function setEntrySong(
     .where(eq(competitionRoundEntries.id, entryId)).run()
 }
 
+/** 测试用：清空本轮所有评委评分，并把「正在唱」的指针收回（签到状态不动）。 */
+export function clearRoundScores(client: DatabaseClient, round: RoundRow): { cleared: number } {
+  const rows = client.db.select().from(competitionScores)
+    .where(eq(competitionScores.roundId, round.id))
+    .all()
+  client.db.delete(competitionScores).where(eq(competitionScores.roundId, round.id)).run()
+  setCurrentEntryId(client, round.id, null, false)
+  return { cleared: rows.length }
+}
+
 export function setEntryCheckIn(
   client: DatabaseClient,
   round: RoundRow,
@@ -2060,6 +2168,14 @@ export function applyEntrySortOrders(
     assigned.set(entry.id, next)
     used.add(next)
     next += 1
+  }
+
+  // 现场规则：只有「人手动填了号」的那几个算到场签到；自动续号的不算签到。
+  const checkedInAt = Date.now()
+  const explicitIds = orders.map(item => item.entryId)
+  for (const entryId of explicitIds) {
+    client.db.update(competitionRoundEntries).set({ checkedInAt })
+      .where(eq(competitionRoundEntries.id, entryId)).run()
   }
 
   // 先整体挪到负数区间，避免中途撞上已有号码
@@ -2875,8 +2991,9 @@ export function submitJudgeScore(
   const scoreMap = rawScores as Record<string, unknown>
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(scoreMap[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
-      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
+    const max = dimensionMaxOf(dimension, dimensionMax)
+    if (!Number.isFinite(value) || value < 0 || value > max) {
+      validationError(`「${dimension.label}」需为 0-${max} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,

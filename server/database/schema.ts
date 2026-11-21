@@ -1225,6 +1225,9 @@ export const competitionSingers = sqliteTable('competition_singers', {
   phone: text('phone'),
   email: text('email'),
   qq: text('qq'),
+  /** 选手照片在对象存储里的 key（competition/photos/…）；空 = 还没传。 */
+  photoKey: text('photo_key'),
+  photoUpdatedAt: integer('photo_updated_at'),
   source: text('source', { enum: ['admin', 'form', 'pre'] }).notNull().default('admin'),
   /** 由预报名确认生成时，关联的预报名记录。 */
   preRegistrationId: text('pre_registration_id').references(() => competitionPreRegistrations.id, { onDelete: 'set null' }),

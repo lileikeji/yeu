@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
+import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE, competitionMaxTotal } from '~~/shared/utils/competition'
 import type { CompetitionAdminPayload, CompetitionDimension, CompetitionRoundEntry, CompetitionRoundKey, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
@@ -44,6 +44,12 @@ async function copyMissingAccompaniment(): Promise<void> {
 
 const reminderPlaceholderHint = '可用占位：{{姓名}}、{{届次}}'
 const dimensionScoreMax = computed(() => activeRound.value?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
+/** 明细里每一维按它自己的满分显示（复赛 20/20/20/15/15/10）。 */
+function maxOfKey(key: string): number {
+  const dimension = activeRound.value?.dimensions.find(item => item.key === key)
+  const own = Number(dimension?.max)
+  return Number.isFinite(own) && own > 0 ? own : dimensionScoreMax.value
+}
 
 // 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
 function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: Event): void {
@@ -68,13 +74,18 @@ const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
   sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, roundSummary,
   load, saveSettings,
-  saveRound, setRoundStatus
+  saveRound, setRoundStatus,
+  clearRoundScores, clearingScoresKey
 } = useCompetitionPayload({ toast })
 
 /** 维度编辑按轮次分开：初赛 10 分制（满分 50）、复赛/决赛 20 分制（满分 100）。 */
 const dimensionRoundKey = ref<CompetitionRoundKey>('prelim')
 const dimensionRoundDraft = ref<CompetitionDimension[]>([])
 const dimensionMaxDraft = ref(COMPETITION_MAX_DIMENSION_SCORE)
+const dimensionRoundTotal = computed(() => competitionMaxTotal(
+  dimensionRoundDraft.value,
+  Number(dimensionMaxDraft.value) || COMPETITION_MAX_DIMENSION_SCORE
+))
 const trimExtremesDraft = ref(false)
 const savingTrimExtremes = ref(false)
 const savingDimensions = ref(false)
@@ -145,7 +156,15 @@ async function saveRoundDimensions(): Promise<void> {
   const round = dimensionRound.value
   if (!round || savingDimensions.value) return
   const dimensions = dimensionRoundDraft.value
-    .map(item => ({ key: item.key, label: item.label.trim(), weight: Number(item.weight) }))
+    .map((item) => {
+      const max = Number(item.max)
+      return {
+        key: item.key,
+        label: item.label.trim(),
+        weight: Number(item.weight),
+        ...(Number.isFinite(max) && max > 0 ? { max: Math.round(max) } : {})
+      }
+    })
   if (dimensions.some(item => !item.label)) {
     toast.add({ title: '维度名称不能为空', color: 'warning' })
     return
@@ -154,7 +173,16 @@ async function saveRoundDimensions(): Promise<void> {
   try {
     const data = await adminFetch<CompetitionAdminPayload>(
       `/api/admin/competition/rounds/${round.key}`,
-      { method: 'PUT', body: { dimensions, dimensionMax: Number(dimensionMaxDraft.value) } }
+      {
+        method: 'PUT',
+        body: {
+          dimensions,
+          // 每维满分都填了就让本轮满分跟着取最大值，否则沿用原兜底值
+          dimensionMax: dimensions.every(item => item.max)
+            ? Math.max(...dimensions.map(item => item.max as number))
+            : (Number(dimensionMaxDraft.value) || COMPETITION_MAX_DIMENSION_SCORE)
+        }
+      }
     )
     payload.value = data
     toast.add({ title: `${round.title}维度已保存`, color: 'success' })
@@ -180,7 +208,8 @@ const {
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
   changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn,
-  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment, changeJudgeDay, redrawRound, clearRoster,
+  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment,
+  photoBusyId, uploadEntryPhoto, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -242,6 +271,27 @@ const accompanimentPreview = ref<{
   updatedAt: number | null
   original?: { name: string, url: string, size: number | null } | null
 } | null>(null)
+
+const photoPreview = ref<{ name: string, url: string } | null>(null)
+const photoInput = ref<HTMLInputElement | null>(null)
+const photoTargetEntryId = ref('')
+function openPhoto(entry: { singer: { name: string, photoUrl?: string | null } }): void {
+  if (!entry.singer.photoUrl) return
+  photoPreview.value = { name: entry.singer.name, url: entry.singer.photoUrl }
+}
+function pickPhoto(entry: { id: string }): void {
+  photoTargetEntryId.value = entry.id
+  photoInput.value?.click()
+}
+function onPhotoPicked(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  const entry = activeRound.value?.entries.find(item => item.id === photoTargetEntryId.value)
+  if (!file || !entry) return
+  void uploadEntryPhoto(entry, file)
+}
+
 const accompanimentPreviewOpen = ref(false)
 
 /** 伴奏体积：MB 保留一位，小的用 KB。 */
@@ -633,21 +683,11 @@ onBeforeUnmount(stopLiveRefresh)
                 size="xs"
                 class="w-40"
               />
-              <span class="text-xs text-zinc-500 dark:text-zinc-400">
-                每维满分
-              </span>
-              <UInput
-                v-model.number="dimensionMaxDraft"
-                type="number"
-                min="1"
-                max="100"
-                step="1"
-                size="xs"
-                class="w-20"
-                :disabled="dimensionRoundLocked"
-              />
               <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                本轮满分 {{ dimensionRoundDraft.length * Number(dimensionMaxDraft || 0) }} 分
+                本轮满分 {{ dimensionRoundTotal }} 分
+              </span>
+              <span class="text-xs text-zinc-400 dark:text-zinc-500">
+                每维满分在下面各行自己填，留空就用 {{ dimensionMaxDraft }} 分
               </span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -720,6 +760,22 @@ onBeforeUnmount(stopLiveRefresh)
                   class="w-full"
                   :disabled="dimensionRoundLocked"
                   @update:model-value="value => dimension.weight = Number(value) || 0"
+                />
+              </UFormField>
+              <UFormField
+                label="满分"
+                class="w-24"
+              >
+                <UInput
+                  :model-value="String(dimension.max ?? '')"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  :placeholder="`${dimensionMaxDraft}`"
+                  class="w-full"
+                  :disabled="dimensionRoundLocked"
+                  @update:model-value="value => dimension.max = Number(value) > 0 ? Number(value) : undefined"
                 />
               </UFormField>
               <div class="w-20 pb-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
@@ -958,13 +1014,19 @@ onBeforeUnmount(stopLiveRefresh)
                   <template v-if="singerJoinedRound(singer.id, 'semi')">
                     {{ singerRoundSong(singer, 'semi') || '待填' }}
                   </template>
-                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                  <span
+                    v-else
+                    class="text-zinc-300 dark:text-zinc-600"
+                  >—</span>
                 </td>
                 <td class="px-3 py-2 text-xs">
                   <template v-if="singerJoinedRound(singer.id, 'final')">
                     {{ singerRoundSong(singer, 'final') || '待填' }}
                   </template>
-                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                  <span
+                    v-else
+                    class="text-zinc-300 dark:text-zinc-600"
+                  >—</span>
                 </td>
                 <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ singer.className || '—' }}
@@ -1239,6 +1301,15 @@ onBeforeUnmount(stopLiveRefresh)
                 :disabled="!canClearRoster(activeRound)"
                 :loading="generatingRoundKey === activeRound.key"
                 @click="clearRoster(activeRound)"
+              />
+              <UButton
+                icon="i-lucide-eraser"
+                label="清空评分"
+                color="error"
+                variant="soft"
+                :disabled="!(activeRound.entries.some(entry => entry.average !== null) || (activeRound.scores?.length ?? 0) > 0)"
+                :loading="clearingScoresKey === activeRound.key"
+                @click="clearRoundScores(activeRound)"
               />
               <UButton
                 icon="i-lucide-copy"
@@ -1750,6 +1821,7 @@ onBeforeUnmount(stopLiveRefresh)
                   按出场号排
                 </option>
               </select>
+              <span class="hidden text-[11px] text-zinc-500 sm:inline dark:text-zinc-400">填号=签到</span>
               <UButton
                 v-if="activeRound.status !== 'closed'"
                 size="xs"
@@ -1759,7 +1831,7 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="sortOrderBusy"
                 @click="applySortOrders(activeRound)"
               >
-                按填的号排序
+                保存号码并排序
               </UButton>
               <a
                 href="/singer/draw"
@@ -1833,6 +1905,9 @@ onBeforeUnmount(stopLiveRefresh)
                   <th class="px-3 py-2 font-medium">
                     来源
                   </th>
+                  <th class="px-3 py-2 font-medium">
+                    照片
+                  </th>
                   <th class="w-24 px-3 py-2 font-medium">
                     状态
                   </th>
@@ -1873,11 +1948,11 @@ onBeforeUnmount(stopLiveRefresh)
                         type="text"
                         inputmode="numeric"
                         class="w-12 rounded border border-zinc-200 px-1 py-0.5 text-center text-sm tabular-nums focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
-                        :placeholder="String(entry.sortOrder || index + 1)"
+                        :placeholder="String(index + 1)"
                         :aria-label="`${entry.singer.name} 出场顺序`"
                         @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
                       >
-                      <span v-else>{{ entry.sortOrder || index + 1 }}</span>
+                      <span v-else>{{ rosterOrderMode === 'draw' ? (entry.sortOrder || index + 1) : index + 1 }}</span>
                     </span>
                   </td>
                   <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
@@ -1916,7 +1991,10 @@ onBeforeUnmount(stopLiveRefresh)
                           aria-label="试听伴奏"
                           @click="openAccompaniment(entry)"
                         >
-                          <UIcon name="i-lucide-play" class="size-3" />
+                          <UIcon
+                            name="i-lucide-play"
+                            class="size-3"
+                          />
                           试听
                         </button>
                         <span class="ml-1 text-[11px]">
@@ -1938,6 +2016,34 @@ onBeforeUnmount(stopLiveRefresh)
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.advancedFromRank ? `上一轮第 ${entry.advancedFromRank} 名` : '选手库' }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex items-center gap-1">
+                      <button
+                        v-if="entry.singer.photoUrl"
+                        type="button"
+                        class="size-10 overflow-hidden rounded border border-zinc-200 dark:border-zinc-700"
+                        :aria-label="`查看${entry.singer.name}的照片`"
+                        @click="openPhoto(entry)"
+                      >
+                        <img
+                          :src="entry.singer.photoUrl"
+                          :alt="entry.singer.name"
+                          class="size-10 object-cover"
+                        >
+                      </button>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="outline"
+                        :icon="entry.singer.photoUrl ? 'i-lucide-image-up' : 'i-lucide-upload'"
+                        :loading="photoBusyId === entry.id"
+                        :aria-label="`上传${entry.singer.name}的照片`"
+                        @click="pickPhoto(entry)"
+                      >
+                        {{ entry.singer.photoUrl ? '换' : '上传' }}
+                      </UButton>
+                    </div>
                   </td>
                   <td class="px-3 py-2">
                     <span
@@ -2239,7 +2345,7 @@ onBeforeUnmount(stopLiveRefresh)
                     天
                   </th>
                   <th class="px-3 py-2 text-right font-medium">
-                    平均分
+                    平均分（满分 {{ maxTotal }}）
                   </th>
                   <th class="px-3 py-2 text-right font-medium">
                     评分人数
@@ -3165,7 +3271,7 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ dimension.weight }}
                   </td>
                   <td class="px-3 py-2 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ dimension.score }} / {{ dimensionScoreMax }}
+                    {{ dimension.score }} / {{ maxOfKey(dimension.key) }}
                   </td>
                 </tr>
               </tbody>
@@ -3216,7 +3322,7 @@ onBeforeUnmount(stopLiveRefresh)
 
           <div class="space-y-2">
             <div
-              v-for="dimension in (settings?.dimensions ?? [])"
+              v-for="dimension in (activeRound?.dimensions ?? [])"
               :key="dimension.key"
               class="flex items-center justify-between gap-3"
             >
@@ -3232,7 +3338,7 @@ onBeforeUnmount(stopLiveRefresh)
                 v-model="scoreDraft[dimension.key]"
                 type="number"
                 min="0"
-                :max="dimensionScoreMax"
+                :max="maxOfKey(dimension.key)"
                 step="0.5"
                 class="w-24 rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               >
@@ -3307,7 +3413,10 @@ onBeforeUnmount(stopLiveRefresh)
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-sm text-emerald-700 underline dark:text-emerald-300"
           >
-            <UIcon name="i-lucide-download" class="size-4" />
+            <UIcon
+              name="i-lucide-download"
+              class="size-4"
+            />
             下载这个伴奏
           </a>
           <a
@@ -3318,11 +3427,39 @@ onBeforeUnmount(stopLiveRefresh)
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-sm text-zinc-600 underline dark:text-zinc-300"
           >
-            <UIcon name="i-lucide-file-audio" class="size-4" />
+            <UIcon
+              name="i-lucide-file-audio"
+              class="size-4"
+            />
             下载原件（{{ accompanimentSize(accompanimentPreview.original.size) }}）
           </a>
         </div>
       </template>
     </UModal>
+
+    <input
+      ref="photoInput"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      @change="onPhotoPicked"
+    >
+
+    <div
+      v-if="photoPreview"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      @click="photoPreview = null"
+    >
+      <figure class="max-h-full w-full max-w-lg text-center">
+        <img
+          :src="photoPreview.url"
+          :alt="photoPreview.name"
+          class="mx-auto max-h-[80vh] w-auto rounded-lg object-contain"
+        >
+        <figcaption class="mt-3 text-sm text-white/80">
+          {{ photoPreview.name }}
+        </figcaption>
+      </figure>
+    </div>
   </div>
 </template>

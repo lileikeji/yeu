@@ -1346,7 +1346,8 @@ export const publicRecruitSubmissionSchema = z.object({
 export const competitionDimensionSchema = z.object({
   key: z.string().trim().min(1).max(64),
   label: z.string().trim().min(1).max(20),
-  weight: z.number().positive().max(100)
+  weight: z.number().positive().max(100),
+  max: z.number().int().min(1).max(100).optional()
 }).strict()
 
 export const competitionScheduleItemSchema = z.object({

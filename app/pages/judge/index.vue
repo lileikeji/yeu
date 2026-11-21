@@ -88,11 +88,24 @@ const singerList = computed(() => {
     })
 })
 const dimensionMax = computed(() => payload.value?.round?.dimensionMax ?? COMPETITION_MAX_DIMENSION_SCORE)
-/** 滑块中间刻度按满分一半：20 分制中间是 10，10 分制是 5。 */
-const midTick = computed(() => {
-  const half = dimensionMax.value / 2
+/** 维度自己的满分：复赛评分表里节奏/音准/技巧 20、情感/音色 15、舞台 10；没写就用本轮的每维满分。 */
+function maxOf(dimension: { max?: number }): number {
+  const own = Number(dimension.max)
+  return Number.isFinite(own) && own > 0 ? own : dimensionMax.value
+}
+function dimensionKeyMax(key: string): number {
+  const dimension = dimensions.value.find(item => item.key === key)
+  return dimension ? maxOf(dimension) : dimensionMax.value
+}
+function tickOf(dimension: { max?: number }): string {
+  const half = maxOf(dimension) / 2
   return Number.isInteger(half) ? String(half) : half.toFixed(1)
-})
+}
+function tapChoicesOf(dimension: { max?: number }): number[] {
+  const max = Math.min(60, Math.round(maxOf(dimension)))
+  return Array.from({ length: max }, (_, index) => index + 1)
+}
+/** 滑块中间刻度按满分一半：20 分制中间是 10，10 分制是 5。 */
 const maxTotal = computed(
   () => payload.value?.round?.maxTotal ?? event.value?.maxTotal ?? dimensions.value.length * dimensionMax.value
 )
@@ -103,7 +116,6 @@ const decimalMode = computed(() => scorePrecision.value === 'decimal')
 // 滑块用 0.5 的粗档（0.1 在手机上根本点不准），加减按钮与输入框负责 0.1 的细调。
 const scoreStep = computed(() => (decimalMode.value ? 0.5 : 1))
 const scoreNudgeStep = computed(() => (decimalMode.value ? 0.1 : 1))
-const tapScoreChoices = computed(() => Array.from({ length: dimensionMax.value }, (_, index) => index + 1))
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
 /** 顺序评分：主持人把全场指到同一位选手，所有人都只能给这一位打分。 */
@@ -289,11 +301,11 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-function normalizeScore(raw: unknown): number | null {
+function normalizeScore(raw: unknown, max: number = dimensionMax.value): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  const bounded = Math.min(dimensionMax.value, Math.max(0, value))
+  const bounded = Math.min(max, Math.max(0, value))
   if (decimalMode.value) return Math.round(bounded * 10) / 10
   // 整数模式：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
   return Math.round(bounded)
@@ -302,7 +314,7 @@ function normalizeScore(raw: unknown): number | null {
 function setDraftScore(key: string, raw: unknown): void {
   draftScores.value = {
     ...draftScores.value,
-    [key]: normalizeScore(raw)
+    [key]: normalizeScore(raw, dimensionKeyMax(key))
   }
 }
 
@@ -338,7 +350,7 @@ function stopNudge(): void {
 /** 点选：小数模式下再点一次同一个整数就是加半档（18 → 18.5 → 18）。 */
 function tapScore(key: string, point: number): void {
   const current = draftScores.value[key]
-  if (decimalMode.value && current === point && point + 0.5 <= dimensionMax.value) {
+  if (decimalMode.value && current === point && point + 0.5 <= dimensionKeyMax(key)) {
     setDraftScore(key, point + 0.5)
     return
   }
@@ -348,7 +360,7 @@ function tapScore(key: string, point: number): void {
 function sliderFillPercent(key: string): string {
   const value = draftScores.value[key]
   if (typeof value !== 'number') return '0%'
-  return `${Math.round((value / dimensionMax.value) * 100)}%`
+  return `${Math.round((value / dimensionKeyMax(key)) * 100)}%`
 }
 
 /** 服务端明确拒绝的几种情况，提示完就同步成最新状态。 */
@@ -965,7 +977,7 @@ onBeforeUnmount(stopPolling)
                       :aria-pressed="scoreInputMode === 'tap'"
                       @click="setScoreInputMode('tap')"
                     >
-                      {{ decimalMode ? `点选 1-${dimensionMax}（再点加 .5）` : `点选 1-${dimensionMax}` }}
+                      {{ decimalMode ? `点选（再点加 .5）` : '点选' }}
                     </button>
                     <button
                       type="button"
@@ -1054,7 +1066,7 @@ onBeforeUnmount(stopPolling)
                       <input
                         type="number"
                         min="0"
-                        :max="dimensionMax"
+                        :max="maxOf(dimension)"
                         :step="scoreStep"
                         :inputmode="decimalMode ? 'decimal' : 'numeric'"
                         enterkeyhint="next"
@@ -1063,7 +1075,7 @@ onBeforeUnmount(stopPolling)
                         :value="draftScores[dimension.key] ?? ''"
                         :disabled="!scoringOpen || currentSubmitted"
                         :aria-label="`${dimension.label}评分`"
-                        :placeholder="`0-${dimensionMax}`"
+                        :placeholder="`0-${maxOf(dimension)}`"
                         @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
                         @keydown.enter.prevent="focusNextScore(dimension.key)"
                         @focus="($event.target as HTMLInputElement).select()"
@@ -1080,7 +1092,7 @@ onBeforeUnmount(stopPolling)
                       >
                         +
                       </button>
-                      <span class="text-[11px] text-zinc-400">/ {{ dimensionMax }}</span>
+                      <span class="text-[11px] text-zinc-400">/ {{ maxOf(dimension) }}</span>
                     </div>
                   </div>
 
@@ -1089,7 +1101,7 @@ onBeforeUnmount(stopPolling)
                     class="mt-1 grid grid-cols-10 gap-[3px] sm:mt-2 sm:gap-1"
                   >
                     <button
-                      v-for="point in tapScoreChoices"
+                      v-for="point in tapChoicesOf(dimension)"
                       :key="point"
                       type="button"
                       :disabled="!scoringOpen || currentSubmitted"
@@ -1112,7 +1124,7 @@ onBeforeUnmount(stopPolling)
                     <input
                       type="range"
                       min="0"
-                      :max="dimensionMax"
+                      :max="maxOf(dimension)"
                       :step="scoreStep"
                       class="judge-slider"
                       :style="{ '--slider-pct': sliderFillPercent(dimension.key) }"
@@ -1124,8 +1136,8 @@ onBeforeUnmount(stopPolling)
                     >
                     <div class="flex justify-between px-[11px] text-[10px] leading-none tabular-nums text-zinc-400">
                       <span>0</span>
-                      <span>{{ midTick }}</span>
-                      <span>{{ dimensionMax }}</span>
+                      <span>{{ tickOf(dimension) }}</span>
+                      <span>{{ maxOf(dimension) }}</span>
                     </div>
                   </div>
                 </div>

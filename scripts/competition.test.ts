@@ -27,6 +27,7 @@ import {
   listAdvanceRows,
   getAdminCompetitionPayload,
   getCallBoard,
+  getRankBoard,
   getEmailTemplate,
   getJudgePayload,
   getRoundByKey,
@@ -1748,6 +1749,156 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   assert.doesNotMatch(plain, /我已收到/)
 })
 
+test('数据库：公开排行只给名次/姓名/歌曲/出场序和照片，不带联系方式', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  for (const name of ['甲一', '乙二']) {
+    createSinger(client, event.id, {
+      name,
+      song: '晴天',
+      className: '26测试1班',
+      studentNo: `${name.length}23456789012`,
+      phone: '13800000000',
+      qq: '3651784006',
+      email: '3651784006@qq.com'
+    })
+  }
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 1)
+  const roster = listRoundEntryRows(client, round.id)
+  updateRound(client, round, { status: 'open', judgeCount: 1 })
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, roster[1]!.singerId, { scores: scoresForAll(8) })
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, roster[0]!.singerId, { scores: scoresForAll(6) })
+
+  const board = getRankBoard(client, musicId, 'prelim')
+  assert.equal(board.rows.length, 2)
+  assert.equal(board.rows[0]!.name, '乙二')
+  assert.equal(board.rows[0]!.rank, 1)
+  assert.equal(board.rows[1]!.rank, 2)
+  assert.equal(board.rows[0]!.position, 1)
+  assert.equal(board.rows[0]!.song, '晴天')
+  assert.equal('phone' in board.rows[0]!, false)
+  assert.equal('email' in board.rows[0]!, false)
+  assert.equal(board.maxTotal, 50)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：复赛评分表六个维度各自满分，总分 100，超过该维满分会被拒', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000000',
+    qq: '3651784006',
+    email: '3651784006@qq.com'
+  })
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 1)
+
+  const semiDimensions = [
+    { key: 'rhythm', label: '节奏', weight: 20, max: 20 },
+    { key: 'pitch', label: '音准', weight: 20, max: 20 },
+    { key: 'skill', label: '技巧', weight: 20, max: 20 },
+    { key: 'emotion', label: '情感', weight: 15, max: 15 },
+    { key: 'timbre', label: '音色', weight: 15, max: 15 },
+    { key: 'stage', label: '舞台', weight: 10, max: 10 }
+  ]
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), {
+    status: 'open',
+    judgeCount: 1,
+    dimensions: semiDimensions,
+    dimensionMax: 20
+  })
+  assert.equal(competitionMaxTotal(semiDimensions, 20), 100)
+
+  const singerId = listRoundEntryRows(client, round.id)[0]!.singerId
+  const full = { rhythm: 20, pitch: 20, skill: 20, emotion: 15, timbre: 15, stage: 10 }
+  const saved = submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, singerId, { scores: full })
+  assert.equal(saved.total, 100)
+
+  assert.throws(
+    () => submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, singerId, { scores: { ...full, stage: 11 } }),
+    (error: unknown) => {
+      const data = (error as { data?: { field?: string } })?.data
+      return data?.field === 'scores.stage'
+    }
+  )
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：评委面板的名单顺序跟着出场号走', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  const names = ['甲一', '乙二', '丙三']
+  for (const name of names) {
+    createSinger(client, event.id, {
+      name,
+      song: '晴天',
+      className: '26测试1班',
+      studentNo: `${name.length}23456789012`,
+      phone: '13800000000',
+      qq: '3651784006',
+      email: '3651784006@qq.com'
+    })
+  }
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 1)
+  const roster = listRoundEntryRows(client, round.id)
+  // 把丙三排到第一，其余两人按原顺序接在后面。
+  applyEntrySortOrders(client, round, [{ entryId: roster[2]!.id, sortOrder: 1 }])
+
+  const payload = getJudgePayload(client, { ...judges[0]!, eventId: event.id, roundId: round.id })
+  assert.equal(payload.singers[0]!.name, '丙三')
+  assert.equal(payload.singers[1]!.sortOrder, 2)
+  assert.equal(payload.singers[2]!.sortOrder, 3)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：名单按姓名排时「曾」不会挤到第一个（按姓氏读音定位）', () => {
   const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
   const names = ['曾晨希', '陈佳瑜', '黄炜霖', '林巧榕'] // 按拼音应为 陈、黄、林、曾
@@ -1866,6 +2017,17 @@ test('数据库：现场手写号一次排序，抽签页选手自己登记号�
   registerDrawNumber(client, musicId, { name: '丙三', studentNo: '333333333333', contact: '3333333' }, 1)
   const bingAfter = listRoundEntryRows(client, round.id).find(item => item.id === bingEntry.id)!
   assert.ok(bingAfter.checkedInAt && bingAfter.checkedInAt > 0)
+
+  // 后台手动改号也算签到：先全部撤掉签到，只给两个人填号。
+  for (const entry of listRoundEntryRows(client, round.id)) setEntryCheckIn(client, round, entry.id, false)
+  applyEntrySortOrders(client, round, [
+    { entryId: entries[0]!.id, sortOrder: 1 },
+    { entryId: entries[1]!.id, sortOrder: 2 }
+  ])
+  const afterCheckin = listRoundEntryRows(client, round.id)
+  assert.ok(afterCheckin.find(item => item.id === entries[0]!.id)!.checkedInAt)
+  assert.ok(afterCheckin.find(item => item.id === entries[1]!.id)!.checkedInAt)
+  assert.equal(afterCheckin.find(item => item.id === entries[2]!.id)!.checkedInAt, null)
 
   // 号不能超过本轮人数（3 人 → 只能 1-3）。
   assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 4), (error: unknown) =>
