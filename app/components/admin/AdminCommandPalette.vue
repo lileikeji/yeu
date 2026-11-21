@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { adminNavigationGroups } from '~~/app/utils/admin-dashboard-presentation'
+import type { AdminNavigationGroup } from '~~/app/utils/admin-dashboard-presentation'
+
+const props = defineProps<{ groups: AdminNavigationGroup[] }>()
 
 const open = ref(false)
 const query = ref('')
@@ -7,7 +9,7 @@ const activeIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 const dialogRef = ref<HTMLDialogElement | null>(null)
 
-const items = computed(() => adminNavigationGroups.flatMap(group => group.items))
+const items = computed(() => props.groups.flatMap(group => group.items))
 
 const filtered = computed(() => {
   const keyword = query.value.trim().toLowerCase()

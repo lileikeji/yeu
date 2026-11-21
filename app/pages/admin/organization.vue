@@ -18,7 +18,7 @@ const contentId = ref('')
 const organizationTitle = ref('')
 const mustChangePassword = ref(false)
 const domainNoticeOpen = ref(false)
-const canonicalOrganizationAdminUrl = 'https://yx.huiliyill.cn/admin/organization'
+const canonicalOrganizationAdminUrl = 'https://yeuca.huiliyill.cn/admin/organization'
 const { copyText } = useShareActions()
 
 function dismissDomainNotice(): void {

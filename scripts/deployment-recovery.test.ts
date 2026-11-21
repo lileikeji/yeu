@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
 
 const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : '/bin/bash'
@@ -20,10 +21,17 @@ function exercise(scenario: string) {
   const log = join(root, 'operations.log')
   mkdirSync(join(old, '.output/server'), { recursive: true })
   mkdirSync(join(candidate, '.output/server'), { recursive: true })
-  mkdirSync(join(candidate, '.output/deploy'), { recursive: true })
+  mkdirSync(join(candidate, '.output/deploy/migrations/meta'), { recursive: true })
+  writeFileSync(join(candidate, '.output/deploy/migrations/meta/_journal.json'), JSON.stringify({
+    version: '6',
+    dialect: 'sqlite',
+    entries: []
+  }))
   mkdirSync(join(base, 'shared/data'), { recursive: true })
   mkdirSync(mocks)
-  writeFileSync(join(base, 'shared/data/yeu.sqlite'), 'fixture-only')
+  const fixtureDb = new DatabaseSync(join(base, 'shared/data/yeu.sqlite'))
+  fixtureDb.exec('CREATE TABLE IF NOT EXISTS _deploy_fixture (id INTEGER PRIMARY KEY)')
+  fixtureDb.close()
   writeFileSync(join(base, 'shared/.env'), '')
   writeFileSync(join(old, '.output/server/index.mjs'), '')
   writeFileSync(join(candidate, '.output/server/index.mjs'), '')

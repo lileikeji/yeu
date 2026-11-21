@@ -111,6 +111,11 @@ export function createRelease(root, output, release, commit) {
   mkdirSync(directory, { recursive: true })
   cpSync(join(root, 'server/database/migrations'), join(directory, 'migrations'), { recursive: true })
   cpSync(join(root, 'scripts/release-tools.mjs'), join(directory, 'release-tools.mjs'))
+  // 发布脚本随制品走。它们此前在服务器上独立维护，改仓库对线上毫无作用 ——
+  // 2026-11-21 就因为 /data/yeu/deploy-home-sheet.sh 还停在 11-14 的版本，
+  // 迁移钩子白提交了一轮。deploy-incoming.sh 拿制品里的这两份覆盖上去。
+  const deployScripts = ['server-side-deploy.sh', 'deploy-home-sheet.sh']
+  for (const name of deployScripts) cpSync(join(root, 'scripts', name), join(directory, name))
   const native = 'server/node_modules/better-sqlite3/build/Release/better_sqlite3.node'
   const manifest = {
     commit, release, builtAt: new Date().toISOString(),
@@ -119,6 +124,8 @@ export function createRelease(root, output, release, commit) {
     retrieval: retrievalMetadata(root),
     migrations: migrationFiles(join(directory, 'migrations')).map(({ tag, when, hash }) => ({ tag, when, hash })),
     native: { path: native, hash: hash(readFileSync(join(output, native))) },
+    // 发布脚本的摘要，deploy-incoming.sh 用它区分「与制品一致」和「服务器上被本地改过」。
+    scripts: Object.fromEntries(deployScripts.map(name => [name, hash(readFileSync(join(directory, name)))])),
     history: ancestryCommits(commit),
     // 只有 CI（GitHub Actions）跑出来的制品才带 ci 字段，部署脚本据此区分
     // “CI 出的正式制品”和“某人本机 nuxt build 出来的包”。

@@ -122,6 +122,36 @@ tar -czf "$BUNDLE" -C "$WORK" .output || { echo "[$(ts)] 重新打包失败"; ex
 echo "[$(ts)] bundle=$BUNDLE ($(du -h "$BUNDLE" | cut -f1))"
 
 # 切换走生产发布流程：deploy-home-sheet.sh 有 flock、备份复用、冒烟与失败回滚。
+# ---- 发布脚本：以制品为准覆盖服务器上的独立副本 ----
+# 这两份脚本以前在 $BASE 下独立维护，改仓库对线上毫无作用。2026-11-21 就因此白跑一轮：
+# 迁移钩子提交了、制品也打进去了，但线上跑的还是 11-14 的旧 deploy-home-sheet.sh。
+# 现在制品是唯一真相源：先语法校验 → 服务器上的旧版（哪怕被手工改过）先备份 → 再覆盖。
+# 手工改动不会静默丢失，会落到 $BASE/shared/deploy-scripts/*.bak 并在日志里点名。
+SCRIPTS_DIR="$BASE/shared/deploy-scripts"
+mkdir -p "$SCRIPTS_DIR"
+for name in server-side-deploy.sh deploy-home-sheet.sh; do
+  src="$OUT/deploy/$name"
+  dst="$BASE/$name"
+  [[ -f "$src" ]] || { echo "[$(ts)] 制品缺 deploy/$name（release-tools create 没带上）"; exit 1; }
+  bash -n "$src" || { echo "[$(ts)] deploy/$name 语法检查失败，拒绝覆盖"; exit 1; }
+  if [[ -f "$dst" ]] && cmp -s "$src" "$dst"; then
+    echo "[$(ts)] $name 未变（$(md5sum "$dst" | cut -d' ' -f1)）"
+    continue
+  fi
+  if [[ -f "$dst" ]]; then
+    cp -f "$dst" "$SCRIPTS_DIR/$name.$(date +%Y%m%d-%H%M%S).bak"
+    prev="$(cat "$SCRIPTS_DIR/$name.installed" 2>/dev/null || true)"
+    now="$(md5sum "$dst" | cut -d' ' -f1)"
+    if [[ -n "$prev" && "$prev" != "$now" ]]; then
+      echo "[$(ts)] 注意：$name 在服务器上被本地改过（上次安装 $prev，本次见到 $now），旧版已备份"
+    fi
+  fi
+  cp -f "$src" "$dst"
+  chmod 0755 "$dst"
+  md5sum "$dst" | cut -d' ' -f1 > "$SCRIPTS_DIR/$name.installed"
+  echo "[$(ts)] 更新 $name → $(md5sum "$dst" | cut -d' ' -f1)"
+done
+
 cd "$BASE" || exit 1
 RELEASE_ID="$REL" DEPLOY_SHA="$COMMIT" ARCHIVE="$BUNDLE" bash "$BASE/server-side-deploy.sh"
 rc=$?

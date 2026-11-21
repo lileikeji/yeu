@@ -1076,6 +1076,13 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           :class="activeTab === 'visits' ? '!bg-[var(--ink)] !text-[var(--surface)]' : ''"
           @click="activeTab = 'visits'"
         />
+        <UButton
+          to="/admin/overview"
+          label="数据看板"
+          icon="i-lucide-line-chart"
+          color="neutral"
+          variant="ghost"
+        />
       </div>
 
       <!-- Tab A：成员台账、批量导入与 Git 权限 -->
