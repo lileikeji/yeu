@@ -1,0 +1,890 @@
+---
+import Base from '../../layouts/Base.astro';
+import { AI_WORKFLOW_STEPS, VERIFIED_DEPARTMENTS } from '../../data/club';
+
+const initialDepts = VERIFIED_DEPARTMENTS;
+const defaultFeaturedIdx = Math.max(0, initialDepts.findIndex((d) => d.isFeatured));
+const initialDept = initialDepts[defaultFeaturedIdx] ?? initialDepts[0];
+const initialStep = AI_WORKFLOW_STEPS[0];
+---
+
+<Base
+  title="部门与 AI 部"
+  description="仰恩大学计算机协会各部门分工、AI 部工作流实践示例、日常练习内容与加入说明。"
+  canonicalPath="/departments/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1>各部门分工与详细方向</h1>
+      <p>
+        点下方卡片「查看详细 ↑」就能切到上方看各部平时练什么；还没定方向的话，先去迎新群旁听再选就行。默认先展 AI 部。
+      </p>
+    </div>
+  </section>
+
+  <!-- 交互轮播大展台 + 下方全量部门矩阵（含 0 裁切右侧网格 + 锁高无跳动） -->
+  <section class="band band-alt" id="departments-showcase" style="padding-top: 2rem;">
+    <div class="wrap">
+      <div class="ai-spotlight" id="dept-spotlight-stage">
+        <div class="dept-spot-bar">
+          <div class="dept-spot-indicator">
+            <span class="pill pill-ai" id="dept-spot-index-pill">
+              展示第 {defaultFeaturedIdx + 1} / {initialDepts.length} 个部门
+            </span>
+            <strong id="dept-spot-bar-name" style="color: var(--ink); font-size: 0.86rem;">
+              {initialDept.name}
+            </strong>
+            <span class="muted" id="dept-spot-bar-topic">· {initialDept.recentTopic || '常规实践'}</span>
+          </div>
+          <div class="dept-spot-controls">
+            <button type="button" class="dept-carousel-btn" id="dept-prev-btn" aria-label="查看上一个部门">
+              ← 上一部
+            </button>
+            <button type="button" class="dept-carousel-btn" id="dept-next-btn" aria-label="查看下一个部门">
+              下一部 →
+            </button>
+            <button
+              type="button"
+              class="dept-carousel-btn"
+              id="dept-autoplay-btn"
+              aria-pressed="true"
+              title="点击可开启或暂停部门自动轮播"
+            >
+              自动轮播中
+            </button>
+          </div>
+        </div>
+
+        <div class="dept-progress-track" aria-hidden="true">
+          <div class="dept-progress-bar" id="dept-progress-bar"></div>
+        </div>
+
+        <div class="dept-spot-body" id="dept-spot-body">
+          <div class="ai-spot-left">
+            <div>
+              <div class="tag-row">
+                <span class={`pill ${initialDept.isFeatured ? 'pill-ai' : ''}`}>{initialDept.code}</span>
+                {initialDept.isFeatured && <span class="pill pill-ai">默认展示</span>}
+                <span class={`pill ${initialDept.acceptingRecruit ? 'pill-ok' : ''}`}>
+                  {initialDept.acceptingRecruit ? '开放报名' : '暂不招新'}
+                </span>
+                {initialDept.lead && <span class="pill">负责人：{initialDept.lead}</span>}
+              </div>
+              <h3>{initialDept.name}：{initialDept.recentTopic || '日常方向'}</h3>
+            </div>
+
+            <p class="muted" style="margin: 0; font-size: 0.93rem;">{initialDept.summary}</p>
+
+            <ul style="margin: 0; padding-left: 1.15rem; font-size: 0.87rem; color: var(--ink); display: grid; gap: 0.35rem;">
+              {initialDept.focusList.map((focus) => <li>{focus}</li>)}
+            </ul>
+
+            {
+              initialDept.recruitDesc && (
+                <div class="dept-recruit-note">
+                  <strong>入门说明：</strong>
+                  <span>{initialDept.recruitDesc}</span>
+                </div>
+              )
+            }
+
+            <div class="tag-row">
+              {initialDept.tools.map((tool) => <span class="pill">{tool}</span>)}
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; padding-top: 0.2rem;">
+              <a class="btn btn-primary btn-sm" href={`/join/?dept=${encodeURIComponent(initialDept.name)}`}>
+                去报名加入协会 →
+              </a>
+              <a class="btn btn-ghost btn-sm" href={`#dept-${encodeURIComponent(initialDept.id)}`}>
+                定位到详卡 ↓
+              </a>
+            </div>
+          </div>
+
+          <div class="ai-spot-right" id="dept-spot-right">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="mono" style="font-size: 0.75rem; color: var(--ai); font-weight: 700;">
+                Agent 工作流拆解示例 · 点击节点查看细节
+              </span>
+              <span class="pill">4 步实验结构</span>
+            </div>
+
+            <div class="wf-nodes" id="wf-node-list">
+              {
+                AI_WORKFLOW_STEPS.map((step, idx) => (
+                  <button
+                    type="button"
+                    class={`wf-node${idx === 0 ? ' active' : ''}`}
+                    data-step-id={step.id}
+                  >
+                    <div class="wf-node-step">{step.step}</div>
+                    <div class="wf-node-title">{step.title}</div>
+                  </button>
+                ))
+              }
+            </div>
+
+            <div class="wf-inspector" id="wf-inspector">
+              <div id="wf-ins-head" style="font-weight: 700; margin-bottom: 0.35rem; color: var(--ink);">
+                {initialStep.step} · {initialStep.title}
+              </div>
+              <div style="color: var(--muted); margin-bottom: 0.35rem;">
+                <strong>职责：</strong><span id="wf-ins-role">{initialStep.role}</span>
+              </div>
+              <div style="color: var(--muted); margin-bottom: 0.35rem;">
+                <strong>做法：</strong><span id="wf-ins-logic">{initialStep.logic}</span>
+              </div>
+              <div style="color: var(--red-deep); font-size: 0.81rem; margin-bottom: 0.55rem;">
+                <strong>常见坑点：</strong><span id="wf-ins-pitfall">{initialStep.pitfall}</span>
+              </div>
+              <pre id="wf-ins-sample">{initialStep.sample}</pre>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-swipe-hint">手机端可左右轻划上方展台或点下方卡片「查看详细 ↑」切换</div>
+      </div>
+
+      <!-- 下方全量部门矩阵 -->
+      <div class="swiss-grid-3" id="dept-matrix">
+        {
+          initialDepts.map((dept, idx) => {
+            const active = idx === defaultFeaturedIdx;
+            return (
+              <div class={`swiss-cell${active ? ' is-active' : ''}`} data-dept-card={idx}>
+                <div>
+                  <div class="tag-row">
+                    <span class={`pill ${dept.isFeatured ? 'pill-ai' : ''}`}>{dept.code}</span>
+                    {active && <span class="pill pill-ai">上方展示中</span>}
+                    <span class={`pill ${dept.acceptingRecruit ? 'pill-ok' : ''}`}>
+                      {dept.acceptingRecruit ? '开放报名' : '暂不招新'}
+                    </span>
+                  </div>
+                  <h4>{dept.name}</h4>
+                  <p>{dept.summary}</p>
+                  <div class="tag-row" style="margin-top: 0.65rem;">
+                    {dept.tools.slice(0, 3).map((t) => <span class="pill">{t}</span>)}
+                  </div>
+                </div>
+                <div class="swiss-cell-foot">
+                  <span
+                    class="muted"
+                    style="font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;"
+                    title={dept.recentTopic}
+                  >
+                    {dept.recentTopic || '日常方向'}
+                  </span>
+                  <div style="display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0;">
+                    <button
+                      type="button"
+                      class={`dept-detail-btn${active ? ' active' : ''}`}
+                      data-select-dept={idx}
+                      aria-pressed={active ? 'true' : 'false'}
+                    >
+                      {active ? '展示中 ✓' : '查看详细 ↑'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- 各部门详尽列表卡 -->
+  <section class="page-section">
+    <div class="wrap" id="dept-cards-wrap" style="display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr);">
+      {
+        VERIFIED_DEPARTMENTS.map((dept) => (
+          <article class="card" id={`dept-${dept.id}`} style={dept.isFeatured ? 'border-color: var(--ai-line);' : ''}>
+            <div class="card-top">
+              <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+                <span class={`pill ${dept.isFeatured ? 'pill-ai' : ''}`}>{dept.code}</span>
+                <h2 style="margin: 0; font-size: 1.18rem;">{dept.name}</h2>
+                <span class={`pill ${dept.acceptingRecruit ? 'pill-ok' : ''}`}>
+                  {dept.acceptingRecruit ? '开放报名' : '暂不招新'}
+                </span>
+              </div>
+              {dept.acceptingRecruit && (
+                <a class="btn btn-primary btn-sm" href={`/join/?dept=${encodeURIComponent(dept.name)}`}>
+                  加入协会 →
+                </a>
+              )}
+            </div>
+
+            <p style="color: var(--ink);">{dept.summary}</p>
+
+            <div class="cards-2" style="margin-top: 0.25rem;">
+              <div style="background: var(--bg-alt); padding: 0.8rem 0.95rem; border-radius: 7px; border: 1px solid var(--line); min-width: 0;">
+                <strong style="font-size: 0.84rem; display: block; margin-bottom: 0.35rem;">平时练什么</strong>
+                <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.86rem; color: var(--muted);">
+                  {dept.focusList.map((item) => <li>{item}</li>)}
+                </ul>
+              </div>
+              <div style="background: var(--bg-alt); padding: 0.8rem 0.95rem; border-radius: 7px; border: 1px solid var(--line); min-width: 0;">
+                <strong style="font-size: 0.84rem; display: block; margin-bottom: 0.35rem;">入门要求与常用工具</strong>
+                <p style="font-size: 0.85rem; margin: 0 0 0.55rem;">{dept.recruitDesc}</p>
+                <div class="tag-row">
+                  {dept.tools.map((t) => <span class="pill">{t}</span>)}
+                </div>
+              </div>
+            </div>
+
+            <div class="muted" style="font-size: 0.82rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+              <span>重点方向：{dept.recentTopic || '待更新'}</span>
+              {dept.lead && <span>负责人：{dept.lead}</span>}
+            </div>
+          </article>
+        ))
+      }
+    </div>
+
+    <div class="wrap" style="margin-top: 1.8rem;">
+      <p class="muted" style="margin: 0; font-size: 0.86rem;">
+        装包或搭环境遇到网络卡顿，可以直接到 <a href="/mirrors/">镜像与常用源站</a> 复制加速命令；常见问题看 <a href="/about/#faq">关于页 Q&amp;A</a>。
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { AI_WORKFLOW_STEPS, VERIFIED_DEPARTMENTS, type DeptItem } from '../../data/club';
+  import { escapeHtml, fetchPublicSiteData, type YeucaAiWorkflowStep } from '../../lib/yeuca-client';
+
+  let workflowSteps: YeucaAiWorkflowStep[] = AI_WORKFLOW_STEPS.map((s) => ({ ...s }));
+  let departmentsList: DeptItem[] = VERIFIED_DEPARTMENTS.map((d) => ({
+    ...d,
+    focusList: [...d.focusList],
+    tools: [...d.tools],
+  }));
+  let activeDeptIdx = Math.max(0, departmentsList.findIndex((d) => d.isFeatured));
+  let activeWfStepIdx = 0;
+  let autoPlayEnabled = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let hoverPaused = false;
+  let stageInView = true;
+  let carouselTimer: number | null = null;
+  let wfTourTimer: number | null = null;
+  let slideDir: 'next' | 'prev' | 'none' = 'none';
+  let lastMeasureWidth = 0;
+
+  function stopWfTour() {
+    if (wfTourTimer !== null) {
+      window.clearInterval(wfTourTimer);
+      wfTourTimer = null;
+    }
+    const tourBtn = document.getElementById('wf-tour-btn');
+    if (tourBtn) tourBtn.textContent = '顺序演示 ▶';
+  }
+
+  function isAiDepartment(dept: DeptItem): boolean {
+    const lower = `${dept.id} ${dept.name}`.toLowerCase();
+    return dept.id === 'dept-ai' || lower.includes('ai') || dept.tools.some((t) => /agent|rag|llm/i.test(t));
+  }
+
+  function resolveDeptHelperLink(dept: DeptItem): { href: string; label: string; note: string } {
+    const text = `${dept.name} ${dept.summary} ${dept.tools.join(' ')}`.toLowerCase();
+    if (/网络|ensp|hcl|ospf|tcp|路由/.test(text)) {
+      return {
+        href: '/tools/#cidr',
+        label: '打开 IPv4 子网与反掩码工具 →',
+        note: '在工具箱可以直接算网段和 OSPF 反掩码，练拓扑时很顺手。',
+      };
+    }
+    if (/运维|linux|docker|nginx|硬件/.test(text)) {
+      return {
+        href: '/mirrors/',
+        label: '去镜像站复制 PyPI / npm 加速命令 →',
+        note: '带计协本机缓存测速和常用源配置，少卡下载。',
+      };
+    }
+    if (/编程|c\+\+|oj|算法|java|python/.test(text)) {
+      return {
+        href: '/projects/',
+        label: '看练题网站、笔记和参考题目 →',
+        note: '项目页留了洛谷/PTA 常用入口，以及大一入门小题目。',
+      };
+    }
+    return {
+      href: `#dept-${encodeURIComponent(dept.id)}`,
+      label: '定位到下方部门详情卡 ↓',
+      note: '平时哪个部的公开分享会感兴趣都能过去旁听。',
+    };
+  }
+
+  function buildSpotlightRightHtml(dept: DeptItem): string {
+    if (isAiDepartment(dept)) {
+      const step = workflowSteps[activeWfStepIdx] ?? workflowSteps[0];
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="mono" style="font-size: 0.75rem; color: var(--ai); font-weight: 700;">
+            Agent 工作流拆解示例 · 点击节点查看细节
+          </span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <button type="button" class="dept-carousel-btn" id="wf-tour-btn" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;" title="按顺序自动走一遍 ${workflowSteps.length} 个节点">
+              ${wfTourTimer !== null ? '停止演示 ■' : '顺序演示 ▶'}
+            </button>
+            <span class="pill">${workflowSteps.length} 步实验结构</span>
+          </div>
+        </div>
+        <div class="wf-nodes" id="wf-node-list">
+          ${workflowSteps.map(
+            (s, idx) => `
+              <button type="button" class="wf-node${idx === activeWfStepIdx ? ' active' : ''}" data-step-id="${escapeHtml(s.id)}">
+                <div class="wf-node-step">${escapeHtml(s.step)}</div>
+                <div class="wf-node-title">${escapeHtml(s.title)}</div>
+              </button>`,
+          ).join('')}
+        </div>
+        <div class="wf-inspector" id="wf-inspector">
+          <div id="wf-ins-head" style="font-weight: 700; margin-bottom: 0.35rem; color: var(--ink);">
+            ${escapeHtml(step.step)} · ${escapeHtml(step.title)}
+          </div>
+          <div style="color: var(--muted); margin-bottom: 0.35rem;">
+            <strong>职责：</strong><span id="wf-ins-role">${escapeHtml(step.role)}</span>
+          </div>
+          <div style="color: var(--muted); margin-bottom: 0.35rem;">
+            <strong>做法：</strong><span id="wf-ins-logic">${escapeHtml(step.logic)}</span>
+          </div>
+          <div style="color: var(--red-deep); font-size: 0.81rem; margin-bottom: 0.55rem;">
+            <strong>常见坑点：</strong><span id="wf-ins-pitfall">${escapeHtml(step.pitfall)}</span>
+          </div>
+          <pre id="wf-ins-sample">${escapeHtml(step.sample)}</pre>
+        </div>`;
+    }
+
+    const focusItems = dept.focusList.length ? dept.focusList : [dept.summary];
+    const helper = resolveDeptHelperLink(dept);
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+        <span class="mono" style="font-size: 0.75rem; color: var(--ai); font-weight: 700;">
+          日常实践拆解 · ${escapeHtml(dept.code)}
+        </span>
+        <span class="pill">共 ${focusItems.length} 项主要方向</span>
+      </div>
+      <div class="dept-focus-cards">
+        ${focusItems
+          .map(
+            (item, idx) => `
+            <div class="dept-focus-card">
+              <span class="dept-focus-num">0${idx + 1}</span>
+              <span>${escapeHtml(item)}</span>
+            </div>`,
+          )
+          .join('')}
+      </div>
+      <div class="wf-inspector">
+        <div style="font-weight: 700; margin-bottom: 0.3rem; color: var(--ink);">
+          ${escapeHtml(dept.name)} · 配套工具与学习入口
+        </div>
+        <p style="margin: 0 0 0.55rem; color: var(--muted); font-size: 0.83rem;">
+          ${escapeHtml(helper.note)}
+        </p>
+        <a class="link-btn" href="${escapeHtml(helper.href)}">${escapeHtml(helper.label)}</a>
+      </div>`;
+  }
+
+  function buildSpotlightBodyHtml(active: DeptItem): string {
+    const joinHref = `/join/?dept=${encodeURIComponent(active.name)}`;
+    const cardAnchor = `#dept-${encodeURIComponent(active.id)}`;
+    return `
+      <div class="ai-spot-left">
+        <div>
+          <div class="tag-row">
+            <span class="pill ${active.isFeatured ? 'pill-ai' : ''}">${escapeHtml(active.code)}</span>
+            ${active.isFeatured ? '<span class="pill pill-ai">默认展示</span>' : ''}
+            <span class="pill ${active.acceptingRecruit ? 'pill-ok' : ''}">${active.acceptingRecruit ? '开放报名' : '暂不招新'}</span>
+            ${active.lead ? `<span class="pill">负责人：${escapeHtml(active.lead)}</span>` : ''}
+          </div>
+          <h3>${escapeHtml(active.name)}：${escapeHtml(active.recentTopic || '日常方向')}</h3>
+        </div>
+        <p class="muted" style="margin: 0; font-size: 0.93rem;">${escapeHtml(active.summary)}</p>
+        ${
+          active.focusList.length
+            ? `<ul style="margin: 0; padding-left: 1.15rem; font-size: 0.87rem; color: var(--ink); display: grid; gap: 0.35rem;">
+                ${active.focusList.map((focus) => `<li>${escapeHtml(focus)}</li>`).join('')}
+              </ul>`
+            : ''
+        }
+        ${
+          active.recruitDesc
+            ? `<div class="dept-recruit-note">
+                <strong>入门说明：</strong>
+                <span>${escapeHtml(active.recruitDesc)}</span>
+              </div>`
+            : ''
+        }
+        <div class="tag-row">
+          ${active.tools.map((t) => `<span class="pill">${escapeHtml(t)}</span>`).join('')}
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; padding-top: 0.2rem;">
+          <a class="btn btn-primary btn-sm" href="${escapeHtml(joinHref)}">去报名加入协会 →</a>
+          <a class="btn btn-ghost btn-sm" href="${escapeHtml(cardAnchor)}">定位到详卡 ↓</a>
+        </div>
+      </div>
+      <div class="ai-spot-right" id="dept-spot-right">
+        ${buildSpotlightRightHtml(active)}
+      </div>`;
+  }
+
+  function refreshSpotlightStableHeight(force = false) {
+    const spotlightEl = document.getElementById('dept-spotlight-stage');
+    const bodyEl = document.getElementById('dept-spot-body');
+    if (!spotlightEl || !bodyEl || !departmentsList.length) return;
+    const width = spotlightEl.clientWidth;
+    if (!width || (!force && Math.abs(width - lastMeasureWidth) < 24)) return;
+    lastMeasureWidth = width;
+
+    bodyEl.style.minHeight = '';
+    const probeHost = document.createElement('div');
+    probeHost.className = 'ai-spotlight';
+    probeHost.style.cssText = `position:fixed;left:-99999px;top:0;visibility:hidden;pointer-events:none;z-index:-1;width:${width}px;margin:0;`;
+    const probeBody = document.createElement('div');
+    probeBody.className = 'dept-spot-body';
+    probeHost.appendChild(probeBody);
+    document.body.appendChild(probeHost);
+
+    let maxHeight = 0;
+    try {
+      for (const dept of departmentsList) {
+        probeBody.innerHTML = buildSpotlightBodyHtml(dept);
+        maxHeight = Math.max(maxHeight, probeBody.scrollHeight);
+      }
+    } finally {
+      probeHost.remove();
+    }
+
+    if (maxHeight > 0) {
+      bodyEl.style.minHeight = `${Math.ceil(maxHeight)}px`;
+    }
+  }
+
+  function restartProgressBar() {
+    const bar = document.getElementById('dept-progress-bar');
+    if (!bar) return;
+    bar.classList.remove('running', 'paused', 'stopped');
+    if (!autoPlayEnabled || departmentsList.length <= 1) {
+      bar.classList.add('stopped');
+      return;
+    }
+    void bar.offsetWidth;
+    bar.classList.add('running');
+    if (hoverPaused || !stageInView) bar.classList.add('paused');
+  }
+
+  function syncAutoPlayUi() {
+    const btn = document.getElementById('dept-autoplay-btn') as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', autoPlayEnabled ? 'true' : 'false');
+    btn.textContent = autoPlayEnabled ? '自动轮播中' : '已暂停 · 点此继续';
+  }
+
+  function resetCarouselTimer() {
+    if (carouselTimer !== null) {
+      window.clearInterval(carouselTimer);
+      carouselTimer = null;
+    }
+    restartProgressBar();
+    if (!autoPlayEnabled || departmentsList.length <= 1) return;
+    carouselTimer = window.setInterval(() => {
+      if (hoverPaused || !stageInView || document.hidden || departmentsList.length <= 1) return;
+      slideDir = 'next';
+      activeDeptIdx = (activeDeptIdx + 1) % departmentsList.length;
+      renderDepartmentsModule(false);
+      restartProgressBar();
+    }, 6500);
+  }
+
+  function setAutoPlay(next: boolean) {
+    autoPlayEnabled = next;
+    syncAutoPlayUi();
+    resetCarouselTimer();
+  }
+
+  function bindAiWorkflowHandlers() {
+    const wfButtons = document.querySelectorAll<HTMLButtonElement>('#wf-node-list .wf-node');
+    const tourBtn = document.getElementById('wf-tour-btn');
+    const insEl = document.getElementById('wf-inspector');
+    const headEl = document.getElementById('wf-ins-head');
+    const roleEl = document.getElementById('wf-ins-role');
+    const logicEl = document.getElementById('wf-ins-logic');
+    const pitfallEl = document.getElementById('wf-ins-pitfall');
+    const sampleEl = document.getElementById('wf-ins-sample');
+
+    const activateStep = (stepIndex: number) => {
+      const found = workflowSteps[stepIndex] ?? workflowSteps[0];
+      if (!found) return;
+      activeWfStepIdx = stepIndex;
+      wfButtons.forEach((b, i) => b.classList.toggle('active', i === stepIndex));
+      if (headEl) headEl.textContent = `${found.step} · ${found.title}`;
+      if (roleEl) roleEl.textContent = found.role;
+      if (logicEl) logicEl.textContent = found.logic;
+      if (pitfallEl) pitfallEl.textContent = found.pitfall;
+      if (sampleEl) sampleEl.textContent = found.sample;
+      if (insEl) {
+        insEl.classList.remove('anim-fade');
+        void insEl.offsetWidth;
+        insEl.classList.add('anim-fade');
+      }
+    };
+
+    wfButtons.forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        setAutoPlay(false);
+        stopWfTour();
+        const targetId = btn.dataset.stepId;
+        const foundIndex = workflowSteps.findIndex((s) => s.id === targetId);
+        activateStep(foundIndex >= 0 ? foundIndex : idx);
+      });
+    });
+
+    tourBtn?.addEventListener('click', () => {
+      if (wfTourTimer !== null) {
+        stopWfTour();
+        return;
+      }
+      setAutoPlay(false);
+      let step = (activeWfStepIdx + 1) % workflowSteps.length;
+      activateStep(step);
+      tourBtn.textContent = '停止演示 ■';
+      wfTourTimer = window.setInterval(() => {
+        step += 1;
+        if (step >= workflowSteps.length) {
+          stopWfTour();
+          return;
+        }
+        activateStep(step);
+      }, 1500);
+    });
+  }
+
+  function renderDepartmentsModule(scrollIntoViewIfNeeded = false) {
+    if (!departmentsList.length) return;
+    if (activeDeptIdx < 0 || activeDeptIdx >= departmentsList.length) {
+      activeDeptIdx = 0;
+    }
+    const active = departmentsList[activeDeptIdx];
+
+    const indexPill = document.getElementById('dept-spot-index-pill');
+    const barName = document.getElementById('dept-spot-bar-name');
+    const barTopic = document.getElementById('dept-spot-bar-topic');
+    const bodyEl = document.getElementById('dept-spot-body');
+    const matrixEl = document.getElementById('dept-matrix');
+    const spotlightEl = document.getElementById('dept-spotlight-stage');
+
+    if (indexPill) indexPill.textContent = `展示第 ${activeDeptIdx + 1} / ${departmentsList.length} 个部门`;
+    if (barName) barName.textContent = active.name;
+    if (barTopic) barTopic.textContent = `· ${active.recentTopic || '日常方向'}`;
+
+    if (bodyEl) {
+      if (!isAiDepartment(active)) stopWfTour();
+      bodyEl.innerHTML = buildSpotlightBodyHtml(active);
+      if (isAiDepartment(active)) bindAiWorkflowHandlers();
+
+      if (slideDir !== 'none') {
+        bodyEl.classList.remove('anim-next', 'anim-prev');
+        void bodyEl.offsetWidth;
+        bodyEl.classList.add(slideDir === 'prev' ? 'anim-prev' : 'anim-next');
+        slideDir = 'none';
+      }
+    }
+
+    if (matrixEl) {
+      matrixEl.innerHTML = departmentsList
+        .map((dept, idx) => {
+          const isCurrent = idx === activeDeptIdx;
+          return `
+            <div class="swiss-cell${isCurrent ? ' is-active' : ''}" data-dept-card="${idx}">
+              <div>
+                <div class="tag-row">
+                  <span class="pill ${dept.isFeatured ? 'pill-ai' : ''}">${escapeHtml(dept.code)}</span>
+                  ${isCurrent ? '<span class="pill pill-ai">上方展示中</span>' : ''}
+                  <span class="pill ${dept.acceptingRecruit ? 'pill-ok' : ''}">${dept.acceptingRecruit ? '开放报名' : '暂不招新'}</span>
+                </div>
+                <h4>${escapeHtml(dept.name)}</h4>
+                <p>${escapeHtml(dept.summary)}</p>
+                <div class="tag-row" style="margin-top: 0.65rem;">
+                  ${dept.tools.slice(0, 3).map((t) => `<span class="pill">${escapeHtml(t)}</span>`).join('')}
+                </div>
+              </div>
+              <div class="swiss-cell-foot">
+                <span class="muted" style="font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;" title="${escapeHtml(dept.recentTopic || '日常方向')}">
+                  ${escapeHtml(dept.recentTopic || '日常方向')}
+                </span>
+                <div style="display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0;">
+                  <button
+                    type="button"
+                    class="dept-detail-btn${isCurrent ? ' active' : ''}"
+                    data-select-dept="${idx}"
+                    aria-pressed="${isCurrent ? 'true' : 'false'}"
+                  >
+                    ${isCurrent ? '展示中 ✓' : '查看详细 ↑'}
+                  </button>
+                </div>
+              </div>
+            </div>`;
+        })
+        .join('');
+
+      matrixEl.querySelectorAll<HTMLElement>('[data-dept-card]').forEach((card) => {
+        card.addEventListener('click', (event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest('a')) return;
+          const idx = Number(card.dataset.deptCard);
+          if (Number.isNaN(idx)) return;
+          stopWfTour();
+          slideDir = idx < activeDeptIdx ? 'prev' : 'next';
+          activeDeptIdx = idx;
+          setAutoPlay(false);
+          const viaDetailBtn = Boolean(target?.closest('[data-select-dept]'));
+          renderDepartmentsModule(viaDetailBtn);
+        });
+      });
+    }
+
+    if (scrollIntoViewIfNeeded && spotlightEl) {
+      const rect = spotlightEl.getBoundingClientRect();
+      if (rect.bottom < 120 || rect.top > window.innerHeight - 60) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const targetTop = Math.max(0, window.scrollY + rect.top - 82);
+        window.scrollTo({ top: targetTop, behavior: reduce ? 'auto' : 'smooth' });
+      }
+    }
+  }
+
+  function renderDeptDetailCards() {
+    const wrap = document.getElementById('dept-cards-wrap');
+    if (!wrap || !departmentsList.length) return;
+    wrap.innerHTML = departmentsList
+      .map(
+        (dept) => `
+        <article class="card" id="dept-${escapeHtml(dept.id)}" style="${dept.isFeatured ? 'border-color: var(--ai-line);' : ''}">
+          <div class="card-top">
+            <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+              <span class="pill ${dept.isFeatured ? 'pill-ai' : ''}">${escapeHtml(dept.code)}</span>
+              <h2 style="margin: 0; font-size: 1.18rem;">${escapeHtml(dept.name)}</h2>
+              <span class="pill ${dept.acceptingRecruit ? 'pill-ok' : ''}">
+                ${dept.acceptingRecruit ? '开放报名' : '暂不招新'}
+              </span>
+            </div>
+            ${
+              dept.acceptingRecruit
+                ? `<a class="btn btn-primary btn-sm" href="/join/?dept=${encodeURIComponent(dept.name)}">加入协会 →</a>`
+                : ''
+            }
+          </div>
+          <p style="color: var(--ink);">${escapeHtml(dept.summary)}</p>
+          <div class="cards-2" style="margin-top: 0.25rem;">
+            <div style="background: var(--bg-alt); padding: 0.8rem 0.95rem; border-radius: 7px; border: 1px solid var(--line); min-width: 0;">
+              <strong style="font-size: 0.84rem; display: block; margin-bottom: 0.35rem;">平时练什么</strong>
+              <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.86rem; color: var(--muted);">
+                ${dept.focusList.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+              </ul>
+            </div>
+            <div style="background: var(--bg-alt); padding: 0.8rem 0.95rem; border-radius: 7px; border: 1px solid var(--line); min-width: 0;">
+              <strong style="font-size: 0.84rem; display: block; margin-bottom: 0.35rem;">入门要求与常用工具</strong>
+              <p style="font-size: 0.85rem; margin: 0 0 0.55rem;">${escapeHtml(dept.recruitDesc)}</p>
+              <div class="tag-row">
+                ${dept.tools.map((t) => `<span class="pill">${escapeHtml(t)}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+          <div class="muted" style="font-size: 0.82rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <span>重点方向：${escapeHtml(dept.recentTopic || '常规实践')}</span>
+            ${dept.lead ? `<span>负责人：${escapeHtml(dept.lead)}</span>` : ''}
+          </div>
+        </article>`,
+      )
+      .join('');
+  }
+
+  function initDepartments() {
+    const prevBtn = document.getElementById('dept-prev-btn');
+    const nextBtn = document.getElementById('dept-next-btn');
+    const autoBtn = document.getElementById('dept-autoplay-btn');
+    const spotlightEl = document.getElementById('dept-spotlight-stage');
+
+    const switchPrev = () => {
+      if (!departmentsList.length) return;
+      slideDir = 'prev';
+      activeDeptIdx = (activeDeptIdx - 1 + departmentsList.length) % departmentsList.length;
+      setAutoPlay(false);
+      renderDepartmentsModule(false);
+    };
+
+    const switchNext = () => {
+      if (!departmentsList.length) return;
+      slideDir = 'next';
+      activeDeptIdx = (activeDeptIdx + 1) % departmentsList.length;
+      setAutoPlay(false);
+      renderDepartmentsModule(false);
+    };
+
+    prevBtn?.addEventListener('click', switchPrev);
+    nextBtn?.addEventListener('click', switchNext);
+    autoBtn?.addEventListener('click', () => setAutoPlay(!autoPlayEnabled));
+
+    spotlightEl?.addEventListener('mouseenter', () => {
+      hoverPaused = true;
+      document.getElementById('dept-progress-bar')?.classList.add('paused');
+    });
+    spotlightEl?.addEventListener('mouseleave', () => {
+      hoverPaused = false;
+      if (stageInView) document.getElementById('dept-progress-bar')?.classList.remove('paused');
+    });
+    spotlightEl?.addEventListener('focusin', () => {
+      hoverPaused = true;
+      document.getElementById('dept-progress-bar')?.classList.add('paused');
+    });
+    spotlightEl?.addEventListener('focusout', () => {
+      hoverPaused = false;
+      if (stageInView) document.getElementById('dept-progress-bar')?.classList.remove('paused');
+    });
+
+    if (spotlightEl && 'IntersectionObserver' in window) {
+      const stageIo = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0];
+          if (!entry) return;
+          const visible = entry.isIntersecting;
+          if (visible === stageInView) return;
+          stageInView = visible;
+          const bar = document.getElementById('dept-progress-bar');
+          if (!stageInView) bar?.classList.add('paused');
+          else if (autoPlayEnabled && !hoverPaused) bar?.classList.remove('paused');
+        },
+        { threshold: 0.08 },
+      );
+      stageIo.observe(spotlightEl);
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isHorizontalSwipe = false;
+    const spotBody = document.getElementById('dept-spot-body');
+
+    spotlightEl?.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length !== 1) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isHorizontalSwipe = false;
+        if (spotBody) spotBody.style.transition = '';
+      },
+      { passive: true },
+    );
+    spotlightEl?.addEventListener(
+      'touchmove',
+      (e) => {
+        if (e.touches.length !== 1 || !spotBody) return;
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        if (!isHorizontalSwipe && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+          isHorizontalSwipe = true;
+        }
+        if (isHorizontalSwipe) {
+          const offset = Math.max(-34, Math.min(34, dx * 0.2));
+          spotBody.style.transform = `translateX(${offset}px)`;
+        }
+      },
+      { passive: true },
+    );
+    spotlightEl?.addEventListener(
+      'touchend',
+      (e) => {
+        if (spotBody) {
+          spotBody.style.transition = 'transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)';
+          spotBody.style.transform = '';
+        }
+        if (!e.changedTouches.length) return;
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+          stopWfTour();
+          if (dx < 0) switchNext();
+          else switchPrev();
+        }
+      },
+      { passive: true },
+    );
+
+    // 桌面端支持左右方向键切部门
+    document.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+      if (e.key === 'ArrowLeft') {
+        stopWfTour();
+        switchPrev();
+      } else if (e.key === 'ArrowRight') {
+        stopWfTour();
+        switchNext();
+      }
+    });
+
+    syncAutoPlayUi();
+    renderDepartmentsModule(false);
+    refreshSpotlightStableHeight(true);
+    resetCarouselTimer();
+
+    let resizeRaf: number | null = null;
+    window.addEventListener(
+      'resize',
+      () => {
+        if (resizeRaf !== null) window.cancelAnimationFrame(resizeRaf);
+        resizeRaf = window.requestAnimationFrame(() => refreshSpotlightStableHeight(false));
+      },
+      { passive: true },
+    );
+  }
+
+  async function syncDepartments() {
+    const hashId = window.location.hash.startsWith('#dept-')
+      ? decodeURIComponent(window.location.hash.slice(6))
+      : '';
+    if (hashId) {
+      const localIdx = departmentsList.findIndex((d) => d.id === hashId);
+      if (localIdx >= 0) {
+        activeDeptIdx = localIdx;
+        renderDepartmentsModule(false);
+      }
+    }
+
+    const payload = await fetchPublicSiteData();
+    if (!payload) return;
+    if (payload.settings.extras?.aiWorkflowSteps?.length) {
+      workflowSteps = payload.settings.extras.aiWorkflowSteps.map((s) => ({ ...s }));
+      if (activeWfStepIdx >= workflowSteps.length) activeWfStepIdx = 0;
+    }
+    if (!payload.settings.departments.length) {
+      renderDepartmentsModule(false);
+      return;
+    }
+    const prevId = hashId || departmentsList[activeDeptIdx]?.id;
+    departmentsList = payload.settings.departments.map((d) => ({
+      ...d,
+      focusList: [...d.focusList],
+      tools: [...d.tools],
+    }));
+    const matchedIdx = prevId ? departmentsList.findIndex((d) => d.id === prevId) : -1;
+    const featuredIdx = departmentsList.findIndex((d) => d.isFeatured);
+    activeDeptIdx = matchedIdx >= 0 ? matchedIdx : featuredIdx >= 0 ? featuredIdx : 0;
+
+    renderDepartmentsModule(false);
+    refreshSpotlightStableHeight(true);
+    resetCarouselTimer();
+    renderDeptDetailCards();
+
+    if (hashId) {
+      const targetCard = document.getElementById(`dept-${hashId}`);
+      if (targetCard) {
+        targetCard.classList.remove('dept-highlight-pulse');
+        void targetCard.offsetWidth;
+        targetCard.classList.add('dept-highlight-pulse');
+      }
+    }
+  }
+
+  initDepartments();
+  void syncDepartments();
+</script>
