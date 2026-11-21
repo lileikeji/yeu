@@ -3011,9 +3011,14 @@ export function submitJudgeScore(
     conflictError('COMPETITION_NOT_CHECKED_IN', '这位选手还没签到，先让现场签到再打分')
   }
 
-  // 没人手动点「开始顺序评分」时，第一张评分就把这位当成正在唱：
-  // 叫号台据此显示「正在唱」，评委端也跟着锁定到同一位。
-  if (!round.currentEntryId) {
+  // 自由评分时（后台没开顺序评分），把「刚刚被打分的那位」记成正在唱，只给叫号台显示用：
+  // 绝不改 sequentialMode，也绝不因此锁住评委——评委可以随时倒回去改上一位的分。
+  if (round.sequentialMode !== 1) {
+    if (round.currentEntryId !== entry.id) {
+      setCurrentEntryId(client, round.id, entry.id)
+      round.currentEntryId = entry.id
+    }
+  } else if (!round.currentEntryId) {
     setCurrentEntryId(client, round.id, entry.id)
     round.currentEntryId = entry.id
   }
