@@ -137,6 +137,13 @@ export function validateCompetitionDimensions(input: unknown): CompetitionDimens
   }
 
   const seen = new Set<string>()
+  const withMax = input.filter((item) => {
+    const own = Number((item as Record<string, unknown> | null)?.max)
+    return Number.isFinite(own) && own > 0
+  }).length
+  if (withMax > 0 && withMax < input.length) {
+    validationError('维度满分要么每个都填，要么都不填', 'dimensions')
+  }
   return input.map((item, index) => {
     if (!item || typeof item !== 'object') validationError(`第 ${index + 1} 个评分维度格式不正确`, 'dimensions')
     const record = item as Record<string, unknown>
@@ -2076,12 +2083,26 @@ export function setEntrySong(
     .where(eq(competitionRoundEntries.id, entryId)).run()
 }
 
-/** 测试用：清空本轮所有评委评分，并把「正在唱」的指针收回（签到状态不动）。 */
+/**
+ * 清空本轮所有评委评分，并把「正在唱」的指针收回（签到状态不动）。
+ * 已经确认过晋级名单、或下一轮名单已生成时不允许清——否则名次全变，下游名单还是旧的。
+ */
 export function clearRoundScores(client: DatabaseClient, round: RoundRow): { cleared: number } {
+  if (round.rosterConfirmedAt !== null) {
+    conflictError('ROSTER_CONFIRMED', '本轮已经确认过晋级名单，先点「重新打开」再清分')
+  }
+  const nextRound = nextRoundOf(client, round)
+  if (nextRound && listRoundEntryRows(client, nextRound.id).length > 0) {
+    conflictError('NEXT_ROUND_ROSTER_EXISTS', '下一轮名单已经生成了，先清空下一轮名单再清分')
+  }
   const rows = client.db.select().from(competitionScores)
     .where(eq(competitionScores.roundId, round.id))
     .all()
-  client.db.delete(competitionScores).where(eq(competitionScores.roundId, round.id)).run()
+  client.db.transaction((transaction) => {
+    transaction.delete(competitionScores).where(eq(competitionScores.roundId, round.id)).run()
+    transaction.update(competitionRoundEntries).set({ advanced: null })
+      .where(eq(competitionRoundEntries.roundId, round.id)).run()
+  })
   setCurrentEntryId(client, round.id, null, false)
   return { cleared: rows.length }
 }
@@ -2146,8 +2167,11 @@ export function applyEntrySortOrders(
 ): void {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，出场顺序已锁定')
   const entries = listRoundEntryRows(client, round.id)
-  const limit = Math.max(1, entries.length)
-  const byId = new Map(entries.map(entry => [entry.id, entry]))
+  // 分天（初赛）时每一天自己从 1 开始编号，不能拿两天合起来的 79 人去卡 1-79。
+  const sameDay = (entry: { contestDay: number | null }) => !round.activeDay || entry.contestDay === round.activeDay
+  const scoped = entries.filter(sameDay)
+  const limit = Math.max(1, scoped.length)
+  const byId = new Map(scoped.map(entry => [entry.id, entry]))
   const assigned = new Map<string, number>()
   const used = new Set<number>()
   for (const item of orders) {
@@ -2162,7 +2186,7 @@ export function applyEntrySortOrders(
   }
 
   let next = assigned.size ? Math.max(...assigned.values()) + 1 : 1
-  for (const entry of [...entries].sort((left, right) => left.sortOrder - right.sortOrder)) {
+  for (const entry of [...scoped].sort((left, right) => left.sortOrder - right.sortOrder)) {
     if (assigned.has(entry.id)) continue
     while (used.has(next)) next += 1
     assigned.set(entry.id, next)
@@ -2216,7 +2240,10 @@ export function registerDrawNumber(
   if (!target || !entry) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '还没给你排出场名单，先找现场工作人员')
   if (target.status === 'closed') conflictError('ROUND_CLOSED', '这一轮已经结束了，改不了号')
 
-  const roundEntries = listRoundEntryRows(client, target.id)
+  const allEntries = listRoundEntryRows(client, target.id)
+  const roundEntries = target.activeDay
+    ? allEntries.filter(row => row.contestDay === target.activeDay)
+    : allEntries
   const limit = Math.max(1, roundEntries.length)
   const value = Number(sortOrder)
   if (!Number.isInteger(value) || value < 1 || value > limit) {

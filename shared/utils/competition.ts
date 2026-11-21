@@ -42,9 +42,16 @@ export function dimensionMaxOf(
   return Number.isFinite(own) && own > 0 ? own : dimensionMax
 }
 
-/** 本轮任一维度带自己的满分时，按「各维度满分之和」计总分（复赛评分表：20+20+20+15+15+10=100）。 */
+/**
+ * 只有「每个维度都写了自己的满分」才按评分表模式算（复赛：20+20+20+15+15+10=100）。
+ * 只填了其中几个时不能算——否则总分上限与单维折算会各走一套口径，算出来的分对不上。
+ */
 export function hasPerDimensionMax(dimensions: CompetitionDimension[]): boolean {
-  return dimensions.some(dimension => dimensionMaxOf(dimension, Number.NaN) > 0)
+  if (dimensions.length === 0) return false
+  return dimensions.every((dimension) => {
+    const own = Number(dimension.max)
+    return Number.isFinite(own) && own > 0
+  })
 }
 
 export function competitionMaxTotal(
