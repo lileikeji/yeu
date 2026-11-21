@@ -52,7 +52,8 @@ if [[ -f "$current_target/.output/release.json" ]]; then
 else
   "$node" "$tools" legacy-compare "$current_target/.output" "$release/.output/release.json"
 fi
-# Read-only gate: automatic deployment never writes schema or migration history.
+# 只读闸门：先确认线上账本与本次发布的 SQL 对得上，对不上直接拒绝发布。
+# 真正的写入在快照之后（见 db-migrate），这一步仍然只读。
 "$node" "$tools" db-check "$base/shared/data/yeu.sqlite" "$release/.output/deploy/migrations"
 
 chown -R yeu:yeu "$release"
@@ -83,6 +84,19 @@ else
 fi
 chown yeu:yeu "$backup"
 chmod 0600 "$backup"
+
+# 迁移：快照就绪之后才对线上库写入，出问题能立刻从 $backup 还原。
+# migrateDatabase 内部是单事务（BEGIN IMMEDIATE … COMMIT/ROLLBACK），失败不会留下半套 schema。
+# 2026-11-20 之前这里只跑 db-check，迁移靠人工，结果 0078 这条 CREATE INDEX
+# 因为 when 小于账本最后一条而永远 pending、也永远没人执行，线上账本卡在 60 条。
+# 应急放行：YEU_SKIP_MIGRATE=1（跳过后本次发布不写库，适合「代码回滚但库先不动」的场景）。
+if [[ "${YEU_SKIP_MIGRATE:-0}" == "1" ]]; then
+  echo "==> 跳过数据库迁移（YEU_SKIP_MIGRATE=1）"
+else
+  echo "==> 应用数据库迁移"
+  migrate_out="$("$node" "$tools" db-migrate "$base/shared/data/yeu.sqlite" "$release/.output/deploy/migrations")"
+  echo "    $migrate_out"
+fi
 # 只留最近 2 份快照；.replaced 是同一 release 重部署的轮转残留，留 1 份即可。
 # 复用的硬链接 mtime 继承自原快照，按 -t 排序会落到末尾被误删，所以显式跳过当前 $backup。
 ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | grep -v -F -- "$backup" | tail -n +2 | xargs -r rm -f -- || true

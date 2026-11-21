@@ -229,6 +229,18 @@ useSeoMeta({
               <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 代码用 MIT 许可；引用的学校通知和官网内容，版权归原单位。
               </p>
+              <div class="mt-4">
+                <UButton
+                  to="https://yeuca.huiliyill.cn/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  icon="i-lucide-cpu"
+                  label="仰恩计算机协会主站 ↗"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                />
+              </div>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2">

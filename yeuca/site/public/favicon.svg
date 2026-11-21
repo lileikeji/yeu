@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="仰恩计算机协会">
+  <rect width="32" height="32" rx="8" fill="#a8121e"/>
+  <path d="M12.2 10.4 7.6 16l4.6 5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M19.8 10.4 24.4 16l-4.6 5.6" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17.6 9.6 14.4 22.4" fill="none" stroke="#f0dfd2" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+</svg>

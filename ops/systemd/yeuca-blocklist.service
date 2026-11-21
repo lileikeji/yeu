@@ -1,0 +1,19 @@
+[Unit]
+Description=Render YEUCA IP ban list into nginx deny snippet
+After=yeu.service nginx.service
+Wants=yeu.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/www/wwwroot/yeu/current
+Environment=YEU_DB_PATH=/www/wwwroot/yeu/shared/data/yeu.sqlite
+Environment=YEU_BLOCKLIST_FILE=/www/wwwroot/yeu/shared/yeuca-blocklist.conf
+Environment=NGINX_BIN=/www/server/nginx/sbin/nginx
+# 需要 root：写 shared 目录 + nginx -t / -s reload（宝塔的 pid 在 /www/server/nginx/logs）。
+ExecStart=/opt/node-v22.18.0/bin/node --disable-warning=ExperimentalWarning /opt/yeu-ops/yeuca-blocklist.mjs --reload
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/www/wwwroot/yeu/shared /www/server/nginx/logs /www/server/nginx/conf /www/wwwlogs /run

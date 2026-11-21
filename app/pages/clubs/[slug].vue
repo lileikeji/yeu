@@ -215,6 +215,53 @@ async function shareClub(): Promise<void> {
               variant="outline"
             />
           </div>
+          <h2 class="mt-2.5 text-base font-bold text-zinc-950 dark:text-zinc-100 sm:text-lg">
+            仰恩大学计算机协会独立官网主站：yeuca.huiliyill.cn
+          </h2>
+          <p class="mt-1.5 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+            这个迎新网站（YeU）由计协成员开发和维护。想看各部门平时练什么、用校内加速镜像、逛自建 Git 代码站和调试工具，可以直接去计协主站。
+          </p>
+          <div class="mt-3.5 flex flex-wrap gap-2">
+            <UButton
+              to="https://yeuca.huiliyill.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-external-link"
+              label="进入计协主站"
+              color="primary"
+              class="min-h-10"
+            />
+            <UButton
+              to="https://yeuca.huiliyill.cn/departments/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-layers"
+              label="各部门分工"
+              color="neutral"
+              variant="outline"
+              class="min-h-10"
+            />
+            <UButton
+              to="https://yeuca.huiliyill.cn/git/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-git-branch"
+              label="Git 代码站"
+              color="neutral"
+              variant="outline"
+              class="min-h-10"
+            />
+            <UButton
+              to="https://yeuca.huiliyill.cn/mirrors/"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-package"
+              label="PyPI / npm 镜像"
+              color="neutral"
+              variant="outline"
+              class="min-h-10"
+            />
+          </div>
         </section>
 
         <div

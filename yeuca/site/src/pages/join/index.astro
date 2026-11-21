@@ -1,0 +1,412 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CLUB_FAQS } from '../../data/club';
+---
+
+<Base
+  title="加入我们"
+  description="扫码加入仰恩大学计算机协会迎新群，无需注册登录，也不用第一天急着选定部门。"
+  canonicalPath="/join/"
+>
+  <section class="subpage-head">
+    <div class="wrap">
+      <h1 id="recruit-title">加入仰恩大学计算机协会</h1>
+      <p id="recruit-slogan">
+        官网全站免登录；不用提前定方向，先扫下方迎新二维码进群，进来再慢慢挑想跟的小组。
+      </p>
+    </div>
+  </section>
+
+  <section class="page-section" style="padding-top: 0.6rem;">
+    <!-- 迎新二维码置顶主位：第一眼即可直接加群 -->
+    <div class="wrap">
+      <div class="welcome-focus-box" id="contact-box">
+        <div>
+          <div class="tag-row" style="margin-bottom: 0.45rem;">
+            <span class="pill pill-red">第一步 · 直接入群</span>
+            <span class="pill pill-ok">无需登录注册</span>
+          </div>
+          <h2 style="margin: 0 0 0.45rem; font-size: 1.24rem;">扫码进 2026 计协迎新交流群</h2>
+          <p id="contact-note" style="margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--muted);">
+            刚进协会往往还不清楚各部门平时练什么，不用在填表时硬定方向。先扫右边二维码进迎新群，活动通知、资料分享和摊位值班消息都在群里发，进去以后再写基本信息就行。
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center;">
+            <button type="button" class="btn btn-primary btn-sm" id="copy-qq-group-btn">
+              复制 QQ 群号：873029727
+            </button>
+            <a class="btn btn-ghost btn-sm" href="/departments/">有兴趣先看看各部门 →</a>
+          </div>
+        </div>
+
+        <div id="contact-qr-wrap">
+          <button
+            type="button"
+            id="contact-qr-zoom-btn"
+            class="qr-card-frame"
+            aria-label="点击放大查看计算机协会迎新群二维码"
+          >
+            <img
+              id="contact-qr-img"
+              src="/images/yeuca-welcome-qr.png"
+              alt="仰恩大学计算机协会迎新群二维码（QQ 群号：873029727）"
+            />
+            <span class="qr-zoom-hint">点击放大 · 手机长按识别</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap join-layout">
+      <!-- 左侧：简版线上登记（不是网投，留名字和联系方式就够） + 常见问答 -->
+      <div style="display: grid; gap: 1.4rem;">
+        <div class="form-panel">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+            <strong style="font-size: 0.98rem; color: var(--ink);">入会信息登记（意向部门选填）</strong>
+            <span class="pill">学号作后续白名单核验</span>
+          </div>
+          <p class="muted" style="margin: 0 0 0.9rem; font-size: 0.82rem;">
+            无需账号登录，信息仅作校内招新联系与成员入档核验，不会挂到公开网页上；按星号填写基本资料与联系方式即可，不强制勾选意向部门。
+          </p>
+
+          <div id="join-form-panel">
+            <div class="empty-panel">
+              正在加载线上登记表……
+            </div>
+          </div>
+        </div>
+
+        <!-- 精选 4 条高频问答（同步后台 custom faqs） -->
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem;">
+            <strong style="font-size: 1rem;">新生常问的几件事</strong>
+            <a class="link-btn" href="/about/#faq">查看全部 8 条 →</a>
+          </div>
+          <div class="faq-accordion" id="join-faq-accordion">
+            {
+              CLUB_FAQS.slice(0, 4).map((faq, idx) => (
+                <details class="faq-item" open={idx === 0}>
+                  <summary>{faq.q}</summary>
+                  <div class="faq-answer">{faq.a}</div>
+                </details>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：简单说明（仅在需要了解时看一眼，不再强制选部） -->
+      <aside style="display: grid; gap: 1rem;">
+        <div class="card">
+          <h3>进协会前只需知道这些</h3>
+          <p id="recruit-intro">
+            不限年级与专业。零基础刚进来看一看也完全欢迎，平时公开小课和上机都在晚上或周末，自愿参加。
+          </p>
+          <div id="recruit-extra-note" class="muted" style="font-size: 0.84rem;"></div>
+        </div>
+
+        <div class="card">
+          <h3>如果还没有定方向</h3>
+          <p>第一天不挑部门完全没关系，进了迎新群后哪个部的分享顺耳去听一节再决定。</p>
+          <div id="dept-quick-guide" style="display: grid; gap: 0.4rem; font-size: 0.82rem; color: var(--muted);">
+            <div><strong style="color: var(--ai);">AI 部：</strong>写工作流脚本与本地文档检索</div>
+            <div><strong style="color: var(--ink);">编程部：</strong>算法练习与蓝桥杯/天梯赛</div>
+            <div><strong style="color: var(--ink);">网络工程部：</strong>路由交换配置与华为 ICT</div>
+            <div><strong style="color: var(--ink);">网络安全部：</strong>CTF 靶场与安全攻防入门</div>
+            <div><strong style="color: var(--ink);">运维 / 宣传：</strong>Linux 硬件与视觉摄影记录</div>
+          </div>
+          <div style="padding-top: 0.25rem;">
+            <a class="link-btn" href="/departments/">去部门页看详细展示 →</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { VERIFIED_DEPARTMENTS } from '../../data/club';
+  import {
+    escapeHtml,
+    fetchPublicSiteData,
+    resolveApiBase,
+    resolveAssetUrl,
+    type PublicRecruitField,
+  } from '../../lib/yeuca-client';
+
+  function getPreselectDept(): string {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('dept') || '').trim();
+  }
+
+  function renderFieldControl(field: PublicRecruitField, preDept: string, defaultDeptNames: string[]): string {
+    const isDeptField =
+      field.key === 'department'
+      || field.key === 'departments'
+      || field.key === 'dept'
+      || field.label.includes('部门');
+
+    const labelText = isDeptField ? `${field.label}（选填，进群后再定也可）` : `${field.label}${field.required ? ' *' : ''}`;
+    const labelHtml = `<label for="rf-${escapeHtml(field.key)}">${escapeHtml(labelText)}</label>`;
+
+    if (field.type === 'select') {
+      const baseOptions = isDeptField && defaultDeptNames.length ? defaultDeptNames : field.options || [];
+      const sourceOptions = isDeptField && !baseOptions.some((o) => o.includes('未定'))
+        ? ['暂未确定（进群后了解再选）', ...baseOptions]
+        : baseOptions;
+      const opts = sourceOptions
+        .map((opt) => `<option value="${escapeHtml(opt)}"${preDept && opt === preDept ? ' selected' : ''}>${escapeHtml(opt)}</option>`)
+        .join('');
+      return `
+        <div class="field">
+          ${labelHtml}
+          <select id="rf-${escapeHtml(field.key)}" name="${escapeHtml(field.key)}" class="select" ${!isDeptField && field.required ? 'required' : ''}>
+            <option value="">${isDeptField ? '先不填，进群再选' : '请选择'}</option>
+            ${opts}
+          </select>
+        </div>`;
+    }
+
+    if (field.type === 'multiselect') {
+      const baseOptions = isDeptField && defaultDeptNames.length
+        ? defaultDeptNames
+        : field.options?.length
+          ? field.options
+          : defaultDeptNames;
+      const options = isDeptField && !baseOptions.some((o) => o.includes('未定'))
+        ? ['暂未确定（进群后再定）', ...baseOptions]
+        : baseOptions;
+      const checks = options
+        .map((opt) => {
+          const checked = preDept && opt === preDept ? 'checked' : '';
+          const detail = field.optionDetails?.[opt]
+            ? `<div class="muted" style="font-size: 0.78rem; margin-top: 0.25rem;">${escapeHtml(field.optionDetails[opt])}</div>`
+            : '';
+          return `
+            <label style="display: block; border: 1px solid var(--line-strong); border-radius: 6px; padding: 0.55rem 0.75rem; background: var(--bg-alt); cursor: pointer;">
+              <span style="display: inline-flex; align-items: center; gap: 0.48rem; font-size: 0.88rem; font-weight: 600;">
+                <input type="checkbox" name="${escapeHtml(field.key)}" value="${escapeHtml(opt)}" ${checked} />
+                <span>${escapeHtml(opt)}</span>
+              </span>
+              ${detail}
+            </label>`;
+        })
+        .join('');
+      return `
+        <div class="field">
+          <label>${escapeHtml(labelText)} <span class="field-hint">可多选或略过</span></label>
+          <div style="display: grid; gap: 0.45rem;">${checks}</div>
+        </div>`;
+    }
+
+    if (field.type === 'textarea') {
+      return `
+        <div class="field">
+          ${labelHtml}
+          <textarea
+            id="rf-${escapeHtml(field.key)}"
+            name="${escapeHtml(field.key)}"
+            class="textarea"
+            rows="2"
+            placeholder="${escapeHtml(field.placeholder || '可选，简单写点你想了解的方向或问题')}"
+            ${field.required ? 'required' : ''}
+          ></textarea>
+        </div>`;
+    }
+
+    return `
+      <div class="field">
+        ${labelHtml}
+        <input
+          id="rf-${escapeHtml(field.key)}"
+          name="${escapeHtml(field.key)}"
+          type="text"
+          class="input"
+          placeholder="${escapeHtml(field.placeholder || '')}"
+          ${field.required ? 'required' : ''}
+        />
+      </div>`;
+  }
+
+  async function initJoinPage() {
+    const panel = document.getElementById('join-form-panel');
+    if (!panel) return;
+
+    const qrWrap = document.getElementById('contact-qr-wrap');
+    const qrImg = document.getElementById('contact-qr-img') as HTMLImageElement | null;
+    const qrZoomBtn = document.getElementById('contact-qr-zoom-btn');
+    const copyQqBtn = document.getElementById('copy-qq-group-btn') as HTMLButtonElement | null;
+    let currentQqGroup = '873029727';
+    let currentContactMeta = 'QQ 迎新交流群：873029727（QQ / 微信扫一扫或手机长按识别入群）';
+
+    copyQqBtn?.addEventListener('click', async () => {
+      if (!currentQqGroup) return;
+      try {
+        await navigator.clipboard.writeText(currentQqGroup);
+        (window as unknown as { __yeucaToast?: (m: string) => void }).__yeucaToast?.(`群号 ${currentQqGroup} 已复制 ✓`);
+      } catch {
+        // 忽略权限拒绝
+      }
+    });
+
+    qrZoomBtn?.addEventListener('click', () => {
+      if (!qrImg?.src) return;
+      const modal = document.getElementById('reader-modal');
+      const titleNode = document.getElementById('reader-modal-title');
+      const metaNode = document.getElementById('reader-modal-meta');
+      const tagsNode = document.getElementById('reader-modal-tags');
+      const bodyNode = document.getElementById('reader-modal-body');
+      if (!modal || !titleNode || !metaNode || !tagsNode || !bodyNode) return;
+      titleNode.textContent = '仰恩大学计算机协会 · 迎新群二维码';
+      metaNode.textContent = currentContactMeta;
+      tagsNode.innerHTML = `<span class="pill pill-red">官方迎新群</span>${currentQqGroup ? `<span class="pill">群号 ${escapeHtml(currentQqGroup)}</span>` : ''}`;
+      bodyNode.innerHTML = `<div style="display:grid;place-items:center;padding:0.75rem 0;"><img src="${escapeHtml(qrImg.src)}" alt="计算机协会迎新群二维码大图" style="width:min(320px, 100%);border-radius:10px;border:1px solid var(--line-strong);" /></div>`;
+      modal.hidden = false;
+    });
+
+    const payload = await fetchPublicSiteData();
+    const titleEl = document.getElementById('recruit-title');
+    const sloganEl = document.getElementById('recruit-slogan');
+    const introEl = document.getElementById('recruit-intro');
+    const extraEl = document.getElementById('recruit-extra-note');
+    const contactEl = document.getElementById('contact-note');
+
+    if (!payload) {
+      panel.innerHTML =
+        '<div class="alert alert-info"><strong>直接扫上方迎新二维码进群即可</strong><p style="margin: 0.35rem 0 0;">第一天加入协会无需在网页填复杂表格，扫码进群后留姓名和年级就可以。</p></div>';
+      return;
+    }
+
+    if (payload.settings.recruitNote && extraEl) extraEl.textContent = payload.settings.recruitNote;
+    if (payload.settings.contactNote) {
+      if (contactEl) contactEl.textContent = payload.settings.contactNote;
+      currentContactMeta = payload.settings.contactNote;
+      const parsedGroup = payload.settings.contactNote.match(/\b(\d{6,11})\b/)?.[1] || '';
+      currentQqGroup = parsedGroup;
+      if (copyQqBtn) {
+        if (parsedGroup) {
+          copyQqBtn.hidden = false;
+          copyQqBtn.textContent = `复制群号：${parsedGroup}`;
+        } else {
+          copyQqBtn.hidden = true;
+        }
+      }
+    }
+    const guideBox = document.getElementById('dept-quick-guide');
+    if (guideBox && payload.settings.departments.length) {
+      guideBox.innerHTML = payload.settings.departments
+        .map(
+          (d) =>
+            `<div><strong style="color: ${d.isFeatured ? 'var(--ai)' : 'var(--ink)'};">${escapeHtml(d.name)}：</strong>${escapeHtml(d.recentTopic || d.summary)}</div>`,
+        )
+        .join('');
+    }
+    const faqAccordion = document.getElementById('join-faq-accordion');
+    if (faqAccordion && payload.settings.extras?.faqs?.length) {
+      faqAccordion.innerHTML = payload.settings.extras.faqs
+        .slice(0, 4)
+        .map(
+          (item, idx) => `
+          <details class="faq-item"${idx === 0 ? ' open' : ''}>
+            <summary>${escapeHtml(item.q)}</summary>
+            <div class="faq-answer">${escapeHtml(item.a)}</div>
+          </details>`,
+        )
+        .join('');
+    }
+    if (payload.settings.groupQrUrl && qrWrap && qrImg) {
+      const qrSrc = resolveAssetUrl(payload.settings.groupQrUrl);
+      if (qrSrc) {
+        qrImg.src = qrSrc;
+        qrWrap.hidden = false;
+      }
+    }
+
+    if (!payload.recruit.open || !payload.recruit.fields.length) {
+      panel.innerHTML =
+        '<div class="alert alert-info"><strong>当前主要通过上方迎新群直接报名</strong><p style="margin: 0.35rem 0 0;">无需注册账号也不用写长表，扫上方二维码进群后再登记姓名和联系方式就行。</p></div>';
+      return;
+    }
+
+    if (titleEl && payload.recruit.title) titleEl.textContent = payload.recruit.title;
+    if (sloganEl && payload.recruit.slogan) sloganEl.textContent = payload.recruit.slogan;
+    if (introEl && payload.recruit.intro) introEl.textContent = payload.recruit.intro;
+
+    const preDept = getPreselectDept();
+    const deptNames = payload.settings.departments.length
+      ? payload.settings.departments.filter((d) => d.acceptingRecruit).map((d) => d.name)
+      : VERIFIED_DEPARTMENTS.map((d) => d.name);
+
+    const fieldsHtml = payload.recruit.fields
+      .map((field) => renderFieldControl(field, preDept, deptNames))
+      .join('');
+
+    panel.innerHTML = `
+      <form id="yeuca-recruit-form" novalidate>
+        ${fieldsHtml}
+        <div id="recruit-error" class="alert alert-err" hidden style="margin-bottom: 0.9rem;"></div>
+        <button id="recruit-submit-btn" type="submit" class="btn btn-primary">提交迎新登记</button>
+      </form>`;
+
+    const formEl = document.getElementById('yeuca-recruit-form') as HTMLFormElement | null;
+    const errEl = document.getElementById('recruit-error');
+    const submitBtn = document.getElementById('recruit-submit-btn') as HTMLButtonElement | null;
+
+    formEl?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!errEl || !submitBtn) return;
+      errEl.hidden = true;
+
+      const data: Record<string, string | string[]> = {};
+      for (const field of payload.recruit.fields) {
+        if (field.type === 'multiselect') {
+          const checked = Array.from(
+            formEl.querySelectorAll<HTMLInputElement>(`input[name="${CSS.escape(field.key)}"]:checked`),
+          ).map((el) => el.value);
+          data[field.key] = checked;
+        } else {
+          const input = formEl.elements.namedItem(field.key) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+          data[field.key] = input?.value.trim() || '';
+        }
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '正在提交…';
+
+      const base = resolveApiBase();
+      const postUrl = base ? `${base}/api/public/yeuca/recruit` : '/api/public/yeuca/recruit';
+      try {
+        const res = await fetch(postUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data }),
+        });
+        const body = (await res.json().catch(() => ({}))) as {
+          id?: string;
+          filename?: string;
+          message?: string;
+          data?: { message?: string };
+        };
+        if (!res.ok) {
+          errEl.textContent = body?.data?.message || body?.message || '请按星号要求填写完整资料后重试（意向部门可暂不勾选）。';
+          errEl.hidden = false;
+          submitBtn.disabled = false;
+          submitBtn.textContent = '提交迎新登记';
+          return;
+        }
+
+        panel.innerHTML = `
+          <div class="alert alert-ok">
+            <strong>收到登记，欢迎加入</strong>
+            <p style="margin: 0.45rem 0 0;">已记下你的信息${body.filename ? `（编号：<code>${escapeHtml(body.filename)}</code>）` : ''}，别忘了顺便扫上方二维码进迎新群关注后续通知。</p>
+          </div>`;
+      } catch {
+        errEl.textContent = '网络请求异常，直接扫上方二维码进群找值班同学一样生效。';
+        errEl.hidden = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交迎新登记';
+      }
+    });
+  }
+
+  void initJoinPage();
+</script>

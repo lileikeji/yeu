@@ -62,7 +62,7 @@ test('T-031 B4：胶囊逐帧定位器接管位移，跟手不靠 150ms tick', (
   assert.ok(layerAt >= 0, '页面上找不到胶囊层')
   const layerWindow = pageSource.slice(Math.max(0, layerAt - 300), layerAt + 300)
   assert.match(layerWindow, /ref="busEtaLayerElement"/, '胶囊层要能被定位器直接拿到')
-  assert.match(layerWindow, /z-\[19\]/, '胶囊层仍是折叠态浮层')
+  assert.match(layerWindow, /z-\[var\(--z-glass-top\)\]/, '胶囊层仍是折叠态浮层')
   assert.match(pageSource, /:pill-id="pill\.id"/, '父层把 busId 透给胶囊节点')
   assert.match(pillSource, /:data-bus-eta-id="pillId"/, '胶囊节点带 data-bus-eta-id，定位器按 id 找节点')
   assert.match(etaSource, /export function useMapBusEtaPositioner/, '定位器是 composable 导出')
