@@ -1748,6 +1748,66 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   assert.doesNotMatch(plain, /我已收到/)
 })
 
+test('数据库：复赛评分表六个维度各自满分，总分 100，超过该维满分会被拒', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    className: '26测试1班',
+    studentNo: '123456789012',
+    phone: '13800000000',
+    qq: '3651784006',
+    email: '3651784006@qq.com'
+  })
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 1)
+
+  const semiDimensions = [
+    { key: 'rhythm', label: '节奏', weight: 20, max: 20 },
+    { key: 'pitch', label: '音准', weight: 20, max: 20 },
+    { key: 'skill', label: '技巧', weight: 20, max: 20 },
+    { key: 'emotion', label: '情感', weight: 15, max: 15 },
+    { key: 'timbre', label: '音色', weight: 15, max: 15 },
+    { key: 'stage', label: '舞台', weight: 10, max: 10 }
+  ]
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), {
+    status: 'open',
+    judgeCount: 1,
+    dimensions: semiDimensions,
+    dimensionMax: 20
+  })
+  assert.equal(competitionMaxTotal(semiDimensions, 20), 100)
+
+  const singerId = listRoundEntryRows(client, round.id)[0]!.singerId
+  const full = { rhythm: 20, pitch: 20, skill: 20, emotion: 15, timbre: 15, stage: 10 }
+  const saved = submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, singerId, { scores: full })
+  assert.equal(saved.total, 100)
+
+  assert.throws(
+    () => submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, singerId, { scores: { ...full, stage: 11 } }),
+    (error: unknown) => {
+      const data = (error as { data?: { field?: string } })?.data
+      return data?.field === 'scores.stage'
+    }
+  )
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：评委面板的名单顺序跟着出场号走', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

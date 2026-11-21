@@ -26,7 +26,15 @@ const submitDraw = (payload: {
   contact: string
   sortOrder: number
 }): Promise<DrawResult> =>
-  $fetch('/api/public/competition/draw', { method: 'POST', body: payload })
+  fetch('/api/public/competition/draw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(async (response) => {
+    const data = await response.json().catch(() => null) as { data?: DrawResult, error?: boolean } | null
+    if (!response.ok || !data?.data) throw data ?? new Error('REGISTER_FAILED')
+    return data.data
+  })
 
 useSeoMeta({ title: '现场抽签登记', robots: 'noindex, nofollow' })
 

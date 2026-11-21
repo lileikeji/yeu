@@ -33,6 +33,7 @@ import {
   DEFAULT_COMPETITION_DIMENSIONS,
   calculateCompetitionTotal,
   competitionMaxTotal,
+  dimensionMaxOf,
   plainSortName,
   roundCompetitionScore
 } from '../../../shared/utils/competition'
@@ -91,6 +92,7 @@ export {
   DEFAULT_COMPETITION_DIMENSIONS,
   calculateCompetitionTotal,
   competitionMaxTotal,
+  dimensionMaxOf,
   roundCompetitionScore
 } from '../../../shared/utils/competition'
 
@@ -148,7 +150,13 @@ export function validateCompetitionDimensions(input: unknown): CompetitionDimens
     if (!Number.isFinite(weight) || weight <= 0 || weight > 100) {
       validationError(`「${label}」的占比需为 0-100 之间的正数`, 'dimensions')
     }
-    return { key, label, weight: roundCompetitionScore(weight) }
+    const ownMax = Number(record.max)
+    const dimension: CompetitionDimension = { key, label, weight: roundCompetitionScore(weight) }
+    if (Number.isFinite(ownMax) && ownMax > 0) {
+      if (ownMax > 100) validationError(`「${label}」的满分需为 1-100`, 'dimensions')
+      dimension.max = Math.round(ownMax)
+    }
+    return dimension
   })
 }
 
@@ -569,8 +577,9 @@ export function adminUpsertRoundScore(
   const dimensionMax = getRoundDimensionMax(round)
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(input.scores?.[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
-      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
+    const max = dimensionMaxOf(dimension, dimensionMax)
+    if (!Number.isFinite(value) || value < 0 || value > max) {
+      validationError(`「${dimension.label}」需为 0-${max} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,
@@ -2883,8 +2892,9 @@ export function submitJudgeScore(
   const scoreMap = rawScores as Record<string, unknown>
   const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
     const value = Number(scoreMap[dimension.key])
-    if (!Number.isFinite(value) || value < 0 || value > dimensionMax) {
-      validationError(`「${dimension.label}」需为 0-${dimensionMax} 的分数`, `scores.${dimension.key}`)
+    const max = dimensionMaxOf(dimension, dimensionMax)
+    if (!Number.isFinite(value) || value < 0 || value > max) {
+      validationError(`「${dimension.label}」需为 0-${max} 的分数`, `scores.${dimension.key}`)
     }
     return {
       key: dimension.key,
