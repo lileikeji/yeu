@@ -1748,6 +1748,48 @@ test('数据库：邮件里的「我已收到」渲染成绝对地址按钮', ()
   assert.doesNotMatch(plain, /我已收到/)
 })
 
+test('数据库：评委面板的名单顺序跟着出场号走', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  const names = ['甲一', '乙二', '丙三']
+  for (const name of names) {
+    createSinger(client, event.id, {
+      name,
+      song: '晴天',
+      className: '26测试1班',
+      studentNo: `${name.length}23456789012`,
+      phone: '13800000000',
+      qq: '3651784006',
+      email: '3651784006@qq.com'
+    })
+  }
+  checkInEntries(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  const judges = await createJudgeAccounts(client, round, 1)
+  const roster = listRoundEntryRows(client, round.id)
+  // 把丙三排到第一，其余两人按原顺序接在后面。
+  applyEntrySortOrders(client, round, [{ entryId: roster[2]!.id, sortOrder: 1 }])
+
+  const payload = getJudgePayload(client, { ...judges[0]!, eventId: event.id, roundId: round.id })
+  assert.equal(payload.singers[0]!.name, '丙三')
+  assert.equal(payload.singers[1]!.sortOrder, 2)
+  assert.equal(payload.singers[2]!.sortOrder, 3)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：名单按姓名排时「曾」不会挤到第一个（按姓氏读音定位）', () => {
   const collator = new Intl.Collator('zh-Hans-CN-u-co-pinyin')
   const names = ['曾晨希', '陈佳瑜', '黄炜霖', '林巧榕'] // 按拼音应为 陈、黄、林、曾
