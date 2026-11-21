@@ -101,9 +101,15 @@ export function resolveAdminLoginRedirectTarget(redirectQuery: unknown): string 
 }
 
 /**
- * Organization accounts always enter their isolated workspace. This avoids
+ * Organization accounts enter their isolated workspace by default. This avoids
  * mounting the super-admin dashboard before the layout has loaded the session.
+ *
+ * Exception: pages shared by every role (currently the analytics board) keep the
+ * original destination, otherwise a 403-driven bounce to the login page would
+ * always land the user back on their workspace instead of where they wanted to go.
  */
+export const ORGANIZATION_SHARED_ROUTES: ReadonlySet<string> = new Set(['/admin/overview'])
+
 export function resolveAdminPostLoginTarget(
   payload: unknown,
   redirectQuery: unknown,
@@ -122,7 +128,11 @@ export function resolveAdminPostLoginTarget(
   const isComputerAssociation = organization?.slug === 'computer-association'
     || organization?.title === '计算机协会'
   const basePath = isComputerAssociation ? '/admin/yeuca' : '/admin/organization'
-  return admin.mustChangePassword === true
-    ? { path: basePath, query: { password: 'required' } }
-    : basePath
+  if (admin.mustChangePassword === true) {
+    return { path: basePath, query: { password: 'required' } }
+  }
+  if (safeRedirect !== '/admin' && ORGANIZATION_SHARED_ROUTES.has(safeRedirect)) {
+    return safeRedirect
+  }
+  return basePath
 }

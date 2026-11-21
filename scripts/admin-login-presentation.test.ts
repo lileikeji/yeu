@@ -112,3 +112,29 @@ test('organization administrators enter their isolated workspace immediately aft
     }
   }, '/admin/content'), '/admin/content')
 })
+
+test('organization administrators keep a shared-page redirect after re-authenticating', () => {
+  // 数据看板对组织账号开放：被 403 弹回登录后必须回到看板，而不是被改道回工作台。
+  assert.equal(resolveAdminPostLoginTarget({
+    admin: { role: 'organization', mustChangePassword: false }
+  }, '/admin/overview'), '/admin/overview')
+  // 计协账号同样适用。
+  assert.equal(resolveAdminPostLoginTarget({
+    admin: {
+      role: 'organization',
+      mustChangePassword: false,
+      organization: { slug: 'computer-association', title: '计算机协会' }
+    }
+  }, '/admin/overview'), '/admin/overview')
+  // 非共享页面仍然回到自己的工作台。
+  assert.equal(resolveAdminPostLoginTarget({
+    admin: { role: 'organization', mustChangePassword: false }
+  }, '/admin/overview/report'), '/admin/organization')
+  // 强制改密码优先于一切跳转。
+  assert.deepEqual(resolveAdminPostLoginTarget({
+    admin: { role: 'organization', mustChangePassword: true }
+  }, '/admin/overview'), {
+    path: '/admin/organization',
+    query: { password: 'required' }
+  })
+})
