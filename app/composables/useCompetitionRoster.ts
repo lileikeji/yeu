@@ -133,6 +133,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   function sortOrderValue(entry: CompetitionRoundEntry): string {
     const draft = sortOrderDraft.value[entry.id]
     if (draft !== undefined) return draft
+    // 按姓名排时不要显示上一版留下的号，免得看着像「已经排好了」；按号排才显示真实号。
+    if (rosterOrderMode.value === 'pinyin') return ''
     return entry.sortOrder > 0 ? String(entry.sortOrder) : ''
   }
 
@@ -143,7 +145,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   async function applySortOrders(round: CompetitionRoundView): Promise<void> {
     const orders: { entryId: string, sortOrder: number }[] = []
     for (const entry of round.entries) {
-      const raw = sortOrderValue(entry)
+      const raw = sortOrderDraft.value[entry.id]
       if (!raw) continue
       orders.push({ entryId: entry.id, sortOrder: Number(raw) })
     }
@@ -159,7 +161,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       })
       sortOrderDraft.value = {}
       rosterOrderMode.value = 'draw'
-      toast.add({ title: '已按填的号排好', color: 'success' })
+      toast.add({ title: '已按填的号排好，填了号的人同时算签到', color: 'success' })
       await load()
     } catch (error) {
       toast.add({ title: '排序失败', description: apiErrorMessage(error, '号码可能有重复'), color: 'warning' })

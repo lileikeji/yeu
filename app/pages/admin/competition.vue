@@ -1750,6 +1750,7 @@ onBeforeUnmount(stopLiveRefresh)
                   按出场号排
                 </option>
               </select>
+              <span class="hidden text-[11px] text-zinc-500 sm:inline dark:text-zinc-400">填号=签到</span>
               <UButton
                 v-if="activeRound.status !== 'closed'"
                 size="xs"
@@ -1759,7 +1760,7 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="sortOrderBusy"
                 @click="applySortOrders(activeRound)"
               >
-                按填的号排序
+                保存号码并排序
               </UButton>
               <a
                 href="/singer/draw"
@@ -1873,7 +1874,7 @@ onBeforeUnmount(stopLiveRefresh)
                         type="text"
                         inputmode="numeric"
                         class="w-12 rounded border border-zinc-200 px-1 py-0.5 text-center text-sm tabular-nums focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
-                        :placeholder="String(entry.sortOrder || index + 1)"
+                        :placeholder="String(index + 1)"
                         :aria-label="`${entry.singer.name} 出场顺序`"
                         @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
                       >

@@ -1867,6 +1867,17 @@ test('数据库：现场手写号一次排序，抽签页选手自己登记号�
   const bingAfter = listRoundEntryRows(client, round.id).find(item => item.id === bingEntry.id)!
   assert.ok(bingAfter.checkedInAt && bingAfter.checkedInAt > 0)
 
+  // 后台手动改号也算签到：先全部撤掉签到，只给两个人填号。
+  for (const entry of listRoundEntryRows(client, round.id)) setEntryCheckIn(client, round, entry.id, false)
+  applyEntrySortOrders(client, round, [
+    { entryId: entries[0]!.id, sortOrder: 1 },
+    { entryId: entries[1]!.id, sortOrder: 2 }
+  ])
+  const afterCheckin = listRoundEntryRows(client, round.id)
+  assert.ok(afterCheckin.find(item => item.id === entries[0]!.id)!.checkedInAt)
+  assert.ok(afterCheckin.find(item => item.id === entries[1]!.id)!.checkedInAt)
+  assert.equal(afterCheckin.find(item => item.id === entries[2]!.id)!.checkedInAt, null)
+
   // 号不能超过本轮人数（3 人 → 只能 1-3）。
   assert.throws(() => registerDrawNumber(client, musicId, drawLookup, 4), (error: unknown) =>
     (error as { data?: { code?: string, message?: string } }).data?.code === 'VALIDATION_ERROR')

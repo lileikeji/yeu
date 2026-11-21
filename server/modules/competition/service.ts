@@ -2062,6 +2062,14 @@ export function applyEntrySortOrders(
     next += 1
   }
 
+  // 现场规则：只有「人手动填了号」的那几个算到场签到；自动续号的不算签到。
+  const checkedInAt = Date.now()
+  const explicitIds = orders.map(item => item.entryId)
+  for (const entryId of explicitIds) {
+    client.db.update(competitionRoundEntries).set({ checkedInAt })
+      .where(eq(competitionRoundEntries.id, entryId)).run()
+  }
+
   // 先整体挪到负数区间，避免中途撞上已有号码
   client.db.transaction(() => {
     for (const entry of entries) {
