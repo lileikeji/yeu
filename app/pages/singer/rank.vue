@@ -36,11 +36,11 @@ watch(round, load)
 </script>
 
 <template>
-  <div class="min-h-dvh bg-[#faf7f2] px-3 py-6 text-zinc-900">
+  <div class="singer-canvas min-h-dvh px-3 py-6 text-[var(--ink)]">
     <div class="mx-auto w-full max-w-5xl space-y-4">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="text-xs tracking-[0.2em] text-[#b45c33]">
+          <p class="text-xs tracking-[0.2em] text-[var(--color-orange-700)]">
             仰恩大学音乐协会 · 新声歌手大赛
           </p>
           <h1 class="mt-1 text-2xl font-black">
@@ -49,7 +49,7 @@ watch(round, load)
         </div>
         <select
           v-model="round"
-          class="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm"
+          class="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
         >
           <option value="prelim">
             初赛
@@ -72,24 +72,24 @@ watch(round, load)
 
       <div
         v-if="loading"
-        class="rounded-xl bg-white px-4 py-10 text-center text-sm text-zinc-400 shadow-sm"
+        class="rounded-xl bg-[var(--surface)] px-4 py-10 text-center text-sm text-[var(--muted-ink)] shadow-sm"
       >
         加载中…
       </div>
 
       <div
         v-else-if="board && board.rows.length === 0"
-        class="rounded-xl bg-white px-4 py-10 text-center text-sm text-zinc-400 shadow-sm"
+        class="rounded-xl bg-[var(--surface)] px-4 py-10 text-center text-sm text-[var(--muted-ink)] shadow-sm"
       >
         这一轮还没有成绩。
       </div>
 
       <div
         v-else-if="board"
-        class="overflow-hidden rounded-xl bg-white shadow-sm"
+        class="overflow-hidden rounded-xl bg-[var(--surface)] shadow-sm"
       >
         <table class="w-full text-sm">
-          <thead class="bg-[#fff2e0] text-left text-xs text-[#a06a3c]">
+          <thead class="bg-[color-mix(in_srgb,var(--color-orange-500)_14%,var(--surface))] text-left text-xs text-[var(--color-orange-700)]">
             <tr>
               <th class="w-14 px-3 py-2 font-medium">
                 名次
@@ -111,19 +111,19 @@ watch(round, load)
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-100">
+          <tbody class="divide-y divide-[color-mix(in_srgb,var(--ink)_8%,var(--surface))]">
             <tr
               v-for="row in board.rows"
               :key="row.entryId"
             >
-              <td class="px-3 py-2 text-base font-black tabular-nums text-[#b45c33]">
+              <td class="px-3 py-2 text-base font-black tabular-nums text-[var(--color-orange-700)]">
                 {{ row.rank ?? '—' }}
               </td>
               <td class="px-2 py-2">
                 <button
                   v-if="row.photoUrl"
                   type="button"
-                  class="block size-12 overflow-hidden rounded-md border border-zinc-200"
+                  class="block size-12 overflow-hidden rounded-md border border-[var(--line)]"
                   :aria-label="`查看${row.name}的照片`"
                   @click="openPhoto(row)"
                 >
@@ -135,29 +135,29 @@ watch(round, load)
                 </button>
                 <span
                   v-else
-                  class="grid size-12 place-items-center rounded-md bg-zinc-100 text-[10px] text-zinc-400"
+                  class="grid size-12 place-items-center rounded-md bg-[color-mix(in_srgb,var(--ink)_6%,var(--surface))] text-[10px] text-[var(--muted-ink)]"
                 >无照片</span>
               </td>
               <td class="px-3 py-2 font-semibold">
                 {{ row.name }}
-                <span class="ml-1 text-xs font-normal text-zinc-400">{{ row.className }}</span>
+                <span class="ml-1 text-xs font-normal text-[var(--muted-ink)]">{{ row.className }}</span>
               </td>
-              <td class="px-3 py-2 text-zinc-600">
+              <td class="px-3 py-2 text-[var(--muted-ink)]">
                 {{ row.song }}
               </td>
-              <td class="px-3 py-2 text-center tabular-nums text-zinc-500">
+              <td class="px-3 py-2 text-center tabular-nums text-[var(--muted-ink)]">
                 {{ row.position }}
               </td>
               <td class="px-3 py-2 text-right font-bold tabular-nums">
                 {{ row.average == null ? '—' : row.average.toFixed(2) }}
-                <span class="text-xs font-normal text-zinc-400">/ {{ board.maxTotal }}</span>
+                <span class="text-xs font-normal text-[var(--muted-ink)]">/ {{ board.maxTotal }}</span>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <p class="text-center text-xs text-zinc-400">
+      <p class="text-center text-xs text-[var(--muted-ink)]">
         仰恩大学音乐协会
       </p>
     </div>
