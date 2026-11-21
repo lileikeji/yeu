@@ -208,6 +208,7 @@ function isOrganizationRouteAllowed(path: string): boolean {
     || (path === '/admin/competition' && isMusicAssociation.value)
     || (path === '/admin/yeuca' && isComputerAssociation.value)
     || (path === '/admin/miniapp' && canUseCapability('analytics.view'))
+    || (path === '/admin/overview' && canUseCapability('analytics.view'))
   )
 }
 
