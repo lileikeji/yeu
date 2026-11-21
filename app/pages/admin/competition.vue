@@ -74,7 +74,8 @@ const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
   sections, event, maxTotal, singers, singerJoinedRound, singerRoundSong, activeRound, settingsWeightSum, roundSummary,
   load, saveSettings,
-  saveRound, setRoundStatus
+  saveRound, setRoundStatus,
+  clearRoundScores, clearingScoresKey
 } = useCompetitionPayload({ toast })
 
 /** 维度编辑按轮次分开：初赛 10 分制（满分 50）、复赛/决赛 20 分制（满分 100）。 */
@@ -155,7 +156,15 @@ async function saveRoundDimensions(): Promise<void> {
   const round = dimensionRound.value
   if (!round || savingDimensions.value) return
   const dimensions = dimensionRoundDraft.value
-    .map(item => ({ key: item.key, label: item.label.trim(), weight: Number(item.weight) }))
+    .map((item) => {
+      const max = Number(item.max)
+      return {
+        key: item.key,
+        label: item.label.trim(),
+        weight: Number(item.weight),
+        ...(Number.isFinite(max) && max > 0 ? { max: Math.round(max) } : {})
+      }
+    })
   if (dimensions.some(item => !item.label)) {
     toast.add({ title: '维度名称不能为空', color: 'warning' })
     return
@@ -164,7 +173,16 @@ async function saveRoundDimensions(): Promise<void> {
   try {
     const data = await adminFetch<CompetitionAdminPayload>(
       `/api/admin/competition/rounds/${round.key}`,
-      { method: 'PUT', body: { dimensions, dimensionMax: Number(dimensionMaxDraft.value) } }
+      {
+        method: 'PUT',
+        body: {
+          dimensions,
+          // 每维满分都填了就让本轮满分跟着取最大值，否则沿用原兜底值
+          dimensionMax: dimensions.every(item => item.max)
+            ? Math.max(...dimensions.map(item => item.max as number))
+            : (Number(dimensionMaxDraft.value) || COMPETITION_MAX_DIMENSION_SCORE)
+        }
+      }
     )
     payload.value = data
     toast.add({ title: `${round.title}维度已保存`, color: 'success' })
@@ -665,21 +683,11 @@ onBeforeUnmount(stopLiveRefresh)
                 size="xs"
                 class="w-40"
               />
-              <span class="text-xs text-zinc-500 dark:text-zinc-400">
-                每维满分
-              </span>
-              <UInput
-                v-model.number="dimensionMaxDraft"
-                type="number"
-                min="1"
-                max="100"
-                step="1"
-                size="xs"
-                class="w-20"
-                :disabled="dimensionRoundLocked"
-              />
               <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                 本轮满分 {{ dimensionRoundTotal }} 分
+              </span>
+              <span class="text-xs text-zinc-400 dark:text-zinc-500">
+                每维满分在下面各行自己填，留空就用 {{ dimensionMaxDraft }} 分
               </span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -764,7 +772,7 @@ onBeforeUnmount(stopLiveRefresh)
                   min="1"
                   max="100"
                   step="1"
-                  placeholder="同本轮"
+                  :placeholder="`${dimensionMaxDraft}`"
                   class="w-full"
                   :disabled="dimensionRoundLocked"
                   @update:model-value="value => dimension.max = Number(value) > 0 ? Number(value) : undefined"
@@ -1006,13 +1014,19 @@ onBeforeUnmount(stopLiveRefresh)
                   <template v-if="singerJoinedRound(singer.id, 'semi')">
                     {{ singerRoundSong(singer, 'semi') || '待填' }}
                   </template>
-                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                  <span
+                    v-else
+                    class="text-zinc-300 dark:text-zinc-600"
+                  >—</span>
                 </td>
                 <td class="px-3 py-2 text-xs">
                   <template v-if="singerJoinedRound(singer.id, 'final')">
                     {{ singerRoundSong(singer, 'final') || '待填' }}
                   </template>
-                  <span v-else class="text-zinc-300 dark:text-zinc-600">—</span>
+                  <span
+                    v-else
+                    class="text-zinc-300 dark:text-zinc-600"
+                  >—</span>
                 </td>
                 <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ singer.className || '—' }}
@@ -1287,6 +1301,15 @@ onBeforeUnmount(stopLiveRefresh)
                 :disabled="!canClearRoster(activeRound)"
                 :loading="generatingRoundKey === activeRound.key"
                 @click="clearRoster(activeRound)"
+              />
+              <UButton
+                icon="i-lucide-eraser"
+                label="清空评分"
+                color="error"
+                variant="soft"
+                :disabled="!(activeRound.entries.some(entry => entry.average !== null) || (activeRound.scores?.length ?? 0) > 0)"
+                :loading="clearingScoresKey === activeRound.key"
+                @click="clearRoundScores(activeRound)"
               />
               <UButton
                 icon="i-lucide-copy"
@@ -1968,7 +1991,10 @@ onBeforeUnmount(stopLiveRefresh)
                           aria-label="试听伴奏"
                           @click="openAccompaniment(entry)"
                         >
-                          <UIcon name="i-lucide-play" class="size-3" />
+                          <UIcon
+                            name="i-lucide-play"
+                            class="size-3"
+                          />
                           试听
                         </button>
                         <span class="ml-1 text-[11px]">
@@ -3387,7 +3413,10 @@ onBeforeUnmount(stopLiveRefresh)
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-sm text-emerald-700 underline dark:text-emerald-300"
           >
-            <UIcon name="i-lucide-download" class="size-4" />
+            <UIcon
+              name="i-lucide-download"
+              class="size-4"
+            />
             下载这个伴奏
           </a>
           <a
@@ -3398,7 +3427,10 @@ onBeforeUnmount(stopLiveRefresh)
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1 text-sm text-zinc-600 underline dark:text-zinc-300"
           >
-            <UIcon name="i-lucide-file-audio" class="size-4" />
+            <UIcon
+              name="i-lucide-file-audio"
+              class="size-4"
+            />
             下载原件（{{ accompanimentSize(accompanimentPreview.original.size) }}）
           </a>
         </div>

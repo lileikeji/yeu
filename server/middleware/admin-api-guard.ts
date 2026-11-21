@@ -72,6 +72,10 @@ export default defineEventHandler((event) => {
 
   if (pathname === '/api/admin/miniapp/analytics' && method === 'GET') return
 
+  // 数据看板：组织管理员只要持有 analytics.view 就能读（handler 内 requireAdminCapability 再校验一次），
+  // 否则计协/社团账号点进 /admin/overview 会拿到 403，被前端当成掉登录弹回工作台。
+  if (pathname === '/api/admin/overview' && method === 'GET') return
+
   // 组织管理员只能看到自己组织的活动（服务层再按 organizationContentId 收口）；
   // 审核路由在 handler 内 requireSuperAdmin，不能只靠这里放行。
   if (pathname === '/api/admin/activities' || pathname.startsWith('/api/admin/activities/')) return
