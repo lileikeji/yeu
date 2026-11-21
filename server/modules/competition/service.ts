@@ -502,7 +502,17 @@ export function singerPhotoUrl(row: SingerRow): string | null {
   if (!key) return null
   const config = cosConfig()
   if (!config) return null
-  return presignCosGet(config, key, 6 * 60 * 60, 'image/jpeg')
+  // 按扩展名给正确的 Content-Type，别把 PNG/WebP/HEIC 一律当 jpeg，否则部分浏览器不渲染。
+  const extension = key.slice(key.lastIndexOf('.') + 1).toLowerCase()
+  const contentType =
+    extension === 'png'
+      ? 'image/png'
+      : extension === 'webp'
+        ? 'image/webp'
+        : extension === 'heic' || extension === 'heif'
+          ? 'image/heic'
+          : 'image/jpeg'
+  return presignCosGet(config, key, 6 * 60 * 60, contentType)
 }
 
 export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
