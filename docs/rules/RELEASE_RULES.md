@@ -149,6 +149,26 @@
 3. current 单独兜一次：`[ "$d" = "$CUR" ] && continue`。
 4. 删完立刻验：`curl -s -o /dev/null -w "%{http_code}" https://<域名>/` 与一个真实的 `/_nuxt/*.js`，两个都 200 才算过。
 
+### 15. 恢复被删除的子系统，只搬后端文件会留下“半条命”（2026-11-21）
+
+- 现象：寻宝后台、登录页、计协接口都恢复了，但 `/admin/login` 仍是旧的绿色“迎新指南”版；计协管理员登录后也不再被限制在 `/admin/yeuca`。用户先发现的正是登录页。
+- 根因：主线 `cb54fd42` / `7ac0b88d` 删除计协后端时，动的不是只有 `server/modules/yeuca/**`，而是一次改了 19 个文件。后续增量移植只按目录搬了后端与 API，漏掉了外围接线：
+  - `app/pages/admin/login.vue` 的 `isYeucaHost` 被改成 `isLegacyConsole = computed(() => false)`，品牌栏永远不渲染；
+  - `app/layouts/admin.vue` 把 `enforceOrganizationRouteScope()` 内联进会话初始化，并删掉 `route.path` 监听，登录后换路由不再校验组织角色；
+  - `app/layouts/default.vue`、`app/pages/about.vue`、`app/pages/clubs/[slug].vue` 的计协主站互链被删；
+  - `ops/systemd/yeuca-blocklist.*`、`scripts/yeuca-nginx-blocklist.mjs` 与 `ops/harden-production.sh` 的安装步骤被删，封禁表不再落到 nginx。
+- 为什么测试没拦住：这些是宿主判断、跳转时机、静态文案和 systemd 单元，现有测试只覆盖 API 与服务层；`pnpm test` 全绿不代表入口还在。
+- 对账方法：以删除提交的父提交为基线，逐文件看，而不是只看业务目录。
+  ```bash
+  git show --stat <删除提交>
+  for f in $(git show --name-only --format= <删除提交>); do
+    git diff --shortstat <删除提交>^ HEAD -- "$f"
+  done
+  ```
+  有差异的文件再判断是“主线后续演进”还是“没搬回来”。
+- 本次落地：恢复登录页、后台路由守卫、三处主站互链、封禁 systemd 单元与安装步骤；新增 `scripts/yeuca-surface.test.ts` 锁住 `isYeucaHost`、`enforceOrganizationRouteScope` 和三处互链，防止下次合并再被静默抹掉。
+- 部署后验收不能只看 `/version.json`：还要抓 `/admin/login` 的 SSR HTML，确认包含 `YEUCA STUDIO` / `计协主站后台登录`，并确认 `/admin/yeuca` 未登录仍是 302 而不是 500。
+
 ## 三、固定约定
 - 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。

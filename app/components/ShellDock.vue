@@ -263,7 +263,7 @@ onMounted(() => {
   transition:
     height 240ms cubic-bezier(0.22, 1, 0.36, 1),
     border-radius 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 200ms cubic-bezier(0.24, 1, 0.32, 1),
+    transform 200ms var(--ease-sheet),
     opacity 200ms linear;
 }
 
@@ -292,7 +292,7 @@ html.dark .shell-dock-root.shell-dock--map {
   transition:
     height 180ms cubic-bezier(0.4, 0, 1, 1) 60ms,
     border-radius 180ms cubic-bezier(0.4, 0, 1, 1) 60ms,
-    transform 200ms cubic-bezier(0.24, 1, 0.32, 1),
+    transform 200ms var(--ease-sheet),
     opacity 200ms linear;
 }
 
@@ -302,7 +302,7 @@ html.dark .shell-dock-root.shell-dock--map {
   /* T-033 R2：半屏时 dock 压在面板之上，半透明会把面板里的橙/蓝块透出来，所以只下沉不淡化。 */
   opacity: 1;
   transition:
-    transform 200ms cubic-bezier(0.24, 1, 0.32, 1),
+    transform 200ms var(--ease-sheet),
     opacity 200ms linear;
 }
 
@@ -312,15 +312,15 @@ html.dark .shell-dock-root.shell-dock--map {
   opacity: 0;
   pointer-events: none;
   transition:
-    transform 220ms cubic-bezier(0.24, 1, 0.32, 1),
+    transform 220ms var(--ease-sheet),
     opacity 220ms linear;
 }
 
 /* C3：收回，延迟 80ms、260ms 复位。 */
 .shell-dock-root.shell-dock--sheet-collapsed {
   transition:
-    transform 260ms cubic-bezier(0.24, 1, 0.32, 1) 80ms,
-    opacity 260ms cubic-bezier(0.24, 1, 0.32, 1) 80ms;
+    transform 260ms var(--ease-sheet) 80ms,
+    opacity 260ms var(--ease-sheet) 80ms;
 }
 
 .shell-dock-body {
@@ -436,8 +436,8 @@ html.dark .shell-dock-root.shell-dock--map {
   border-radius: 999px;
   background: transparent;
   transition:
-    background-color 180ms cubic-bezier(0.24, 1, 0.32, 1),
-    color 180ms cubic-bezier(0.24, 1, 0.32, 1);
+    background-color 180ms var(--ease-sheet),
+    color 180ms var(--ease-sheet);
 }
 
 .shell-dock-slot--active .shell-dock-icon {

@@ -200,7 +200,7 @@ test('sheet refracting state drops the veil to <=82% and blur to <=2px', () => {
 
 test('sheet height transition animates height only and keeps a 320ms soft ease', () => {
   // T-024：只过渡 height。transition-all 会把圆角、阴影、边框一起插值，展开时抖动明显。
-  assert.match(pageSource, /transition-\[height\] duration-\[320ms\] ease-\[cubic-bezier\(0\.24,1,0\.32,1\)\]/)
+  assert.match(pageSource, /transition-\[height\] duration-\[320ms\] ease-\[var\(--ease-sheet\)\]/)
   assert.equal(pageSource.match(/transition-all/g), null, '页面里不应出现 transition-all')
   // 面板内容隔离 layout/paint：高度变化不再触发整块重排。
   assert.match(pageSource, /\[contain:layout_paint\]/)

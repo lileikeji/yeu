@@ -1,0 +1,601 @@
+---
+import Base from '../layouts/Base.astro';
+import {
+  CLUB_META,
+  FLAGSHIP_LINKED_PROJECT,
+  VERIFIED_DEPARTMENTS,
+} from '../data/club';
+---
+
+<Base
+  title="仰恩大学计算机协会"
+  description="仰恩大学计算机协会官方网站：扫码进迎新群报名加入，查看协会部门、学科竞赛与自建 Git 项目。"
+  canonicalPath="/"
+>
+  <!-- 首屏 Hero：第一眼见“报名加入协会”与扫码进群，信息轻量、全站公开免登录 -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="hero-eyebrow">
+          <span class="hero-eyebrow-bar" aria-hidden="true"></span>
+          <span id="hero-campus">{CLUB_META.enName} · {CLUB_META.campus}</span>
+        </div>
+        <h1 id="hero-tagline">{CLUB_META.tagline}</h1>
+        <p class="hero-lead" id="hero-intro">{CLUB_META.intro}</p>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" id="hero-join-btn" href="/join/">报名加入协会 →</a>
+          <button type="button" class="btn btn-ghost" id="hero-qr-btn">
+            迎新群二维码
+          </button>
+        </div>
+      </div>
+
+      <div class="campus-frame">
+        <img
+          id="hero-campus-img"
+          src="/images/campus-hero.webp"
+          alt="仰恩大学洛江校区实景俯瞰"
+          loading="eager"
+        />
+        <span class="campus-tag" id="hero-campus-tag">创立于 {CLUB_META.foundedYear} 年 · 洛江校区</span>
+
+        <div class="campus-live-bar" id="hero-live-bar">
+          <div style="min-width: 0;">
+            <div class="campus-live-kicker" id="hero-live-kicker">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span id="hero-live-kicker-text">近期安排</span>
+            </div>
+            <div class="campus-live-title" id="hero-live-title">迎新纳新开放 · 先扫码进群</div>
+            <div class="campus-live-sub" id="hero-live-sub">不强制写长表，公开分享安排在晚上或周末</div>
+          </div>
+          <a class="btn btn-dark btn-sm" id="hero-live-btn" href="/join/">去报名</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 一句话精简指标条 -->
+    <div class="wrap spec-strip">
+      <div class="spec-cell">
+        <span class="spec-k">迎新加入</span>
+        <span class="spec-v" id="spec-recruit-state">扫码进群 · 零门槛登记</span>
+      </div>
+      <div class="spec-cell">
+        <span class="spec-k">方向分工</span>
+        <span class="spec-v" id="spec-dept-count">{VERIFIED_DEPARTMENTS.length} 个部门（AI / 编程 / 网工 / 网安等）</span>
+      </div>
+      <div class="spec-cell">
+        <span class="spec-k">官网访问</span>
+        <span class="spec-v">公开只读，无需注册登录</span>
+      </div>
+      <div class="spec-cell">
+        <span class="spec-k">代码协作</span>
+        <span class="spec-v" id="spec-git-gate">Git 代码站与会员入口需登录后使用</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 核心三个入口：协会部门 · 协会竞赛 · 协会项目 -->
+  <section class="band band-alt">
+    <div class="wrap">
+      <div class="band-head" style="margin-bottom: 1.25rem;">
+        <div>
+          <div class="band-kicker">01 · 核心板块</div>
+          <h2>从这三项了解计算机协会</h2>
+          <p class="band-desc" id="hero-guide-note">
+            各部具体练习和分工放在导航栏「部门」页里，先不挑方向也能先加群旁听。
+          </p>
+        </div>
+      </div>
+
+      <div class="pillars-3" id="home-pillars-grid">
+        <div class="pillar-card">
+          <a class="pillar-main-link" href="/departments/">
+            <div class="pillar-head">
+              <span class="pill pill-ai">01 · 部门分工</span>
+              <span class="pillar-arrow" aria-hidden="true">→</span>
+            </div>
+            <h3 style="margin-top: 0.35rem;">协会部门</h3>
+            <p id="pillar-dept-summary">
+              AI 部 Agent 工作流、编程算法、网络工程、信息安全、运维与宣传，看各部平时练什么。
+            </p>
+            <div id="pillar-dept-meta" class="mono" style="font-size: 0.74rem; color: var(--subtle); padding-top: 0.25rem;">
+              点下方标签直达对应部门或进入全览 →
+            </div>
+          </a>
+          <div class="pillar-chip-strip" id="home-dept-pills">
+            {
+              VERIFIED_DEPARTMENTS.map((dept) => (
+                <a
+                  class={`dept-jump-pill${dept.isFeatured ? ' is-featured' : ''}`}
+                  href={`/departments/#dept-${encodeURIComponent(dept.id)}`}
+                >
+                  {dept.name}
+                </a>
+              ))
+            }
+          </div>
+        </div>
+
+        <div class="pillar-card">
+          <a class="pillar-main-link" href="/about/#competitions">
+            <div class="pillar-head">
+              <span class="pill pill-red">02 · 以赛促学</span>
+              <span class="pillar-arrow" aria-hidden="true">→</span>
+            </div>
+            <h3 style="margin-top: 0.35rem;">协会竞赛</h3>
+            <p id="pillar-comp-summary">
+              蓝桥杯软件/安全双赛道、华为 ICT 大赛、全国信息安全竞赛与西门子杯校内选拔。
+            </p>
+            <div id="pillar-comp-meta" class="mono" style="font-size: 0.74rem; color: var(--subtle); padding-top: 0.25rem;">
+              看常赛清单与组队方式 →
+            </div>
+          </a>
+          <div class="pillar-chip-strip" id="home-comp-pills">
+            <a class="dept-jump-pill" href="/about/#competitions">蓝桥杯</a>
+            <a class="dept-jump-pill" href="/about/#competitions">华为 ICT</a>
+            <a class="dept-jump-pill" href="/about/#competitions">信息安全赛</a>
+            <a class="dept-jump-pill" href="/about/#competitions">西门子杯</a>
+          </div>
+        </div>
+
+        <div class="pillar-card">
+          <a class="pillar-main-link" href="/projects/">
+            <div class="pillar-head">
+              <span class="pill">03 · 代码与工程</span>
+              <span class="pillar-arrow" aria-hidden="true">→</span>
+            </div>
+            <h3 style="margin-top: 0.35rem;">协会项目</h3>
+            <p id="pillar-proj-summary">
+              在跑校园应用 YeU 迎新指南、协会自建 Git 代码站（协作需登录）与本地镜像工具。
+            </p>
+            <div id="pillar-proj-meta" class="mono" style="font-size: 0.74rem; color: var(--subtle); padding-top: 0.25rem;">
+              浏览 Git 仓与项目介绍 →
+            </div>
+          </a>
+          <div class="pillar-chip-strip">
+            <a class="dept-jump-pill" href="/projects/#yeu-flagship">YeU 迎新网</a>
+            <a class="dept-jump-pill js-git-link" href="/git/" target="_blank" rel="noreferrer">Git 代码站 ↗</a>
+            <a class="dept-jump-pill" href="/mirrors/">镜像源</a>
+            <a class="dept-jump-pill" href="/tools/">离线工具</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 后台上传实拍图（仅管理员在后台传过图片后显现，默认不占白） -->
+  <section class="band" id="home-gallery-band" hidden>
+    <div class="wrap">
+      <div class="band-head">
+        <div>
+          <div class="band-kicker">实景实拍</div>
+          <h2>机房、比赛与日常照片</h2>
+        </div>
+      </div>
+      <div class="cards-3" id="home-gallery-grid"></div>
+    </div>
+  </section>
+
+  <!-- 近期活动与动态（保持极简双栏，点击卡片即弹窗看全文） -->
+  <section class="band">
+    <div class="wrap">
+      <div class="journal-grid">
+        <div>
+          <div class="band-head" style="margin-bottom: 0.9rem;">
+            <div>
+              <div class="band-kicker">02 · 活动与动态</div>
+              <h2 style="font-size: 1.32rem;">近期安排与最新动态</h2>
+            </div>
+            <a class="link-btn" href="/activities/">全部活动 →</a>
+          </div>
+          <div id="home-activity-list">
+            <div class="empty-panel">
+              近期暂无新公开排期，可先扫码进迎新群关注每周培训时间，或看「<a href="/news/">协会动态</a>」。
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="band-head" style="margin-bottom: 0.9rem;">
+            <div>
+              <div class="band-kicker">03 · 常用工具与动态</div>
+              <h2 style="font-size: 1.32rem;">公告与开发顺手入口</h2>
+            </div>
+            <a class="link-btn" href="/news/">全部动态 →</a>
+          </div>
+          <div id="home-news-list">
+            <div class="empty-panel">
+              装包太慢去 <a href="/mirrors/">镜像与换源站</a>；调试子网/JSON 打开 <a href="/tools/">离线工具箱</a>。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 联动大项目 YeU 与 Git 代码站（紧凑一条） -->
+      <div class="flagship-link-strip" style="margin-top: 1.8rem;">
+        <div style="min-width: 0; flex: 1 1 320px;">
+          <div class="mono" style="font-size: 0.72rem; color: #93c5fd; margin-bottom: 0.25rem;">
+            {FLAGSHIP_LINKED_PROJECT.tag} · {FLAGSHIP_LINKED_PROJECT.host}
+          </div>
+          <div style="font-size: 1rem; font-weight: 700; color: #ffffff;">
+            {FLAGSHIP_LINKED_PROJECT.name}
+          </div>
+          <p id="home-flagship-note" style="margin: 0.25rem 0 0; font-size: 0.84rem; color: #d6d3d1;">
+            {FLAGSHIP_LINKED_PROJECT.maintainersNote}
+          </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <a
+            class="btn btn-sm"
+            style="background: var(--red); color: #ffffff; border-color: var(--red);"
+            href={FLAGSHIP_LINKED_PROJECT.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            打开 YeU 迎新网 ↗
+          </a>
+          <a
+            class="btn btn-sm js-git-link"
+            style="background: #262522; color: #f5f5f4; border-color: #44403c;"
+            href="/git/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Git 代码站 ↗
+          </a>
+          <a
+            class="btn btn-sm"
+            style="background: transparent; color: #e7e5e4; border-color: #44403c;"
+            href="/activities/treasure"
+          >
+            校园寻宝地图 →
+          </a>
+          <a
+            class="btn btn-sm"
+            style="background: transparent; color: #e7e5e4; border-color: #44403c;"
+            href="/mirrors/"
+          >
+            镜像源 →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import {
+    escapeHtml,
+    fetchPublicSiteData,
+    formatIsoDateParts,
+    inferActivityCategory,
+    renderSafeMarkdown,
+    resolveAssetUrl,
+    type PublicActivity,
+    type PublicPost,
+    type YeucaGalleryItem,
+  } from '../lib/yeuca-client';
+
+  let activeQrSrc = '/images/yeuca-welcome-qr.png';
+  let activeContactNote = '无需注册登录。第一天不用急着选部门，扫码进迎新群再了解各方向就行。';
+  let activeQqGroup = '873029727';
+
+  function openReaderModal(options: {
+    title: string;
+    meta: string;
+    tags: Array<{ text: string; cls?: string }>;
+    htmlBody?: string;
+    markdownBody?: string;
+  }) {
+    const modal = document.getElementById('reader-modal');
+    const titleNode = document.getElementById('reader-modal-title');
+    const metaNode = document.getElementById('reader-modal-meta');
+    const tagsNode = document.getElementById('reader-modal-tags');
+    const bodyNode = document.getElementById('reader-modal-body');
+    if (!modal || !titleNode || !metaNode || !tagsNode || !bodyNode) return;
+
+    titleNode.textContent = options.title;
+    metaNode.textContent = options.meta;
+    tagsNode.innerHTML = options.tags
+      .map((t) => `<span class="pill ${t.cls || ''}">${escapeHtml(t.text)}</span>`)
+      .join('');
+    bodyNode.innerHTML = options.htmlBody ?? renderSafeMarkdown(options.markdownBody || '');
+    modal.hidden = false;
+  }
+
+  // Hero 按钮直接弹出迎新群二维码，支持动态联动后台群码与说明
+  document.getElementById('hero-qr-btn')?.addEventListener('click', () => {
+    const tags = [{ text: '迎新交流群', cls: 'pill-red' }];
+    if (activeQqGroup) tags.push({ text: `QQ ${activeQqGroup}`, cls: '' });
+    const copyBtnHtml = activeQqGroup
+      ? `<button type="button" class="btn btn-ghost btn-sm" id="modal-copy-qq">复制群号 ${escapeHtml(activeQqGroup)}</button>`
+      : '';
+
+    openReaderModal({
+      title: '仰恩大学计算机协会 · 迎新群二维码',
+      meta: activeContactNote,
+      tags,
+      htmlBody: `
+        <div style="display:grid;place-items:center;gap:0.85rem;padding:0.65rem 0;text-align:center;">
+          <img src="${escapeHtml(activeQrSrc)}" alt="计算机协会迎新群二维码" style="width:min(280px,100%);border-radius:10px;border:1px solid var(--line-strong);" />
+          <div style="display:flex;gap:0.55rem;flex-wrap:wrap;justify-content:center;">
+            ${copyBtnHtml}
+            <a class="btn btn-primary btn-sm" href="/join/">前往加入我们页面 →</a>
+          </div>
+        </div>`,
+    });
+    document.getElementById('modal-copy-qq')?.addEventListener('click', async () => {
+      if (!activeQqGroup) return;
+      try {
+        await navigator.clipboard.writeText(activeQqGroup);
+        (window as unknown as { __yeucaToast?: (m: string) => void }).__yeucaToast?.(`群号 ${activeQqGroup} 已复制 ✓`);
+      } catch {
+        // 忽略剪贴板权限拒绝
+      }
+    });
+  });
+
+  function renderActivities(list: PublicActivity[]) {
+    const container = document.getElementById('home-activity-list');
+    if (!container || list.length === 0) return;
+
+    const top = list.slice(0, 3);
+    container.innerHTML = `<div class="event-rows">${top
+      .map((act, idx) => {
+        const parts = formatIsoDateParts(act.startsAt);
+        const placeText = [act.placeName, act.room].filter(Boolean).join(' · ');
+        return `
+          <article class="event-row" data-act-idx="${idx}">
+            <div class="cal-date">
+              <span class="cal-m">${escapeHtml(parts.month)}</span>
+              <span class="cal-d">${escapeHtml(parts.day)}</span>
+            </div>
+            <div style="min-width: 0;">
+              <div class="tag-row" style="margin-bottom: 0.25rem;">
+                <span class="pill pill-ok">${escapeHtml(inferActivityCategory(act.title, act.summary))}</span>
+                <span class="muted" style="font-size: 0.78rem;">${escapeHtml(parts.timeText)}${placeText ? ` · ${escapeHtml(placeText)}` : ''}</span>
+              </div>
+              <h3>${escapeHtml(act.title)}</h3>
+              <p>${escapeHtml(act.summary)}</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" type="button">详情</button>
+          </article>`;
+      })
+      .join('')}</div>`;
+
+    container.querySelectorAll<HTMLElement>('[data-act-idx]').forEach((row) => {
+      row.addEventListener('click', () => {
+        const act = top[Number(row.dataset.actIdx) || 0];
+        if (!act) return;
+        const parts = formatIsoDateParts(act.startsAt);
+        const placeText = [act.placeName, act.room].filter(Boolean).join(' ');
+        openReaderModal({
+          title: act.title,
+          meta: `时间：${parts.dateText} ${parts.timeText}${placeText ? ` ｜ 地点：${placeText}` : ''}`,
+          tags: [{ text: '近期活动', cls: 'pill-ok' }],
+          markdownBody: act.body || act.summary,
+        });
+      });
+    });
+
+    const first = list[0];
+    if (first) {
+      const p = formatIsoDateParts(first.startsAt);
+      const kickerText = document.getElementById('hero-live-kicker-text');
+      const title = document.getElementById('hero-live-title');
+      const sub = document.getElementById('hero-live-sub');
+      const btn = document.getElementById('hero-live-btn') as HTMLAnchorElement | null;
+      if (kickerText) kickerText.textContent = `近期活动 · ${p.dateText}`;
+      if (title) title.textContent = first.title;
+      if (sub) sub.textContent = `${p.timeText}${first.placeName ? ` · ${first.placeName}` : ''}`;
+      if (btn) {
+        btn.textContent = '看排期';
+        btn.href = '/activities/';
+      }
+    }
+  }
+
+  function renderNews(list: PublicPost[]) {
+    const container = document.getElementById('home-news-list');
+    if (!container || list.length === 0) return;
+
+    const top = list.slice(0, 3);
+    container.innerHTML = `<div class="news-compact-list">${top
+      .map(
+        (post, idx) => `
+        <article class="news-compact-item" data-news-idx="${idx}">
+          <div class="tag-row">
+            <span class="mono" style="font-size: 0.74rem; color: var(--subtle);">${escapeHtml(post.publishedAt || post.updatedAt)}</span>
+            <span class="pill ${post.deptName === 'AI 部' ? 'pill-ai' : ''}">${escapeHtml(post.deptName)}</span>
+            ${post.pinned ? '<span class="pill pill-red">置顶</span>' : ''}
+          </div>
+          <h4>${escapeHtml(post.title)}</h4>
+          <div class="muted" style="font-size: 0.82rem;">${escapeHtml(post.summary)}</div>
+        </article>`,
+      )
+      .join('')}</div>`;
+
+    container.querySelectorAll<HTMLElement>('[data-news-idx]').forEach((item) => {
+      item.addEventListener('click', () => {
+        const post = top[Number(item.dataset.newsIdx) || 0];
+        if (!post) return;
+        openReaderModal({
+          title: post.title,
+          meta: `${post.publishedAt || post.updatedAt} · ${post.deptName}`,
+          tags: [
+            { text: post.deptName, cls: post.deptName === 'AI 部' ? 'pill-ai' : '' },
+            ...post.tags.map((t) => ({ text: t })),
+          ],
+          markdownBody: post.body || post.summary,
+        });
+      });
+    });
+  }
+
+  function renderGallery(items: YeucaGalleryItem[]) {
+    const band = document.getElementById('home-gallery-band');
+    const grid = document.getElementById('home-gallery-grid');
+    if (!band || !grid) return;
+    const valid = items.filter((item) => item.imageUrl && resolveAssetUrl(item.imageUrl));
+    if (!valid.length) {
+      band.hidden = true;
+      return;
+    }
+    band.hidden = false;
+    grid.innerHTML = valid
+      .map((item) => {
+        const src = resolveAssetUrl(item.imageUrl);
+        return `
+          <article class="card">
+            <img src="${escapeHtml(src)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 190px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line);" loading="lazy" />
+            <h3 style="margin-top: 0.25rem;">${escapeHtml(item.title)}</h3>
+            ${item.caption ? `<p>${escapeHtml(item.caption)}</p>` : ''}
+          </article>`;
+      })
+      .join('');
+  }
+
+  async function hydrateHome() {
+    const payload = await fetchPublicSiteData();
+    if (!payload) return;
+
+    const campusEl = document.getElementById('hero-campus');
+    const taglineEl = document.getElementById('hero-tagline');
+    const introEl = document.getElementById('hero-intro');
+    const deptCountEl = document.getElementById('spec-dept-count');
+    const recruitEl = document.getElementById('spec-recruit-state');
+    const heroImgEl = document.getElementById('hero-campus-img') as HTMLImageElement | null;
+    const flagshipNoteEl = document.getElementById('home-flagship-note');
+    const pillarDeptSummary = document.getElementById('pillar-dept-summary');
+    const pillarDeptMeta = document.getElementById('pillar-dept-meta');
+    const pillarCompSummary = document.getElementById('pillar-comp-summary');
+    const pillarProjSummary = document.getElementById('pillar-proj-summary');
+
+    if (campusEl && payload.settings.campus) campusEl.textContent = `YEUCA · ${payload.settings.campus}`;
+    if (taglineEl && payload.settings.tagline) taglineEl.textContent = payload.settings.tagline;
+    if (introEl && payload.settings.intro) introEl.textContent = payload.settings.intro;
+    if (payload.settings.contactNote) {
+      activeContactNote = payload.settings.contactNote;
+      activeQqGroup = payload.settings.contactNote.match(/\b(\d{6,11})\b/)?.[1] || '';
+    }
+    if (payload.settings.groupQrUrl) {
+      const resolved = resolveAssetUrl(payload.settings.groupQrUrl);
+      if (resolved) activeQrSrc = resolved;
+    }
+
+    const extras = payload.settings.extras;
+    if (extras?.heroImageUrl && heroImgEl) {
+      const heroSrc = resolveAssetUrl(extras.heroImageUrl);
+      if (heroSrc) heroImgEl.src = heroSrc;
+    }
+    if (extras?.homeHero) {
+      const hTag = document.getElementById('hero-campus-tag');
+      const hJoin = document.getElementById('hero-join-btn');
+      const hQr = document.getElementById('hero-qr-btn');
+      const hGuide = document.getElementById('hero-guide-note');
+      if (hTag && extras.homeHero.badge?.trim()) hTag.textContent = extras.homeHero.badge.trim();
+      if (hJoin && extras.homeHero.joinBtnText?.trim()) hJoin.textContent = `${extras.homeHero.joinBtnText.trim()} →`;
+      if (hQr && extras.homeHero.qrBtnText?.trim()) hQr.textContent = extras.homeHero.qrBtnText.trim();
+      if (hGuide && extras.homeHero.guideCardNote?.trim()) hGuide.textContent = extras.homeHero.guideCardNote.trim();
+    }
+    if (Array.isArray(extras?.homeEntries) && extras.homeEntries.length > 0) {
+      const pillarsGrid = document.getElementById('home-pillars-grid');
+      const enabledEntries = extras.homeEntries.filter((e) => e.enabled !== false);
+      if (pillarsGrid && enabledEntries.length > 0 && enabledEntries.length !== 3) {
+        // 自定义条目数量变化时整栏动态生成；保持 3 条时保留下方的部门直达与竞赛快捷胶囊并更新标题文案
+        pillarsGrid.innerHTML = enabledEntries
+          .map(
+            (e) => `
+            <div class="pillar-card">
+              <a class="pillar-main-link" href="${escapeHtml(e.href || '/')}">
+                <div class="pillar-head">
+                  <span class="pill pill-red">${escapeHtml(e.badge)}</span>
+                  <span class="pillar-arrow" aria-hidden="true">→</span>
+                </div>
+                <h3 style="margin-top: 0.35rem;">${escapeHtml(e.title)}</h3>
+                <p>${escapeHtml(e.desc)}</p>
+                <div class="mono" style="font-size: 0.74rem; color: var(--subtle); padding-top: 0.25rem;">
+                  ${escapeHtml(e.cta || '进入查看 →')}
+                </div>
+              </a>
+            </div>`,
+          )
+          .join('');
+      } else if (pillarsGrid && enabledEntries.length === 3) {
+        const cards = pillarsGrid.querySelectorAll('.pillar-card');
+        enabledEntries.forEach((e, idx) => {
+          const card = cards[idx];
+          if (!card) return;
+          const badgeEl = card.querySelector('.pillar-head .pill');
+          const h3El = card.querySelector('h3');
+          const pEl = card.querySelector('p');
+          const ctaEl = card.querySelector('.mono');
+          const linkEl = card.querySelector<HTMLAnchorElement>('.pillar-main-link');
+          if (badgeEl && e.badge) badgeEl.textContent = e.badge;
+          if (h3El && e.title) h3El.textContent = e.title;
+          if (pEl && e.desc) pEl.textContent = e.desc;
+          if (ctaEl && e.cta) ctaEl.textContent = e.cta;
+          if (linkEl && e.href && /^(\/|https?:\/\/)/.test(e.href)) linkEl.href = e.href;
+        });
+      }
+    }
+    if (extras?.flagshipNote && flagshipNoteEl) {
+      flagshipNoteEl.textContent = extras.flagshipNote;
+    }
+    if (extras?.gallery?.length) {
+      renderGallery(extras.gallery);
+    }
+
+    if (payload.settings.departments.length) {
+      const depts = payload.settings.departments;
+      const previewNames = depts.slice(0, 4).map((d) => d.name).join(' / ');
+      if (deptCountEl) deptCountEl.textContent = `${depts.length} 个部门（${previewNames}${depts.length > 4 ? ' 等' : ''}）`;
+      if (pillarDeptSummary) {
+        pillarDeptSummary.textContent = `目前有 ${depts.map((d) => d.name).join('、')}，点进去可以看各部平时练什么。`;
+      }
+      if (pillarDeptMeta) {
+        pillarDeptMeta.textContent = `查看 ${depts.length} 个部门与详细说明 →`;
+      }
+      const deptPills = document.getElementById('home-dept-pills');
+      if (deptPills) {
+        deptPills.innerHTML = depts
+          .map(
+            (d) =>
+              `<a class="dept-jump-pill${d.isFeatured ? ' is-featured' : ''}" href="/departments/#dept-${encodeURIComponent(d.id)}">${escapeHtml(d.name)}</a>`,
+          )
+          .join('');
+      }
+    }
+
+    if (extras?.competitions?.length) {
+      if (pillarCompSummary) {
+        const names = extras.competitions.slice(0, 4).map((c) => c.name).join('、');
+        pillarCompSummary.textContent = `${names}${extras.competitions.length > 4 ? ` 等 ${extras.competitions.length} 项赛事` : ''}，平时组队练题、赛前一起集训。`;
+      }
+      const compPills = document.getElementById('home-comp-pills');
+      if (compPills) {
+        compPills.innerHTML = extras.competitions
+          .slice(0, 4)
+          .map((c) => `<a class="dept-jump-pill" href="/about/#competitions">${escapeHtml(c.track || c.name)}</a>`)
+          .join('');
+      }
+    }
+
+    if (payload.projects.length && pillarProjSummary) {
+      const topTitles = payload.projects.slice(0, 2).map((p) => p.title).join('、');
+      pillarProjSummary.textContent = `已收录「${topTitles}」等 ${payload.projects.length} 个在研/展示项目，以及自建 Git 代码站和校园网指南 YeU。`;
+    }
+
+    if (recruitEl) {
+      recruitEl.textContent = payload.recruit.open
+        ? '线上简表与迎新群均已开放'
+        : '扫码进迎新群即可报名';
+    }
+
+    renderActivities(payload.activities);
+    renderNews(payload.news);
+  }
+
+  void hydrateHome();
+</script>

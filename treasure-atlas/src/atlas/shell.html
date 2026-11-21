@@ -30,8 +30,8 @@
       </nav>
       <div class="directory-body">
         <section id="hunt-pane">
-          <h2>校园寻宝</h2>
-          <p class="hunt-instruction">彩虹桥使用手机定位集章。其余寻宝点可选择模拟距离试玩。</p>
+          <h2 id="hunt-heading">校园寻宝</h2>
+          <p class="hunt-instruction" id="hunt-instruction">登录计协会员账号后在点位半径内定位打卡或参与校内探索，印章记入个人名下。</p>
           <div class="tiles" id="hunt-tiles"></div>
           <details class="hints standee-gallery" id="standee-gallery"><summary id="standee-title">立牌图鉴</summary><ul id="standee-list" class="standee-list"></ul></details>
           <details class="hints classroom-hints" id="classroom-clues"><summary id="classroom-title">教学楼隐藏款</summary><ul id="classroom-hints" class="results"></ul></details>
@@ -53,7 +53,10 @@
       </div>
     </div>
     <footer class="sidebar-footer">
-      <p id="progress-text" class="muted" aria-live="polite">本机试玩</p>
+      <div class="actor-status-row" id="actor-status-row">
+        <p id="progress-text" class="muted" aria-live="polite">未登录 · 本机试玩</p>
+        <a id="actor-login-link" class="actor-login-link" href="/member/">计协会员登录 ↗</a>
+      </div>
       <div class="actions">
         <button class="pill" type="button" id="reset">重置筛选</button>
         <button class="pill gold" type="button" id="apply">查看标点</button>
@@ -93,6 +96,10 @@
       <button class="pill gold mobile-only" type="button" id="bottom-filters">筛选标点</button>
       <span class="badge boundary-key">寻宝校界</span>
       <span class="badge elevation-key">校内约 71–129 米</span>
+      <div class="badge coord-picker-bar" id="coord-picker-bar" hidden>
+        <span id="coord-picker-text">拾取模式：点击地图任意处获取 WGS84 经纬度</span>
+        <button type="button" id="coord-picker-copy" class="picker-copy-btn" hidden>复制坐标</button>
+      </div>
     </div>
     <p class="map-status badge" id="map-status" role="status">正在绘制校园地图…</p>
     <section class="detail" id="detail" aria-label="点位详情" hidden></section>
@@ -102,9 +109,10 @@
 <template id="bridge-pilot-template">
   <div class="bridge-pilot">
     <p class="bridge-status" role="status" aria-live="polite"></p>
-    <a class="pill bridge-login" href="/login?redirect=%2Factivities%2Ftreasure%3Fpoint%3Drainbow-bridge" hidden>登录后参加</a>
+    <a class="pill bridge-login" href="/member/" hidden>前往登录</a>
     <button class="pill bridge-primary" type="button" data-bridge-retry hidden>重新读取</button>
     <button class="pill bridge-primary" type="button" data-bridge-locate hidden>验证当前位置</button>
+    <button class="pill bridge-primary" type="button" data-bridge-gps-claim hidden>位置已到圈内 · 直接打卡集章</button>
     <form class="answer bridge-answer" hidden>
       <label for="bridge-answer">现场暗号</label>
       <div><input id="bridge-answer" maxlength="64" autocomplete="off" required>
@@ -113,7 +121,7 @@
     <div class="parade-reaction" aria-hidden="true" hidden>
       <picture class="reaction-frog"><img alt=""></picture><p><strong>奶蛙：嗯？你再说一遍。</strong></p>
     </div>
-    <p class="location-note bridge-caption" hidden>验证和提交时各获取一次位置，印章记在当前迎新网账号。</p>
+    <p class="location-note bridge-caption" hidden>定位与提交时实时核验位置，印章记录到当前账号。</p>
   </div>
 </template>
 <!-- MapLibre GL JS license

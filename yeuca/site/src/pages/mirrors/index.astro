@@ -1,0 +1,542 @@
+---
+import Base from '../../layouts/Base.astro';
+import { MIRROR_DIRECTORY, SCRIPT_GENERATOR_OPTIONS } from '../../data/mirrors';
+
+const categories = ['全部', '语言与包', 'AI 与模型', '系统与容器'] as const;
+---
+
+<Base
+  title="镜像与源站"
+  description="仰恩大学计算机协会自建 PyPI / npm 缓存源、Git 代码站及常用开发工具国内源配置参考。"
+  canonicalPath="/mirrors/"
+>
+  <section class="subpage-head">
+    <div class="wrap" style="display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+      <div>
+        <h1>镜像与常用源站</h1>
+        <p>
+          装包太慢时直接换用下面地址。PyPI 与 npm 走计协本机 1.5GB 缓存反代，其余给的是国内常用公益源。
+        </p>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="/tools/">常用小工具：子网计算 / JSON / Base64 →</a>
+    </div>
+  </section>
+
+  <section class="page-section">
+    <div class="wrap" style="display: grid; gap: 2.8rem; grid-template-columns: minmax(0, 1fr);">
+      <!-- 01 自建节点：纯表格清单（TUNA 风格） -->
+      <div id="nodes">
+        <div class="band-head" style="margin-bottom: 0.9rem;">
+          <div>
+            <h2 style="font-size: 1.32rem; margin: 0;">01 · 自建服务与缓存节点</h2>
+            <p class="band-desc">部署在同域 HTTPS 下，打开页面时会自动测一次连接耗时。</p>
+          </div>
+          <button type="button" id="reprobe-nodes-btn" class="btn btn-ghost btn-sm">重测延迟</button>
+        </div>
+
+        <div class="spec-table-wrap">
+          <table class="spec-table spec-table-wide">
+            <thead>
+              <tr>
+                <th style="width: 22%;">节点</th>
+                <th style="width: 30%;">地址与用途</th>
+                <th style="width: 18%;">状态</th>
+                <th>操作与命令</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong style="color: var(--ink);">YEUCA Git 代码站</strong>
+                </td>
+                <td>
+                  <code style="font-size: 0.78rem;">yeuca.huiliyill.cn/git/</code>
+                  <div class="muted" style="font-size: 0.78rem; margin-top: 0.2rem;">已启成员登录门禁 · 在册成员注册后可登录使用</div>
+                </td>
+                <td>
+                  <span class="pill" data-probe-badge="git">检测中…</span>
+                </td>
+                <td>
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;">
+                    <a class="btn btn-primary btn-sm js-git-link" href="/git/" target="_blank" rel="noreferrer">登录代码站 ↗</a>
+                    <a class="btn btn-ghost btn-sm" href="/member/">会员激活</a>
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <strong style="color: var(--ink);">YEUCA PyPI 缓存</strong>
+                </td>
+                <td>
+                  <code style="font-size: 0.78rem;">/mirrors/pypi/simple/</code>
+                  <div class="muted" style="font-size: 0.78rem; margin-top: 0.2rem;">反代阿里云 PyPI，磁盘上限 1.5GB</div>
+                </td>
+                <td>
+                  <span class="pill" data-probe-badge="pypi">检测中…</span>
+                </td>
+                <td>
+                  <div class="copy-cmd-bar" style="padding: 0.38rem 0.55rem;">
+                    <code>pip config set global.index-url https://yeuca.huiliyill.cn/mirrors/pypi/simple/</code>
+                    <button
+                      type="button"
+                      class="copy-cmd-btn"
+                      data-copy-cmd="pip config set global.index-url https://yeuca.huiliyill.cn/mirrors/pypi/simple/"
+                    >
+                      复制
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  <strong style="color: var(--ink);">YEUCA npm 缓存</strong>
+                </td>
+                <td>
+                  <code style="font-size: 0.78rem;">/mirrors/npm/</code>
+                  <div class="muted" style="font-size: 0.78rem; margin-top: 0.2rem;">反代 npmmirror，tarball 磁盘上限 1.5GB</div>
+                </td>
+                <td>
+                  <span class="pill" data-probe-badge="npm">检测中…</span>
+                </td>
+                <td>
+                  <div class="copy-cmd-bar" style="padding: 0.38rem 0.55rem;">
+                    <code>npm config set registry https://yeuca.huiliyill.cn/mirrors/npm/</code>
+                    <button
+                      type="button"
+                      class="copy-cmd-btn"
+                      data-copy-cmd="npm config set registry https://yeuca.huiliyill.cn/mirrors/npm/"
+                    >
+                      复制
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 02 国内源目录：干净表格式索引 -->
+      <div id="list">
+        <div class="band-head" style="margin-bottom: 0.7rem;">
+          <div>
+            <h2 style="font-size: 1.32rem; margin: 0;">02 · 常用国内软件源目录</h2>
+            <p class="band-desc">主流工具的国内公共源命令与配置文件写法。</p>
+          </div>
+        </div>
+
+        <div class="filter-bar" id="mirror-cat-bar" style="margin: 0.5rem 0 1rem;">
+          {
+            categories.map((cat, idx) => (
+              <button
+                type="button"
+                class={`filter-chip${idx === 0 ? ' active' : ''}`}
+                data-mirror-cat={cat}
+              >
+                {cat}
+              </button>
+            ))
+          }
+        </div>
+
+        <div class="spec-table-wrap">
+          <table class="spec-table spec-table-wide">
+            <thead>
+              <tr>
+                <th style="width: 20%;">工具 / 平台</th>
+                <th style="width: 24%;">上游说明</th>
+                <th style="width: 40%;">常用命令</th>
+                <th style="width: 16%;">帮助</th>
+              </tr>
+            </thead>
+            <tbody id="mirror-directory-tbody">
+              {
+                MIRROR_DIRECTORY.map((item) => (
+                  <tr data-mirror-row-cat={item.category}>
+                    <td>
+                      <strong style="color: var(--ink); display: block;">{item.name}</strong>
+                      <span class="muted" style="font-size: 0.75rem;">{item.category}</span>
+                    </td>
+                    <td>
+                      <span class="mono" style="font-size: 0.76rem; color: var(--ink); display: block;">{item.upstream}</span>
+                      <span class="muted" style="font-size: 0.76rem;">{item.note}</span>
+                    </td>
+                    <td>
+                      <div class="copy-cmd-bar" style="padding: 0.36rem 0.55rem;">
+                        <code>{item.cmd}</code>
+                        <button type="button" class="copy-cmd-btn" data-copy-cmd={item.cmd}>
+                          复制
+                        </button>
+                      </div>
+                      {item.snippet && (
+                        <details style="margin-top: 0.38rem;">
+                          <summary style="cursor: pointer; font-size: 0.76rem; color: var(--muted);">
+                            查看 {item.snippetTitle || '配置写法'}
+                          </summary>
+                          <pre style="margin-top: 0.35rem; font-size: 0.74rem; white-space: pre-wrap; word-break: break-all;">{item.snippet}</pre>
+                        </details>
+                      )}
+                    </td>
+                    <td>
+                      <a
+                        class="ext-link"
+                        href={item.helpUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        文档 ↗
+                      </a>
+                      <div class="ext-host" style="margin-top: 0.25rem; word-break: break-all;">{item.helpHost}</div>
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 03 换源脚本合成（紧凑一体框） -->
+      <div id="generator">
+        <div class="band-head" style="margin-bottom: 0.9rem;">
+          <div>
+            <h2 style="font-size: 1.32rem; margin: 0;">03 · 打包生成换源脚本</h2>
+            <p class="band-desc">选好系统与需要的工具，直接复制或下载脚本到本地终端跑一遍。</p>
+          </div>
+        </div>
+
+        <div class="form-panel" style="display: grid; gap: 1rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <div class="filter-bar" id="gen-os-bar" style="margin: 0;">
+              <button type="button" class="filter-chip active" data-gen-os="ps1">Windows PowerShell (.ps1)</button>
+              <button type="button" class="filter-chip" data-gen-os="sh">Linux / macOS (.sh)</button>
+            </div>
+            <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+              <button type="button" id="gen-copy-btn" class="btn btn-ghost btn-sm">复制脚本</button>
+              <button type="button" id="gen-download-btn" class="btn btn-primary btn-sm">下载脚本文件</button>
+            </div>
+          </div>
+
+          <div
+            id="gen-tool-list"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.45rem;"
+          >
+            {
+              SCRIPT_GENERATOR_OPTIONS.map((opt, idx) => (
+                <label
+                  style="display: flex; align-items: center; gap: 0.45rem; border: 1px solid var(--line); border-radius: 6px; padding: 0.45rem 0.65rem; background: var(--bg-alt); font-size: 0.84rem; cursor: pointer;"
+                >
+                  <input
+                    type="checkbox"
+                    name="gen-tool"
+                    value={opt.id}
+                    checked={idx === 0 || idx === 2 || idx === 5}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))
+            }
+          </div>
+
+          <pre
+            id="gen-preview-code"
+            style="max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"
+          ></pre>
+        </div>
+      </div>
+
+      <!-- 底部简单注记 -->
+      <p id="mirror-footer-notice" class="muted" style="margin: 0; font-size: 0.84rem; border-top: 1px solid var(--line); padding-top: 1rem;">
+        注：这台机器剩余磁盘空间不大，不做几十 TB 的完整系统 ISO 光盘同步，只对高频 PyPI / npm 留了各 1.5GB 只读缓存；下系统镜像或 Docker 大层请直接前往清华 TUNA（mirrors.tuna.tsinghua.edu.cn）或中科大镜像站。
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { SCRIPT_GENERATOR_OPTIONS } from '../../data/mirrors';
+  import {
+    escapeHtml,
+    fetchMemberSession,
+    fetchPublicSiteData,
+    isSafePublicHref,
+    type PublicMemberProfile,
+    type YeucaMirrorEntry,
+    type YeucaScriptOption,
+  } from '../../lib/yeuca-client';
+
+  let activeScriptOptions: YeucaScriptOption[] = SCRIPT_GENERATOR_OPTIONS.map((o) => ({
+    ...o,
+    ps1: [...o.ps1],
+    sh: [...o.sh],
+  }));
+  let currentMirrorCat = '全部';
+  let authedMember: PublicMemberProfile | null = null;
+
+  function bindMirrorCopyButtons(root: ParentNode = document) {
+    root.querySelectorAll<HTMLButtonElement>('[data-copy-cmd]').forEach((btn) => {
+      if (btn.dataset.copyBound === '1') return;
+      btn.dataset.copyBound = '1';
+      btn.addEventListener('click', async () => {
+        const cmd = btn.dataset.copyCmd || '';
+        if (!cmd) return;
+        const oldText = btn.textContent || '复制';
+        try {
+          await navigator.clipboard.writeText(cmd);
+          btn.dataset.copied = 'true';
+          btn.textContent = '已复制';
+          setTimeout(() => {
+            btn.dataset.copied = 'false';
+            btn.textContent = oldText;
+          }, 1600);
+        } catch {
+          btn.textContent = '复制失败';
+        }
+      });
+    });
+  }
+
+  bindMirrorCopyButtons();
+
+  function applyMirrorCategoryFilter(cat: string) {
+    currentMirrorCat = cat;
+    document.querySelectorAll<HTMLTableRowElement>('[data-mirror-row-cat]').forEach((row) => {
+      row.style.display = cat === '全部' || row.dataset.mirrorRowCat === cat ? '' : 'none';
+    });
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('#mirror-cat-bar [data-mirror-cat]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.mirrorCat || '全部';
+      document
+        .querySelectorAll<HTMLButtonElement>('#mirror-cat-bar [data-mirror-cat]')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+      applyMirrorCategoryFilter(cat);
+    });
+  });
+
+  function getProbeOrigin(): string {
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      return 'https://yeuca.huiliyill.cn';
+    }
+    return '';
+  }
+
+  async function probeEndpoint(key: string, path: string) {
+    const badge = document.querySelector<HTMLElement>(`[data-probe-badge="${key}"]`);
+    if (!badge) return;
+    badge.className = 'pill probe-pulsing';
+    badge.textContent = '测速中…';
+
+    const url = `${getProbeOrigin()}${path}`;
+    const start = performance.now();
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(url, { method: 'GET', signal: ctrl.signal });
+      clearTimeout(timer);
+      const ms = Math.round(performance.now() - start);
+      if (res.ok) {
+        if (key === 'git') {
+          badge.className = 'pill pill-ok';
+          badge.textContent = `门禁在线 · ${ms}ms`;
+        } else {
+          badge.className = 'pill pill-ok';
+          badge.textContent = `可用 · ${ms}ms`;
+        }
+      } else if (key === 'git' && [401, 403].includes(res.status)) {
+        badge.className = 'pill pill-ok';
+        badge.textContent = `需登录 · ${ms}ms`;
+      } else {
+        badge.className = 'pill pill-warn';
+        badge.textContent = `HTTP ${res.status}`;
+      }
+    } catch {
+      badge.className = 'pill pill-warn';
+      badge.textContent = '超时';
+    }
+  }
+
+  function runAllProbes() {
+    void probeEndpoint('git', '/git/user/login');
+    void probeEndpoint('pypi', '/mirrors/pypi/simple/six/');
+    void probeEndpoint('npm', '/mirrors/npm/-/ping');
+  }
+
+  document.getElementById('reprobe-nodes-btn')?.addEventListener('click', runAllProbes);
+
+  let currentOs: 'ps1' | 'sh' = 'ps1';
+
+  function buildGeneratedScript(): string {
+    const selectedIds = Array.from(
+      document.querySelectorAll<HTMLInputElement>('#gen-tool-list input[name="gen-tool"]:checked'),
+    ).map((el) => el.value);
+
+    const chosen = activeScriptOptions.filter((o) => selectedIds.includes(o.id));
+    const memberGitBlock = authedMember
+      ? [
+          `# 已为您预填当前登录成员 (${authedMember.name} / ${authedMember.studentNo}) 的 Git 身份`,
+          `git config --global user.name "${authedMember.gitUsername || authedMember.studentNo}"`,
+          `git config --global user.email "${authedMember.email}"`,
+        ]
+      : [];
+
+    if (currentOs === 'ps1') {
+      const lines = ['# YEUCA 常用镜像配置脚本 (PowerShell)', '', ...memberGitBlock];
+      if (!chosen.length) {
+        lines.push('# 请至少勾选一项配置');
+      } else {
+        chosen.forEach((item) => lines.push(...item.ps1));
+      }
+      return lines.join('\n');
+    }
+
+    const lines = ['#!/usr/bin/env bash', '# YEUCA 常用镜像配置脚本 (Bash / Zsh)', 'set -e', '', ...memberGitBlock];
+    if (!chosen.length) {
+      lines.push('# 请至少勾选一项配置');
+    } else {
+      chosen.forEach((item) => lines.push(...item.sh));
+    }
+    return lines.join('\n');
+  }
+
+  function refreshGenerator() {
+    const pre = document.getElementById('gen-preview-code');
+    if (pre) pre.textContent = buildGeneratedScript();
+  }
+
+  function renderDynamicMirrorsAndOptions(mirrors: YeucaMirrorEntry[]) {
+    const tbody = document.getElementById('mirror-directory-tbody');
+    if (!tbody || !mirrors.length) return;
+    tbody.innerHTML = mirrors
+      .map((item) => {
+        const safeHelp = isSafePublicHref(item.helpUrl) || '#';
+        return `
+          <tr data-mirror-row-cat="${escapeHtml(item.category)}">
+            <td>
+              <strong style="color: var(--ink); display: block;">${escapeHtml(item.name)}</strong>
+              <span class="muted" style="font-size: 0.75rem;">${escapeHtml(item.category)}</span>
+            </td>
+            <td>
+              <span class="mono" style="font-size: 0.76rem; color: var(--ink); display: block;">${escapeHtml(item.upstream)}</span>
+              <span class="muted" style="font-size: 0.76rem;">${escapeHtml(item.note)}</span>
+            </td>
+            <td>
+              <div class="copy-cmd-bar" style="padding: 0.36rem 0.55rem;">
+                <code>${escapeHtml(item.cmd)}</code>
+                <button type="button" class="copy-cmd-btn" data-copy-cmd="${escapeHtml(item.cmd)}">复制</button>
+              </div>
+              ${
+                item.snippet
+                  ? `<details style="margin-top: 0.38rem;">
+                      <summary style="cursor: pointer; font-size: 0.76rem; color: var(--muted);">
+                        查看 ${escapeHtml(item.snippetTitle || '配置写法')}
+                      </summary>
+                      <pre style="margin-top: 0.35rem; font-size: 0.74rem; white-space: pre-wrap; word-break: break-all;">${escapeHtml(item.snippet)}</pre>
+                    </details>`
+                  : ''
+              }
+            </td>
+            <td>
+              <a class="ext-link" href="${escapeHtml(safeHelp)}" target="_blank" rel="noreferrer">文档 ↗</a>
+              <div class="ext-host" style="margin-top: 0.25rem; word-break: break-all;">${escapeHtml(item.helpHost || '')}</div>
+            </td>
+          </tr>`;
+      })
+      .join('');
+    bindMirrorCopyButtons(tbody);
+    applyMirrorCategoryFilter(currentMirrorCat);
+  }
+
+  function renderDynamicScriptOptions(options: YeucaScriptOption[]) {
+    const box = document.getElementById('gen-tool-list');
+    if (!box || !options.length) return;
+    activeScriptOptions = options;
+    box.innerHTML = options
+      .map(
+        (opt, idx) => `
+        <label style="display: flex; align-items: center; gap: 0.45rem; border: 1px solid var(--line); border-radius: 6px; padding: 0.45rem 0.65rem; background: var(--bg-alt); font-size: 0.84rem; cursor: pointer;">
+          <input type="checkbox" name="gen-tool" value="${escapeHtml(opt.id)}" ${idx < 3 ? 'checked' : ''} />
+          <span>${escapeHtml(opt.label)}</span>
+        </label>`,
+      )
+      .join('');
+    box.querySelectorAll<HTMLInputElement>('input[name="gen-tool"]').forEach((cb) => {
+      cb.addEventListener('change', refreshGenerator);
+    });
+    refreshGenerator();
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('#gen-os-bar [data-gen-os]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      currentOs = (btn.dataset.genOs as 'ps1' | 'sh') || 'ps1';
+      document
+        .querySelectorAll<HTMLButtonElement>('#gen-os-bar [data-gen-os]')
+        .forEach((b) => b.classList.toggle('active', b === btn));
+      refreshGenerator();
+    });
+  });
+
+  document.querySelectorAll<HTMLInputElement>('#gen-tool-list input[name="gen-tool"]').forEach((box) => {
+    box.addEventListener('change', refreshGenerator);
+  });
+
+  document.getElementById('gen-copy-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    try {
+      await navigator.clipboard.writeText(buildGeneratedScript());
+      const old = btn.textContent;
+      btn.textContent = '已复制';
+      setTimeout(() => {
+        btn.textContent = old || '复制脚本';
+      }, 1600);
+    } catch {
+      btn.textContent = '复制失败';
+    }
+  });
+
+  document.getElementById('gen-download-btn')?.addEventListener('click', () => {
+    const text = buildGeneratedScript();
+    const filename = currentOs === 'ps1' ? 'yeuca-mirrors-setup.ps1' : 'yeuca-mirrors-setup.sh';
+    const blob = new Blob([text + '\n'], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  async function initMirrorsRuntime() {
+    refreshGenerator();
+    runAllProbes();
+
+    const [sitePayload, memberSess] = await Promise.all([
+      fetchPublicSiteData(),
+      fetchMemberSession(),
+    ]);
+
+    if (memberSess?.authenticated && memberSess.member) {
+      authedMember = memberSess.member;
+      refreshGenerator();
+    }
+
+    const extras = sitePayload?.settings?.extras;
+    if (extras?.featureFlags?.mirrorNotice) {
+      const noticeEl = document.getElementById('mirror-footer-notice');
+      if (noticeEl) noticeEl.textContent = extras.featureFlags.mirrorNotice;
+    }
+    if (extras?.mirrors?.length) {
+      renderDynamicMirrorsAndOptions(extras.mirrors);
+    }
+    if (extras?.scriptOptions?.length) {
+      renderDynamicScriptOptions(extras.scriptOptions);
+    }
+  }
+
+  void initMirrorsRuntime();
+</script>

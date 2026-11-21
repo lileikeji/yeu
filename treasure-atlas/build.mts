@@ -279,7 +279,15 @@ const taffy = Object.fromEntries([
 ].map(([id, symbol, color]) => [id, {
   still: badge(symbol!, color!)
 }]))
-const data = { style, tileData, pins: reviewedPins, activity: allActivity,
+const publicActivity = allActivity.map((entry) => {
+  const { answer: _answer, ...rest } = entry as typeof entry & { answer?: string }
+  return {
+    ...rest,
+    radiusMeters: pilot.radius,
+    verifyMode: rest.id === paradeDemo ? 'gps_answer' : 'answer_or_trial'
+  }
+})
+const data = { style, tileData, pins: reviewedPins, activity: publicActivity,
   goal: adventureGoal, icons, taffy, characters, paradeDemo, elevation: profile.campusRange,
   artworkIds, artBounds: plates[0]!.bounds, pilot, bridgeRoute, pendingPlanNames }
 const rendered = read(join(scratch, 'shell.html'))
