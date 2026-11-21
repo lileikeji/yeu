@@ -26,7 +26,7 @@ const submitDraw = (payload: {
   contact: string
   sortOrder: number
 }): Promise<DrawResult> =>
-  $fetch('/api/public/competition/draw', { method: 'POST', body: payload })
+  plainFetch<DrawResult>('/api/public/competition/draw', { method: 'POST', body: payload })
 
 useSeoMeta({ title: '现场抽签登记', robots: 'noindex, nofollow' })
 
