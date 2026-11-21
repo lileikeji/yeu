@@ -33,10 +33,27 @@ export function roundCompetitionScore(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+/** 维度自己的满分：显式写的 max 优先，否则用本轮的每维满分。 */
+export function dimensionMaxOf(
+  dimension: CompetitionDimension,
+  dimensionMax: number = COMPETITION_MAX_DIMENSION_SCORE
+): number {
+  const own = Number(dimension.max)
+  return Number.isFinite(own) && own > 0 ? own : dimensionMax
+}
+
+/** 本轮任一维度带自己的满分时，按「各维度满分之和」计总分（复赛评分表：20+20+20+15+15+10=100）。 */
+export function hasPerDimensionMax(dimensions: CompetitionDimension[]): boolean {
+  return dimensions.some(dimension => dimensionMaxOf(dimension, Number.NaN) > 0)
+}
+
 export function competitionMaxTotal(
   dimensions: CompetitionDimension[],
   dimensionMax: number = COMPETITION_MAX_DIMENSION_SCORE
 ): number {
+  if (hasPerDimensionMax(dimensions)) {
+    return dimensions.reduce((sum, dimension) => sum + dimensionMaxOf(dimension, dimensionMax), 0)
+  }
   return dimensions.length * dimensionMax
 }
 
@@ -57,6 +74,16 @@ export function calculateCompetitionTotal(
   const usable = dimensions.filter(dimension => Number.isFinite(dimension.weight) && dimension.weight > 0)
   const weightSum = usable.reduce((sum, dimension) => sum + dimension.weight, 0)
   if (usable.length === 0 || weightSum <= 0) return 0
+
+  if (hasPerDimensionMax(dimensions)) {
+    // 评分表模式：每维满分不同，总分 = Σ(该维得分 ÷ 该维满分 × 该维分值)。
+    const weighted = dimensions.reduce((sum, dimension) => {
+      const max = dimensionMaxOf(dimension, dimensionMax)
+      const weight = Number.isFinite(dimension.weight) && dimension.weight > 0 ? dimension.weight : 0
+      return sum + (clampScore(Number(scores[dimension.key] ?? 0), max) / max) * weight
+    }, 0)
+    return roundCompetitionScore(weighted)
+  }
 
   const weighted = usable.reduce(
     (sum, dimension) => sum + clampScore(Number(scores[dimension.key] ?? 0), dimensionMax) * dimension.weight,

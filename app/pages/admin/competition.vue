@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
+import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE, competitionMaxTotal } from '~~/shared/utils/competition'
 import type { CompetitionAdminPayload, CompetitionDimension, CompetitionRoundEntry, CompetitionRoundKey, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
@@ -75,6 +75,10 @@ const {
 const dimensionRoundKey = ref<CompetitionRoundKey>('prelim')
 const dimensionRoundDraft = ref<CompetitionDimension[]>([])
 const dimensionMaxDraft = ref(COMPETITION_MAX_DIMENSION_SCORE)
+const dimensionRoundTotal = computed(() => competitionMaxTotal(
+  dimensionRoundDraft.value,
+  Number(dimensionMaxDraft.value) || COMPETITION_MAX_DIMENSION_SCORE
+))
 const trimExtremesDraft = ref(false)
 const savingTrimExtremes = ref(false)
 const savingDimensions = ref(false)
@@ -647,7 +651,7 @@ onBeforeUnmount(stopLiveRefresh)
                 :disabled="dimensionRoundLocked"
               />
               <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                本轮满分 {{ dimensionRoundDraft.length * Number(dimensionMaxDraft || 0) }} 分
+                本轮满分 {{ dimensionRoundTotal }} 分
               </span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -720,6 +724,22 @@ onBeforeUnmount(stopLiveRefresh)
                   class="w-full"
                   :disabled="dimensionRoundLocked"
                   @update:model-value="value => dimension.weight = Number(value) || 0"
+                />
+              </UFormField>
+              <UFormField
+                label="满分"
+                class="w-24"
+              >
+                <UInput
+                  :model-value="String(dimension.max ?? '')"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  placeholder="同本轮"
+                  class="w-full"
+                  :disabled="dimensionRoundLocked"
+                  @update:model-value="value => dimension.max = Number(value) > 0 ? Number(value) : undefined"
                 />
               </UFormField>
               <div class="w-20 pb-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">

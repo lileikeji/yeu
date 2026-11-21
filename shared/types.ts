@@ -293,6 +293,8 @@ export interface CompetitionDimension {
   label: string
   /** 相对权重；总分为各维度加权平均分 × 维度数（默认等权时即为各项累加）。 */
   weight: number
+  /** 该维度自己的满分（复赛评分表：节奏/音准/技巧 20，情感/音色 15，舞台 10）；空 = 用本轮的每维满分。 */
+  max?: number
 }
 
 export type CompetitionRoundKey = 'prelim' | 'semi' | 'final'
