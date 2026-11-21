@@ -2,8 +2,8 @@ name: sync-master
 
 # master → 默认分支 的单向同步。
 #
-# 背景：master 是上游（Gitee 同步来源之一），默认分支 ai/glm-opensource-hardening
-# 是主开发线。master 有新提交时，需要把内容汇入默认分支。
+# 背景：master 是上游（Gitee 同步来源之一），下游默认分支从仓库设置读取（不写死）。
+# master 有新提交时，把内容汇入默认分支；默认分支本身就是 master 时直接跳过。
 #
 # 行为：
 #   1. master 有新提交 → 建同步 PR（base = 默认分支）
@@ -58,7 +58,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          DEFAULT_BRANCH="ai/glm-opensource-hardening"
+          # 默认分支从仓库设置里读，不要写死：ai/glm-opensource-hardening 已于
+          # 2026-11-20 删除，写死会让本工作流每次 push 都以
+          # `couldn't find remote ref ai/glm-opensource-hardening` 失败。
+          DEFAULT_BRANCH="$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)"
+          echo "default_branch=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "仓库默认分支：$DEFAULT_BRANCH"
+
+          if [ "$DEFAULT_BRANCH" = "master" ]; then
+            echo "默认分支就是 master，没有需要汇入的下游分支，跳过"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ 跳过：默认分支已是 master" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           git fetch origin "$DEFAULT_BRANCH" master --no-tags
 
           AHEAD=$(git rev-list --count "origin/$DEFAULT_BRANCH..origin/master")
@@ -99,7 +112,7 @@ jobs:
         if: steps.check.outputs.skip == 'false'
         id: merge
         run: |
-          DEFAULT_BRANCH="ai/glm-opensource-hardening"
+          DEFAULT_BRANCH="${{ steps.check.outputs.default_branch }}"
           BRANCH="chore/sync-master-$(date -u +%Y%m%d-%H%M%S)"
 
           git switch -c "$BRANCH" "origin/$DEFAULT_BRANCH"
@@ -128,7 +141,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          DEFAULT_BRANCH="ai/glm-opensource-hardening"
+          DEFAULT_BRANCH="${{ steps.check.outputs.default_branch }}"
 
           PR_URL=$(gh pr create \
             --base "$DEFAULT_BRANCH" \
@@ -172,7 +185,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "请本地执行：" >> "$GITHUB_STEP_SUMMARY"
           echo '```bash' >> "$GITHUB_STEP_SUMMARY"
-          echo "git switch -c chore/sync-master-manual origin/ai/glm-opensource-hardening" >> "$GITHUB_STEP_SUMMARY"
+          echo "git switch -c chore/sync-master-manual origin/${{ steps.check.outputs.default_branch }}" >> "$GITHUB_STEP_SUMMARY"
           echo "git -c core.autocrlf=false -c core.eol=crlf merge origin/master" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit 1
