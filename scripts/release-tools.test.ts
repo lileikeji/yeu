@@ -84,6 +84,22 @@ test('只读闸门拒绝缺列；不能通过 baseline 隐藏结构缺失', asyn
   } finally { rmSync(f.root, { recursive: true, force: true }) }
 })
 
+test('只读闸门放行待迁移新建的表，迁移后再按完整契约检查', async () => {
+  const f = fixture('CREATE TABLE items(id integer PRIMARY KEY);')
+  try {
+    await tools.migrateDatabase(f.database, f.migrations)
+    writeFileSync(join(f.migrations, 'meta/_journal.json'), JSON.stringify({ entries: [{ tag: '0000_test', when: 1 }, { tag: '0001_extra', when: 2 }] }))
+    writeFileSync(join(f.migrations, '0001_extra.sql'), 'CREATE TABLE extra(id integer PRIMARY KEY);')
+    const before = readFileSync(f.database)
+    assert.deepEqual(await tools.migrateDatabase(f.database, f.migrations, 'check'), { applied: 0, pendingLedger: 1 })
+    assert.deepEqual(readFileSync(f.database), before)
+    assert.deepEqual(await tools.migrateDatabase(f.database, f.migrations), { applied: 1 })
+    const db = new DatabaseSync(f.database)
+    assert.ok(db.prepare('SELECT 1 FROM sqlite_master WHERE name=\'extra\'').get())
+    db.close()
+  } finally { rmSync(f.root, { recursive: true, force: true }) }
+})
+
 test('手工结构验证通过后 baseline 只补账本，重复执行不增加记录', async () => {
   const f = fixture('CREATE TABLE items(id integer PRIMARY KEY, value text NOT NULL);')
   try {

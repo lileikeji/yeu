@@ -163,10 +163,13 @@ function schema(db) {
   }))
 }
 
-export function assertSchema(expected, actual) {
+export function assertSchema(expected, actual, allowedMissingTables = new Set()) {
   for (const [table, contract] of Object.entries(expected)) {
     const present = actual[table]
-    if (!present) throw new Error(`缺少业务表：${table}`)
+    if (!present) {
+      if (allowedMissingTables.has(table)) continue
+      throw new Error(`缺少业务表：${table}`)
+    }
     if (contract.virtualModule !== present.virtualModule || contract.tokenizer !== present.tokenizer) {
       throw new Error(`虚拟表或分词器不兼容：${table}`)
     }
@@ -215,13 +218,17 @@ export async function migrateDatabase(path, directory, mode = 'migrate') {
         throw new Error(`迁移账本与发布 SQL 不一致，拒绝发布或迁移：${item.created_at}`)
       }
     }
-    if (mode === 'check') {
-      assertSchema(contract, schema(db))
-      if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
-      return { applied: 0, pendingLedger: entries.filter(entry => entry.when > (applied.at(-1)?.created_at ?? 0)).length }
-    }
     const last = applied.at(-1)?.created_at ?? 0
     const pending = entries.filter(entry => entry.when > last)
+    const pendingCreatedTables = new Set(
+      pending.flatMap(entry => [...entry.sql.matchAll(/\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?/gi)].map(match => match[1]))
+    )
+    if (mode === 'check') {
+      // 待执行迁移里新建的表此刻还不存在；先放行，迁移结束后仍按完整契约校验。
+      assertSchema(contract, schema(db), pendingCreatedTables)
+      if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
+      return { applied: 0, pendingLedger: pending.length }
+    }
     if (mode === 'baseline') {
       assertSchema(contract, schema(db))
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
