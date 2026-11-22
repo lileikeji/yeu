@@ -901,7 +901,7 @@ const snapshotText = computed(() => {
     label="公交线路"
     color="neutral"
     variant="solid"
-    class="absolute bottom-20 left-3 z-30 shadow-lg md:bottom-6 md:left-[var(--transit-left,1rem)]"
+    class="absolute z-30 shadow-lg md:bottom-6 md:left-[var(--transit-left,1rem)]"
     :style="{ '--transit-left': leftOffset ?? '1rem' }"
     @click="emit('update:open', true)"
   />

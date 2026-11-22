@@ -857,7 +857,7 @@ onBeforeUnmount(stopPolling)
 
             <template v-if="!sequential">
               <UButton
-                class="fixed right-4 bottom-20 z-30 shadow-lg lg:hidden"
+                class="fixed right-4 bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+env(safe-area-inset-bottom)+0.75rem)] z-30 shadow-lg lg:hidden"
                 icon="i-lucide-list-music"
                 color="neutral"
                 :label="`选手 ${payload.progress.scored}/${singers.length}`"

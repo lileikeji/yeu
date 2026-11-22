@@ -600,7 +600,7 @@ function markerBarTop(ratio: number): string {
   <button
     v-if="!isSheet && !open"
     type="button"
-    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg map-bus-glass md:border md:border-zinc-200 md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700"
+    class="absolute z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg map-bus-glass md:border md:border-zinc-200 md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="展开校车线路总览"
     @click="emit('update:open', true)"
