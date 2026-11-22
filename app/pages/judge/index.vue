@@ -857,8 +857,11 @@ onBeforeUnmount(stopPolling)
             </aside>
 
             <template v-if="!sequential">
+              <!-- 评委台是 layout: false，页面上没有 ShellDock，所以不引 dock 变量。
+                   4.625rem 是给可滚动列表底部留的固定下沉量（沿用壳层 3.25rem + 0.625rem 的视觉结果），
+                   另加 env(safe-area-inset-bottom) 避开 iPhone 主屏指示条。 -->
               <UButton
-                class="fixed right-4 bottom-[calc(var(--mobile-nav-height)+var(--mobile-dock-inset)+var(--mobile-dock-extra,0rem)+env(safe-area-inset-bottom)+0.75rem)] z-30 shadow-lg lg:hidden"
+                class="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+4.625rem)] z-30 shadow-lg lg:hidden"
                 icon="i-lucide-list-music"
                 color="neutral"
                 :label="`选手 ${payload.progress.scored}/${singers.length}`"
