@@ -28,11 +28,11 @@ export function resolveCompetitionContentId(
 
 export function requireCompetitionRoundKey(event: H3Event): CompetitionRoundKey {
   const value = getRouterParam(event, 'roundKey')
-  if (value !== 'prelim' && value !== 'semi' && value !== 'final') {
+  if (value !== 'prelim' && value !== 'semi' && value !== 'final' && value !== 'final2') {
     throw createError({
       statusCode: 400,
       statusMessage: 'Invalid competition round',
-      data: { code: 'INVALID_ROUTE_PARAMETER', message: '轮次必须是 prelim、semi 或 final' }
+      data: { code: 'INVALID_ROUTE_PARAMETER', message: '轮次必须是 prelim、semi、final 或 final2' }
     })
   }
   return value

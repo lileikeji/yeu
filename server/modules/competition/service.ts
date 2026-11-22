@@ -9,6 +9,7 @@ import {
   competitionEmailSends,
   competitionEmailTemplates,
   competitionEvents,
+  competitionFinalSongs,
   competitionJudges,
   competitionPreRegistrations,
   competitionRoundEntries,
@@ -45,6 +46,7 @@ import type {
   CompetitionCurrentSinger,
   CompetitionDimension,
   CompetitionEmailImage,
+  CompetitionEmailRoundKey,
   CompetitionEmailRoundStats,
   CompetitionEmailSendRecord,
   CompetitionEmailSendStatus,
@@ -67,6 +69,7 @@ import type {
   CompetitionRound,
   CompetitionRoundEntry,
   CompetitionEntryAccompaniment,
+  CompetitionFinalSongsState,
   CompetitionRoundKey,
   CompetitionRoundStatus,
   CompetitionRoundView,
@@ -105,11 +108,15 @@ interface RoundDefinition {
   advanceCount: number | null
 }
 
-/** 固定三轮；初赛取前 30，复赛名额待定（null），决赛不再晋级。 */
+/** 决赛第一轮取前六进第二轮；第二轮不再晋级。 */
+export const COMPETITION_FINAL_ADVANCE_COUNT = 6
+
+/** 固定四轮：初赛 → 复赛 → 决赛（第一轮）→ 决赛·第二轮。 */
 export const COMPETITION_ROUND_DEFINITIONS: RoundDefinition[] = [
   { key: 'prelim', title: '初赛', position: 1, advanceCount: 30 },
   { key: 'semi', title: '复赛', position: 2, advanceCount: null },
-  { key: 'final', title: '决赛', position: 3, advanceCount: null }
+  { key: 'final', title: '决赛', position: 3, advanceCount: COMPETITION_FINAL_ADVANCE_COUNT },
+  { key: 'final2', title: '决赛·第二轮', position: 4, advanceCount: null }
 ]
 
 function validationError(message: string, field?: string): never {
@@ -270,6 +277,7 @@ function ensureRounds(client: DatabaseClient, eventId: string): RoundRow[] {
     .all()
   const byKey = new Map(existing.map(round => [round.key, round]))
   const now = Date.now()
+  let createdFinal2 = false
 
   for (const definition of COMPETITION_ROUND_DEFINITIONS) {
     if (byKey.has(definition.key)) continue
@@ -285,6 +293,34 @@ function ensureRounds(client: DatabaseClient, eventId: string): RoundRow[] {
       createdAt: now,
       updatedAt: now
     }).run()
+    if (definition.key === 'final2') createdFinal2 = true
+  }
+
+  // 老赛事升级：决赛第一轮原本没有晋级名额，升级时补成前六。
+  const existingFinal = byKey.get('final')
+  if (existingFinal && existingFinal.advanceCount === null) {
+    client.db.update(competitionRounds)
+      .set({ advanceCount: COMPETITION_FINAL_ADVANCE_COUNT, updatedAt: now })
+      .where(eq(competitionRounds.id, existingFinal.id)).run()
+  }
+
+  // 决赛第二轮刚建出来时沿用第一轮的评分维度、精度与去极值设置。
+  if (createdFinal2) {
+    const rounds = client.db.select().from(competitionRounds)
+      .where(eq(competitionRounds.eventId, eventId))
+      .all()
+    const finalRound = rounds.find(round => round.key === 'final')
+    const final2Round = rounds.find(round => round.key === 'final2')
+    if (finalRound && final2Round) {
+      client.db.update(competitionRounds).set({
+        judgeCount: finalRound.judgeCount,
+        scorePrecision: finalRound.scorePrecision,
+        dimensionsJson: finalRound.dimensionsJson,
+        dimensionMax: finalRound.dimensionMax,
+        trimExtremes: finalRound.trimExtremes,
+        updatedAt: now
+      }).where(eq(competitionRounds.id, final2Round.id)).run()
+    }
   }
 
   return client.db.select().from(competitionRounds)
@@ -328,7 +364,7 @@ export function getCompetitionSchedule(row: EventRow): CompetitionScheduleItem[]
     if (!item || typeof item !== 'object') return []
     const raw = item as Record<string, unknown>
     const key = raw.key
-    if (key !== 'prelim' && key !== 'semi' && key !== 'final') return []
+    if (key !== 'prelim' && key !== 'semi' && key !== 'final' && key !== 'final2') return []
     return [{
       key,
       dateLabel: String(raw.dateLabel ?? '').slice(0, 40),
@@ -495,7 +531,7 @@ export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge 
 export function entrySingerPublic(
   entry: EntryRow,
   singer: SingerRow,
-  roundKey?: 'prelim' | 'semi' | 'final'
+  roundKey?: CompetitionRoundKey
 ): CompetitionSingerPublic {
   const base = serializeSingerPublic(singer)
   const song = (entry.song ?? '').trim()
@@ -707,7 +743,7 @@ function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
     if (!raw || typeof raw !== 'object') continue
     const item = raw as Record<string, unknown>
     const key = item.key
-    if (key !== 'prelim' && key !== 'semi' && key !== 'final') continue
+    if (key !== 'prelim' && key !== 'semi' && key !== 'final' && key !== 'final2') continue
     items.push({
       key,
       dateLabel: String(item.dateLabel ?? '').trim().slice(0, 40),
@@ -872,6 +908,9 @@ export function updateRound(
   }
 
   if (round.key === 'final') {
+    // 决赛第一轮固定取前六进第二轮；第二轮不再产生下一轮。
+    patch.advanceCount = COMPETITION_FINAL_ADVANCE_COUNT
+  } else if (round.key === 'final2') {
     patch.advanceCount = null
   } else if (input.advanceCount !== undefined) {
     let advanceCount: number | null = null
@@ -1686,8 +1725,14 @@ function roundView(
 /** 公开排行页：名次 + 姓名 + 歌曲 + 出场顺序 + 照片。只给公开字段，不含联系方式与评分明细。 */
 export function getRankBoard(client: DatabaseClient, contentId: string, roundKey?: string): CompetitionRankBoard {
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const key = roundKey === 'prelim' || roundKey === 'semi' || roundKey === 'final' ? roundKey : 'semi'
-  const round = getRoundByKey(client, eventRow.id, key)
+  const requested = roundKey === 'prelim' || roundKey === 'semi' || roundKey === 'final' || roundKey === 'final2'
+    ? roundKey
+    : 'semi'
+  if (requested === 'final') {
+    const merged = buildMergedFinalRankBoard(client, eventRow)
+    if (merged) return merged
+  }
+  const round = getRoundByKey(client, eventRow.id, requested)
   const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
   const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
   const ranking = buildRoundRanking(round, entries, singersById, listRoundScores(client, round.id), {
@@ -1723,6 +1768,127 @@ export function getRankBoard(client: DatabaseClient, contentId: string, roundKey
 }
 
 /**
+ * 决赛总榜：第一轮结束后，前六进第二轮按第二轮成绩排 1..6；
+ * 其余选手按第一轮成绩排 7..N。第二轮结束前前六名次留空，只展示两轮曲目与当前均分。
+ * 没有可合并的数据（还没确认前六、第二轮也没成绩）时返回 null，走原来的单轮榜。
+ */
+function buildMergedFinalRankBoard(client: DatabaseClient, eventRow: EventRow): CompetitionRankBoard | null {
+  const finalRound = getRoundByKeySafe(client, eventRow.id, 'final')
+  const final2Round = getRoundByKeySafe(client, eventRow.id, 'final2')
+  if (!finalRound || !final2Round) return null
+  const final2Entries = listRoundEntryRows(client, final2Round.id)
+  // 第二轮名单还没生成时保持原来的决赛单轮榜；否则旧赛事的决赛总榜会被改成「前六待定」。
+  if (final2Entries.length === 0) return null
+
+  // 还没生成第二轮名单时，第二首歌仍然以选手提交的两首歌为准。
+  const submittedSecondSongs = new Map(
+    client.db.select().from(competitionFinalSongs)
+      .where(and(
+        eq(competitionFinalSongs.eventId, eventRow.id),
+        eq(competitionFinalSongs.slot, 2)
+      ))
+      .all()
+      .map(row => [row.singerId, (row.song ?? '').trim()])
+  )
+
+  const singersById = new Map(listSingers(client, eventRow.id).map(singer => [singer.id, singer]))
+  const finalEntryRows = listRoundEntryRows(client, finalRound.id)
+  const finalRanking = buildRoundRanking(
+    finalRound,
+    finalEntryRows,
+    singersById,
+    listRoundScores(client, finalRound.id),
+    { trimExtremes: trimExtremesFor(client, finalRound) }
+  )
+  const final2Ranking = buildRoundRanking(
+    final2Round,
+    final2Entries,
+    singersById,
+    listRoundScores(client, final2Round.id),
+    { trimExtremes: trimExtremesFor(client, final2Round) }
+  )
+
+  const finalBySinger = new Map(finalRanking.map(row => [row.singer.id, row]))
+  const final2BySinger = new Map(final2Ranking.map(row => [row.singer.id, row]))
+
+  // 第二轮名单以勾选进 final2 的人为准；还没生成名单时先按第一轮前六/勾选占位。
+  let secondRoundRows = final2Ranking.slice()
+  if (secondRoundRows.length === 0) {
+    const picked = finalRanking.filter(row => row.advanced === 1)
+    secondRoundRows = (picked.length > 0 ? picked : finalRanking.slice(0, COMPETITION_FINAL_ADVANCE_COUNT))
+      .slice(0, COMPETITION_FINAL_ADVANCE_COUNT)
+  }
+  // 有成绩时按名次排；还没唱完时按当前实时名次、再按出场顺序。
+  secondRoundRows.sort((left, right) => {
+    const rankLeft = left.rank ?? Number.MAX_SAFE_INTEGER
+    const rankRight = right.rank ?? Number.MAX_SAFE_INTEGER
+    if (rankLeft !== rankRight) return rankLeft - rankRight
+    return left.sortOrder - right.sortOrder
+  })
+
+  const secondIds = new Set(secondRoundRows.map(row => row.singer.id))
+  const remainingRows = finalRanking
+    .filter(row => !secondIds.has(row.singer.id))
+    .sort((left, right) => {
+      const rankLeft = left.rank ?? Number.MAX_SAFE_INTEGER
+      const rankRight = right.rank ?? Number.MAX_SAFE_INTEGER
+      if (rankLeft !== rankRight) return rankLeft - rankRight
+      return left.sortOrder - right.sortOrder
+    })
+
+  const rows: CompetitionRankRow[] = []
+  const settledSecond = final2Round.status === 'closed'
+  secondRoundRows.forEach((row, index) => {
+    const first = finalBySinger.get(row.singer.id)
+    const second = final2BySinger.get(row.singer.id) ?? row
+    const firstSong = (first?.song ?? '').trim()
+    const secondSong = (second.song ?? '').trim() || (submittedSecondSongs.get(row.singer.id) ?? '')
+    rows.push({
+      entryId: second.id,
+      rank: settledSecond ? index + 1 : null,
+      position: index + 1,
+      name: row.singer.name,
+      song: secondSong || firstSong || row.singer.song || '',
+      className: row.singer.className ?? '',
+      average: second.average,
+      scoreCount: second.scoreCount,
+      photoUrl: row.singer.photoUrl ?? null,
+      stage: 'final2',
+      firstSong,
+      secondSong: secondSong || null,
+      averageFirst: first?.average ?? null,
+      averageSecond: second.average
+    })
+  })
+  remainingRows.forEach((row, index) => {
+    const firstSong = (row.song ?? '').trim() || row.singer.song || ''
+    rows.push({
+      entryId: row.id,
+      rank: secondRoundRows.length + index + 1,
+      position: secondRoundRows.length + index + 1,
+      name: row.singer.name,
+      song: firstSong,
+      className: row.singer.className ?? '',
+      average: row.average,
+      scoreCount: row.scoreCount,
+      photoUrl: row.singer.photoUrl ?? null,
+      stage: 'final1',
+      firstSong,
+      secondSong: null,
+      averageFirst: row.average,
+      averageSecond: null
+    })
+  })
+
+  return {
+    round: { key: 'final', title: '决赛', status: final2Round.status },
+    maxTotal: competitionMaxTotal(getRoundDimensions(final2Round, eventRow), getRoundDimensionMax(final2Round)),
+    rows,
+    updatedAt: Date.now()
+  }
+}
+
+/**
  * 叫号台/排队页该看哪一轮：优先「正在评分」的那一轮，取最靠后的；
  * 都结束了就取最近一个已有名单的轮次（初赛结束后复赛还没开始时也能用）。
  */
@@ -1731,7 +1897,7 @@ function currentCallRound(
   eventId: string,
   preferred?: CompetitionRoundKey | null
 ): RoundRow {
-  const rounds: RoundRow[] = (['prelim', 'semi', 'final'] as CompetitionRoundKey[])
+  const rounds: RoundRow[] = (['prelim', 'semi', 'final', 'final2'] as CompetitionRoundKey[])
     .map(key => getRoundByKey(client, eventId, key))
   if (preferred) return rounds.find(round => round.key === preferred) ?? rounds[0]!
   const open = rounds.filter(round => round.status === 'open')
@@ -1795,7 +1961,7 @@ export function getSingerQueuePosition(
   let entries = listRoundEntryRows(client, round.id)
   let mine = entries.find(item => item.singerId === singerId)
   if (!mine) {
-    for (const key of ['final', 'semi', 'prelim'] as CompetitionRoundKey[]) {
+    for (const key of ['final2', 'final', 'semi', 'prelim'] as CompetitionRoundKey[]) {
       const candidate = getRoundByKey(client, eventRow.id, key)
       const hit = listRoundEntryRows(client, candidate.id).find(item => item.singerId === singerId)
       if (hit) {
@@ -1850,7 +2016,7 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
   const receipts: Record<string, CompetitionReceiptRow[]> = {}
   for (const round of rounds) {
     advance[round.key] = round.status === 'closed' ? listAdvanceRows(client, round) : []
-    receipts[round.key] = listReceipts(client, eventRow.id, round.key)
+    if (round.key !== 'final2') receipts[round.key] = listReceipts(client, eventRow.id, round.key)
   }
 
   return {
@@ -2261,7 +2427,7 @@ export function registerDrawNumber(
   sortOrder: number
 ): { position: number, singerName: string, roundTitle: string, checkedInAt: number } {
   const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
-  const rounds = [getRoundByKey(client, eventRow.id, 'prelim'), getRoundByKey(client, eventRow.id, 'semi'), getRoundByKey(client, eventRow.id, 'final')]
+  const rounds = [getRoundByKey(client, eventRow.id, 'prelim'), getRoundByKey(client, eventRow.id, 'semi'), getRoundByKey(client, eventRow.id, 'final'), getRoundByKey(client, eventRow.id, 'final2')]
   let target: RoundRow | null = null
   let entry: EntryRow | null = null
   for (const round of [...rounds].reverse()) {
@@ -3279,7 +3445,11 @@ export function registerSingerFromForm(
 
 // -- 结果邮件通知 ---------------------------------------------------------------
 
-export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { subject: string, body: string }> = {
+function isEmailRoundKey(key: CompetitionRoundKey): key is CompetitionEmailRoundKey {
+  return key === 'prelim' || key === 'semi' || key === 'final'
+}
+
+export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionEmailRoundKey, { subject: string, body: string }> = {
   prelim: {
     subject: '【音乐协会】新声歌手大赛初赛通知',
     body: [
@@ -3336,7 +3506,7 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
   }
 }
 
-function getEmailTemplateRow(client: DatabaseClient, eventId: string, roundKey: CompetitionRoundKey) {
+function getEmailTemplateRow(client: DatabaseClient, eventId: string, roundKey: CompetitionEmailRoundKey) {
   return client.db.select().from(competitionEmailTemplates)
     .where(and(
       eq(competitionEmailTemplates.eventId, eventId),
@@ -3345,7 +3515,7 @@ function getEmailTemplateRow(client: DatabaseClient, eventId: string, roundKey: 
     .get() ?? null
 }
 
-export function getEmailTemplate(client: DatabaseClient, eventId: string, roundKey: CompetitionRoundKey): CompetitionEmailTemplate {
+export function getEmailTemplate(client: DatabaseClient, eventId: string, roundKey: CompetitionEmailRoundKey): CompetitionEmailTemplate {
   const row = getEmailTemplateRow(client, eventId, roundKey)
   if (row) return { roundKey, subject: row.subject, body: row.body }
   return { roundKey, ...COMPETITION_EMAIL_TEMPLATE_DEFAULTS[roundKey] }
@@ -3354,7 +3524,7 @@ export function getEmailTemplate(client: DatabaseClient, eventId: string, roundK
 export function updateEmailTemplate(
   client: DatabaseClient,
   eventId: string,
-  roundKey: CompetitionRoundKey,
+  roundKey: CompetitionEmailRoundKey,
   input: { subject: string, body: string }
 ): CompetitionEmailTemplate {
   const now = Date.now()
@@ -3381,7 +3551,7 @@ export function updateEmailTemplate(
 export function recordEmailSend(
   client: DatabaseClient,
   eventId: string,
-  roundKey: CompetitionRoundKey,
+  roundKey: CompetitionEmailRoundKey,
   singerId: string | null,
   email: string,
   status: CompetitionEmailSendStatus,
@@ -3497,13 +3667,13 @@ export function buildEmailVariables(
 }
 
 export function listEmailState(client: DatabaseClient, eventId: string): CompetitionEmailState {
-  const roundKeys: CompetitionRoundKey[] = ['prelim', 'semi', 'final']
+  const roundKeys: CompetitionEmailRoundKey[] = ['prelim', 'semi', 'final']
   const templates = Object.fromEntries(
     roundKeys.map(key => [key, getEmailTemplate(client, eventId, key)])
-  ) as Record<CompetitionRoundKey, CompetitionEmailTemplate>
+  ) as Record<CompetitionEmailRoundKey, CompetitionEmailTemplate>
   const stats = Object.fromEntries(
     roundKeys.map(key => [key, { sent: 0, failed: 0, lastSentAt: null as number | null }])
-  ) as Record<CompetitionRoundKey, CompetitionEmailRoundStats>
+  ) as Record<CompetitionEmailRoundKey, CompetitionEmailRoundStats>
 
   const rows = client.db.select().from(competitionEmailSends)
     .where(eq(competitionEmailSends.eventId, eventId))
@@ -3513,7 +3683,7 @@ export function listEmailState(client: DatabaseClient, eventId: string): Competi
   const latest: CompetitionEmailSendRecord[] = []
   const seen = new Set<string>()
   for (const row of rows) {
-    const roundKey = row.roundKey as CompetitionRoundKey
+    const roundKey = row.roundKey as CompetitionEmailRoundKey
     const stat = stats[roundKey]
     if (row.status === 'sent') stat.sent += 1
     else stat.failed += 1
@@ -3700,6 +3870,9 @@ export function buildEmailSendPlan(
   skippedNoEmail: number
   skippedAlreadySent: number
 } {
+  if (round.key === 'final2') {
+    validationError('决赛第二轮不发通知邮件，请选择初赛、复赛或决赛', 'roundKey')
+  }
   if (round.status !== 'closed') {
     conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分并确认成绩，再发送通知邮件')
   }
@@ -4130,6 +4303,20 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
     conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已经开始评分了，名单不能再改')
   }
   const now = Date.now()
+  // 决赛第二轮的曲目来自「决赛两首歌」提交里的第二首；确认前六时一并写进名单。
+  const secondSongBySinger = new Map<string, string>()
+  if (nextRound?.key === 'final2') {
+    const songRows = client.db.select().from(competitionFinalSongs)
+      .where(and(
+        eq(competitionFinalSongs.eventId, round.eventId),
+        eq(competitionFinalSongs.slot, 2)
+      ))
+      .all()
+    for (const songRow of songRows) {
+      const value = (songRow.song ?? '').trim()
+      if (value) secondSongBySinger.set(songRow.singerId, value)
+    }
+  }
   client.db.transaction((transaction) => {
     for (const row of rows) {
       transaction.update(competitionRoundEntries).set({ advanced: row.advanced ? 1 : 0 })
@@ -4153,9 +4340,14 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
       const existingBySinger = new Map(existing.map(entry => [entry.singerId, entry]))
       picked.forEach((row, index) => {
         const found = existingBySinger.get(row.singer.id)
+        const secondSong = secondSongBySinger.get(row.singer.id) ?? null
         if (found) {
           transaction.update(competitionRoundEntries)
-            .set({ sortOrder: index + 1, advancedFromRank: row.rank ?? null })
+            .set({
+              sortOrder: index + 1,
+              advancedFromRank: row.rank ?? null,
+              ...(secondSong ? { song: secondSong } : {})
+            })
             .where(eq(competitionRoundEntries.id, found.id)).run()
           return
         }
@@ -4165,8 +4357,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
           singerId: row.singer.id,
           sortOrder: index + 1,
           advancedFromRank: row.rank ?? null,
-          // 下一轮的曲目留空：只有选手在收歌页填了才写进去，不再沿用上一轮
-          song: null,
+          // 下一轮的曲目：进决赛第二轮时取第二首歌，其他轮留空等选手自己填
+          song: secondSong,
           createdAt: now
         }).run()
       })
@@ -4182,7 +4374,7 @@ export function reopenAdvanceRoster(client: DatabaseClient, round: RoundRow): vo
 
 // -- 结果查询与回执 -------------------------------------------------------------
 
-export function ensureReceiptToken(client: DatabaseClient, eventId: string, roundKey: CompetitionRoundKey, singerId: string): string {
+export function ensureReceiptToken(client: DatabaseClient, eventId: string, roundKey: CompetitionEmailRoundKey, singerId: string): string {
   const existing = client.db.select().from(competitionEmailReceipts)
     .where(and(
       eq(competitionEmailReceipts.eventId, eventId),
@@ -4220,7 +4412,7 @@ export interface CompetitionReceiptRow {
   confirmedAt: number | null
 }
 
-export function listReceipts(client: DatabaseClient, eventId: string, roundKey: CompetitionRoundKey): CompetitionReceiptRow[] {
+export function listReceipts(client: DatabaseClient, eventId: string, roundKey: CompetitionEmailRoundKey): CompetitionReceiptRow[] {
   const receipts = client.db.select().from(competitionEmailReceipts)
     .where(and(eq(competitionEmailReceipts.eventId, eventId), eq(competitionEmailReceipts.roundKey, roundKey)))
     .all()
@@ -4300,11 +4492,14 @@ export function lookupCompetitionResult(
     .where(eq(competitionRounds.eventId, eventRow.id))
     .orderBy(asc(competitionRounds.position))
     .all()
-  const openRounds = rounds.filter(round => round.resultQueryOpen === 1)
+  const openRounds = rounds.filter(round => round.resultQueryOpen === 1 && isEmailRoundKey(round.key))
   if (openRounds.length === 0) {
     conflictError('COMPETITION_LOOKUP_CLOSED', '结果还没开放查询，等通知邮件发出后再来查')
   }
   const round = openRounds[openRounds.length - 1]!
+  if (!isEmailRoundKey(round.key)) {
+    conflictError('COMPETITION_LOOKUP_CLOSED', '结果还没开放查询，等通知邮件发出后再来查')
+  }
   const template = getEmailTemplate(client, eventRow.id, round.key)
   const token = ensureReceiptToken(client, eventRow.id, round.key, singer.id)
   const variables: Record<string, string> = {
@@ -4424,40 +4619,40 @@ function songStage(client: DatabaseClient, eventId: string, singerId: string) {
     .where(eq(competitionRounds.eventId, eventId))
     .orderBy(asc(competitionRounds.position))
     .all()
-  for (let index = 0; index < rounds.length; index += 1) {
-    const current = rounds[index]!
-    const entry = client.db.select().from(competitionRoundEntries)
-      .where(and(
-        eq(competitionRoundEntries.roundId, current.id),
-        eq(competitionRoundEntries.singerId, singerId)
-      ))
-      .get()
-    if (!entry) continue
-    const confirmed = current.rosterConfirmedAt !== null && entry.advanced === 1
-    const next = rounds[index + 1] ?? null
-    // 填的新歌属于「下一轮」那场；晋级后下一轮已经有条目（确认晋级时建好的）
-    const targetEntry = next
-      ? client.db.select().from(competitionRoundEntries)
-          .where(and(
-            eq(competitionRoundEntries.roundId, next.id),
-            eq(competitionRoundEntries.singerId, singerId)
-          ))
-          .get()
-      : entry
-    return {
-      editable: confirmed,
-      stageTitle: next ? next.title : current.title,
-      targetEntryId: targetEntry?.id ?? null,
-      targetSong: (targetEntry?.song ?? '').trim(),
-      targetAccompaniment: targetEntry ? serializeAccompaniment(targetEntry) : null,
-      reason: confirmed
-        ? ''
-        : current.rosterConfirmedAt === null
-          ? '晋级名单还没确认，等组委会确认完再来填'
-          : '你这一轮没有晋级，不用填新曲目'
-    }
+  const entries = client.db.select().from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.singerId, singerId))
+    .all()
+  const entryByRound = new Map(entries.map(entry => [entry.roundId, entry]))
+  let firstIndex = -1
+  let latestConfirmedIndex = -1
+  rounds.forEach((round, index) => {
+    if (!entryByRound.has(round.id)) return
+    if (firstIndex < 0) firstIndex = index
+    if (round.rosterConfirmedAt !== null) latestConfirmedIndex = index
+  })
+  const index = latestConfirmedIndex >= 0 ? latestConfirmedIndex : firstIndex
+  if (index < 0) {
+    return { editable: false, stageTitle: '', reason: '没找到你的出场记录，先确认已经登台唱过' }
   }
-  return { editable: false, stageTitle: '', reason: '没找到你的出场记录，先确认已经登台唱过' }
+  const current = rounds[index]!
+  const entry = entryByRound.get(current.id)!
+  const confirmed = current.rosterConfirmedAt !== null && entry.advanced === 1
+  const next = rounds[index + 1] ?? null
+  // 填的新歌属于「下一轮」那场；晋级后下一轮已经有条目（确认晋级时建好的）
+  const targetEntry = next ? entryByRound.get(next.id) ?? null : entry
+  return {
+    editable: confirmed,
+    stageTitle: next ? next.title : current.title,
+    targetRoundKey: next?.key ?? current.key,
+    targetEntryId: targetEntry?.id ?? null,
+    targetSong: (targetEntry?.song ?? '').trim(),
+    targetAccompaniment: targetEntry ? serializeAccompaniment(targetEntry) : null,
+    reason: confirmed
+      ? ''
+      : current.rosterConfirmedAt === null
+        ? '晋级名单还没确认，等组委会确认完再来填'
+        : '你这一轮没有晋级，不用填新曲目'
+  }
 }
 
 export function getSongEditor(
@@ -4488,6 +4683,9 @@ export function submitSongByThreeFactors(
   if (!stage.editable) {
     conflictError('COMPETITION_SONG_LOCKED', stage.reason || '现在还不能改曲目')
   }
+  if (stage.targetRoundKey === 'final' || stage.targetRoundKey === 'final2') {
+    conflictError('COMPETITION_FINAL_SONG_DEDICATED', '决赛两首歌请到「决赛两首歌」页面一次提交，这里不再单独改决赛曲目')
+  }
   const value = cleanSongTitle(song, singer.name)
   if (!value) validationError('曲目必填，请填具体歌名', 'song')
   if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
@@ -4509,6 +4707,192 @@ export function submitSongByThreeFactors(
     song: value,
     accompaniment: stage.targetAccompaniment ?? null,
     stageTitle: stage.stageTitle,
+    editable: true,
+    reason: ''
+  }
+}
+
+interface FinalSongRows {
+  first: { song: string, version: number } | null
+  second: { song: string, version: number } | null
+  revision: number
+}
+
+function readFinalSongs(client: DatabaseClient, eventId: string, singerId: string): FinalSongRows {
+  const rows = client.db.select().from(competitionFinalSongs)
+    .where(and(
+      eq(competitionFinalSongs.eventId, eventId),
+      eq(competitionFinalSongs.singerId, singerId)
+    ))
+    .all()
+  const first = rows.find(row => row.slot === 1) ?? null
+  const second = rows.find(row => row.slot === 2) ?? null
+  return {
+    first: first ? { song: first.song, version: first.version } : null,
+    second: second ? { song: second.song, version: second.version } : null,
+    revision: Math.max(0, ...rows.map(row => Number(row.version ?? 0)))
+  }
+}
+
+/** 决赛两首歌的锁定原因；空字符串表示还能改。 */
+function finalSongLockReason(
+  client: DatabaseClient,
+  finalRound: RoundRow,
+  final2Round: RoundRow | null,
+  entry: EntryRow | null
+): string {
+  if (!entry) return '你不在决赛名单里，先找组委会确认'
+  if (finalRound.status === 'closed') return '决赛第一轮已经结束，两首歌已锁定'
+  if (final2Round && countRoundScores(client, final2Round.id) > 0) {
+    return '决赛第二轮已经开始评分，两首歌已锁定'
+  }
+  return ''
+}
+
+function finalSongContext(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+) {
+  const { singer, eventRow } = singerByThreeFactors(client, contentId, input)
+  const finalRound = getRoundByKeySafe(client, eventRow.id, 'final')
+  if (!finalRound) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '决赛还没建好，等组委会通知')
+  const final2Round = getRoundByKeySafe(client, eventRow.id, 'final2')
+  const entry = client.db.select().from(competitionRoundEntries)
+    .where(and(
+      eq(competitionRoundEntries.roundId, finalRound.id),
+      eq(competitionRoundEntries.singerId, singer.id)
+    ))
+    .get() ?? null
+  return { singer, eventRow, finalRound, final2Round, entry }
+}
+
+function assertFinalSongAvailable(
+  client: DatabaseClient,
+  eventId: string,
+  singerId: string,
+  song: string
+): void {
+  const key = songCompareKey(song)
+  if (!key) return
+  // 决赛这一对曲目本身允许修改，查重只比对初赛/复赛唱过的歌；
+  // 两首之间是否重复由调用方单独判断。
+  const rows = client.db.select({
+    key: competitionRounds.key,
+    entrySong: competitionRoundEntries.song
+  })
+    .from(competitionRoundEntries)
+    .innerJoin(competitionRounds, eq(competitionRounds.id, competitionRoundEntries.roundId))
+    .where(and(
+      eq(competitionRoundEntries.singerId, singerId),
+      eq(competitionRounds.eventId, eventId)
+    ))
+    .all()
+  for (const row of rows) {
+    if (row.key !== 'prelim' && row.key !== 'semi') continue
+    if (row.entrySong && songCompareKey(row.entrySong) === key) {
+      conflictError('SONG_REPEATED', `这首歌你在${row.key === 'prelim' ? '初赛' : '复赛'}已经唱过了，换一首`)
+    }
+  }
+}
+
+/** 决赛两首歌的提交页状态。revision 是两行里最大的版本号，提交时必须回传。 */
+export function getFinalSongEditor(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string }
+): CompetitionFinalSongsState {
+  const { singer, eventRow, finalRound, final2Round, entry } = finalSongContext(client, contentId, input)
+  const songs = readFinalSongs(client, eventRow.id, singer.id)
+  const reason = finalSongLockReason(client, finalRound, final2Round, entry)
+  return {
+    singerName: singer.name,
+    stageTitle: `决赛 · 两首歌（${finalRound.title} + 第二轮）`,
+    firstSong: songs.first?.song ?? (entry?.song ?? '').trim(),
+    secondSong: songs.second?.song ?? '',
+    revision: songs.revision,
+    editable: reason === '',
+    reason
+  }
+}
+
+/**
+ * 一次提交决赛两首歌：slot1 第一轮唱，slot2 前六进第二轮唱。
+ * revision 与库里不一致时返回 409，不覆盖别人刚提交的版本。
+ */
+export function submitFinalSongsByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string, revision: number },
+  songsInput: { firstSong: string, secondSong: string }
+): CompetitionFinalSongsState {
+  const { singer, eventRow, finalRound, final2Round, entry } = finalSongContext(client, contentId, input)
+  const reason = finalSongLockReason(client, finalRound, final2Round, entry)
+  if (reason) conflictError('COMPETITION_FINAL_SONGS_LOCKED', reason)
+
+  const firstSong = cleanSongTitle(songsInput.firstSong, singer.name)
+  const secondSong = cleanSongTitle(songsInput.secondSong, singer.name)
+  for (const value of [firstSong, secondSong]) {
+    if (!value) validationError('两首歌都要填具体歌名', 'firstSong')
+    if (value.length > 100) validationError('歌名太长，控制在 100 字以内', 'firstSong')
+    if (COMPETITION_SONG_PLACEHOLDERS.has(value.replace(/\s+/g, '').toLowerCase())) {
+      validationError('曲目要填具体歌名，不能填「待定」', 'firstSong')
+    }
+  }
+  if (songCompareKey(firstSong) === songCompareKey(secondSong)) {
+    validationError('两首决赛曲目不能是同一首', 'secondSong')
+  }
+  // 第一首归决赛第一轮，第二首归决赛第二轮；两首都只和初赛/复赛比。
+  assertFinalSongAvailable(client, eventRow.id, singer.id, firstSong)
+  assertFinalSongAvailable(client, eventRow.id, singer.id, secondSong)
+
+  const expectedRevision = Number(input.revision ?? 0)
+  const nextRevision = client.db.transaction((transaction): number => {
+    const rows = transaction.select().from(competitionFinalSongs)
+      .where(and(
+        eq(competitionFinalSongs.eventId, eventRow.id),
+        eq(competitionFinalSongs.singerId, singer.id)
+      ))
+      .all()
+    const currentRevision = Math.max(0, ...rows.map(row => Number(row.version ?? 0)))
+    if (currentRevision !== expectedRevision) {
+      conflictError('COMPETITION_FINAL_SONGS_CONFLICT', '刚才有人更新过这两首歌，请刷新页面确认最新版本后再提交')
+    }
+    const now = Date.now()
+    const revision = currentRevision + 1
+    for (const [slot, song] of [[1, firstSong], [2, secondSong]] as const) {
+      const existing = rows.find(row => row.slot === slot)
+      if (existing) {
+        transaction.update(competitionFinalSongs)
+          .set({ song, version: revision, updatedAt: now })
+          .where(eq(competitionFinalSongs.id, existing.id)).run()
+      } else {
+        transaction.insert(competitionFinalSongs).values({
+          id: randomUUID(),
+          eventId: eventRow.id,
+          singerId: singer.id,
+          slot,
+          song,
+          version: revision,
+          createdAt: now,
+          updatedAt: now
+        }).run()
+      }
+    }
+    // 第一轮实际要唱的歌同步进决赛名单，叫号台/评委端立刻能看到。
+    if (entry) {
+      transaction.update(competitionRoundEntries).set({ song: firstSong })
+        .where(eq(competitionRoundEntries.id, entry.id)).run()
+    }
+    return revision
+  })
+
+  return {
+    singerName: singer.name,
+    stageTitle: `决赛 · 两首歌（${finalRound.title} + 第二轮）`,
+    firstSong,
+    secondSong,
+    revision: nextRevision,
     editable: true,
     reason: ''
   }
@@ -4843,10 +5227,21 @@ export async function submitAccompanimentByThreeFactors(
   }
   const incoming = (song ?? '').trim()
   if (incoming) {
-    client.db.update(competitionRoundEntries).set({ song: incoming })
-      .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
-    client.db.update(competitionSingers).set({ song: incoming })
-      .where(eq(competitionSingers.id, singer.id)).run()
+    // 决赛曲目只能走两首歌接口，这里改歌会绕过版本锁与查重；伴奏照传，歌名必须与已提交的一致。
+    if (round.key === 'final' || round.key === 'final2') {
+      const lockedSong = (entrySongOf(client, stage.targetEntryId) ?? '').trim()
+      if (!lockedSong) {
+        conflictError('SONG_REQUIRED', '先在「决赛两首歌」页面提交曲目，再回来传伴奏')
+      }
+      if (songCompareKey(incoming) !== songCompareKey(lockedSong)) {
+        conflictError('COMPETITION_FINAL_SONG_DEDICATED', '决赛曲目请到「决赛两首歌」页面修改，这里只传伴奏')
+      }
+    } else {
+      client.db.update(competitionRoundEntries).set({ song: incoming })
+        .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
+      client.db.update(competitionSingers).set({ song: incoming })
+        .where(eq(competitionSingers.id, singer.id)).run()
+    }
   }
   if (!entrySongOf(client, stage.targetEntryId)) {
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')

@@ -55,7 +55,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   const SCHEDULE_KEY_OPTIONS = [
     { value: 'prelim', label: '初赛' },
     { value: 'semi', label: '复赛' },
-    { value: 'final', label: '决赛' }
+    { value: 'final', label: '决赛' },
+    { value: 'final2', label: '决赛·第二轮' }
   ] as const
 
   function addScheduleRow(): void {

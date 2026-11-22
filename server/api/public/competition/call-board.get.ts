@@ -13,6 +13,6 @@ export default defineEventHandler((event) => {
   // ?round=semi 可以手动指定看哪一轮；不带就看当前正在用的那一轮。
   const query = getQuery(event)
   const raw = typeof query.round === 'string' ? query.round : ''
-  const roundKey = raw === 'prelim' || raw === 'semi' || raw === 'final' ? raw : null
+  const roundKey = raw === 'prelim' || raw === 'semi' || raw === 'final' || raw === 'final2' ? raw : null
   return getCallBoard(client, contentId, roundKey)
 })

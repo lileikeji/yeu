@@ -96,7 +96,7 @@ function scoresForAll(value: number): Record<string, number> {
   return Object.fromEntries(DEFAULT_COMPETITION_DIMENSIONS.map(dimension => [dimension.key, value]))
 }
 
-function roundView(payload: ReturnType<typeof getAdminCompetitionPayload>, key: 'prelim' | 'semi' | 'final') {
+function roundView(payload: ReturnType<typeof getAdminCompetitionPayload>, key: 'prelim' | 'semi' | 'final' | 'final2') {
   return payload.rounds.find(round => round.key === key)!
 }
 
@@ -235,14 +235,15 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
 
   const event = ensureCompetitionEvent(client, musicId)
   const rounds = getAdminCompetitionPayload(client, musicId).rounds
-  assert.deepEqual(rounds.map(round => round.key), ['prelim', 'semi', 'final'])
+  assert.deepEqual(rounds.map(round => round.key), ['prelim', 'semi', 'final', 'final2'])
   assert.equal(rounds[0]!.advanceCount, 30)
   assert.equal(rounds[1]!.advanceCount, null)
-  assert.equal(rounds[2]!.advanceCount, null)
+  assert.equal(rounds[2]!.advanceCount, 6)
+  assert.equal(rounds[3]!.advanceCount, null)
 
   // 再次 ensure 不会重复建轮次。
   ensureCompetitionEvent(client, musicId)
-  assert.equal(getAdminCompetitionPayload(client, musicId).rounds.length, 3)
+  assert.equal(getAdminCompetitionPayload(client, musicId).rounds.length, 4)
 
   const singerA = createSinger(client, event.id, { name: '张三', song: '晴天' })
   const singerB = createSinger(client, event.id, { name: '李四', song: '后来' })
@@ -508,7 +509,8 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(finalResult.entries.length, 1)
   assert.equal(finalResult.entries[0]!.average, 45)
   assert.equal(finalResult.entries[0]!.rank, 1)
-  assert.equal(finalResult.entries[0]!.qualified, false)
+  // 决赛第一轮现在取前六进第二轮，唯一选手自然在晋级线内。
+  assert.equal(finalResult.entries[0]!.qualified, true)
 
   // 初赛评委也能在决赛结束后看到决赛总结果；评委端不暴露联系方式。
   const prelimJudgePayload = getJudgePayload(client, prelimJudgeOne)

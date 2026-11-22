@@ -1351,7 +1351,7 @@ export const competitionDimensionSchema = z.object({
 }).strict()
 
 export const competitionScheduleItemSchema = z.object({
-  key: z.enum(['prelim', 'semi', 'final']),
+  key: z.enum(['prelim', 'semi', 'final', 'final2']),
   dateLabel: z.string().trim().max(40).default(''),
   timeLabel: z.string().trim().max(40).default(''),
   venue: z.string().trim().max(60).default(''),
@@ -1525,6 +1525,17 @@ export const competitionSongSubmitSchema = z.object({
   studentNo: z.string().trim().min(1).max(40),
   contact: z.string().trim().min(4).max(120),
   song: z.string().trim().min(1).max(100)
+}).strict()
+
+/** 决赛两首歌一次提交：firstSong 第一轮唱，secondSong 只给前六在第二轮唱。 */
+export const competitionFinalSongsSubmitSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  firstSong: z.string().trim().min(1).max(100),
+  secondSong: z.string().trim().min(1).max(100),
+  /** 打开页面时拿到的 version；服务端不一致说明别人刚改过，返回冲突不覆盖。 */
+  revision: z.number().int().min(0).max(1_000_000)
 }).strict()
 
 export const competitionResultLookupSchema = z.object({

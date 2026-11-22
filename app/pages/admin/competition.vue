@@ -13,7 +13,8 @@ const toast = useToast()
 
 /** 复赛填曲目是独立页，选手需要这个地址；后台一键复制发群。 */
 async function copySongLink(): Promise<void> {
-  const url = `${window.location.origin}/singer/song`
+  const path = activeRound.value?.key === 'final' ? '/singer/final-song' : '/singer/song'
+  const url = `${window.location.origin}${path}`
   try {
     await navigator.clipboard.writeText(url)
     toast.add({ title: '选歌链接已复制', description: url, color: 'success' })
@@ -97,7 +98,8 @@ const dimensionRoundLocked = computed(() => dimensionRound.value?.hasScores === 
 const DIMENSION_ROUND_OPTIONS = [
   { label: '初赛（满分 50）', value: 'prelim' },
   { label: '复赛（满分 100）', value: 'semi' },
-  { label: '决赛（满分 100）', value: 'final' }
+  { label: '决赛（满分 100）', value: 'final' },
+  { label: '决赛·第二轮（满分 100）', value: 'final2' }
 ]
 
 function syncDimensionDraft(): void {
@@ -249,7 +251,7 @@ const {
 } = useCompetitionAdvance({ payload, activeRound, load, toast })
 
 const {
-  emailRound, emailScope, emailSavingTemplate, emailSending, emailTesting, emailTestAddress, emailBodyRef,
+  emailRound, emailRounds, emailScope, emailSavingTemplate, emailSending, emailTesting, emailTestAddress, emailBodyRef,
   emailImageInput, emailImageUploading, emailImageDeletingId, emailImages, emailTemplate, emailStats,
   emailRoundView, emailCountWithEmail, emailCountWithoutEmail,
   emailAlreadySentCount, emailLatestRows, insertPlaceholder, insertBodyText,
@@ -1522,7 +1524,7 @@ onBeforeUnmount(stopLiveRefresh)
               />
             </UFormField>
             <UFormField
-              v-if="activeRound.key !== 'final'"
+              v-if="activeRound.key !== 'final' && activeRound.key !== 'final2'"
               :label="activeRound.key === 'semi' ? '晋级人数（可待定）' : '晋级人数'"
               class="w-40"
             >
@@ -1560,7 +1562,7 @@ onBeforeUnmount(stopLiveRefresh)
               @click="saveRound(activeRound)"
             />
             <span class="pb-2 text-xs text-zinc-400">
-              初赛默认取前 30；复赛名额可在复赛结束后再填。
+              初赛默认取前 30；复赛名额可在复赛结束后再填；决赛第一轮固定取前六进第二轮，第二轮不再晋级。
             </span>
           </div>
         </div>
@@ -2093,7 +2095,10 @@ onBeforeUnmount(stopLiveRefresh)
           </div>
         </div>
 
-        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div
+          v-if="activeRound.key !== 'final2'"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800"
+        >
           <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
@@ -2512,7 +2517,7 @@ onBeforeUnmount(stopLiveRefresh)
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-1 rounded-lg border border-zinc-200 p-1 dark:border-zinc-800">
             <button
-              v-for="round in payload.rounds"
+              v-for="round in emailRounds"
               :key="round.id"
               type="button"
               class="rounded-md px-3 py-1 text-xs font-medium transition-colors"

@@ -2,8 +2,8 @@ import type { Ref } from 'vue'
 import type {
   CompetitionAdminPayload,
   CompetitionEmailImage,
+  CompetitionEmailRoundKey,
   CompetitionRoundEntry,
-  CompetitionRoundKey,
   CompetitionRoundView,
   CompetitionSinger
 } from '~~/shared/types'
@@ -23,7 +23,7 @@ export interface UseCompetitionEmailOptions {
 export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
   const { payload, singers, load, toast } = options
 
-  const emailRound = ref<CompetitionRoundKey>('prelim')
+  const emailRound = ref<CompetitionEmailRoundKey>('prelim')
   const emailScope = ref<EmailScope>('all')
   /** 发送前二次确认：列出这次到底发给谁。 */
   const sendConfirmOpen = ref(false)
@@ -41,6 +41,10 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
 
   const emailImages = computed<CompetitionEmailImage[]>(() => payload.value?.email.images ?? [])
 
+  /** 邮件只覆盖初赛/复赛/决赛三轮，决赛第二轮没有模板与发送记录。 */
+  const emailRounds = computed(() => (payload.value?.rounds ?? [])
+    .filter((round): round is CompetitionRoundView & { key: CompetitionEmailRoundKey } => round.key !== 'final2'))
+
   // -- 邮件通知 ------------------------------------------------------------------
 
   const emailTemplate = computed(() => payload.value?.email.templates[emailRound.value]
@@ -48,7 +52,7 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
   const emailStats = computed(() => payload.value?.email.stats[emailRound.value]
     ?? { sent: 0, failed: 0, lastSentAt: null as number | null })
   const emailRoundView = computed<CompetitionRoundView | null>(() =>
-    payload.value?.rounds.find(round => round.key === emailRound.value) ?? null)
+    emailRounds.value.find(round => round.key === emailRound.value) ?? null)
 
   function emailPool(scope: EmailScope): CompetitionRoundEntry[] {
     const round = emailRoundView.value
@@ -172,7 +176,7 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
     }
     emailSavingTemplate.value = true
     try {
-      const result = await adminFetch<{ template: { roundKey: CompetitionRoundKey, subject: string, body: string } }>(
+      const result = await adminFetch<{ template: { roundKey: CompetitionEmailRoundKey, subject: string, body: string } }>(
         `/api/admin/competition/email/${template.roundKey}`,
         { method: 'PUT', body: { subject: template.subject.trim(), body: template.body.trim() } }
       )
@@ -259,6 +263,7 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
 
   return {
     emailRound,
+    emailRounds,
     emailScope,
     emailSavingTemplate,
     emailSending,

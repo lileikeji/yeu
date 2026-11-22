@@ -1115,7 +1115,7 @@ export const competitionEvents = sqliteTable('competition_events', {
 export const competitionRounds = sqliteTable('competition_rounds', {
   id: text('id').primaryKey(),
   eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
-  key: text('key', { enum: ['prelim', 'semi', 'final'] }).notNull(),
+  key: text('key', { enum: ['prelim', 'semi', 'final', 'final2'] }).notNull(),
   title: text('title').notNull(),
   position: integer('position').notNull(),
   status: text('status', { enum: ['draft', 'open', 'closed'] }).notNull().default('draft'),
@@ -1152,7 +1152,7 @@ export const competitionRounds = sqliteTable('competition_rounds', {
 }, table => [
   uniqueIndex('competition_rounds_event_key_unique').on(table.eventId, table.key),
   index('competition_rounds_event_position_idx').on(table.eventId, table.position),
-  check('competition_rounds_key_check', sql`${table.key} in ('prelim', 'semi', 'final')`),
+  check('competition_rounds_key_check', sql`${table.key} in ('prelim', 'semi', 'final', 'final2')`),
   check('competition_rounds_status_check', sql`${table.status} in ('draft', 'open', 'closed')`),
   check('competition_rounds_judge_count_check', sql`${table.judgeCount} between 1 and 20`),
   check('competition_rounds_advance_count_check', sql`${table.advanceCount} is null or ${table.advanceCount} between 1 and 500`)
@@ -1349,6 +1349,28 @@ export const competitionScores = sqliteTable('competition_scores', {
   uniqueIndex('competition_scores_round_singer_judge_unique').on(table.roundId, table.singerId, table.judgeId),
   index('competition_scores_event_idx').on(table.eventId),
   index('competition_scores_round_idx').on(table.roundId)
+])
+
+/**
+ * 决赛两首歌：slot=1 第一轮唱，slot=2 只给前六在第二轮唱。
+ * 两行一次提交、版本号一起递增，提交时带 revision 做乐观锁，
+ * 避免两个窗口同时改时把别人已经领先的那版覆盖掉。
+ */
+export const competitionFinalSongs = sqliteTable('competition_final_songs', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
+  /** 1 = 第一轮曲目；2 = 第二轮曲目。 */
+  slot: integer('slot').notNull(),
+  song: text('song').notNull(),
+  /** 每次成功提交 +1；客户端提交时回传它做冲突检测。 */
+  version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_final_songs_event_singer_slot_unique').on(table.eventId, table.singerId, table.slot),
+  index('competition_final_songs_event_idx').on(table.eventId),
+  check('competition_final_songs_slot_check', sql`${table.slot} in (1, 2)`)
 ])
 
 /**

@@ -197,7 +197,7 @@ useSeoMeta({
           </dl>
           <ol class="mt-4 list-decimal space-y-2.5 pl-5 text-sm leading-6 text-[var(--muted-ink)]">
             <li>复赛结束次日公布结果，并以QQ方式通知进入决赛的选手。</li>
-            <li>决赛具体规则另行通知。</li>
+            <li>决赛每人提交两首歌并确定顺序：第一轮所有人唱第一首，取前六名进入第二轮唱第二首；最终前六名按第二轮成绩排行，其余选手按第一轮成绩排行。</li>
           </ol>
         </article>
       </section>

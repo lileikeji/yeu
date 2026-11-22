@@ -50,6 +50,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
     { key: 'prelim', label: '初赛', icon: 'i-lucide-flag' },
     { key: 'semi', label: '复赛', icon: 'i-lucide-git-branch' },
     { key: 'final', label: '决赛', icon: 'i-lucide-trophy' },
+    { key: 'final2', label: '决赛·第二轮', icon: 'i-lucide-list-ordered' },
     { key: 'email', label: '邮件通知', icon: 'i-lucide-mail' },
     { key: 'materials', label: '报名物料', icon: 'i-lucide-qr-code' }
   ] as const

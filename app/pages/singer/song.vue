@@ -26,6 +26,7 @@ const state = ref<SongState | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
+const finalStage = computed(() => (state.value?.stageTitle ?? '').includes('决赛'))
 
 useSeoMeta({ title: '填写参赛曲目', robots: 'noindex, nofollow' })
 
@@ -338,6 +339,17 @@ async function submit() {
           {{ state.singerName }}<span v-if="state.stageTitle">，{{ state.stageTitle }}</span>
         </p>
         <p
+          v-if="finalStage && state.editable"
+          class="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm leading-relaxed text-amber-900"
+        >
+          决赛两首歌请到
+          <NuxtLink
+            to="/singer/final-song"
+            class="font-medium underline"
+          >「决赛两首歌」页面</NuxtLink>
+          一次提交；本页只用来给决赛曲目上传伴奏，改歌名不会生效。
+        </p>
+        <p
           v-if="!state.editable"
           class="mt-2 text-sm text-[var(--muted-ink)]"
         >
@@ -428,7 +440,15 @@ async function submit() {
             </p>
           </div>
 
+          <NuxtLink
+            v-if="finalStage"
+            to="/singer/final-song"
+            class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-base font-bold text-white shadow transition hover:opacity-90"
+          >
+            去提交决赛两首歌
+          </NuxtLink>
           <button
+            v-else
             type="button"
             :disabled="saving"
             class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-base font-bold text-white shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
@@ -444,6 +464,15 @@ async function submit() {
           </button>
         </template>
       </div>
+
+      <p class="mt-6 text-center text-xs">
+        <NuxtLink
+          to="/singer/final-song"
+          class="text-[var(--color-green-700)] underline"
+        >
+          决赛选手：一次提交两首歌
+        </NuxtLink>
+      </p>
 
       <p class="mt-8 text-center text-xs text-[var(--muted-ink)]">
         主办：仰恩大学音乐协会

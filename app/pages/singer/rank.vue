@@ -3,13 +3,17 @@ import type { CompetitionRankBoard } from '~~/shared/types'
 
 definePageMeta({ layout: false })
 
-useSeoMeta({ title: '复赛排行', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '比赛排行', robots: 'noindex, nofollow' })
 
-const round = ref<'prelim' | 'semi' | 'final'>('semi')
+const round = ref<'prelim' | 'semi' | 'final' | 'final2'>('semi')
 const board = ref<CompetitionRankBoard | null>(null)
 const loading = ref(true)
 const error = ref('')
 const zoom = ref<{ name: string, url: string } | null>(null)
+
+/** 决赛总榜：前六按第二轮排、后六按第一轮排，表头要显示两轮曲目与成绩。 */
+const mergedFinal = computed(() => round.value === 'final'
+  && (board.value?.rows.some(row => row.stage === 'final1' || row.stage === 'final2') ?? false))
 
 async function load(): Promise<void> {
   loading.value = true
@@ -47,20 +51,31 @@ watch(round, load)
             {{ board?.round.title ?? '比赛' }}排行
           </h1>
         </div>
-        <select
-          v-model="round"
-          class="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
-        >
-          <option value="prelim">
-            初赛
-          </option>
-          <option value="semi">
-            复赛
-          </option>
-          <option value="final">
-            决赛
-          </option>
-        </select>
+        <div class="flex flex-wrap items-center gap-2">
+          <NuxtLink
+            to="/singer/final-song"
+            class="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--color-green-700)]"
+          >
+            决赛两首歌提交
+          </NuxtLink>
+          <select
+            v-model="round"
+            class="rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm"
+          >
+            <option value="prelim">
+              初赛
+            </option>
+            <option value="semi">
+              复赛
+            </option>
+            <option value="final">
+              决赛总榜
+            </option>
+            <option value="final2">
+              决赛·第二轮
+            </option>
+          </select>
+        </div>
       </header>
 
       <p
@@ -86,7 +101,7 @@ watch(round, load)
 
       <div
         v-else-if="board"
-        class="overflow-hidden rounded-xl bg-[var(--surface)] shadow-sm"
+        class="overflow-x-auto rounded-xl bg-[var(--surface)] shadow-sm"
       >
         <table class="w-full text-sm">
           <thead class="bg-[color-mix(in_srgb,var(--color-orange-500)_14%,var(--surface))] text-left text-xs text-[var(--color-orange-700)]">
@@ -100,7 +115,24 @@ watch(round, load)
               <th class="px-3 py-2 font-medium">
                 选手
               </th>
-              <th class="px-3 py-2 font-medium">
+              <template v-if="mergedFinal">
+                <th class="px-3 py-2 font-medium">
+                  第一轮曲目
+                </th>
+                <th class="w-24 px-3 py-2 text-right font-medium">
+                  第一轮均分
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  第二轮曲目
+                </th>
+                <th class="w-24 px-3 py-2 text-right font-medium">
+                  第二轮均分
+                </th>
+              </template>
+              <th
+                v-else
+                class="px-3 py-2 font-medium"
+              >
                 歌曲
               </th>
               <th class="w-20 px-3 py-2 text-center font-medium">
@@ -141,8 +173,32 @@ watch(round, load)
               <td class="px-3 py-2 font-semibold">
                 {{ row.name }}
                 <span class="ml-1 text-xs font-normal text-[var(--muted-ink)]">{{ row.className }}</span>
+                <span
+                  v-if="row.stage"
+                  class="ml-1 rounded px-1 py-0.5 text-[10px] font-normal"
+                  :class="row.stage === 'final2'
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-zinc-100 text-zinc-600'"
+                >{{ row.stage === 'final2' ? '第二轮' : '第一轮' }}</span>
               </td>
-              <td class="px-3 py-2 text-[var(--muted-ink)]">
+              <template v-if="mergedFinal">
+                <td class="px-3 py-2 text-[var(--muted-ink)]">
+                  {{ row.firstSong || '—' }}
+                </td>
+                <td class="px-3 py-2 text-right tabular-nums text-[var(--muted-ink)]">
+                  {{ row.averageFirst == null ? '—' : row.averageFirst.toFixed(2) }}
+                </td>
+                <td class="px-3 py-2 text-[var(--muted-ink)]">
+                  {{ row.secondSong || '—' }}
+                </td>
+                <td class="px-3 py-2 text-right tabular-nums text-[var(--muted-ink)]">
+                  {{ row.averageSecond == null ? '—' : row.averageSecond.toFixed(2) }}
+                </td>
+              </template>
+              <td
+                v-else
+                class="px-3 py-2 text-[var(--muted-ink)]"
+              >
                 {{ row.song }}
               </td>
               <td class="px-3 py-2 text-center tabular-nums text-[var(--muted-ink)]">
