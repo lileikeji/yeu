@@ -1,3 +1,4 @@
+-- yeu:allow-table-rebuild competition_rounds
 -- 决赛拆成两轮：final（第一轮，取前六）+ final2（第二轮，只让前六唱第二首）。
 -- SQLite 改不了 CHECK，只能重建 competition_rounds；重建期间 DROP 父表会按
 -- ON DELETE cascade 清空子表，所以先把子表数据备份到 TEMP 表，重建后按依赖顺序灌回。
