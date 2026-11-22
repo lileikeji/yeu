@@ -512,8 +512,8 @@ export function singerPhotoUrl(row: SingerRow): string | null {
   if (!config) return null
   // 按扩展名给正确的 Content-Type，别把 PNG/WebP/HEIC 一律当 jpeg，否则部分浏览器不渲染。
   const extension = key.slice(key.lastIndexOf('.') + 1).toLowerCase()
-  const contentType =
-    extension === 'png'
+  const contentType
+    = extension === 'png'
       ? 'image/png'
       : extension === 'webp'
         ? 'image/webp'
@@ -4071,10 +4071,36 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
   }))
 }
 
+/**
+ * 把「还没人动过」的默认勾选（按名次前 N）落成显式 0/1。
+ * 否则排名一变（改分、去极值开关），没碰过的人会跟着名次重新算，
+ * 用户眼前勾好的人会在确认时被换掉。
+ */
+export function materializeAdvanceDefaults(client: DatabaseClient, round: RoundRow): void {
+  if (round.rosterConfirmedAt !== null) return
+  const rows = listAdvanceRows(client, round)
+  const pending = rows.filter((row) => {
+    const raw = client.db.select({ advanced: competitionRoundEntries.advanced })
+      .from(competitionRoundEntries)
+      .where(eq(competitionRoundEntries.id, row.entryId))
+      .get()
+    return (raw?.advanced ?? null) === null
+  })
+  if (pending.length === 0) return
+  client.db.transaction((transaction) => {
+    for (const row of pending) {
+      transaction.update(competitionRoundEntries).set({ advanced: row.advanced ? 1 : 0 })
+        .where(eq(competitionRoundEntries.id, row.entryId)).run()
+    }
+  })
+}
+
 export function setEntryAdvanced(client: DatabaseClient, round: RoundRow, entryId: string, advanced: boolean): void {
   if (round.status === 'closed' && round.rosterConfirmedAt !== null) {
     conflictError('ROUND_ROSTER_CONFIRMED', '晋级名单已确认，不能再改；如需调整请先取消确认')
   }
+  // 先把默认勾选钉住，再改这一条：之后排名怎么变，都按现在看到的结果走。
+  materializeAdvanceDefaults(client, round)
   const entry = client.db.select().from(competitionRoundEntries)
     .where(and(eq(competitionRoundEntries.id, entryId), eq(competitionRoundEntries.roundId, round.id)))
     .get()
@@ -4091,6 +4117,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   if (round.status !== 'closed') {
     conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分，再确认晋级名单')
   }
+  // 确认时也把默认勾选落库，保证「看到的」和「进去的」是同一批人。
+  materializeAdvanceDefaults(client, round)
   const rows = listAdvanceRows(client, round)
   const picked = rows.filter(row => row.advanced)
   if (picked.length === 0) {
