@@ -228,8 +228,9 @@ function pickSinger(singerId: string): void {
 
 function applyPayload(data: CompetitionJudgePayload, keepSelection: boolean): void {
   payload.value = data
-  // 顺序评分：页面永远停在主持人指的那一位，别人点的位置一律作废。
-  if (data.current) {
+  // 顺序评分（后台显式开启）才把页面锁在主持人指的那一位；
+  // 自由评分时 current 只是「刚刚被打分的人」，绝不能因此改评委当前选中的选手。
+  if (data.round.sequential && data.current) {
     // 同一位选手的轮询刷新不能重设草稿，否则正在填的分数会被抹掉。
     const only = data.singers.find(singer => singer.id === data.current!.singer.id) ?? null
     if (only && only.id !== selectedSingerId.value) {

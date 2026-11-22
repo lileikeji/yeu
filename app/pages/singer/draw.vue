@@ -31,9 +31,11 @@ const submitDraw = (payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   }).then(async (response) => {
-    const data = await response.json().catch(() => null) as { data?: DrawResult, error?: boolean } | null
-    if (!response.ok || !data?.data) throw data ?? new Error('REGISTER_FAILED')
-    return data.data
+    const body = await response.json().catch(() => null) as (DrawResult & { data?: DrawResult }) | null
+    // 接口成功时直接返回结果对象（没有 { data } 外壳），失败时返回 { code, message }；两种都要认。
+    const payload = body && typeof body === 'object' && 'data' in body && body.data ? body.data : body
+    if (!response.ok || !payload || typeof payload.position !== 'number') throw body ?? new Error('REGISTER_FAILED')
+    return payload
   })
 
 useSeoMeta({ title: '现场抽签登记', robots: 'noindex, nofollow' })

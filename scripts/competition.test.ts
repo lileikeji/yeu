@@ -1434,6 +1434,62 @@ test('数据库：清空评分在已确认晋级或下一轮已有名单时拒�
   closeDatabase(':memory:')
 })
 
+test('数据库：勾好的晋级名单不会被后来的名次变化顶掉', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  for (const [name, song] of [['甲一', '晴天'], ['乙二', '后来'], ['丙三', '如愿']] as const) {
+    createSinger(client, event.id, { name, song })
+  }
+  checkInEntries(client, musicId, 'prelim')
+  const round = getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, round, { status: 'open', judgeCount: 1, advanceCount: 2 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const base: Record<string, number> = { 甲一: 10, 乙二: 6, 丙三: 2 }
+  for (const entry of roster) {
+    submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, entry.singer.id, {
+      scores: scoresForAll(base[entry.singer.name] ?? 0)
+    })
+  }
+
+  const first = listAdvanceRows(client, getRoundByKey(client, event.id, 'prelim'))
+  const byName = new Map(first.map(row => [row.singer.name, row]))
+  assert.deepEqual(first.map(row => row.singer.name), ['甲一', '乙二', '丙三'])
+  assert.equal(byName.get('甲一')!.advanced, true)
+  assert.equal(byName.get('丙三')!.advanced, false)
+
+  // 用户微调：甲一不晋级、丙三晋级
+  setEntryAdvanced(client, getRoundByKey(client, event.id, 'prelim'), byName.get('甲一')!.entryId, false)
+  setEntryAdvanced(client, getRoundByKey(client, event.id, 'prelim'), byName.get('丙三')!.entryId, true)
+
+  // 之后乙二被改到 0 分，名次顺序变了，但勾选必须还是原来那批
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, byName.get('乙二')!.singer.id, {
+    scores: scoresForAll(0)
+  })
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed' })
+
+  const after = listAdvanceRows(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.deepEqual(after.filter(row => row.advanced).map(row => row.singer.name).sort(), ['丙三', '乙二'])
+
+  confirmAdvanceRoster(client, getRoundByKey(client, event.id, 'prelim'))
+  const semi = roundView(getAdminCompetitionPayload(client, musicId), 'semi').entries.map(entry => entry.singer.name).sort()
+  assert.deepEqual(semi, ['丙三', '乙二'])
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：可以选去掉最高分和最低分再算平均', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

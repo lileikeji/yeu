@@ -512,8 +512,8 @@ export function singerPhotoUrl(row: SingerRow): string | null {
   if (!config) return null
   // 按扩展名给正确的 Content-Type，别把 PNG/WebP/HEIC 一律当 jpeg，否则部分浏览器不渲染。
   const extension = key.slice(key.lastIndexOf('.') + 1).toLowerCase()
-  const contentType =
-    extension === 'png'
+  const contentType
+    = extension === 'png'
       ? 'image/png'
       : extension === 'webp'
         ? 'image/webp'
@@ -1722,12 +1722,34 @@ export function getRankBoard(client: DatabaseClient, contentId: string, roundKey
   }
 }
 
-export function getCallBoard(client: DatabaseClient, contentId: string): CompetitionCallBoard {
+/**
+ * 叫号台/排队页该看哪一轮：优先「正在评分」的那一轮，取最靠后的；
+ * 都结束了就取最近一个已有名单的轮次（初赛结束后复赛还没开始时也能用）。
+ */
+function currentCallRound(
+  client: DatabaseClient,
+  eventId: string,
+  preferred?: CompetitionRoundKey | null
+): RoundRow {
+  const rounds: RoundRow[] = (['prelim', 'semi', 'final'] as CompetitionRoundKey[])
+    .map(key => getRoundByKey(client, eventId, key))
+  if (preferred) return rounds.find(round => round.key === preferred) ?? rounds[0]!
+  const open = rounds.filter(round => round.status === 'open')
+  if (open.length > 0) return open[open.length - 1]!
+  const withEntries = rounds.filter(round => countEntries(client, round.id) > 0)
+  return withEntries[withEntries.length - 1] ?? rounds[0]!
+}
+
+export function getCallBoard(
+  client: DatabaseClient,
+  contentId: string,
+  roundKey?: CompetitionRoundKey | null
+): CompetitionCallBoard {
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
-  const entries = presentEntriesForDay(prelim, listRoundEntryRows(client, prelim.id))
-  const singersById = new Map(listSingers(client, prelim.eventId).map(singer => [singer.id, singer]))
-  const board = buildQueueBoard(prelim, entries, listRoundScores(client, prelim.id), true)
+  const round = currentCallRound(client, eventRow.id, roundKey ?? null)
+  const entries = presentEntriesForDay(round, listRoundEntryRows(client, round.id))
+  const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
+  const board = buildQueueBoard(round, entries, listRoundScores(client, round.id), true)
 
   const rows: CompetitionCallBoardRow[] = []
   entries.forEach((entry, index) => {
@@ -1746,10 +1768,10 @@ export function getCallBoard(client: DatabaseClient, contentId: string): Competi
 
   return {
     round: {
-      key: prelim.key,
-      title: prelim.title,
-      status: prelim.status,
-      activeDay: prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+      key: round.key,
+      title: round.title,
+      status: round.status,
+      activeDay: round.activeDay === 1 || round.activeDay === 2 ? round.activeDay : null
     },
     total: rows.length,
     current: rows.find(row => row.state === 'singing') ?? null,
@@ -1768,10 +1790,23 @@ export function getSingerQueuePosition(
   singerId: string
 ): CompetitionQueuePosition {
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
-  const entries = listRoundEntryRows(client, prelim.id)
-  const mine = entries.find(item => item.singerId === singerId)
-  const activeDay = prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+  // 先看当前正在用的那一轮（初赛结束后就是复赛），找不到这位再回头找别的轮次。
+  let round = currentCallRound(client, eventRow.id)
+  let entries = listRoundEntryRows(client, round.id)
+  let mine = entries.find(item => item.singerId === singerId)
+  if (!mine) {
+    for (const key of ['final', 'semi', 'prelim'] as CompetitionRoundKey[]) {
+      const candidate = getRoundByKey(client, eventRow.id, key)
+      const hit = listRoundEntryRows(client, candidate.id).find(item => item.singerId === singerId)
+      if (hit) {
+        round = candidate
+        entries = listRoundEntryRows(client, candidate.id)
+        mine = hit
+        break
+      }
+    }
+  }
+  const activeDay = round.activeDay === 1 || round.activeDay === 2 ? round.activeDay : null
   // 管理员已明确切到另一天时，前一天的旧浏览器缓存作废并按今天队列统计人数（避免继续显示昨天 44 人）。
   if (mine && activeDay !== null && mine.contestDay !== activeDay) {
     const todayEntries = entries.filter(item => item.contestDay === activeDay && item.checkedInAt != null)
@@ -1787,7 +1822,7 @@ export function getSingerQueuePosition(
   if (mine.checkedInAt == null) {
     return { state: 'idle', ahead: null, position: null, total: dayEntries.length }
   }
-  const board = buildQueueBoard(prelim, dayEntries, listRoundScores(client, prelim.id), true)
+  const board = buildQueueBoard(round, dayEntries, listRoundScores(client, round.id), true)
   const seat = board.get(mine.id)
   return {
     state: seat?.state ?? 'idle',
@@ -2976,9 +3011,14 @@ export function submitJudgeScore(
     conflictError('COMPETITION_NOT_CHECKED_IN', '这位选手还没签到，先让现场签到再打分')
   }
 
-  // 没人手动点「开始顺序评分」时，第一张评分就把这位当成正在唱：
-  // 叫号台据此显示「正在唱」，评委端也跟着锁定到同一位。
-  if (!round.currentEntryId) {
+  // 自由评分时（后台没开顺序评分），把「刚刚被打分的那位」记成正在唱，只给叫号台显示用：
+  // 绝不改 sequentialMode，也绝不因此锁住评委——评委可以随时倒回去改上一位的分。
+  if (round.sequentialMode !== 1) {
+    if (round.currentEntryId !== entry.id) {
+      setCurrentEntryId(client, round.id, entry.id)
+      round.currentEntryId = entry.id
+    }
+  } else if (!round.currentEntryId) {
     setCurrentEntryId(client, round.id, entry.id)
     round.currentEntryId = entry.id
   }
@@ -4031,10 +4071,36 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
   }))
 }
 
+/**
+ * 把「还没人动过」的默认勾选（按名次前 N）落成显式 0/1。
+ * 否则排名一变（改分、去极值开关），没碰过的人会跟着名次重新算，
+ * 用户眼前勾好的人会在确认时被换掉。
+ */
+export function materializeAdvanceDefaults(client: DatabaseClient, round: RoundRow): void {
+  if (round.rosterConfirmedAt !== null) return
+  const rows = listAdvanceRows(client, round)
+  const pending = rows.filter((row) => {
+    const raw = client.db.select({ advanced: competitionRoundEntries.advanced })
+      .from(competitionRoundEntries)
+      .where(eq(competitionRoundEntries.id, row.entryId))
+      .get()
+    return (raw?.advanced ?? null) === null
+  })
+  if (pending.length === 0) return
+  client.db.transaction((transaction) => {
+    for (const row of pending) {
+      transaction.update(competitionRoundEntries).set({ advanced: row.advanced ? 1 : 0 })
+        .where(eq(competitionRoundEntries.id, row.entryId)).run()
+    }
+  })
+}
+
 export function setEntryAdvanced(client: DatabaseClient, round: RoundRow, entryId: string, advanced: boolean): void {
   if (round.status === 'closed' && round.rosterConfirmedAt !== null) {
     conflictError('ROUND_ROSTER_CONFIRMED', '晋级名单已确认，不能再改；如需调整请先取消确认')
   }
+  // 先把默认勾选钉住，再改这一条：之后排名怎么变，都按现在看到的结果走。
+  materializeAdvanceDefaults(client, round)
   const entry = client.db.select().from(competitionRoundEntries)
     .where(and(eq(competitionRoundEntries.id, entryId), eq(competitionRoundEntries.roundId, round.id)))
     .get()
@@ -4051,6 +4117,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   if (round.status !== 'closed') {
     conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分，再确认晋级名单')
   }
+  // 确认时也把默认勾选落库，保证「看到的」和「进去的」是同一批人。
+  materializeAdvanceDefaults(client, round)
   const rows = listAdvanceRows(client, round)
   const picked = rows.filter(row => row.advanced)
   if (picked.length === 0) {
