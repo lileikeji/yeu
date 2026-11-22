@@ -16,6 +16,18 @@ const css = read('app/assets/css/main.css')
 const dock = read('app/components/ShellDock.vue')
 const layout = read('app/layouts/default.vue')
 const mapPage = read('app/pages/map/index.vue')
+const judgePage = read('app/pages/judge/index.vue')
+
+test('底部浮钮让位：不得写死 bottom-20，评委台选手按钮按 dock 实际高度计算', () => {
+  // 80px 是 dock 瘦身前的旧值，带安全区的机型会被 96px 的 dock 盖住。
+  assert.doesNotMatch(judgePage, /bottom-20/)
+  assert.doesNotMatch(read('app/components/MapBusRoutePanel.vue'), /bottom-20/)
+  assert.doesNotMatch(read('app/components/MapTransitPanel.vue'), /bottom-20/)
+  assert.match(
+    judgePage,
+    /bottom-\[calc\(var\(--mobile-nav-height\)\+var\(--mobile-dock-inset\)\+var\(--mobile-dock-extra,0rem\)\+env\(safe-area-inset-bottom\)\+0\.75rem\)\]/
+  )
+})
 
 test('顶栏 44px / 胶囊 52px / 地图块 114px 的几何都写在变量与组件里', () => {
   assert.match(css, /--header-height: 2\.75rem;/)
@@ -123,7 +135,15 @@ test('接入到位：layout 换成 ShellDock、12 处下游引用改到新变量
     'app/components/student-rules/ZongceBonusCalculator.vue'
   ]) {
     const source = read(file)
-    assert.match(source, /--(mobile-nav-height|header-height)/, file + ' 应该引用新变量')
+    const needsDock = /(AppUpdateBanner|PwaUpdatePrompt|PublicPageViewStats|feedback|guides\/\[slug\])/.test(file)
+    if (needsDock) {
+      // 真正要躲开 dock 的浮层：必须同时用高度与内距两个变量，只写一个是旧写法。
+      assert.match(source, /var\(--mobile-nav-height\)\s*\+\s*var\(--mobile-dock-inset\)/, file + ' 的下沉浮层必须同时用 --mobile-nav-height 与 --mobile-dock-inset')
+    } else {
+      // 吸顶 / 滚动锚点只跟顶栏有关，混进 dock 变量说明抄错了。
+      assert.match(source, /var\(--header-height\)/, file + ' 应引用 --header-height')
+      assert.doesNotMatch(source, /--mobile-dock-inset/, file + ' 不该依赖 dock 变量')
+    }
   }
   // prefers-reduced-motion 下全部动效 0ms
   assert.match(dock, /@media \(prefers-reduced-motion: reduce\) \{/)
