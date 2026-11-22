@@ -596,7 +596,8 @@ function markerBarTop(ratio: number): string {
     </template>
   </div>
 
-  <!-- 收起态（桌面端）：320px 白底单行条，跟随侧边栏宽度（见 leftOffset） -->
+  <!-- 收起态（桌面端）：320px 白底单行条，跟随侧边栏宽度（见 leftOffset）。
+       整条只在桌面渲染（hidden md:flex），所以不用给手机补 bottom / dock 让位值。 -->
   <button
     v-if="!isSheet && !open"
     type="button"

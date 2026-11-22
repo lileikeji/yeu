@@ -895,6 +895,8 @@ const snapshotText = computed(() => {
   </section>
 
   <!-- 收起态：地图左下角浮钮 -->
+  <!-- 收起态浮钮只有桌面会挂载（挂载点 app/pages/map/index.vue 带 v-if="transitLinesOpen && panelIsDesktop"），
+       所以只写 md: 定位，不再给手机补 bottom 值。 -->
   <UButton
     v-else-if="!open"
     icon="i-lucide-bus"

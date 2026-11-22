@@ -23,10 +23,9 @@ test('底部浮钮让位：不得写死 bottom-20，评委台选手按钮按 doc
   assert.doesNotMatch(judgePage, /bottom-20/)
   assert.doesNotMatch(read('app/components/MapBusRoutePanel.vue'), /bottom-20/)
   assert.doesNotMatch(read('app/components/MapTransitPanel.vue'), /bottom-20/)
-  assert.match(
-    judgePage,
-    /bottom-\[calc\(var\(--mobile-nav-height\)\+var\(--mobile-dock-inset\)\+var\(--mobile-dock-extra,0rem\)\+env\(safe-area-inset-bottom\)\+0\.75rem\)\]/
-  )
+  // 评委台是 layout: false、没有底栏，混进 dock 变量只会造成「看起来在躲一个不存在的底栏」。
+  assert.doesNotMatch(judgePage, /--mobile-nav-height|--mobile-dock-inset|--mobile-dock-extra/)
+  assert.match(judgePage, /bottom-\[calc\(env\(safe-area-inset-bottom\)\+4\.625rem\)\]/)
 })
 
 test('顶栏 44px / 胶囊 52px / 地图块 114px 的几何都写在变量与组件里', () => {
