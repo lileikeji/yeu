@@ -297,7 +297,9 @@ export interface CompetitionDimension {
   max?: number
 }
 
-export type CompetitionRoundKey = 'prelim' | 'semi' | 'final'
+export type CompetitionRoundKey = 'prelim' | 'semi' | 'final' | 'final2'
+/** 结果邮件只覆盖前三轮；决赛第二轮沿用决赛第一轮的结果，不单独发通知。 */
+export type CompetitionEmailRoundKey = 'prelim' | 'semi' | 'final'
 export type CompetitionRoundStatus = 'draft' | 'open' | 'closed'
 
 export interface CompetitionEvent {
@@ -445,7 +447,7 @@ export interface CompetitionPreRegistration {
 export type CompetitionEmailSendStatus = 'sent' | 'failed'
 
 export interface CompetitionEmailTemplate {
-  roundKey: CompetitionRoundKey
+  roundKey: CompetitionEmailRoundKey
   subject: string
   body: string
 }
@@ -457,7 +459,7 @@ export interface CompetitionEmailRoundStats {
 }
 
 export interface CompetitionEmailSendRecord {
-  roundKey: CompetitionRoundKey
+  roundKey: CompetitionEmailRoundKey
   singerId: string | null
   email: string
   status: CompetitionEmailSendStatus
@@ -466,8 +468,8 @@ export interface CompetitionEmailSendRecord {
 }
 
 export interface CompetitionEmailState {
-  templates: Record<CompetitionRoundKey, CompetitionEmailTemplate>
-  stats: Record<CompetitionRoundKey, CompetitionEmailRoundStats>
+  templates: Record<CompetitionEmailRoundKey, CompetitionEmailTemplate>
+  stats: Record<CompetitionEmailRoundKey, CompetitionEmailRoundStats>
   /** 每个（轮次，选手）最近一次发送记录。 */
   latest: CompetitionEmailSendRecord[]
   /** 结果邮件可插入的图片（存库，随邮件内嵌发送）。 */
@@ -545,6 +547,24 @@ export interface CompetitionRankRow {
   average: number | null
   scoreCount: number
   photoUrl: string | null
+  /** 决赛总榜合并后：final2 = 前六（按第二轮排），final1 = 后六（按第一轮排）。 */
+  stage?: 'final1' | 'final2' | null
+  /** 决赛两首歌与两轮成绩；非决赛榜为 undefined。 */
+  firstSong?: string
+  secondSong?: string | null
+  averageFirst?: number | null
+  averageSecond?: number | null
+}
+
+/** 决赛两首歌的提交页状态：revision 是乐观锁版本，提交时必须原样回传。 */
+export interface CompetitionFinalSongsState {
+  singerName: string
+  stageTitle: string
+  firstSong: string
+  secondSong: string
+  revision: number
+  editable: boolean
+  reason: string
 }
 
 export interface CompetitionRankBoard {

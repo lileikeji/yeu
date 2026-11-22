@@ -397,7 +397,7 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
 
   const board = getRankBoard(client, contentId, 'final')
   assert.equal(board.round.key, 'final')
-  assert.equal(board.round.title, '决赛总榜')
+  assert.equal(board.round.title, '决赛')
   assert.equal(board.rows.length, 12)
 
   // 前六按第二轮倒序：选手6..选手1。
