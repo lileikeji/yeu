@@ -163,7 +163,13 @@ function schema(db) {
   }))
 }
 
-export function assertSchema(expected, actual, allowedMissingTables = new Set()) {
+export function assertSchema(
+  expected,
+  actual,
+  allowedMissingTables = new Set(),
+  allowedMissingColumns = new Map(),
+  allowedMissingUnique = new Set()
+) {
   for (const [table, contract] of Object.entries(expected)) {
     const present = actual[table]
     if (!present) {
@@ -175,15 +181,43 @@ export function assertSchema(expected, actual, allowedMissingTables = new Set())
     }
     for (const column of contract.columns) {
       const found = present.columns.find(item => item.name === column.name)
-      if (!found || JSON.stringify(found) !== JSON.stringify(column)) throw new Error(`业务列不兼容：${table}.${column.name}`)
+      if (!found) {
+        if (allowedMissingColumns.get(table)?.has(column.name)) continue
+        throw new Error(`业务列不兼容：${table}.${column.name}`)
+      }
+      if (JSON.stringify(found) !== JSON.stringify(column)) throw new Error(`业务列不兼容：${table}.${column.name}`)
     }
     for (const index of contract.unique) {
-      if (!present.unique.includes(index)) throw new Error(`缺少唯一约束：${table}(${index})`)
+      if (!present.unique.includes(index) && !allowedMissingUnique.has(`${table}(${index})`)) {
+        throw new Error(`缺少唯一约束：${table}(${index})`)
+      }
     }
     for (const key of contract.foreignKeys) {
       if (!present.foreignKeys.includes(key)) throw new Error(`缺少外键约束：${table}:${key}`)
     }
   }
+}
+
+function pendingSchemaChanges(pending) {
+  const columns = new Map()
+  const unique = new Set()
+  for (const entry of pending) {
+    for (const match of entry.sql.matchAll(/ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?\s+ADD\s+(?:COLUMN\s+)?["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?/gi)) {
+      const table = match[1]
+      if (!columns.has(table)) columns.set(table, new Set())
+      columns.get(table).add(match[2])
+    }
+    for (const match of entry.sql.matchAll(/CREATE\s+UNIQUE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:["`]?[A-Za-z_][A-Za-z0-9_]*["`]?\.)?["`]?[A-Za-z_][A-Za-z0-9_]*["`]?\s+ON\s+["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?\s*\(([^)]*)\)/gi)) {
+      const table = match[1]
+      const cols = match[2]
+        .split(',')
+        .map(part => part.trim().split(/\s+/)[0]?.replaceAll('"', '').replaceAll('`', '') ?? '')
+        .filter(Boolean)
+        .join(',')
+      if (cols) unique.add(`${table}(${cols})`)
+    }
+  }
+  return { columns, unique }
 }
 
 function applySql(db, entries, validate = () => {}) {
@@ -223,9 +257,10 @@ export async function migrateDatabase(path, directory, mode = 'migrate') {
     const pendingCreatedTables = new Set(
       pending.flatMap(entry => [...entry.sql.matchAll(/\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?/gi)].map(match => match[1]))
     )
+    const pendingChanges = pendingSchemaChanges(pending)
     if (mode === 'check') {
-      // 待执行迁移里新建的表此刻还不存在；先放行，迁移结束后仍按完整契约校验。
-      assertSchema(contract, schema(db), pendingCreatedTables)
+      // 待执行迁移里新建的表/列/唯一索引此刻还不存在；先放行，迁移结束后仍按完整契约校验。
+      assertSchema(contract, schema(db), pendingCreatedTables, pendingChanges.columns, pendingChanges.unique)
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
       return { applied: 0, pendingLedger: pending.length }
     }
