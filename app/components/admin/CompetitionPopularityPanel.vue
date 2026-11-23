@@ -178,7 +178,7 @@ async function copyDisplayUrl(): Promise<void> {
           人气奖投票
         </h2>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          大屏动态二维码，观众扫码进入；一台设备一票。投票页按当前人气排行展示，二维码每 {{ draft.qrRotateSeconds }} 秒换一张。
+          大屏动态二维码，观众扫码进入；每个浏览器一票。投票页按当前人气排行展示，二维码每 {{ draft.qrRotateSeconds }} 秒换一张。
         </p>
       </div>
       <span
@@ -300,10 +300,10 @@ async function copyDisplayUrl(): Promise<void> {
             type="checkbox"
             class="size-4 rounded border-zinc-300"
           >
-          允许改票（关闭即锁死设备；最多 {{ draft.maxChanges }} 次）
+          允许改票（关闭即投票后锁定；最多 {{ draft.maxChanges }} 次）
         </label>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          默认关闭改票：一台设备投出后立即锁定。只有明确需要现场改票时才打开。
+          默认关闭改票：投票后立即锁定。只有明确需要现场改票时才打开。
         </p>
         <label class="mt-2 flex items-center gap-2 text-sm">
           <input
@@ -400,9 +400,12 @@ async function copyDisplayUrl(): Promise<void> {
         </div>
 
         <div class="mt-5 rounded-md bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-          <p>当前共 {{ voteTotal }} 台设备投过票。</p>
+          <p>当前共 {{ voteTotal }} 个浏览器投过票；同 IP 多设备标记 {{ props.state?.riskVotes ?? 0 }} 票。</p>
           <p class="mt-1">
-            说明：不签到、不绑微信时只能做到“一台设备一票”；清浏览器 cookie 或换设备仍可再投，现场请配合人工巡视。
+            标记规则：同一 IP 10 分钟内出现 5 个不同浏览器时，新票只记风险标记，不拦截正常投票。
+          </p>
+          <p class="mt-1">
+            说明：不签到、不绑微信时只能提高刷票成本；清站点数据或换浏览器仍可再投，现场请配合人工巡视。
           </p>
         </div>
       </div>

@@ -6,7 +6,7 @@ import {
 } from '../../../../modules/competition/service'
 import { useAppDatabase } from '../../../../utils/database'
 import {
-  popularityDeviceHash,
+  resolvePopularityDevice,
   verifyPopularityToken
 } from '../../../../utils/competition-popularity'
 import { assertRateLimit } from '../../../../utils/rate-limit'
@@ -42,8 +42,14 @@ export default defineEventHandler((event) => {
     })
   }
 
-  const deviceHash = popularityDeviceHash(event, security.secret, security.secureCookies)
-  const state = getPopularityPublicState(client, eventRow.id, deviceHash)
+  const identity = resolvePopularityDevice(
+    event,
+    security.secret,
+    security.secureCookies,
+    eventRow.id,
+    query.d
+  )
+  const state = getPopularityPublicState(client, eventRow.id, identity.deviceHash)
   setPublicCache(event, 5)
-  return state
+  return { ...state, deviceToken: identity.token }
 })

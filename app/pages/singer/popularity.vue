@@ -14,7 +14,25 @@ const savingId = ref('')
 const error = ref('')
 const now = ref(Date.now())
 
+const DEVICE_STORAGE_KEY = 'yeu:popularity-device:v1'
 let timer: ReturnType<typeof setInterval> | null = null
+
+function readDeviceToken(): string {
+  try {
+    return localStorage.getItem(DEVICE_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function persistDeviceToken(value: string | undefined): void {
+  if (!value) return
+  try {
+    localStorage.setItem(DEVICE_STORAGE_KEY, value)
+  } catch {
+    // 浏览器禁用 localStorage 时退回 HttpOnly cookie，不影响投票。
+  }
+}
 
 function messageOf(caught: unknown): string {
   const data = (caught as { data?: { data?: { message?: string }, message?: string } })?.data
@@ -30,9 +48,13 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
+    const query = new URLSearchParams({ t: token.value })
+    const device = readDeviceToken()
+    if (device) query.set('d', device)
     state.value = await plainFetch<CompetitionPopularityPublicState>(
-      `/api/public/competition/popularity/state?t=${encodeURIComponent(token.value)}`
+      `/api/public/competition/popularity/state?${query.toString()}`
     )
+    persistDeviceToken(state.value.deviceToken)
     now.value = Date.now()
   } catch (caught) {
     error.value = messageOf(caught)
@@ -52,11 +74,12 @@ async function vote(singerId: string): Promise<void> {
     return
   }
   if (state.value.myBallot && !state.value.canChange) {
-    toast.add({ title: '这台设备已经投过票，不能继续改票', color: 'warning' })
+    toast.add({ title: '你已投票，不能继续改票', color: 'warning' })
     return
   }
   savingId.value = singerId
   try {
+    const device = readDeviceToken()
     const next = await plainFetch<CompetitionPopularityPublicState>(
       '/api/public/competition/popularity/vote',
       {
@@ -64,12 +87,14 @@ async function vote(singerId: string): Promise<void> {
         body: {
           token: token.value,
           singerId,
-          revision: state.value.myBallot?.version ?? 0
+          revision: state.value.myBallot?.version ?? 0,
+          ...(device ? { d: device } : {})
         }
       }
     )
     const changed = Boolean(state.value.myBallot)
     state.value = next
+    persistDeviceToken(next.deviceToken)
     toast.add({ title: changed ? '改票成功' : '投票成功', color: 'success' })
   } catch (caught) {
     toast.add({ title: messageOf(caught), color: 'error' })
@@ -140,7 +165,7 @@ onBeforeUnmount(() => {
             {{ remainingText() }}
           </span>
           <span class="rounded-full bg-[var(--surface)] px-3 py-1 text-[var(--muted-ink)] shadow-sm">
-            {{ state?.totalVotes ?? 0 }} 台设备已投
+            {{ state?.totalVotes ?? 0 }} 人已投
           </span>
         </div>
       </header>
@@ -164,10 +189,9 @@ onBeforeUnmount(() => {
           v-if="hasBallot"
           class="rounded-xl border border-rose-200 bg-[var(--surface)] px-4 py-3 text-sm text-rose-800 shadow-sm"
         >
-          你已投给
-          <strong>{{ state.candidates.find(item => item.singerId === state?.myBallot?.singerId)?.name ?? '当前选手' }}</strong>。
+          你已投票：<strong>{{ state.candidates.find(item => item.singerId === state?.myBallot?.singerId)?.name ?? '当前选手' }}</strong>。
           <span v-if="state.canChange && state.allowChange">截止前还可以改 {{ Math.max(0, state.maxChanges - (state.myBallot?.changeCount ?? 0)) }} 次。</span>
-          <span v-else>这台设备不能再改票。</span>
+          <span v-else>投票后不可更改。</span>
         </p>
         <p
           v-else-if="!canVote"
@@ -235,8 +259,8 @@ onBeforeUnmount(() => {
                   name="i-lucide-loader-circle"
                   class="size-4 animate-spin"
                 />
-                <span v-else-if="state.myBallot?.singerId === candidate.singerId">已投给 TA</span>
-                <span v-else-if="hasBallot && !state.canChange">本设备已锁定</span>
+                <span v-else-if="state.myBallot?.singerId === candidate.singerId">你已投票</span>
+                <span v-else-if="hasBallot && !state.canChange">你已投票</span>
                 <span v-else-if="hasBallot">改投 TA</span>
                 <span v-else>投给 TA</span>
               </button>
@@ -273,7 +297,7 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="text-center text-xs leading-relaxed text-[var(--muted-ink)]">
-          一台设备只能投一票，投出后本设备锁定；二维码会过期，失效时重新扫大屏上的新码。<br>
+          每个浏览器限投一票，投票后不可更改；二维码会过期，失效时重新扫大屏上的新码。<br>
           请勿把投票页转发到公开群，现场投票更公平。
         </p>
 

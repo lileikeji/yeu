@@ -1385,8 +1385,9 @@ export const competitionFinalSongs = sqliteTable('competition_final_songs', {
 /**
  * 人气奖投票设置：一届赛事一行。
  *
- * 二维码只带短期签名 token，不把投票资格放进链接；设备 id 存 HttpOnly cookie，
- * 数据库只存 HMAC 后的 device_hash，一人（设备）一票，可配置改票次数。
+ * 二维码只带短期签名 token，不把投票资格放进链接；设备 id 优先存在浏览器
+ * localStorage 的签名令牌里，HttpOnly cookie 兜底，数据库只存 HMAC 后的
+ * device_hash，一人（浏览器）一票，可配置改票次数。
  */
 export const competitionPopularitySettings = sqliteTable('competition_popularity_settings', {
   id: text('id').primaryKey(),
@@ -1422,6 +1423,10 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
   /** HMAC(secret, device id)；不落原始 cookie，避免数据库泄露后伪造选票。 */
   deviceHash: text('device_hash').notNull(),
+  /** 投票请求的 IP HMAC；仅用于后台风险提示，不对外返回。 */
+  ipHash: text('ip_hash'),
+  /** 同 IP 多设备风险标记；1 = 仅标记，不拦截。 */
+  risk: integer('risk').notNull().default(0),
   changeCount: integer('change_count').notNull().default(0),
   /** 客户端回传 revision 做乐观锁；每次改票 +1。 */
   version: integer('version').notNull().default(1),
@@ -1429,7 +1434,8 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   updatedAt: timestamp('updated_at')
 }, table => [
   uniqueIndex('competition_popularity_ballots_event_device_unique').on(table.eventId, table.deviceHash),
-  index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId)
+  index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
+  index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt)
 ])
 
 /**

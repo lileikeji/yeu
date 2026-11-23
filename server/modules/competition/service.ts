@@ -1,7 +1,7 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto'
 import { createError } from 'h3'
 import * as XLSX from '@e965/xlsx'
-import { and, asc, desc, eq, isNull, like, or } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNull, like, or } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   competitionEmailImages,
@@ -2352,6 +2352,7 @@ export function getPopularityAdminState(
     candidates,
     totalVotes,
     results: popularityResultRows(candidates, ballots, totalVotes),
+    riskVotes: ballots.filter(ballot => Number(ballot.risk) === 1).length,
     status: popularityStatusOf(settings),
     updatedAt: Number(settings.updatedAt ?? 0)
   }
@@ -2402,13 +2403,42 @@ export function getPopularityPublicState(
   }
 }
 
+/**
+ * 同 IP 多设备只做轻量标记：10 分钟内同一 IP 出现 5 个不同 device 时，
+ * 新票记 risk=1，交给后台人工判断；任何情况下都不拦截正常投票。
+ */
+const POPULARITY_IP_WINDOW_MS = 10 * 60 * 1000
+const POPULARITY_IP_DEVICE_THRESHOLD = 5
+
+function popularityRiskOf(
+  client: DatabaseClient,
+  eventId: string,
+  ipHash: string | null | undefined,
+  deviceHash: string
+): number {
+  if (!ipHash) return 0
+  const since = Date.now() - POPULARITY_IP_WINDOW_MS
+  const rows = client.db.select({ deviceHash: competitionPopularityBallots.deviceHash })
+    .from(competitionPopularityBallots)
+    .where(and(
+      eq(competitionPopularityBallots.eventId, eventId),
+      eq(competitionPopularityBallots.ipHash, ipHash),
+      gt(competitionPopularityBallots.createdAt, since)
+    ))
+    .all()
+  const devices = new Set(rows.map(row => row.deviceHash))
+  devices.add(deviceHash)
+  return devices.size >= POPULARITY_IP_DEVICE_THRESHOLD ? 1 : 0
+}
+
 /** 投票/改票：窗口、候选、改票次数与 revision 全部在服务端判定。 */
 export function recordPopularityBallot(
   client: DatabaseClient,
   eventId: string,
   deviceHash: string,
   singerId: string,
-  revision?: number
+  revision?: number,
+  ipHash?: string | null
 ): CompetitionPopularityPublicState {
   const settings = ensurePopularitySettings(client, eventId)
   const status = popularityStatusOf(settings)
@@ -2425,6 +2455,8 @@ export function recordPopularityBallot(
     ))
     .get()
 
+  const risk = popularityRiskOf(client, eventId, ipHash, deviceHash)
+
   if (existing && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, deviceHash)
   }
@@ -2438,6 +2470,8 @@ export function recordPopularityBallot(
       eventId,
       singerId,
       deviceHash,
+      ipHash: ipHash ?? null,
+      risk,
       changeCount: 0,
       version: 1,
       createdAt: Date.now(),
@@ -2466,6 +2500,8 @@ export function recordPopularityBallot(
 
   const updated = client.db.update(competitionPopularityBallots).set({
     singerId,
+    ipHash: ipHash ?? existing.ipHash,
+    risk: Math.max(Number(existing.risk), risk),
     changeCount: Number(existing.changeCount) + 1,
     version: Number(existing.version) + 1,
     updatedAt: Date.now()

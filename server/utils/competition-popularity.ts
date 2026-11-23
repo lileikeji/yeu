@@ -6,11 +6,18 @@ import { createOpaqueToken, hashOpaqueToken, safeEqual } from './security'
 
 const TOKEN_PURPOSE = 'competition-popularity-token'
 const DEVICE_PURPOSE = 'competition-popularity-device'
+const DEVICE_TOKEN_PURPOSE = 'competition-popularity-device-token'
+const IP_PURPOSE = 'competition-popularity-ip'
 const DEVICE_COOKIE = 'yeu_popularity_device'
 
 export interface PopularityTokenPayload {
   eventId: string
   expiresAt: number
+}
+
+export interface PopularityDeviceTokenPayload {
+  eventId: string
+  deviceId: string
 }
 
 /**
@@ -58,21 +65,81 @@ export function verifyPopularityToken(secret: string, token: string): Popularity
 }
 
 /**
- * 设备 id 只放 HttpOnly cookie，数据库存 HMAC；清 cookie 会变成一台新设备，
- * 这是“不签到、不绑微信”方案下必须接受的边界。cookie 内容异常时直接换新。
+ * 设备令牌由服务端签名，浏览器存 localStorage；它比 HttpOnly cookie 多活一层：
+ * 清 cookie 不会重置投票身份，只有清站点数据/无痕窗口才会换成新设备。
  */
-export function popularityDeviceHash(
+export function issuePopularityDeviceToken(
+  secret: string,
+  eventId: string,
+  deviceId: string
+): string {
+  const payload = Buffer.from(`${eventId}.${deviceId}`).toString('base64url')
+  const signature = createHmac('sha256', secret)
+    .update(DEVICE_TOKEN_PURPOSE)
+    .update('\0')
+    .update(payload)
+    .digest('base64url')
+  return `${payload}.${signature}`
+}
+
+export function verifyPopularityDeviceToken(
+  secret: string,
+  token: string | null | undefined
+): PopularityDeviceTokenPayload | null {
+  if (!token) return null
+  const separator = token.lastIndexOf('.')
+  if (separator <= 0) return null
+  const payload = token.slice(0, separator)
+  const signature = token.slice(separator + 1)
+  const expected = createHmac('sha256', secret)
+    .update(DEVICE_TOKEN_PURPOSE)
+    .update('\0')
+    .update(payload)
+    .digest('base64url')
+  if (!safeEqual(signature, expected)) return null
+
+  let decoded: string
+  try {
+    decoded = Buffer.from(payload, 'base64url').toString('utf8')
+  } catch {
+    return null
+  }
+  const separatorIndex = decoded.indexOf('.')
+  if (separatorIndex <= 0) return null
+  const eventId = decoded.slice(0, separatorIndex)
+  const deviceId = decoded.slice(separatorIndex + 1)
+  if (!eventId || deviceId.length < 24 || deviceId.length > 128) return null
+  return { eventId, deviceId }
+}
+
+export function popularityIpHash(secret: string, ip: string): string {
+  return hashOpaqueToken(secret, IP_PURPOSE, ip)
+}
+
+function validDeviceId(value: string | undefined | null): value is string {
+  return Boolean(value && value.length >= 24 && value.length <= 128)
+}
+
+/**
+ * 解析本机设备身份：优先验签 localStorage 令牌，其次 HttpOnly cookie，
+ * 都没有才新建。每次响应都返回新的签名令牌，页面负责持久化。
+ */
+export function resolvePopularityDevice(
   event: H3Event,
   secret: string,
-  secureCookies: boolean
-): string {
+  secureCookies: boolean,
+  eventId: string,
+  clientToken?: string
+): { deviceHash: string, token: string } {
+  const claimed = verifyPopularityDeviceToken(secret, clientToken)
   const existing = getCookie(event, DEVICE_COOKIE)
-  const device = existing && existing.length >= 24 && existing.length <= 128
-    ? existing
-    : createOpaqueToken()
+  const cookieDevice = validDeviceId(existing) ? existing : null
+  const deviceId = claimed?.eventId === eventId
+    ? claimed.deviceId
+    : cookieDevice ?? createOpaqueToken()
 
-  if (device !== existing) {
-    setCookie(event, DEVICE_COOKIE, device, {
+  if (deviceId !== existing) {
+    setCookie(event, DEVICE_COOKIE, deviceId, {
       path: '/',
       httpOnly: true,
       sameSite: 'lax',
@@ -81,5 +148,8 @@ export function popularityDeviceHash(
     })
   }
 
-  return hashOpaqueToken(secret, DEVICE_PURPOSE, device)
+  return {
+    deviceHash: hashOpaqueToken(secret, DEVICE_PURPOSE, deviceId),
+    token: issuePopularityDeviceToken(secret, eventId, deviceId)
+  }
 }

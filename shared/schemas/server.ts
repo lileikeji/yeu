@@ -1570,7 +1570,9 @@ export const competitionPopularityActionSchema = z.object({
 export const competitionPopularityVoteSchema = z.object({
   token: z.string().trim().min(20).max(2000),
   singerId: z.string().trim().min(1).max(64),
-  revision: z.number().int().min(0).max(1_000_000)
+  revision: z.number().int().min(0).max(1_000_000),
+  /** 本机签名设备令牌；cookie 被清后仍能识别同一浏览器。 */
+  d: z.string().trim().min(20).max(2000).optional()
 }).strict()
 
 export const competitionPopularityTokenQuerySchema = z.object({
@@ -1578,7 +1580,9 @@ export const competitionPopularityTokenQuerySchema = z.object({
 }).strict()
 
 export const competitionPopularityStateQuerySchema = z.object({
-  t: z.string().trim().min(20).max(2000)
+  t: z.string().trim().min(20).max(2000),
+  /** 本机签名设备令牌；可选，缺失时退回 cookie。 */
+  d: z.string().trim().min(20).max(2000).optional()
 }).strict()
 
 export const competitionResultLookupSchema = z.object({

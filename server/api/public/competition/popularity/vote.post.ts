@@ -6,7 +6,8 @@ import {
 } from '../../../../modules/competition/service'
 import { useAppDatabase } from '../../../../utils/database'
 import {
-  popularityDeviceHash,
+  popularityIpHash,
+  resolvePopularityDevice,
   verifyPopularityToken
 } from '../../../../utils/competition-popularity'
 import { assertRateLimit } from '../../../../utils/rate-limit'
@@ -40,9 +41,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
-  const deviceHash = popularityDeviceHash(event, security.secret, security.secureCookies)
+  const identity = resolvePopularityDevice(
+    event,
+    security.secret,
+    security.secureCookies,
+    eventRow.id,
+    input.d
+  )
   assertRateLimit(event, `popularity-vote-ip:${ip}`, 40, 60_000, client)
-  assertRateLimit(event, `popularity-vote-device:${deviceHash}`, 15, 60_000, client)
+  assertRateLimit(event, `popularity-vote-device:${identity.deviceHash}`, 15, 60_000, client)
 
-  return recordPopularityBallot(client, eventRow.id, deviceHash, input.singerId, input.revision)
+  const state = recordPopularityBallot(
+    client,
+    eventRow.id,
+    identity.deviceHash,
+    input.singerId,
+    input.revision,
+    ip === 'unknown' ? null : popularityIpHash(security.secret, ip)
+  )
+  return { ...state, deviceToken: identity.token }
 })

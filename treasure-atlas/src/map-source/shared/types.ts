@@ -679,6 +679,8 @@ export interface CompetitionPopularityPublicState {
   totalVotes: number
   myBallot: CompetitionPopularityBallot | null
   canChange: boolean
+  /** 本机签名设备令牌；存 localStorage，清 cookie 后仍能识别同一浏览器。 */
+  deviceToken?: string
   /** 只有 showResults 为真时才有内容；否则一律 null。 */
   results: CompetitionPopularityResultRow[] | null
   now: number
@@ -689,6 +691,8 @@ export interface CompetitionPopularityAdminState {
   candidates: CompetitionPopularityCandidate[]
   totalVotes: number
   results: CompetitionPopularityResultRow[]
+  /** 同 IP 多设备风险标记票数；仅提示，不拦截。 */
+  riskVotes: number
   status: CompetitionPopularityStatus
   updatedAt: number
 }

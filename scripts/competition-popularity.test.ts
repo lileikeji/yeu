@@ -25,7 +25,10 @@ import {
   updatePopularitySettings
 } from '../server/modules/competition/service'
 import {
+  issuePopularityDeviceToken,
   issuePopularityToken,
+  popularityIpHash,
+  verifyPopularityDeviceToken,
   verifyPopularityToken
 } from '../server/utils/competition-popularity'
 
@@ -99,7 +102,7 @@ function openWindow(
   })
 }
 
-test('迁移 0081：人气奖设置表与投票表可用，默认设置和决赛候选正确', () => {
+test('迁移 0081/0083：人气奖设置表、投票表与风险列可用，默认设置和决赛候选正确', () => {
   const { client, path } = temporaryDatabase()
   runMigrations(client)
   const { contentId, event, singers } = createFinalEvent(client)
@@ -111,6 +114,12 @@ test('迁移 0081：人气奖设置表与投票表可用，默认设置和决赛
     'competition_popularity_ballots',
     'competition_popularity_settings'
   ])
+
+  const ballotColumns = client.sqlite.prepare('PRAGMA table_info(competition_popularity_ballots)').all() as Array<{ name: string }>
+  assert.ok(ballotColumns.some(column => column.name === 'ip_hash'))
+  assert.ok(ballotColumns.some(column => column.name === 'risk'))
+  const ballotIndexes = client.sqlite.prepare('PRAGMA index_list(competition_popularity_ballots)').all() as Array<{ name: string }>
+  assert.ok(ballotIndexes.some(index => index.name === 'competition_popularity_ballots_event_ip_idx'))
 
   const settings = ensurePopularitySettings(client, event.id)
   assert.equal(settings.enabled, false)
@@ -218,6 +227,13 @@ test('人气奖：窗口、设备一票、幂等重投、改票上限、revision
     codeOf(error) === 'POPULARITY_CHANGE_LIMIT'
   ))
 
+  // 同 IP 第 5 个不同浏览器只标记风险，不拦截投票。
+  const sharedIp = popularityIpHash('popularity-test-secret', '203.0.113.7')
+  for (let index = 0; index < 5; index += 1) {
+    recordPopularityBallot(client, event.id, `risk-device-${index}`, singers[0]!.id, 0, sharedIp)
+  }
+  assert.equal(getPopularityAdminState(client, event.id).riskVotes, 1)
+
   // final2 不参与人气奖候选，候选仍只有决赛第一轮三人。
   assert.equal(listPopularityCandidates(client, event.id).length, 3)
   assert.equal(getRoundByKey(client, event.id, 'final2').id.length > 0, true)
@@ -299,4 +315,22 @@ test('人气奖令牌：签发可验证、篡改被拒、错误密钥被拒', ()
   assert.equal(verifyPopularityToken(secret, tampered), null)
   assert.equal(verifyPopularityToken('another-secret', issued.token), null)
   assert.equal(verifyPopularityToken(secret, 'not-a-token'), null)
+})
+
+test('人气奖设备令牌：签发可验证、跨赛事被拒、篡改被拒', () => {
+  const secret = 'popularity-device-secret'
+  const eventId = randomUUID()
+  const deviceId = 'd'.repeat(32)
+  const token = issuePopularityDeviceToken(secret, eventId, deviceId)
+  assert.ok(token.length > 40)
+
+  const verified = verifyPopularityDeviceToken(secret, token)
+  assert.equal(verified?.eventId, eventId)
+  assert.equal(verified?.deviceId, deviceId)
+  assert.equal(verifyPopularityDeviceToken('another-secret', token), null)
+  assert.equal(verifyPopularityDeviceToken(secret, `${token.slice(0, -2)}aa`), null)
+  assert.equal(verifyPopularityDeviceToken(secret, null), null)
+
+  const crossEvent = issuePopularityDeviceToken(secret, randomUUID(), deviceId)
+  assert.notEqual(verifyPopularityDeviceToken(secret, crossEvent)?.eventId, eventId)
 })
