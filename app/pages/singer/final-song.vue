@@ -276,12 +276,6 @@ async function submit(): Promise<void> {
 
       <div class="mt-6 flex justify-center gap-4 text-xs">
         <NuxtLink
-          to="/singer/rank"
-          class="text-[var(--color-green-700)] underline"
-        >
-          看比赛排行
-        </NuxtLink>
-        <NuxtLink
           to="/singer/song"
           class="text-[var(--color-green-700)] underline"
         >

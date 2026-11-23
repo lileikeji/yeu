@@ -200,7 +200,7 @@ onBeforeUnmount(() => {
           {{ state.status === 'scheduled' ? '还没到开始时间，先看看候选人。' : state.status === 'closed' ? '投票已经截止。' : state.status === 'disabled' ? '主办方还没开启人气奖投票。' : '暂无可投票的候选名单。' }}
         </p>
 
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4">
           <article
             v-for="candidate in state.candidates"
             :key="candidate.singerId"
@@ -233,9 +233,9 @@ onBeforeUnmount(() => {
               </span>
             </div>
 
-            <div class="flex flex-1 flex-col gap-2 p-3">
+            <div class="flex flex-1 flex-col gap-2 p-2.5 sm:p-3">
               <div>
-                <p class="text-lg font-black leading-tight">
+                <p class="text-base font-black leading-tight sm:text-lg">
                   {{ candidate.name }}
                 </p>
                 <p class="mt-0.5 text-xs text-[var(--muted-ink)]">
