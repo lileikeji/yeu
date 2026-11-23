@@ -1374,6 +1374,56 @@ export const competitionFinalSongs = sqliteTable('competition_final_songs', {
 ])
 
 /**
+ * 人气奖投票设置：一届赛事一行。
+ *
+ * 二维码只带短期签名 token，不把投票资格放进链接；设备 id 存 HttpOnly cookie，
+ * 数据库只存 HMAC 后的 device_hash，一人（设备）一票，可配置改票次数。
+ */
+export const competitionPopularitySettings = sqliteTable('competition_popularity_settings', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  /** 总开关；关闭后二维码和投票接口都拒绝。 */
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+  title: text('title').notNull().default('人气奖投票'),
+  subtitle: text('subtitle').notNull().default(''),
+  /** 未填 = 开启后立即有效；填了按时间自动开/关。 */
+  opensAt: integer('opens_at'),
+  closesAt: integer('closes_at'),
+  allowChange: integer('allow_change', { mode: 'boolean' }).notNull().default(false),
+  /** 允许改票的次数；0 = 投完不能改。 */
+  maxChanges: integer('max_changes').notNull().default(1),
+  /** 大屏二维码刷新间隔（秒）。 */
+  qrRotateSeconds: integer('qr_rotate_seconds').notNull().default(30),
+  /** 公开页是否展示各候选票数；默认关闭，避免从众。 */
+  showResults: integer('show_results', { mode: 'boolean' }).notNull().default(false),
+  /** 大屏取码密钥；后台可以一键更换，旧大屏链接立即失效。 */
+  displayKey: text('display_key').notNull(),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_popularity_settings_event_unique').on(table.eventId),
+  check('competition_popularity_settings_max_changes_check', sql`${table.maxChanges} between 0 and 20`),
+  check('competition_popularity_settings_qr_rotate_check', sql`${table.qrRotateSeconds} between 10 and 300`)
+])
+
+/** 人气奖选票：一台设备一行；改票只改 singer_id 并累加 version/change_count。 */
+export const competitionPopularityBallots = sqliteTable('competition_popularity_ballots', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
+  /** HMAC(secret, device id)；不落原始 cookie，避免数据库泄露后伪造选票。 */
+  deviceHash: text('device_hash').notNull(),
+  changeCount: integer('change_count').notNull().default(0),
+  /** 客户端回传 revision 做乐观锁；每次改票 +1。 */
+  version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_popularity_ballots_event_device_unique').on(table.eventId, table.deviceHash),
+  index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId)
+])
+
+/**
  * 校园热点（signal）事件表。
  *
  * 一行 = 一件"很多份材料在说的是同一件事"。热度按事件算，不按文章算：

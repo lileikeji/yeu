@@ -1546,6 +1546,38 @@ export const competitionAdminFinalSongsSchema = z.object({
   revision: z.number().int().min(0).max(1_000_000).optional()
 }).strict()
 
+/** 人气奖后台设置：所有可调项都在这里，时间用毫秒时间戳。 */
+export const competitionPopularitySettingsSchema = z.object({
+  enabled: z.boolean(),
+  title: z.string().trim().min(1).max(60),
+  subtitle: z.string().trim().max(160),
+  opensAt: z.number().int().min(0).max(4_000_000_000_000).nullable(),
+  closesAt: z.number().int().min(0).max(4_000_000_000_000).nullable(),
+  allowChange: z.boolean(),
+  maxChanges: z.number().int().min(0).max(20),
+  qrRotateSeconds: z.number().int().min(10).max(300),
+  showResults: z.boolean()
+}).strict()
+
+export const competitionPopularityActionSchema = z.object({
+  action: z.enum(['open', 'close', 'disable', 'reset-votes', 'rotate-display-key'])
+}).strict()
+
+/** 投票：token 来自大屏二维码；revision 必填，防止两个窗口互相覆盖。 */
+export const competitionPopularityVoteSchema = z.object({
+  token: z.string().trim().min(20).max(2000),
+  singerId: z.string().trim().min(1).max(64),
+  revision: z.number().int().min(0).max(1_000_000)
+}).strict()
+
+export const competitionPopularityTokenQuerySchema = z.object({
+  key: z.string().trim().min(8).max(80)
+}).strict()
+
+export const competitionPopularityStateQuerySchema = z.object({
+  t: z.string().trim().min(20).max(2000)
+}).strict()
+
 export const competitionResultLookupSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(20),

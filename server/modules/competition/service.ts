@@ -11,6 +11,8 @@ import {
   competitionEvents,
   competitionFinalSongs,
   competitionJudges,
+  competitionPopularityBallots,
+  competitionPopularitySettings,
   competitionPreRegistrations,
   competitionRoundEntries,
   competitionRounds,
@@ -58,6 +60,13 @@ import type {
   CompetitionJudge,
   CompetitionJudgeCredentials,
   CompetitionJudgePayload,
+  CompetitionPopularityAdminState,
+  CompetitionPopularityBallot,
+  CompetitionPopularityCandidate,
+  CompetitionPopularityPublicState,
+  CompetitionPopularityResultRow,
+  CompetitionPopularitySettings,
+  CompetitionPopularityStatus,
   CompetitionPreRegistration,
   CompetitionQueuePosition,
   CompetitionRankBoard,
@@ -198,6 +207,8 @@ type JudgeRow = typeof competitionJudges.$inferSelect
 type EntryRow = typeof competitionRoundEntries.$inferSelect
 type SingerRow = typeof competitionSingers.$inferSelect
 type ScoreRow = typeof competitionScores.$inferSelect
+type PopularitySettingsRow = typeof competitionPopularitySettings.$inferSelect
+type PopularityBallotRow = typeof competitionPopularityBallots.$inferSelect
 
 /** 本轮评分维度：单独配置优先，否则回落赛事级维度。 */
 export function getRoundDimensions(round: RoundRow, eventRow?: EventRow | null): CompetitionDimension[] {
@@ -542,7 +553,7 @@ export function entrySingerPublic(
 }
 
 /** 照片：库里存对象存储 key，读的时候现签 6 小时地址；没配 COS 时给出空值。 */
-export function singerPhotoUrl(row: SingerRow): string | null {
+export function singerPhotoUrl(row: { photoKey: string | null }): string | null {
   const key = String(row.photoKey ?? '').trim()
   if (!key) return null
   const config = cosConfig()
@@ -1999,6 +2010,362 @@ export function getSingerQueuePosition(
   }
 }
 
+// -- 人气奖投票 ----------------------------------------------------------------
+
+export interface CompetitionPopularitySettingsInput {
+  enabled: boolean
+  title: string
+  subtitle: string
+  opensAt: number | null
+  closesAt: number | null
+  allowChange: boolean
+  maxChanges: number
+  qrRotateSeconds: number
+  showResults: boolean
+}
+
+export type CompetitionPopularityAction = 'open' | 'close' | 'disable' | 'reset-votes' | 'rotate-display-key'
+
+function popularityStatusOf(
+  settings: PopularitySettingsRow,
+  now = Date.now()
+): CompetitionPopularityStatus {
+  if (!settings.enabled) return 'disabled'
+  if (settings.opensAt != null && now < Number(settings.opensAt)) return 'scheduled'
+  if (settings.closesAt != null && now >= Number(settings.closesAt)) return 'closed'
+  return 'open'
+}
+
+function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopularitySettings {
+  return {
+    enabled: row.enabled,
+    title: row.title,
+    subtitle: row.subtitle,
+    opensAt: row.opensAt == null ? null : Number(row.opensAt),
+    closesAt: row.closesAt == null ? null : Number(row.closesAt),
+    allowChange: row.allowChange,
+    maxChanges: Number(row.maxChanges),
+    qrRotateSeconds: Number(row.qrRotateSeconds),
+    showResults: row.showResults,
+    displayKey: row.displayKey,
+    updatedAt: Number(row.updatedAt ?? 0)
+  }
+}
+
+/** 一届赛事一份设置；第一次访问时补默认行，后台无需先点“创建”。 */
+export function ensurePopularitySettings(
+  client: DatabaseClient,
+  eventId: string
+): PopularitySettingsRow {
+  const existing = client.db.select().from(competitionPopularitySettings)
+    .where(eq(competitionPopularitySettings.eventId, eventId))
+    .get()
+  if (existing) return existing
+
+  const now = Date.now()
+  client.db.insert(competitionPopularitySettings).values({
+    id: randomUUID(),
+    eventId,
+    enabled: false,
+    title: '人气奖投票',
+    subtitle: '为你喜欢的选手投一票',
+    opensAt: null,
+    closesAt: null,
+    allowChange: false,
+    maxChanges: 1,
+    qrRotateSeconds: 30,
+    showResults: false,
+    displayKey: randomBytes(18).toString('base64url'),
+    createdAt: now,
+    updatedAt: now
+  }).run()
+
+  return client.db.select().from(competitionPopularitySettings)
+    .where(eq(competitionPopularitySettings.eventId, eventId))
+    .get()!
+}
+
+/** 人气奖候选只取决赛第一轮名单；初赛/复赛选手不参与。 */
+export function listPopularityCandidates(
+  client: DatabaseClient,
+  eventId: string
+): CompetitionPopularityCandidate[] {
+  const finalRound = getRoundByKeySafe(client, eventId, 'final')
+  if (!finalRound) return []
+  return client.db.select({
+    singerId: competitionSingers.id,
+    name: competitionSingers.name,
+    className: competitionSingers.className,
+    photoKey: competitionSingers.photoKey,
+    entrySong: competitionRoundEntries.song,
+    singerSong: competitionSingers.song,
+    sortOrder: competitionRoundEntries.sortOrder
+  }).from(competitionRoundEntries)
+    .innerJoin(competitionSingers, eq(competitionRoundEntries.singerId, competitionSingers.id))
+    .where(eq(competitionRoundEntries.roundId, finalRound.id))
+    .orderBy(asc(competitionRoundEntries.sortOrder), asc(competitionSingers.name))
+    .all()
+    .map((row, index) => ({
+      singerId: row.singerId,
+      number: Number(row.sortOrder) > 0 ? Number(row.sortOrder) : index + 1,
+      name: row.name,
+      className: row.className,
+      photoUrl: singerPhotoUrl({ photoKey: row.photoKey }),
+      song: (row.entrySong ?? '').trim() || row.singerSong,
+      sortOrder: Number(row.sortOrder)
+    }))
+}
+
+function popularityBallotView(row: PopularityBallotRow): CompetitionPopularityBallot {
+  return {
+    singerId: row.singerId,
+    changeCount: Number(row.changeCount),
+    version: Number(row.version),
+    updatedAt: Number(row.updatedAt ?? row.createdAt ?? 0)
+  }
+}
+
+function popularityResultRows(
+  candidates: CompetitionPopularityCandidate[],
+  ballots: PopularityBallotRow[],
+  totalVotes: number
+): CompetitionPopularityResultRow[] {
+  const countBySinger = new Map<string, number>()
+  for (const ballot of ballots) {
+    countBySinger.set(ballot.singerId, (countBySinger.get(ballot.singerId) ?? 0) + 1)
+  }
+  return candidates
+    .map((candidate) => {
+      const count = countBySinger.get(candidate.singerId) ?? 0
+      return {
+        singerId: candidate.singerId,
+        name: candidate.name,
+        count,
+        percent: totalVotes > 0 ? Math.round((count / totalVotes) * 1000) / 10 : 0
+      }
+    })
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name, 'zh-CN'))
+}
+
+export function getPopularityAdminState(
+  client: DatabaseClient,
+  eventId: string
+): CompetitionPopularityAdminState {
+  const settings = ensurePopularitySettings(client, eventId)
+  const candidates = listPopularityCandidates(client, eventId)
+  const ballots = client.db.select().from(competitionPopularityBallots)
+    .where(eq(competitionPopularityBallots.eventId, eventId))
+    .all()
+  const totalVotes = ballots.length
+  return {
+    settings: popularitySettingsView(settings),
+    candidates,
+    totalVotes,
+    results: popularityResultRows(candidates, ballots, totalVotes),
+    status: popularityStatusOf(settings),
+    updatedAt: Number(settings.updatedAt ?? 0)
+  }
+}
+
+export function getPopularityPublicState(
+  client: DatabaseClient,
+  eventId: string,
+  deviceHash: string
+): CompetitionPopularityPublicState {
+  const settings = ensurePopularitySettings(client, eventId)
+  const candidates = listPopularityCandidates(client, eventId)
+  const ballots = client.db.select().from(competitionPopularityBallots)
+    .where(eq(competitionPopularityBallots.eventId, eventId))
+    .all()
+  const mine = ballots.find(ballot => ballot.deviceHash === deviceHash) ?? null
+  const status = popularityStatusOf(settings)
+  const results = popularityResultRows(candidates, ballots, ballots.length)
+  const countBySinger = new Map<string, number>()
+  for (const ballot of ballots) {
+    countBySinger.set(ballot.singerId, (countBySinger.get(ballot.singerId) ?? 0) + 1)
+  }
+  // 投票页按当前人气从高到低排；同票按出场号，保证顺序稳定。
+  const rankedCandidates = [...candidates].sort((left, right) => (
+    (countBySinger.get(right.singerId) ?? 0) - (countBySinger.get(left.singerId) ?? 0)
+    || left.number - right.number
+  ))
+  const canChange = status === 'open'
+    && candidates.length > 0
+    && (mine == null || (settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
+
+  return {
+    title: settings.title,
+    subtitle: settings.subtitle,
+    status,
+    opensAt: settings.opensAt == null ? null : Number(settings.opensAt),
+    closesAt: settings.closesAt == null ? null : Number(settings.closesAt),
+    allowChange: settings.allowChange,
+    maxChanges: Number(settings.maxChanges),
+    qrRotateSeconds: Number(settings.qrRotateSeconds),
+    showResults: settings.showResults,
+    candidates: rankedCandidates,
+    totalVotes: ballots.length,
+    myBallot: mine ? popularityBallotView(mine) : null,
+    canChange,
+    results: settings.showResults ? results : null,
+    now: Date.now()
+  }
+}
+
+/** 投票/改票：窗口、候选、改票次数与 revision 全部在服务端判定。 */
+export function recordPopularityBallot(
+  client: DatabaseClient,
+  eventId: string,
+  deviceHash: string,
+  singerId: string,
+  revision?: number
+): CompetitionPopularityPublicState {
+  const settings = ensurePopularitySettings(client, eventId)
+  const status = popularityStatusOf(settings)
+  if (status === 'closed') conflictError('POPULARITY_CLOSED', '投票已经截止')
+  if (status !== 'open') conflictError('POPULARITY_NOT_OPEN', '投票还没开始')
+
+  const candidate = listPopularityCandidates(client, eventId).find(item => item.singerId === singerId)
+  if (!candidate) conflictError('POPULARITY_CANDIDATE_INVALID', '这位选手不在人气奖候选名单里')
+
+  const existing = client.db.select().from(competitionPopularityBallots)
+    .where(and(
+      eq(competitionPopularityBallots.eventId, eventId),
+      eq(competitionPopularityBallots.deviceHash, deviceHash)
+    ))
+    .get()
+
+  if (existing && existing.singerId === singerId) {
+    return getPopularityPublicState(client, eventId, deviceHash)
+  }
+
+  if (!existing) {
+    if (revision != null && revision !== 0) {
+      conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
+    }
+    const inserted = client.db.insert(competitionPopularityBallots).values({
+      id: randomUUID(),
+      eventId,
+      singerId,
+      deviceHash,
+      changeCount: 0,
+      version: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }).onConflictDoNothing().run()
+    if (inserted.changes === 0) {
+      // 两台设备同时首投的极小概率竞态：让后到的那次退回冲突，由页面刷新后重投。
+      const raced = client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          eq(competitionPopularityBallots.deviceHash, deviceHash)
+        ))
+        .get()
+      if (raced?.singerId === singerId) return getPopularityPublicState(client, eventId, deviceHash)
+      conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
+    }
+    return getPopularityPublicState(client, eventId, deviceHash)
+  }
+
+  if (!settings.allowChange || Number(existing.changeCount) >= Number(settings.maxChanges)) {
+    conflictError('POPULARITY_CHANGE_LIMIT', '这台设备已经投过票，不能继续改票')
+  }
+  if (revision != null && revision !== Number(existing.version)) {
+    conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
+  }
+
+  const updated = client.db.update(competitionPopularityBallots).set({
+    singerId,
+    changeCount: Number(existing.changeCount) + 1,
+    version: Number(existing.version) + 1,
+    updatedAt: Date.now()
+  }).where(and(
+    eq(competitionPopularityBallots.id, existing.id),
+    eq(competitionPopularityBallots.version, existing.version)
+  )).run()
+  if (updated.changes === 0) {
+    conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
+  }
+
+  return getPopularityPublicState(client, eventId, deviceHash)
+}
+
+export function updatePopularitySettings(
+  client: DatabaseClient,
+  eventId: string,
+  input: CompetitionPopularitySettingsInput
+): CompetitionPopularityAdminState {
+  if (input.opensAt != null && input.closesAt != null && input.opensAt >= input.closesAt) {
+    validationError('开始时间必须早于截止时间', 'opensAt')
+  }
+  ensurePopularitySettings(client, eventId)
+  client.db.update(competitionPopularitySettings).set({
+    enabled: input.enabled,
+    title: input.title.trim(),
+    subtitle: input.subtitle.trim(),
+    opensAt: input.opensAt,
+    closesAt: input.closesAt,
+    allowChange: input.allowChange,
+    maxChanges: input.maxChanges,
+    qrRotateSeconds: input.qrRotateSeconds,
+    showResults: input.showResults,
+    updatedAt: Date.now()
+  }).where(eq(competitionPopularitySettings.eventId, eventId)).run()
+  return getPopularityAdminState(client, eventId)
+}
+
+export function applyPopularityAction(
+  client: DatabaseClient,
+  eventId: string,
+  action: CompetitionPopularityAction
+): CompetitionPopularityAdminState {
+  const settings = ensurePopularitySettings(client, eventId)
+  const now = Date.now()
+  if (action === 'open') {
+    client.db.update(competitionPopularitySettings).set({
+      enabled: true,
+      opensAt: now,
+      closesAt: null,
+      updatedAt: now
+    }).where(eq(competitionPopularitySettings.id, settings.id)).run()
+  } else if (action === 'close') {
+    client.db.update(competitionPopularitySettings).set({
+      enabled: true,
+      closesAt: now,
+      updatedAt: now
+    }).where(eq(competitionPopularitySettings.id, settings.id)).run()
+  } else if (action === 'disable') {
+    client.db.update(competitionPopularitySettings).set({
+      enabled: false,
+      updatedAt: now
+    }).where(eq(competitionPopularitySettings.id, settings.id)).run()
+  } else if (action === 'reset-votes') {
+    client.db.delete(competitionPopularityBallots)
+      .where(eq(competitionPopularityBallots.eventId, eventId))
+      .run()
+  } else {
+    client.db.update(competitionPopularitySettings).set({
+      displayKey: randomBytes(18).toString('base64url'),
+      updatedAt: now
+    }).where(eq(competitionPopularitySettings.id, settings.id)).run()
+  }
+  return getPopularityAdminState(client, eventId)
+}
+
+export function getPopularityDisplayKey(
+  client: DatabaseClient,
+  eventId: string
+): string {
+  return ensurePopularitySettings(client, eventId).displayKey
+}
+
+export function getPopularitySettings(
+  client: DatabaseClient,
+  eventId: string
+): CompetitionPopularitySettings {
+  return popularitySettingsView(ensurePopularitySettings(client, eventId))
+}
+
 export function getAdminCompetitionPayload(client: DatabaseClient, contentId: string): CompetitionAdminPayload {
   const club = getCompetitionClub(client, contentId)
   if (!club) {
@@ -2038,7 +2405,8 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
     preRegistrations: listPreRegistrations(client, eventRow.id),
     advance,
     receipts,
-    editions: listEditions(client, contentId)
+    editions: listEditions(client, contentId),
+    popularity: getPopularityAdminState(client, eventRow.id)
   }
 }
 

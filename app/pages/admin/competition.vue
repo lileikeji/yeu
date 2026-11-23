@@ -1236,7 +1236,7 @@ onBeforeUnmount(stopLiveRefresh)
 
       <section
         v-if="activeRound"
-        v-show="activeSection !== 'settings' && activeSection !== 'singers' && activeSection !== 'email' && activeSection !== 'materials'"
+        v-show="activeSection !== 'settings' && activeSection !== 'singers' && activeSection !== 'popularity' && activeSection !== 'email' && activeSection !== 'materials'"
         class="space-y-4"
       >
         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -2549,6 +2549,16 @@ onBeforeUnmount(stopLiveRefresh)
             </table>
           </div>
         </div>
+      </section>
+
+      <section
+        v-show="activeSection === 'popularity'"
+        class="space-y-4"
+      >
+        <AdminCompetitionPopularityPanel
+          :state="payload?.popularity ?? null"
+          @refresh="load"
+        />
       </section>
 
       <section

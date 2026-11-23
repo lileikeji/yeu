@@ -1,0 +1,449 @@
+<script setup lang="ts">
+import type {
+  CompetitionPopularityAdminState,
+  CompetitionPopularitySettings
+} from '~~/shared/types'
+
+const props = defineProps<{
+  state: CompetitionPopularityAdminState | null
+}>()
+
+const emit = defineEmits<{ refresh: [] }>()
+const toast = useToast()
+
+interface SettingsDraft extends Omit<CompetitionPopularitySettings, 'opensAt' | 'closesAt' | 'displayKey' | 'updatedAt'> {
+  opensAtLocal: string
+  closesAtLocal: string
+}
+
+const draft = reactive<SettingsDraft>({
+  enabled: false,
+  title: '人气奖投票',
+  subtitle: '为你喜欢的选手投一票',
+  opensAtLocal: '',
+  closesAtLocal: '',
+  allowChange: false,
+  maxChanges: 1,
+  qrRotateSeconds: 30,
+  showResults: false
+})
+
+const saving = ref(false)
+const actionBusy = ref('')
+const origin = ref('')
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function toLocalInput(ms: number | null): string {
+  if (ms == null) return ''
+  const date = new Date(ms)
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function fromLocalInput(value: string): number | null {
+  if (!value) return null
+  const parsed = new Date(value).getTime()
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function sync(): void {
+  const settings = props.state?.settings
+  if (!settings) return
+  Object.assign(draft, {
+    enabled: settings.enabled,
+    title: settings.title,
+    subtitle: settings.subtitle,
+    opensAtLocal: toLocalInput(settings.opensAt),
+    closesAtLocal: toLocalInput(settings.closesAt),
+    allowChange: settings.allowChange,
+    maxChanges: settings.maxChanges,
+    qrRotateSeconds: settings.qrRotateSeconds,
+    showResults: settings.showResults
+  })
+}
+
+watch(() => props.state?.settings, sync, { immediate: true, deep: true })
+
+const statusText = computed(() => {
+  switch (props.state?.status) {
+    case 'open': return '进行中'
+    case 'scheduled': return '未开始'
+    case 'closed': return '已截止'
+    default: return '已关闭'
+  }
+})
+
+const statusClass = computed(() => {
+  switch (props.state?.status) {
+    case 'open': return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+    case 'scheduled': return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+    default: return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+  }
+})
+
+const displayUrl = computed(() => {
+  const key = props.state?.settings.displayKey
+  if (!key || !origin.value) return ''
+  return `${origin.value}/singer/popularity-display?key=${encodeURIComponent(key)}`
+})
+
+const candidateCount = computed(() => props.state?.candidates.length ?? 0)
+const voteTotal = computed(() => props.state?.totalVotes ?? 0)
+const maxCount = computed(() => Math.max(1, ...(props.state?.results.map(row => row.count) ?? [1])))
+
+onMounted(() => {
+  origin.value = window.location.origin
+})
+
+async function saveSettings(): Promise<void> {
+  if (saving.value) return
+  const opensAt = fromLocalInput(draft.opensAtLocal)
+  const closesAt = fromLocalInput(draft.closesAtLocal)
+  if (opensAt != null && closesAt != null && opensAt >= closesAt) {
+    toast.add({ title: '开始时间必须早于截止时间', color: 'warning' })
+    return
+  }
+  saving.value = true
+  try {
+    await adminFetch('/api/admin/competition/popularity', {
+      method: 'PUT',
+      body: {
+        enabled: draft.enabled,
+        title: draft.title.trim(),
+        subtitle: draft.subtitle.trim(),
+        opensAt,
+        closesAt,
+        allowChange: draft.allowChange,
+        maxChanges: Number(draft.maxChanges),
+        qrRotateSeconds: Number(draft.qrRotateSeconds),
+        showResults: draft.showResults
+      }
+    })
+    toast.add({ title: '人气奖设置已保存', color: 'success' })
+    emit('refresh')
+  } catch (error) {
+    toast.add({
+      title: '保存失败',
+      description: apiErrorMessage(error, '请检查网络后重试。'),
+      color: 'warning'
+    })
+  } finally {
+    saving.value = false
+  }
+}
+
+async function runAction(
+  action: 'open' | 'close' | 'disable' | 'reset-votes' | 'rotate-display-key',
+  confirmText?: string
+): Promise<void> {
+  if (actionBusy.value) return
+  if (confirmText && !window.confirm(confirmText)) return
+  actionBusy.value = action
+  try {
+    await adminFetch('/api/admin/competition/popularity/action', {
+      method: 'POST',
+      body: { action }
+    })
+    toast.add({ title: '操作已完成', color: 'success' })
+    emit('refresh')
+  } catch (error) {
+    toast.add({
+      title: '操作失败',
+      description: apiErrorMessage(error, '请稍后重试。'),
+      color: 'warning'
+    })
+  } finally {
+    actionBusy.value = ''
+  }
+}
+
+async function copyDisplayUrl(): Promise<void> {
+  if (!displayUrl.value) return
+  try {
+    await navigator.clipboard.writeText(displayUrl.value)
+    toast.add({ title: '大屏链接已复制', color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败，请手动选中链接', color: 'warning' })
+  }
+}
+</script>
+
+<template>
+  <section class="space-y-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
+          人气奖投票
+        </h2>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          大屏动态二维码，观众扫码进入；一台设备一票。投票页按当前人气排行展示，二维码每 {{ draft.qrRotateSeconds }} 秒换一张。
+        </p>
+      </div>
+      <span
+        class="rounded-full px-2.5 py-1 text-xs font-medium"
+        :class="statusClass"
+      >
+        {{ statusText }}
+      </span>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          投票设置
+        </h3>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          候选来自决赛第一轮名单，共 {{ candidateCount }} 人。设置只影响人气奖，不改比赛成绩。
+        </p>
+
+        <label class="mt-4 flex items-center gap-2 text-sm">
+          <input
+            v-model="draft.enabled"
+            type="checkbox"
+            class="size-4 rounded border-zinc-300"
+          >
+          开启人气奖投票
+        </label>
+
+        <label
+          class="mt-4 block text-sm font-medium"
+          for="popularity-title"
+        >标题</label>
+        <UInput
+          id="popularity-title"
+          v-model="draft.title"
+          class="mt-1 w-full"
+          maxlength="60"
+        />
+
+        <label
+          class="mt-3 block text-sm font-medium"
+          for="popularity-subtitle"
+        >说明</label>
+        <UTextarea
+          id="popularity-subtitle"
+          v-model="draft.subtitle"
+          class="mt-1 w-full"
+          :rows="2"
+          maxlength="160"
+        />
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label
+              class="block text-sm font-medium"
+              for="popularity-opens"
+            >开始时间</label>
+            <input
+              id="popularity-opens"
+              v-model="draft.opensAtLocal"
+              type="datetime-local"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+            <p class="mt-1 text-xs text-zinc-500">
+              留空 = 开启后立即生效
+            </p>
+          </div>
+          <div>
+            <label
+              class="block text-sm font-medium"
+              for="popularity-closes"
+            >截止时间</label>
+            <input
+              id="popularity-closes"
+              v-model="draft.closesAtLocal"
+              type="datetime-local"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+            <p class="mt-1 text-xs text-zinc-500">
+              留空 = 手动结束
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label
+              class="block text-sm font-medium"
+              for="popularity-changes"
+            >允许改票次数</label>
+            <input
+              id="popularity-changes"
+              v-model.number="draft.maxChanges"
+              type="number"
+              min="0"
+              max="20"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+          </div>
+          <div>
+            <label
+              class="block text-sm font-medium"
+              for="popularity-rotate"
+            >二维码刷新（秒）</label>
+            <input
+              id="popularity-rotate"
+              v-model.number="draft.qrRotateSeconds"
+              type="number"
+              min="10"
+              max="300"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+          </div>
+        </div>
+
+        <label class="mt-4 flex items-center gap-2 text-sm">
+          <input
+            v-model="draft.allowChange"
+            type="checkbox"
+            class="size-4 rounded border-zinc-300"
+          >
+          允许改票（关闭即锁死设备；最多 {{ draft.maxChanges }} 次）
+        </label>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          默认关闭改票：一台设备投出后立即锁定。只有明确需要现场改票时才打开。
+        </p>
+        <label class="mt-2 flex items-center gap-2 text-sm">
+          <input
+            v-model="draft.showResults"
+            type="checkbox"
+            class="size-4 rounded border-zinc-300"
+          >
+          公开页展示实时票数（默认隐藏，避免从众）
+        </label>
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          <UButton
+            color="primary"
+            :loading="saving"
+            icon="i-lucide-save"
+            @click="saveSettings"
+          >
+            保存设置
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="outline"
+            :loading="actionBusy === 'open'"
+            icon="i-lucide-play"
+            @click="runAction('open')"
+          >
+            立即开始
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="outline"
+            :loading="actionBusy === 'close'"
+            icon="i-lucide-square"
+            @click="runAction('close', '确定现在就截止人气奖投票？截止后不能继续投。')"
+          >
+            立即截止
+          </UButton>
+          <UButton
+            color="error"
+            variant="ghost"
+            :loading="actionBusy === 'reset-votes'"
+            icon="i-lucide-rotate-ccw"
+            @click="runAction('reset-votes', '清空全部人气奖选票？此操作不可恢复，建议先导出结果。')"
+          >
+            清空选票
+          </UButton>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          大屏二维码
+        </h3>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          把链接放到大屏设备打开；二维码会按上面的间隔自动更换。链接里含取码密钥，不要发到公开群。
+        </p>
+        <div class="mt-3 flex gap-2">
+          <input
+            :value="displayUrl"
+            readonly
+            class="min-w-0 flex-1 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+          >
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-copy"
+            :disabled="!displayUrl"
+            @click="copyDisplayUrl"
+          >
+            复制
+          </UButton>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <UButton
+            v-if="displayUrl"
+            :to="displayUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            color="primary"
+            variant="soft"
+            icon="i-lucide-external-link"
+          >
+            打开大屏页
+          </UButton>
+          <UButton
+            color="error"
+            variant="ghost"
+            icon="i-lucide-key-round"
+            :loading="actionBusy === 'rotate-display-key'"
+            @click="runAction('rotate-display-key', '更换大屏链接？旧链接会立即失效。')"
+          >
+            更换大屏链接
+          </UButton>
+        </div>
+
+        <div class="mt-5 rounded-md bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <p>当前共 {{ voteTotal }} 台设备投过票。</p>
+          <p class="mt-1">
+            说明：不签到、不绑微信时只能做到“一台设备一票”；清浏览器 cookie 或换设备仍可再投，现场请配合人工巡视。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          实时票数
+        </h3>
+        <span class="text-xs text-zinc-500">共 {{ voteTotal }} 票</span>
+      </div>
+      <div
+        v-if="!props.state?.results.length"
+        class="mt-3 text-sm text-zinc-500"
+      >
+        还没有人投票。
+      </div>
+      <div
+        v-else
+        class="mt-3 space-y-2"
+      >
+        <div
+          v-for="row in props.state.results"
+          :key="row.singerId"
+          class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
+        >
+          <div class="min-w-0">
+            <div class="flex items-center justify-between gap-2 text-sm">
+              <span class="truncate font-medium">{{ row.name }}</span>
+              <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }} 票 · {{ row.percent }}%</span>
+            </div>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                class="h-full rounded-full bg-rose-500"
+                :style="{ width: `${Math.round((row.count / maxCount) * 100)}%` }"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>

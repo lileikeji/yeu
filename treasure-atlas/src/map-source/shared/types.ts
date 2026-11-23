@@ -613,6 +613,81 @@ export interface CompetitionFinalSongsPair {
   revision: number
 }
 
+/** 人气奖投票状态：关闭 / 未到开始时间 / 进行中 / 已截止。 */
+export type CompetitionPopularityStatus = 'disabled' | 'scheduled' | 'open' | 'closed'
+
+export interface CompetitionPopularitySettings {
+  enabled: boolean
+  title: string
+  subtitle: string
+  /** 空 = 开启后立即生效；单位毫秒。 */
+  opensAt: number | null
+  closesAt: number | null
+  allowChange: boolean
+  /** 允许改票的次数；0 = 不能改。 */
+  maxChanges: number
+  qrRotateSeconds: number
+  /** 公开页是否展示票数。 */
+  showResults: boolean
+  /** 大屏取码密钥；只在后台返回。 */
+  displayKey: string
+  updatedAt: number
+}
+
+export interface CompetitionPopularityCandidate {
+  singerId: string
+  /** 决赛第一轮出场号，投票页显示「几号选手」。 */
+  number: number
+  name: string
+  className: string | null
+  photoUrl: string | null
+  /** 决赛第一轮曲目，方便投票人认人。 */
+  song: string
+  sortOrder: number
+}
+
+export interface CompetitionPopularityBallot {
+  singerId: string
+  changeCount: number
+  version: number
+  updatedAt: number
+}
+
+export interface CompetitionPopularityResultRow {
+  singerId: string
+  name: string
+  count: number
+  percent: number
+}
+
+export interface CompetitionPopularityPublicState {
+  title: string
+  subtitle: string
+  status: CompetitionPopularityStatus
+  opensAt: number | null
+  closesAt: number | null
+  allowChange: boolean
+  maxChanges: number
+  qrRotateSeconds: number
+  showResults: boolean
+  candidates: CompetitionPopularityCandidate[]
+  totalVotes: number
+  myBallot: CompetitionPopularityBallot | null
+  canChange: boolean
+  /** 只有 showResults 为真时才有内容；否则一律 null。 */
+  results: CompetitionPopularityResultRow[] | null
+  now: number
+}
+
+export interface CompetitionPopularityAdminState {
+  settings: CompetitionPopularitySettings
+  candidates: CompetitionPopularityCandidate[]
+  totalVotes: number
+  results: CompetitionPopularityResultRow[]
+  status: CompetitionPopularityStatus
+  updatedAt: number
+}
+
 export interface CompetitionRoundEntry {
   id: string
   singer: CompetitionSingerPublic
@@ -736,6 +811,8 @@ export interface CompetitionAdminPayload {
   receipts: Record<string, CompetitionReceiptRow[]>
   /** 历届（含当前届）：换届后可切回查看。 */
   editions: CompetitionEdition[]
+  /** 人气奖投票设置、候选与当前票数。 */
+  popularity: CompetitionPopularityAdminState
 }
 
 export interface CompetitionReceiptRow {
