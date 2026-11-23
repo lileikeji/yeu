@@ -382,6 +382,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   const accompanimentBusyId = ref('')
   const photoBusyId = ref('')
   const entrySongDraft = ref<Record<string, string>>({})
+  const finalSongsBusyId = ref('')
+  const finalSongsDraft = ref<Record<string, { firstSong: string, secondSong: string }>>({})
 
   function entrySongValue(entry: CompetitionRoundEntry, roundKey?: string): string {
     // 初赛沿用选手库登记的 song；复赛/决赛空着就是空着，等选手在收歌页填
@@ -415,6 +417,67 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       toast.add({ title: '保存曲目失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
     } finally {
       entrySongBusyId.value = ''
+    }
+  }
+
+  /** 决赛两首歌：第一首第一轮唱，第二首前六进第二轮唱；后台可代选手定。 */
+  function finalSongsValue(entry: CompetitionRoundEntry): { firstSong: string, secondSong: string } {
+    const draft = finalSongsDraft.value[entry.singer.id]
+    return {
+      firstSong: draft?.firstSong ?? entry.finalSongs?.firstSong ?? entry.song ?? entry.singer.song ?? '',
+      secondSong: draft?.secondSong ?? entry.finalSongs?.secondSong ?? ''
+    }
+  }
+
+  function setFinalSongsDraft(entry: CompetitionRoundEntry, slot: 'firstSong' | 'secondSong', value: string): void {
+    const current = finalSongsValue(entry)
+    finalSongsDraft.value = {
+      ...finalSongsDraft.value,
+      [entry.singer.id]: { ...current, [slot]: value }
+    }
+  }
+
+  async function saveFinalSongs(round: CompetitionRoundView, entry: CompetitionRoundEntry): Promise<void> {
+    if (round.status === 'closed' || finalSongsBusyId.value) return
+    const { firstSong, secondSong } = finalSongsValue(entry)
+    const first = firstSong.trim()
+    const second = secondSong.trim()
+    if (!first || !second) {
+      toast.add({ title: '两首歌都要填', color: 'warning' })
+      return
+    }
+    if (first === second) {
+      toast.add({ title: '两首歌不能是同一首', color: 'warning' })
+      return
+    }
+    finalSongsBusyId.value = entry.singer.id
+    try {
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        '/api/admin/competition/final-songs',
+        {
+          method: 'POST',
+          body: {
+            singerId: entry.singer.id,
+            firstSong: first,
+            secondSong: second,
+            revision: entry.finalSongs?.revision ?? 0
+          }
+        }
+      )
+      payload.value = result.payload
+      const { [entry.singer.id]: _saved, ...rest } = finalSongsDraft.value
+      finalSongsDraft.value = rest
+      toast.add({
+        title: `${entry.singer.name} 的决赛两首歌已保存`,
+        description: `第一首《${first}》，第二首《${second}》`,
+        color: 'success'
+      })
+    } catch (error) {
+      const code = (error as { data?: { data?: { code?: string } } })?.data?.data?.code
+      if (code === 'COMPETITION_FINAL_SONGS_CONFLICT') await load()
+      toast.add({ title: '保存决赛两首歌失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      finalSongsBusyId.value = ''
     }
   }
 
@@ -690,6 +753,11 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     entrySongValue,
     setEntrySongDraft,
     saveEntrySong,
+    finalSongsBusyId,
+    finalSongsDraft,
+    finalSongsValue,
+    setFinalSongsDraft,
+    saveFinalSongs,
     changeJudgeDay,
     redrawRound,
     clearRoster,

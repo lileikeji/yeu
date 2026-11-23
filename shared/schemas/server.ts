@@ -1538,6 +1538,14 @@ export const competitionFinalSongsSubmitSchema = z.object({
   revision: z.number().int().min(0).max(1_000_000)
 }).strict()
 
+export const competitionAdminFinalSongsSchema = z.object({
+  singerId: z.string().trim().min(1).max(64),
+  firstSong: z.string().trim().min(1).max(100),
+  secondSong: z.string().trim().min(1).max(100),
+  /** 后台页面打开时看到的版本；不一致时返回冲突，避免覆盖选手刚提交的内容。 */
+  revision: z.number().int().min(0).max(1_000_000).optional()
+}).strict()
+
 export const competitionResultLookupSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(20),

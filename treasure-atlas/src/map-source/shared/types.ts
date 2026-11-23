@@ -607,9 +607,17 @@ export interface CompetitionEntryAccompaniment {
   original?: { name: string, url: string, size: number | null } | null
 }
 
+export interface CompetitionFinalSongsPair {
+  firstSong: string
+  secondSong: string
+  revision: number
+}
+
 export interface CompetitionRoundEntry {
   id: string
   singer: CompetitionSingerPublic
+  /** 后台决赛第一轮条目：选手提交的两首歌；其他轮次为空。 */
+  finalSongs?: CompetitionFinalSongsPair | null
   /** 本轮出场顺序（复赛/决赛为随机抽签结果）。 */
   sortOrder: number
   /** 分场天：1 / 2；null = 未分配。 */

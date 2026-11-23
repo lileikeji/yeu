@@ -210,7 +210,9 @@ const {
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
   changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn,
-  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong, accompanimentBusyId, uploadEntryAccompaniment,
+  entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong,
+  finalSongsBusyId, finalSongsValue, setFinalSongsDraft, saveFinalSongs,
+  accompanimentBusyId, uploadEntryAccompaniment,
   photoBusyId, uploadEntryPhoto, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
@@ -1899,7 +1901,7 @@ onBeforeUnmount(stopLiveRefresh)
                     选手
                   </th>
                   <th class="px-3 py-2 font-medium">
-                    歌曲
+                    {{ activeRound.key === 'final' ? '决赛两首歌' : activeRound.key === 'final2' ? '第二轮曲目' : '歌曲' }}
                   </th>
                   <th class="px-3 py-2 font-medium">
                     班级
@@ -1961,15 +1963,54 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ entry.singer.name }}
                   </td>
                   <td class="px-3 py-2 text-zinc-600 dark:text-zinc-300">
-                    <input
-                      v-if="activeRound?.status !== 'closed'"
-                      :value="entrySongValue(entry, activeRound?.key)"
-                      class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
-                      :disabled="entrySongBusyId === entry.id"
-                      @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
-                      @change="saveEntrySong(activeRound!, entry)"
+                    <div
+                      v-if="activeRound.key === 'final'"
+                      class="flex min-w-[15rem] flex-col gap-1"
                     >
-                    <span v-else>{{ entrySongValue(entry, activeRound?.key) }}</span>
+                      <label class="flex items-center gap-1 text-[11px] text-zinc-400">
+                        第一首
+                        <input
+                          :value="finalSongsValue(entry).firstSong"
+                          class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                          :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
+                          placeholder="第一轮唱"
+                          @input="setFinalSongsDraft(entry, 'firstSong', ($event.target as HTMLInputElement).value)"
+                        >
+                      </label>
+                      <label class="flex items-center gap-1 text-[11px] text-zinc-400">
+                        第二首
+                        <input
+                          :value="finalSongsValue(entry).secondSong"
+                          class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                          :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
+                          placeholder="进前六后唱"
+                          @input="setFinalSongsDraft(entry, 'secondSong', ($event.target as HTMLInputElement).value)"
+                        >
+                      </label>
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="subtle"
+                        icon="i-lucide-check"
+                        class="self-start"
+                        :loading="finalSongsBusyId === entry.singer.id"
+                        :disabled="activeRound.status === 'closed'"
+                        @click="saveFinalSongs(activeRound, entry)"
+                      >
+                        保存两首
+                      </UButton>
+                    </div>
+                    <template v-else>
+                      <input
+                        v-if="activeRound?.status !== 'closed' && activeRound?.key !== 'final2'"
+                        :value="entrySongValue(entry, activeRound?.key)"
+                        class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
+                        :disabled="entrySongBusyId === entry.id"
+                        @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
+                        @change="saveEntrySong(activeRound!, entry)"
+                      >
+                      <span v-else>{{ entrySongValue(entry, activeRound?.key) }}</span>
+                    </template>
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     <template v-if="activeRound?.key !== 'prelim'">

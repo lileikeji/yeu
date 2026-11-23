@@ -24,6 +24,7 @@ import {
   getRoundByKey,
   listRoundEntryRows,
   setEntryCheckIn,
+  setFinalSongsByAdmin,
   submitFinalSongsByThreeFactors,
   submitJudgeScore,
   submitSongByThreeFactors,
@@ -265,6 +266,47 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   )
   assert.equal(restored.revision, 4)
 
+  // 后台可以代选手定两首歌，版本继续递增，决赛名单里的第一首同步更新。
+  const adminPayloadBefore = getAdminCompetitionPayload(client, contentId)
+  const adminEntryBefore = roundView(adminPayloadBefore, 'final').entries
+    .find(entry => entry.singer.id === singers[11]!.id)
+  assert.equal(adminEntryBefore?.finalSongs?.revision, 4)
+  assert.equal(adminEntryBefore?.finalSongs?.secondSong, '决赛二曲12')
+  const adminSaved = setFinalSongsByAdmin(client, contentId, {
+    singerId: singers[11]!.id,
+    firstSong: '后台一曲12',
+    secondSong: '后台二曲12',
+    revision: 4
+  })
+  assert.equal(adminSaved.revision, 5)
+  const adminPayloadAfter = getAdminCompetitionPayload(client, contentId)
+  const adminEntryAfter = roundView(adminPayloadAfter, 'final').entries
+    .find(entry => entry.singer.id === singers[11]!.id)
+  assert.equal(adminEntryAfter?.song, '后台一曲12')
+  assert.deepEqual(adminEntryAfter?.finalSongs, {
+    firstSong: '后台一曲12',
+    secondSong: '后台二曲12',
+    revision: 5
+  })
+  // 后台拿旧版本改也要报冲突，不能静默覆盖。
+  assert.throws(
+    () => setFinalSongsByAdmin(client, contentId, {
+      singerId: singers[11]!.id,
+      firstSong: '旧版本一曲',
+      secondSong: '旧版本二曲',
+      revision: 4
+    }),
+    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_SONGS_CONFLICT'
+  )
+  assert.equal(
+    getFinalSongEditor(client, contentId, {
+      name: singers[11]!.name,
+      studentNo: singers[11]!.studentNo ?? '',
+      contact: singers[11]!.qq ?? ''
+    }).revision,
+    5
+  )
+
   // 旧的单曲填歌页不能再改决赛曲目，必须走两首歌接口。
   assert.throws(
     () => submitSongByThreeFactors(
@@ -346,6 +388,15 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
       { firstSong: '锁后改歌', secondSong: '再改一首' }
     ),
     (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_SONGS_LOCKED'
+  )
+  assert.throws(
+    () => setFinalSongsByAdmin(client, contentId, {
+      singerId: singers[0]!.id,
+      firstSong: '后台锁后改歌',
+      secondSong: '后台锁后改第二首',
+      revision: 1
+    }),
+    (error: unknown) => codeOf(error) === 'ROUND_CLOSED'
   )
 
   // 还没确认前六时保持原来的决赛单轮榜，旧赛事的历史决赛榜不受影响。
