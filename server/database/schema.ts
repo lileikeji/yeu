@@ -1120,8 +1120,10 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   position: integer('position').notNull(),
   status: text('status', { enum: ['draft', 'open', 'closed'] }).notNull().default('draft'),
   judgeCount: integer('judge_count').notNull().default(5),
-  /** 本轮晋级下一轮的人数；决赛为 null。复赛留空表示名额待定。 */
+  /** 本轮晋级下一轮的人数；决赛第一轮固定 6，决赛第二轮为 null。复赛留空表示名额待定。 */
   advanceCount: integer('advance_count'),
+  /** 决赛晋级方式：rank = 整轮前六；duel = 抽签 1v1，每组胜者进第二轮。 */
+  advanceMode: text('advance_mode', { enum: ['rank', 'duel'] }).notNull().default('rank'),
   /** 晋级名单确认时间；空 = 还没确认，不能发结果邮件。 */
   rosterConfirmedAt: integer('roster_confirmed_at'),
   /** 1 = 本轮结果查询通道已开（发出结果邮件后自动打开）。 */
@@ -1155,7 +1157,8 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   check('competition_rounds_key_check', sql`${table.key} in ('prelim', 'semi', 'final', 'final2')`),
   check('competition_rounds_status_check', sql`${table.status} in ('draft', 'open', 'closed')`),
   check('competition_rounds_judge_count_check', sql`${table.judgeCount} between 1 and 20`),
-  check('competition_rounds_advance_count_check', sql`${table.advanceCount} is null or ${table.advanceCount} between 1 and 500`)
+  check('competition_rounds_advance_count_check', sql`${table.advanceCount} is null or ${table.advanceCount} between 1 and 500`),
+  check('competition_rounds_advance_mode_check', sql`${table.advanceMode} in ('rank', 'duel')`)
 ])
 
 export const competitionJudges = sqliteTable('competition_judges', {
@@ -1328,9 +1331,15 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   originalSize: integer('original_size'),
   /** 1 = 已确认晋级下一轮，0 = 未晋级，空 = 还没确认（按排名自动判定）。 */
   advanced: integer('advanced'),
+  /** 抽签 1v1 的组号；空 = 还没分组。 */
+  pairNo: integer('pair_no'),
+  /** 组内位置 1 / 2；空 = 还没分组。 */
+  pairSlot: integer('pair_slot'),
   createdAt: timestamp('created_at')
 }, table => [
   uniqueIndex('competition_round_entries_round_singer_unique').on(table.roundId, table.singerId),
+  uniqueIndex('competition_round_entries_pair_unique').on(table.roundId, table.pairNo, table.pairSlot),
+  check('competition_round_entries_pair_slot_check', sql`${table.pairSlot} is null or ${table.pairSlot} in (1, 2)`),
   index('competition_round_entries_round_order_idx').on(table.roundId, table.sortOrder)
 ])
 

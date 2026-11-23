@@ -268,6 +268,8 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
       }
       if (round.key !== 'final') {
         body.advanceCount = round.advanceCount === null ? null : Number(round.advanceCount)
+      } else {
+        body.advanceMode = round.advanceMode
       }
       const data = await adminFetch<CompetitionAdminPayload>(
         `/api/admin/competition/rounds/${round.key}`,

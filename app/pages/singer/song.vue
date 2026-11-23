@@ -91,7 +91,8 @@ function readFileAsBase64(file: File): Promise<string> {
  * 而 COS 的预签名把 content-type 算进签名，两边不一致就会 403。
  * 所以统一按扩展名定一个固定值，签名和 PUT 都用它。
  */
-function uploadMimeFor(file: File): string {
+function uploadMimeFor(file: File, video = false): string {
+  if (video) return 'video/mp4'
   const extension = (file.name.split('.').at(-1) || '').toLowerCase()
   if (extension === 'm4a' || extension === 'mp4') return 'audio/mp4'
   if (extension === 'wav') return 'audio/wav'
@@ -146,13 +147,18 @@ async function uploadAccompaniment(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file || !state.value) return
-  if (file.size > 400 * 1024 * 1024) {
-    toast.add({ title: '伴奏别超过 400MB', color: 'warning' })
+  const maxSize = finalStage.value ? 500 * 1024 * 1024 : 400 * 1024 * 1024
+  if (file.size > maxSize) {
+    toast.add({ title: finalStage.value ? '决赛背景视频别超过 500MB' : '伴奏别超过 400MB', color: 'warning' })
+    return
+  }
+  if (finalStage.value && !file.name.toLowerCase().endsWith('.mp4')) {
+    toast.add({ title: '决赛背景只收 MP4 视频', color: 'warning' })
     return
   }
   // 文件名里往往就是真歌名：输入框还是旧歌（没手改过）时按文件名纠正，
-  // 免得换歌后伴奏被记到上一首名下。
-  const guessed = guessSongFromFilename(file.name)
+  // 免得换歌后伴奏被记到上一首名下。决赛视频文件名不是歌名，不猜。
+  const guessed = finalStage.value ? '' : guessSongFromFilename(file.name)
   const current = (song.value || '').trim()
   if (guessed && current && guessed !== current) {
     song.value = guessed
@@ -177,7 +183,7 @@ async function uploadAccompaniment(event: Event) {
           studentNo: studentNo.value.trim(),
           contact: contact.value.trim(),
           filename: file.name,
-          mime: uploadMimeFor(file),
+          mime: uploadMimeFor(file, finalStage.value),
           song: songValue
         }
       }
@@ -185,7 +191,7 @@ async function uploadAccompaniment(event: Event) {
     if (ticket?.uploadUrl) {
       uploadPhase.value = 'upload'
       uploadPercent.value = 0
-      await putFileWithProgress(ticket.uploadUrl, file, uploadMimeFor(file))
+      await putFileWithProgress(ticket.uploadUrl, file, uploadMimeFor(file, finalStage.value))
       uploadPhase.value = 'confirm'
       const committed = await plainFetch<SongState>('/api/public/competition/song/accompaniment-commit', {
         method: 'POST',
@@ -199,8 +205,11 @@ async function uploadAccompaniment(event: Event) {
         }
       })
       state.value = committed
-      toast.add({ title: '伴奏收到了', description: `${songValue || '当前曲目'}：${file.name}`, color: 'success' })
+      toast.add({ title: finalStage.value ? '背景视频收到了' : '伴奏收到了', description: `${songValue || '当前曲目'}：${file.name}`, color: 'success' })
       return
+    }
+    if (finalStage.value) {
+      throw new Error('还没配对象存储，决赛背景视频暂时传不了，请联系工作人员')
     }
     uploadPhase.value = 'read'
     uploadPercent.value = 0
@@ -219,7 +228,7 @@ async function uploadAccompaniment(event: Event) {
       }
     })
     state.value = result
-    toast.add({ title: '伴奏收到了', description: file.name, color: 'success' })
+    toast.add({ title: finalStage.value ? '背景视频收到了' : '伴奏收到了', description: file.name, color: 'success' })
   } catch (caught) {
     toast.add({ title: messageOf(caught), color: 'error' })
   } finally {
@@ -347,7 +356,7 @@ async function submit() {
             to="/singer/final-song"
             class="font-medium underline"
           >「决赛两首歌」页面</NuxtLink>
-          一次提交；本页只用来给决赛曲目上传伴奏，改歌名不会生效。
+          一次提交；本页只用来给决赛曲目上传 MP4 背景视频，改歌名不会生效。
         </p>
         <p
           v-if="!state.editable"
@@ -371,12 +380,17 @@ async function submit() {
           />
           <div class="mt-4 rounded-xl border border-dashed border-[var(--line)] p-3">
             <p class="text-sm font-medium">
-              伴奏 <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
+              {{ finalStage ? '决赛背景视频' : '伴奏' }} <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
             </p>
             <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。
-              伴奏会记在当前曲目《{{ song.trim() || '未填' }}》名下：换了歌务必先把上面的曲目改成新歌名，再传伴奏。<br>
-              iPhone 在微信里选不到聊天文件时：先长按文件「用其他应用打开 → 存储到文件」，再点下面的按钮从「文件」App 里选；实在不行把伴奏发给工作人员代传。
+              <template v-if="finalStage">
+                决赛使用 MP4 视频背景，单个不超过 500MB。曲目请先在「决赛两首歌」页面提交；这里只传背景视频，不改歌名。
+              </template>
+              <template v-else>
+                支持 mp3 / m4a / wav / aac / ogg / flac，单个不超过 400MB。
+                伴奏会记在当前曲目《{{ song.trim() || '未填' }}》名下：换了歌务必先把上面的曲目改成新歌名，再传伴奏。<br>
+                iPhone 在微信里选不到聊天文件时：先长按文件「用其他应用打开 → 存储到文件」，再点下面的按钮从「文件」App 里选；实在不行把伴奏发给工作人员代传。
+              </template>
             </p>
             <p
               v-if="state.accompaniment"
@@ -384,10 +398,23 @@ async function submit() {
             >
               已上传：{{ state.accompaniment.name }}<span v-if="state.accompaniment.size">（{{ formatSize(state.accompaniment.size) }}）</span>
             </p>
+            <video
+              v-if="finalStage && state.accompaniment?.url && state.accompaniment.name.toLowerCase().endsWith('.mp4')"
+              :src="state.accompaniment.url"
+              controls
+              playsinline
+              class="mt-2 max-h-56 w-full rounded-lg bg-black"
+            />
+            <audio
+              v-else-if="state.accompaniment?.url"
+              :src="state.accompaniment.url"
+              controls
+              class="mt-2 w-full"
+            />
             <input
               ref="accompanimentInput"
               type="file"
-              accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac"
+              :accept="finalStage ? 'video/mp4,.mp4' : 'audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac'"
               class="hidden"
               @change="uploadAccompaniment"
             >
@@ -419,7 +446,9 @@ async function submit() {
                 ? (uploadPhase === 'read' ? '读取文件…'
                   : uploadPhase === 'confirm' ? '确认中…'
                     : uploadPercent !== null ? `上传中 ${uploadPercent}%` : '上传中…')
-                : (state.accompaniment ? '换一个伴奏' : '上传伴奏') }}
+                : (state.accompaniment
+                  ? (finalStage ? '换一个背景视频' : '换一个伴奏')
+                  : (finalStage ? '上传背景视频' : '上传伴奏')) }}
             </button>
             <div
               v-if="accompanimentBusy"
@@ -436,7 +465,7 @@ async function submit() {
               </p>
             </div>
             <p class="mt-1 text-[11px] text-[var(--muted-ink)]">
-              支持 mp3 / m4a / wav / aac / ogg / flac，400MB 以内。微信里点开可以直接从聊天文件或手机里选。
+              {{ finalStage ? '支持 MP4，500MB 以内。微信里点开可以直接从聊天文件或手机里选。' : '支持 mp3 / m4a / wav / aac / ogg / flac，400MB 以内。微信里点开可以直接从聊天文件或手机里选。' }}
             </p>
           </div>
 

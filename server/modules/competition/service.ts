@@ -42,11 +42,13 @@ import {
 } from '../../../shared/utils/competition'
 import type {
   CompetitionAdminPayload,
+  CompetitionAdvanceMode,
   CompetitionAdvanceRow,
   CompetitionCallBoard,
   CompetitionCallBoardRow,
   CompetitionCurrentSinger,
   CompetitionDimension,
+  CompetitionDuelPair,
   CompetitionEmailImage,
   CompetitionEmailRoundKey,
   CompetitionEmailRoundStats,
@@ -510,6 +512,7 @@ export function serializeRound(row: RoundRow, eventRow?: EventRow | null): Compe
     status: row.status,
     judgeCount: row.judgeCount,
     advanceCount: row.advanceCount,
+    advanceMode: row.advanceMode === 'duel' ? 'duel' : 'rank',
     rosterConfirmedAt: row.rosterConfirmedAt ?? null,
     resultQueryOpen: row.resultQueryOpen === 1,
     scorePrecision: row.scorePrecision === 'decimal' ? 'decimal' : 'integer',
@@ -842,6 +845,8 @@ export interface UpdateRoundInput {
   status?: unknown
   judgeCount?: unknown
   advanceCount?: unknown
+  /** 决赛晋级方式：rank / duel；其他轮次不允许切换。 */
+  advanceMode?: unknown
   scorePrecision?: unknown
   /** 本轮评分维度（不传则沿用赛事级或上次设置）。 */
   dimensions?: unknown
@@ -860,6 +865,7 @@ export function updateRound(
   const downstreamEntries = nextRound ? countEntries(client, nextRound.id) : 0
   const scores = countRoundScores(client, round.id)
   const patch: Partial<typeof competitionRounds.$inferInsert> = { updatedAt: Date.now() }
+  let clearPairData = false
 
   if (input.status !== undefined) {
     const status = String(input.status) as CompetitionRoundStatus
@@ -919,6 +925,23 @@ export function updateRound(
     patch.judgeCount = judgeCount
   }
 
+  if (input.advanceMode !== undefined) {
+    if (round.key !== 'final') validationError('只有决赛可以切换晋级方式', 'advanceMode')
+    const mode = String(input.advanceMode) as CompetitionAdvanceMode
+    if (mode !== 'rank' && mode !== 'duel') validationError('晋级方式无效', 'advanceMode')
+    if (mode !== (round.advanceMode === 'duel' ? 'duel' : 'rank')) {
+      if (scores > 0) conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能切换晋级方式；先清空评分再切换')
+      if (round.rosterConfirmedAt !== null) {
+        conflictError('ROUND_ROSTER_CONFIRMED', '晋级名单已确认，不能切换晋级方式；请先取消确认')
+      }
+      if (downstreamEntries > 0) {
+        conflictError('ROUND_ADVANCE_LOCKED', '下一轮名单已生成，不能切换晋级方式；请先清空下一轮名单')
+      }
+      patch.advanceMode = mode
+      clearPairData = true
+    }
+  }
+
   if (round.key === 'final') {
     // 决赛第一轮固定取前六进第二轮；第二轮不再产生下一轮。
     patch.advanceCount = COMPETITION_FINAL_ADVANCE_COUNT
@@ -942,7 +965,14 @@ export function updateRound(
     patch.advanceCount = advanceCount
   }
 
-  client.db.update(competitionRounds).set(patch).where(eq(competitionRounds.id, round.id)).run()
+  client.db.transaction((transaction) => {
+    transaction.update(competitionRounds).set(patch).where(eq(competitionRounds.id, round.id)).run()
+    if (clearPairData) {
+      transaction.update(competitionRoundEntries)
+        .set({ pairNo: null, pairSlot: null, advanced: null })
+        .where(eq(competitionRoundEntries.roundId, round.id)).run()
+    }
+  })
   return client.db.select().from(competitionRounds)
     .where(eq(competitionRounds.id, round.id)).get()!
 }
@@ -1055,6 +1085,149 @@ function trimExtremesFor(client: DatabaseClient, round: RoundRow): boolean {
   return getEvent(client, round.eventId)?.trimExtremes === 1
 }
 
+interface DuelOutcome {
+  winnerEntryId: string | null
+  note: string
+}
+
+/**
+ * 抽签 1v1 的组内胜负：平均分 → 评委多数 → 最高单项分 → 次高单项分。
+ * 仍然分不出就返回 null，由后台要求加赛或人工裁定，绝不静默按出场顺序晋级。
+ */
+function duelOutcomes(
+  entries: EntryRow[],
+  scoreRows: ScoreRow[],
+  trimExtremes: boolean
+): Map<number, DuelOutcome> {
+  const groups = new Map<number, EntryRow[]>()
+  for (const entry of entries) {
+    if (entry.pairNo === null || entry.pairNo === undefined) continue
+    const list = groups.get(entry.pairNo) ?? []
+    list.push(entry)
+    groups.set(entry.pairNo, list)
+  }
+  const scoresBySinger = new Map<string, ScoreRow[]>()
+  for (const score of scoreRows) {
+    const list = scoresBySinger.get(score.singerId) ?? []
+    list.push(score)
+    scoresBySinger.set(score.singerId, list)
+  }
+
+  const outcomes = new Map<number, DuelOutcome>()
+  for (const [pairNo, pairEntries] of groups) {
+    const ordered = pairEntries.slice().sort((left, right) =>
+      (left.pairSlot ?? 0) - (right.pairSlot ?? 0))
+    const left = ordered[0]
+    const right = ordered[1]
+    if (!left || !right) {
+      outcomes.set(pairNo, {
+        winnerEntryId: left?.id ?? null,
+        note: left ? '轮空，直接晋级' : '这一组还没有选手'
+      })
+      continue
+    }
+    const leftScores = scoresBySinger.get(left.singerId) ?? []
+    const rightScores = scoresBySinger.get(right.singerId) ?? []
+    if (leftScores.length === 0 || rightScores.length === 0) {
+      outcomes.set(pairNo, { winnerEntryId: null, note: '等待两位选手都完成评分' })
+      continue
+    }
+
+    const leftAverage = averageOf(leftScores.map(score => roundCompetitionScore(Number(score.totalScore ?? 0))), trimExtremes)
+    const rightAverage = averageOf(rightScores.map(score => roundCompetitionScore(Number(score.totalScore ?? 0))), trimExtremes)
+    if (leftAverage !== rightAverage) {
+      outcomes.set(pairNo, {
+        winnerEntryId: (leftAverage ?? -1) > (rightAverage ?? -1) ? left.id : right.id,
+        note: `平均分 ${leftAverage} : ${rightAverage}`
+      })
+      continue
+    }
+
+    // 评委多数：同一位评委对两人的总分谁高；平票不计。
+    const rightByJudge = new Map(rightScores.map(score => [score.judgeId, score]))
+    let leftVotes = 0
+    let rightVotes = 0
+    let commonJudges = 0
+    for (const leftScore of leftScores) {
+      const rightScore = rightByJudge.get(leftScore.judgeId)
+      if (!rightScore) continue
+      commonJudges += 1
+      const leftTotal = Number(leftScore.totalScore ?? 0)
+      const rightTotal = Number(rightScore.totalScore ?? 0)
+      if (leftTotal > rightTotal) leftVotes += 1
+      else if (rightTotal > leftTotal) rightVotes += 1
+    }
+    if (commonJudges !== leftScores.length || commonJudges !== rightScores.length) {
+      outcomes.set(pairNo, { winnerEntryId: null, note: '两位选手的评委票不齐，等评分补齐' })
+      continue
+    }
+    if (leftVotes !== rightVotes) {
+      outcomes.set(pairNo, {
+        winnerEntryId: leftVotes > rightVotes ? left.id : right.id,
+        note: `平均分相同，评委多数 ${leftVotes} : ${rightVotes}`
+      })
+      continue
+    }
+
+    // 最高单项分：把所有维度得分从高到低逐项比较，先大者胜。
+    const dimensionScores = (scores: ScoreRow[]): number[] => scores
+      .flatMap(score => parseJson<CompetitionScoreDimension[]>(score.dimensionsJson, []))
+      .map(item => Number(item.score ?? 0))
+      .filter(value => Number.isFinite(value))
+      .sort((a, b) => b - a)
+    const leftDimensions = dimensionScores(leftScores)
+    const rightDimensions = dimensionScores(rightScores)
+    let dimensionWinner: 'left' | 'right' | null = null
+    const maxLength = Math.max(leftDimensions.length, rightDimensions.length)
+    for (let index = 0; index < maxLength; index += 1) {
+      const leftValue = leftDimensions[index] ?? -1
+      const rightValue = rightDimensions[index] ?? -1
+      if (leftValue === rightValue) continue
+      dimensionWinner = leftValue > rightValue ? 'left' : 'right'
+      break
+    }
+    if (dimensionWinner) {
+      outcomes.set(pairNo, {
+        winnerEntryId: dimensionWinner === 'left' ? left.id : right.id,
+        note: '平均分、评委多数相同，按单项分决胜'
+      })
+      continue
+    }
+
+    outcomes.set(pairNo, { winnerEntryId: null, note: '同分，需加赛或人工裁定' })
+  }
+  return outcomes
+}
+
+function buildDuelPairs(
+  rankedEntries: CompetitionRoundEntry[],
+  outcomes: Map<number, DuelOutcome>
+): CompetitionDuelPair[] {
+  const groups = new Map<number, CompetitionRoundEntry[]>()
+  for (const entry of rankedEntries) {
+    if (entry.pairNo === null) continue
+    const list = groups.get(entry.pairNo) ?? []
+    list.push(entry)
+    groups.set(entry.pairNo, list)
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([pairNo, pairEntries]) => {
+      const entries = pairEntries.slice().sort((left, right) =>
+        (left.pairSlot ?? 0) - (right.pairSlot ?? 0))
+      const outcome = outcomes.get(pairNo)
+      const winner = outcome?.winnerEntryId ?? null
+      return {
+        pairNo,
+        entries,
+        winnerEntryId: winner,
+        winnerName: entries.find(entry => entry.id === winner)?.singer.name ?? null,
+        ready: Boolean(winner),
+        note: outcome?.note ?? '等待抽签'
+      }
+    })
+}
+
 function buildRoundRanking(
   round: RoundRow,
   entries: EntryRow[],
@@ -1096,6 +1269,14 @@ function buildRoundRanking(
       || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
 
   const settled = round.status === 'closed'
+  const duelMode = round.key === 'final' && round.advanceMode === 'duel'
+  const duelWinners = duelMode
+    ? new Set(
+        [...duelOutcomes(entries, scoreRows, options.trimExtremes === true).values()]
+          .map(outcome => outcome.winnerEntryId)
+          .filter((entryId): entryId is string => Boolean(entryId))
+      )
+    : null
   if (!settled) {
     // 进行中也出名次（实时排行），但名单仍按出场顺序返回，避免后台名单表被排名打乱；
     // 晋级标记只有整轮结束才给。
@@ -1122,6 +1303,8 @@ function buildRoundRanking(
         contestDay: row.entry.contestDay ?? null,
         checkedInAt: row.entry.checkedInAt ?? null,
         advanced: row.entry.advanced ?? null,
+        pairNo: row.entry.pairNo ?? null,
+        pairSlot: row.entry.pairSlot ?? null,
         advancedFromRank: row.entry.advancedFromRank,
         song: row.entry.song ?? null,
         accompaniment: serializeAccompaniment(row.entry),
@@ -1149,6 +1332,8 @@ function buildRoundRanking(
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
+      pairNo: row.entry.pairNo ?? null,
+      pairSlot: row.entry.pairSlot ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
       accompaniment: serializeAccompaniment(row.entry),
@@ -1157,8 +1342,7 @@ function buildRoundRanking(
       scoreCount: row.scoreCount,
       rank: lastRank,
       qualified: round.status === 'closed'
-        && round.advanceCount !== null
-        && index < round.advanceCount,
+        && (duelMode ? duelWinners?.has(row.entry.id) === true : round.advanceCount !== null && index < round.advanceCount),
       forfeited: false
     })
   })
@@ -1170,6 +1354,8 @@ function buildRoundRanking(
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
+      pairNo: row.entry.pairNo ?? null,
+      pairSlot: row.entry.pairSlot ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       song: row.entry.song ?? null,
       accompaniment: serializeAccompaniment(row.entry),
@@ -1713,6 +1899,9 @@ function roundView(
       queuePosition: board?.position ?? null
     }
   })
+  const duelPairs = round.key === 'final' && round.advanceMode === 'duel'
+    ? buildDuelPairs(rankedEntries, duelOutcomes(entries, scoreRows, trimExtremesFor(client, round)))
+    : []
 
   return {
     ...serializeRound(round, eventRow),
@@ -1722,7 +1911,8 @@ function roundView(
     maxTotal: competitionMaxTotal(getRoundDimensions(round, eventRow), getRoundDimensionMax(round)),
     hasScores: scoreRows.length > 0,
     sequential: round.sequentialMode === 1,
-    current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows)
+    current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows),
+    duelPairs
   }
 }
 
@@ -2423,8 +2613,65 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
+/** 决赛抽签：随机决定每组两人与整轮出场顺序；每两人一组。 */
+export function drawFinalPairs(client: DatabaseClient, round: RoundRow): void {
+  if (round.key !== 'final') validationError('只有决赛可以抽签 1v1', 'round')
+  if (round.advanceMode !== 'duel') validationError('当前不是抽签 1v1 赛制，请先切换晋级方式', 'advanceMode')
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能重新抽签')
+  if (countRoundScores(client, round.id) > 0) {
+    conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能再抽签')
+  }
+  if (round.rosterConfirmedAt !== null) {
+    conflictError('ROUND_ROSTER_CONFIRMED', '晋级名单已确认，不能重新抽签')
+  }
+  const entries = listRoundEntryRows(client, round.id)
+  if (entries.length < 2) validationError('本轮名单不足 2 人，不能抽签', 'round')
+  const shuffled = shuffle(entries)
+  client.db.transaction((transaction) => {
+    transaction.update(competitionRoundEntries)
+      .set({ pairNo: null, pairSlot: null, advanced: null })
+      .where(eq(competitionRoundEntries.roundId, round.id)).run()
+    shuffled.forEach((entry, index) => {
+      transaction.update(competitionRoundEntries)
+        .set({
+          pairNo: Math.floor(index / 2) + 1,
+          pairSlot: (index % 2) + 1,
+          sortOrder: index + 1
+        })
+        .where(eq(competitionRoundEntries.id, entry.id)).run()
+    })
+    transaction.update(competitionRounds)
+      .set({ currentEntryId: null, updatedAt: Date.now() })
+      .where(eq(competitionRounds.id, round.id)).run()
+  })
+}
+
+export function clearFinalPairs(client: DatabaseClient, round: RoundRow): void {
+  if (round.key !== 'final') validationError('只有决赛可以清除对阵', 'round')
+  if (round.advanceMode !== 'duel') validationError('当前不是抽签 1v1 赛制', 'advanceMode')
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能清除对阵')
+  if (countRoundScores(client, round.id) > 0) {
+    conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能清除对阵')
+  }
+  if (round.rosterConfirmedAt !== null) {
+    conflictError('ROUND_ROSTER_CONFIRMED', '晋级名单已确认，不能清除对阵')
+  }
+  client.db.transaction((transaction) => {
+    transaction.update(competitionRoundEntries)
+      .set({ pairNo: null, pairSlot: null, advanced: null })
+      .where(eq(competitionRoundEntries.roundId, round.id)).run()
+    transaction.update(competitionRounds)
+      .set({ currentEntryId: null, updatedAt: Date.now() })
+      .where(eq(competitionRounds.id, round.id)).run()
+  })
+}
+
 export function redrawRound(client: DatabaseClient, round: RoundRow): void {
   if (round.key === 'prelim') validationError('初赛按导入顺序出场，不能重新抽签', 'round')
+  if (round.key === 'final' && round.advanceMode === 'duel') {
+    drawFinalPairs(client, round)
+    return
+  }
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能重新抽签')
   if (countRoundScores(client, round.id) > 0) {
     conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能重新抽签')
@@ -4611,6 +4858,18 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
   ).filter(row => row.scoreCount > 0)
 
   const limit = round.advanceCount ?? ranking.length
+  const duelMode = round.key === 'final' && round.advanceMode === 'duel'
+  const duelWinners = duelMode
+    ? new Set(
+        [...duelOutcomes(
+          listRoundEntryRows(client, round.id),
+          listRoundScores(client, round.id),
+          trimExtremesFor(client, round)
+        ).values()]
+          .map(outcome => outcome.winnerEntryId)
+          .filter((entryId): entryId is string => Boolean(entryId))
+      )
+    : null
   // advanced 为空 = 还没人动过这一轮的勾选，默认按名次勾前 N 名；
   // 一旦有人勾/取消，就以其存下来的值为准，未被碰过的仍按默认名次。
   return ranking.map((row, index) => ({
@@ -4619,7 +4878,9 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
     average: row.average,
     scoreCount: row.scoreCount,
     rank: row.rank,
-    advanced: row.advanced === null ? index < limit : row.advanced === 1
+    advanced: row.advanced === null
+      ? (duelMode ? duelWinners?.has(row.id) === true : index < limit)
+      : row.advanced === 1
   }))
 }
 
@@ -4651,6 +4912,9 @@ export function setEntryAdvanced(client: DatabaseClient, round: RoundRow, entryI
   if (round.status === 'closed' && round.rosterConfirmedAt !== null) {
     conflictError('ROUND_ROSTER_CONFIRMED', '晋级名单已确认，不能再改；如需调整请先取消确认')
   }
+  if (round.key === 'final' && round.advanceMode === 'duel') {
+    conflictError('DUEL_AUTO_ADVANCE', '抽签 1v1 由每组胜者自动晋级，不能手动勾选')
+  }
   // 先把默认勾选钉住，再改这一条：之后排名怎么变，都按现在看到的结果走。
   materializeAdvanceDefaults(client, round)
   const entry = client.db.select().from(competitionRoundEntries)
@@ -4669,12 +4933,44 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   if (round.status !== 'closed') {
     conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分，再确认晋级名单')
   }
+  const duelMode = round.key === 'final' && round.advanceMode === 'duel'
+  let duelWinnerIds: Set<string> | null = null
+  if (duelMode) {
+    const entries = listRoundEntryRows(client, round.id)
+    if (entries.length === 0) validationError('本轮还没有参赛名单', 'advanced')
+    if (entries.some(entry => entry.pairNo === null || entry.pairSlot === null)) {
+      validationError('还有选手没有抽签分组，请先完成 1v1 抽签', 'pairs')
+    }
+    const outcomes = duelOutcomes(
+      entries,
+      listRoundScores(client, round.id),
+      trimExtremesFor(client, round)
+    )
+    const unresolved = [...outcomes.entries()].filter(([, outcome]) => !outcome.winnerEntryId)
+    if (unresolved.length > 0) {
+      validationError(`第 ${unresolved.map(([pairNo]) => pairNo).join('、')} 组还没分出胜负，先补齐评分或安排加赛`, 'pairs')
+    }
+    duelWinnerIds = new Set(
+      [...outcomes.values()]
+        .map(outcome => outcome.winnerEntryId)
+        .filter((entryId): entryId is string => Boolean(entryId))
+    )
+  }
   // 确认时也把默认勾选落库，保证「看到的」和「进去的」是同一批人。
   materializeAdvanceDefaults(client, round)
   const rows = listAdvanceRows(client, round)
   const picked = rows.filter(row => row.advanced)
   if (picked.length === 0) {
     validationError('至少要勾选一位晋级选手', 'advanced')
+  }
+  if (duelWinnerIds) {
+    if (picked.length !== duelWinnerIds.size) {
+      validationError(`抽签赛制应晋级 ${duelWinnerIds.size} 位小组胜者，当前勾选了 ${picked.length} 位`, 'advanced')
+    }
+    const wrong = picked.filter(row => !duelWinnerIds!.has(row.entryId))
+    if (wrong.length > 0) {
+      validationError('抽签赛制只能晋级各组胜者，请先重新抽签或修正评分', 'advanced')
+    }
   }
 
   const nextRound = nextRoundOf(client, round)
@@ -5417,7 +5713,10 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
   const config = cosConfig()
   const key = url.startsWith('cos:') ? url.slice(4) : ''
   const displayName = String(source.accompanimentName ?? '').trim()
-  const playable = key && config ? presignCosGet(config, key, 6 * 60 * 60, contentTypeForName(displayName, key)) : url
+  const isVideo = displayName.toLowerCase().endsWith('.mp4')
+  const playable = key && config
+    ? presignCosGet(config, key, 6 * 60 * 60, isVideo ? 'video/mp4' : contentTypeForName(displayName, key))
+    : url
   const originalUrl = String(source.originalUrl ?? '').trim()
   const originalName = String(source.originalName ?? '').trim()
   let original: CompetitionEntryAccompaniment['original'] = null
@@ -5449,6 +5748,47 @@ export async function setEntryAccompaniment(
   if (!entry) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
   }
+  const singer = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, entry.singerId)).get()
+  if (round.key === 'final' || round.key === 'final2') {
+    const extension = (file.filename.split('.').at(-1) || '').toLowerCase()
+    if (extension !== 'mp4') {
+      validationError('决赛只收 MP4 视频背景', 'filename')
+    }
+    if (file.data.byteLength === 0) {
+      validationError('视频文件是空的，重选一次', 'file')
+    }
+    if (file.data.byteLength > 500 * 1024 * 1024) {
+      throw createError({ statusCode: 413, statusMessage: 'Video is too large', data: { code: 'PAYLOAD_TOO_LARGE', message: '决赛背景视频不能超过 500MB' } })
+    }
+    const config = cosConfig()
+    if (!config) {
+      throw createError({ statusCode: 503, statusMessage: 'Storage not configured', data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' } })
+    }
+    const key = newAccompanimentKey(config, 'mp4')
+    await putCosObject(config, key, file.data, 'video/mp4')
+    const songValue = cleanSongTitle(entry.song ?? '', singer?.name ?? '')
+      || cleanSongTitle(singer?.song ?? '', singer?.name ?? '')
+    const name = accompanimentDisplayName(singer?.name ?? '', songValue, 'mp4')
+    client.db.update(competitionRoundEntries)
+      .set({
+        accompanimentUrl: `cos:${key}`,
+        accompanimentName: name,
+        accompanimentSize: file.data.byteLength,
+        accompanimentUpdatedAt: Date.now(),
+        originalUrl: null,
+        originalName: null,
+        originalSize: null
+      })
+      .where(eq(competitionRoundEntries.id, entryId))
+      .run()
+    return {
+      name,
+      url: presignCosGet(config, key, 6 * 60 * 60, 'video/mp4'),
+      size: file.data.byteLength,
+      original: null
+    }
+  }
   let data = file.data
   let sniffed = detectUploadedAudioType(data)
   const originalData = data
@@ -5464,8 +5804,6 @@ export async function setEntryAccompaniment(
     }
   }
   const stored = await storeUploadedAudio(data)
-  const singer = client.db.select().from(competitionSingers)
-    .where(eq(competitionSingers.id, entry.singerId)).get()
   const fromFilename = cleanSongTitle(songTitleFromFilename(file.filename), singer?.name ?? '')
   const currentSong = cleanSongTitle(entry.song ?? '', singer?.name ?? '')
   const songValue = currentSong || fromFilename || cleanSongTitle(singer?.song ?? '', singer?.name ?? '')
@@ -5648,6 +5986,37 @@ export async function commitAccompanimentKey(
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
   }
   const songValue = incoming || entrySong
+  if (round.key === 'final' || round.key === 'final2') {
+    if (accompanimentExtension(file.key) !== 'mp4') {
+      validationError('决赛只收 MP4 视频背景', 'key')
+    }
+    const config = cosConfig()
+    if (!config) {
+      throw createError({ statusCode: 503, statusMessage: 'Storage not configured', data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' } })
+    }
+    const name = accompanimentDisplayName(
+      singer?.name ?? '',
+      songValue || singer?.song || '',
+      'mp4'
+    )
+    client.db.update(competitionRoundEntries)
+      .set({
+        accompanimentUrl: `cos:${file.key}`,
+        accompanimentName: name,
+        accompanimentSize: file.size,
+        accompanimentUpdatedAt: Date.now(),
+        originalUrl: null,
+        originalName: null,
+        originalSize: null
+      })
+      .where(eq(competitionRoundEntries.id, entryId))
+      .run()
+    return {
+      name,
+      url: presignCosGet(config, file.key, 6 * 60 * 60, 'video/mp4'),
+      size: file.size
+    }
+  }
   let sourceKey = file.key
   let sourceSize = file.size
   const originalKey = file.key

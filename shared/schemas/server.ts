@@ -1380,6 +1380,7 @@ export const updateCompetitionRoundSchema = z.object({
   status: z.enum(['draft', 'open', 'closed']).optional(),
   judgeCount: z.number().int().min(1).max(20).optional(),
   advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional(),
+  advanceMode: z.enum(['rank', 'duel']).optional(),
   scorePrecision: z.enum(['integer', 'decimal']).optional(),
   dimensions: z.array(competitionDimensionSchema).min(1).max(10).optional(),
   dimensionMax: z.number().int().min(1).max(100).optional(),
@@ -1508,7 +1509,9 @@ export const competitionSongLookupSchema = z.object({
 export const setCompetitionEntryAccompanimentSchema = z.object({
   entryId: z.string().min(1).max(64),
   filename: z.string().trim().max(120).optional(),
-  data: z.string().min(1).max(560 * 1024 * 1024)
+  data: z.string().min(1).max(560 * 1024 * 1024).optional(),
+  key: z.string().trim().min(4).max(300).optional(),
+  size: z.number().int().positive().max(500 * 1024 * 1024).optional()
 }).strict()
 
 export const competitionSongAccompanimentSchema = z.object({

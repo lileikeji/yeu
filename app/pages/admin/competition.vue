@@ -247,6 +247,7 @@ const {
 
 const {
   advanceBusyKey, advanceRows, advanceConfirmed, advanceCount, receipts, receiptConfirmedCount,
+  pairsBusyKey, duelPairs, duelResolved, drawPairs,
   toggleAdvance, confirmAdvance, reopenAdvance,
   reminderSubject, reminderBody, reminderSaving, reminderSending, saveReminderTemplate, sendReminders,
   editionLabel, editionCreating, createEdition
@@ -1526,6 +1527,24 @@ onBeforeUnmount(stopLiveRefresh)
               />
             </UFormField>
             <UFormField
+              v-if="activeRound.key === 'final'"
+              label="晋级方式"
+              class="w-44"
+            >
+              <select
+                :value="activeRound.advanceMode"
+                class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                @change="activeRound.advanceMode = ($event.target as HTMLSelectElement).value as 'rank' | 'duel'"
+              >
+                <option value="rank">
+                  整轮前六
+                </option>
+                <option value="duel">
+                  抽签 1v1（每组胜者）
+                </option>
+              </select>
+            </UFormField>
+            <UFormField
               v-if="activeRound.key !== 'final' && activeRound.key !== 'final2'"
               :label="activeRound.key === 'semi' ? '晋级人数（可待定）' : '晋级人数'"
               class="w-40"
@@ -2021,24 +2040,26 @@ onBeforeUnmount(stopLiveRefresh)
                         <input
                           type="file"
                           class="hidden"
-                          accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac"
+                          accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,video/mp4,.mp4"
                           :disabled="accompanimentBusyId === entry.id || activeRound?.status === 'closed'"
                           @change="onPickAccompaniment(activeRound!, entry, $event)"
                         >
-                        {{ entry.accompaniment ? '换伴奏' : '传伴奏' }}
+                        {{ entry.accompaniment
+                          ? (entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '换背景视频' : '换伴奏')
+                          : ((activeRound?.key === 'final' || activeRound?.key === 'final2') ? '传背景视频' : '传伴奏') }}
                       </label>
                       <template v-if="entry.accompaniment">
                         <button
                           type="button"
                           class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-                          aria-label="试听伴奏"
+                          :aria-label="entry.accompaniment?.name.toLowerCase().endsWith('.mp4') ? '预览背景视频' : '试听伴奏'"
                           @click="openAccompaniment(entry)"
                         >
                           <UIcon
                             name="i-lucide-play"
                             class="size-3"
                           />
-                          试听
+                          {{ entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '预览' : '试听' }}
                         </button>
                         <span class="ml-1 text-[11px]">
                           {{ entry.accompaniment.name }}
@@ -2194,19 +2215,108 @@ onBeforeUnmount(stopLiveRefresh)
                 >
                   重新打开
                 </UButton>
+                <template v-else>
+                  <UButton
+                    v-if="activeRound.key === 'final' && activeRound.advanceMode === 'duel'"
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-lucide-shuffle"
+                    :loading="pairsBusyKey.endsWith(':draw')"
+                    @click="drawPairs('draw')"
+                  >
+                    {{ duelPairs.length > 0 ? '重新抽签' : '抽签分组' }}
+                  </UButton>
+                  <UButton
+                    v-if="activeRound.key === 'final' && activeRound.advanceMode === 'duel' && duelPairs.length > 0"
+                    size="xs"
+                    color="neutral"
+                    variant="outline"
+                    :loading="pairsBusyKey.endsWith(':clear')"
+                    @click="drawPairs('clear')"
+                  >
+                    清除对阵
+                  </UButton>
+                </template>
                 <UButton
-                  v-else-if="advanceRows.length > 0"
+                  v-if="!advanceConfirmed && advanceRows.length > 0"
                   size="xs"
                   :loading="advanceBusyKey.endsWith(':confirm')"
+                  :disabled="activeRound.advanceMode === 'duel' && !duelResolved"
                   @click="confirmAdvance"
                 >
-                  确认名单（{{ advanceCount }} 人）
+                  {{ activeRound.advanceMode === 'duel' ? '确认胜者' : '确认名单' }}（{{ advanceCount }} 人）
                 </UButton>
               </div>
             </div>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              本轮结束后在这一页勾出晋级的人；确认之后才能发通知邮件，改名单要先重新打开。
+              <template v-if="activeRound.advanceMode === 'duel'">
+                第一轮开唱前点「抽签分组」把 {{ activeRound.entries.length }} 位选手随机配成 {{ Math.floor(activeRound.entries.length / 2) }} 组；每组两人各唱第一首，平均分高者进第二轮。同分按评委多数、最高单项分依次裁定，仍同分需加赛或人工处理。
+              </template>
+              <template v-else>
+                本轮结束后在这一页勾出晋级的人；确认之后才能发通知邮件，改名单要先重新打开。
+              </template>
             </p>
+          </div>
+
+          <div
+            v-if="activeRound.advanceMode === 'duel'"
+            class="border-b border-zinc-100 px-4 py-4 dark:border-zinc-800"
+          >
+            <div
+              v-if="duelPairs.length === 0"
+              class="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+            >
+              还没分组。第一轮开唱前点右上角「抽签分组」，系统会随机配成 1v1；已有评分后不能再抽。
+            </div>
+            <div
+              v-else
+              class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+            >
+              <div
+                v-for="pair in duelPairs"
+                :key="pair.pairNo"
+                class="rounded-lg border p-3"
+                :class="pair.ready ? 'border-emerald-200 dark:border-emerald-900' : 'border-amber-200 dark:border-amber-900'"
+              >
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400">第 {{ pair.pairNo }} 组</span>
+                  <span
+                    v-if="pair.ready"
+                    class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                  >
+                    胜者：{{ pair.winnerName }}
+                  </span>
+                  <span
+                    v-else
+                    class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                  >
+                    待裁定
+                  </span>
+                </div>
+                <div class="space-y-1.5">
+                  <div
+                    v-for="entry in pair.entries"
+                    :key="entry.id"
+                    class="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm"
+                    :class="entry.id === pair.winnerEntryId
+                      ? 'bg-emerald-50 font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200'
+                      : 'text-zinc-700 dark:text-zinc-300'"
+                  >
+                    <span class="truncate">{{ entry.singer.name }}</span>
+                    <span class="shrink-0 tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
+                      {{ entry.average === null ? '未评分' : entry.average.toFixed(2) }}
+                    </span>
+                  </div>
+                </div>
+                <p
+                  v-if="pair.note"
+                  class="mt-2 text-[11px] text-amber-700 dark:text-amber-300"
+                >
+                  {{ pair.note }}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div
@@ -2263,7 +2373,7 @@ onBeforeUnmount(stopLiveRefresh)
                       type="checkbox"
                       class="size-4 accent-emerald-600"
                       :checked="row.advanced"
-                      :disabled="Boolean(advanceConfirmed)"
+                      :disabled="Boolean(advanceConfirmed) || activeRound.advanceMode === 'duel'"
                       @change="toggleAdvance(row.entryId, ($event.target as HTMLInputElement).checked)"
                     >
                   </td>
@@ -3449,13 +3559,21 @@ onBeforeUnmount(stopLiveRefresh)
     <UModal
       v-model:open="accompanimentPreviewOpen"
       :title="accompanimentPreview?.name || '伴奏'"
-      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}${accompanimentPreview.updatedAt ? `，更新于 ${formatDateTime(accompanimentPreview.updatedAt)}` : ''}，手机上直接点播放就能听，电脑也可以下载下来。` : '手机上直接点播放就能听，电脑也可以下载下来。'"
+      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}${accompanimentPreview.updatedAt ? `，更新于 ${formatDateTime(accompanimentPreview.updatedAt)}` : ''}，手机上直接点播放就能看/听，电脑也可以下载下来。` : '手机上直接点播放就能看/听，电脑也可以下载下来。'"
       :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
     >
       <template #body>
         <div class="space-y-3">
+          <video
+            v-if="accompanimentPreview && accompanimentPreview.name.toLowerCase().endsWith('.mp4')"
+            :src="accompanimentPreview.url"
+            controls
+            playsinline
+            preload="metadata"
+            class="max-h-[70vh] w-full rounded-lg bg-black"
+          />
           <audio
-            v-if="accompanimentPreview"
+            v-else-if="accompanimentPreview"
             :src="accompanimentPreview.url"
             controls
             preload="none"
@@ -3473,7 +3591,7 @@ onBeforeUnmount(stopLiveRefresh)
               name="i-lucide-download"
               class="size-4"
             />
-            下载这个伴奏
+            下载这个{{ accompanimentPreview.name.toLowerCase().endsWith('.mp4') ? '视频' : '伴奏' }}
           </a>
           <a
             v-if="accompanimentPreview?.original"

@@ -511,12 +511,40 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     file: File
   ): Promise<void> {
     if (round.status === 'closed' || accompanimentBusyId.value) return
-    if (file.size > 400 * 1024 * 1024) {
-      toast.add({ title: '伴奏不能超过 400MB', color: 'warning' })
+    const videoRound = round.key === 'final' || round.key === 'final2'
+    if (file.size > (videoRound ? 500 : 400) * 1024 * 1024) {
+      toast.add({ title: videoRound ? '决赛背景视频不能超过 500MB' : '伴奏不能超过 400MB', color: 'warning' })
+      return
+    }
+    if (videoRound && !file.name.toLowerCase().endsWith('.mp4')) {
+      toast.add({ title: '决赛背景只收 MP4 视频', color: 'warning' })
       return
     }
     accompanimentBusyId.value = entry.id
     try {
+      if (videoRound) {
+        // 视频不走 JSON base64：先要直传地址，字节直接进对象存储。
+        const ticket = await adminFetch<{ key: string, uploadUrl: string }>(
+          `/api/admin/competition/rounds/${round.key}/entry-accompaniment-ticket`,
+          { method: 'POST', body: { entryId: entry.id, filename: file.name } }
+        )
+        const upload = await fetch(ticket.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'video/mp4' },
+          body: file
+        })
+        if (!upload.ok) throw new Error(`视频上传失败（${upload.status}）`)
+        const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+          `/api/admin/competition/rounds/${round.key}/entry-accompaniment`,
+          {
+            method: 'POST',
+            body: { entryId: entry.id, filename: file.name, key: ticket.key, size: file.size }
+          }
+        )
+        payload.value = result.payload
+        toast.add({ title: `${entry.singer.name} 的决赛背景视频已上传`, description: file.name, color: 'success' })
+        return
+      }
       const data = await readFileAsBase64(file)
       const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
         `/api/admin/competition/rounds/${round.key}/entry-accompaniment`,
@@ -525,7 +553,11 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       payload.value = result.payload
       toast.add({ title: `${entry.singer.name} 的伴奏已上传`, description: file.name, color: 'success' })
     } catch (error) {
-      toast.add({ title: '上传伴奏失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+      toast.add({
+        title: videoRound ? '上传背景视频失败' : '上传伴奏失败',
+        description: apiErrorMessage(error, '请重试。'),
+        color: 'warning'
+      })
     } finally {
       accompanimentBusyId.value = ''
     }

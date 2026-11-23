@@ -1,7 +1,6 @@
 import type { Ref } from 'vue'
 import type {
   CompetitionAdminPayload,
-  CompetitionJudgePayload,
   CompetitionReceiptRow,
   CompetitionRoundView
 } from '~~/shared/types'
@@ -20,6 +19,7 @@ export function useCompetitionAdvance(options: UseCompetitionAdvanceOptions) {
   const { payload, activeRound, load, toast } = options
 
   const advanceBusyKey = ref('')
+  const pairsBusyKey = ref('')
   const reminderSending = ref(false)
   const reminderSaving = ref(false)
   const reminderSubject = ref('')
@@ -36,6 +36,10 @@ export function useCompetitionAdvance(options: UseCompetitionAdvanceOptions) {
   const advanceConfirmed = computed(() => activeRound.value?.rosterConfirmedAt ?? null)
 
   const advanceCount = computed(() => advanceRows.value.filter(row => row.advanced).length)
+
+  const duelPairs = computed(() => activeRound.value?.duelPairs ?? [])
+
+  const duelResolved = computed(() => duelPairs.value.length > 0 && duelPairs.value.every(pair => pair.ready))
 
   const receipts = computed<CompetitionReceiptRow[]>(() => {
     const round = activeRound.value
@@ -77,11 +81,33 @@ export function useCompetitionAdvance(options: UseCompetitionAdvanceOptions) {
   function confirmAdvance(): Promise<void> {
     const round = activeRound.value
     if (!round) return Promise.resolve()
+    if (round.advanceMode === 'duel' && !duelResolved.value) {
+      toast.add({ title: '还有小组没分出胜负，先处理同分或加赛', color: 'warning' })
+      return Promise.resolve()
+    }
     if (advanceCount.value === 0) {
       toast.add({ title: '至少勾选一位晋级选手', color: 'warning' })
       return Promise.resolve()
     }
     return postAdvance(round.key, { action: 'confirm' })
+  }
+
+  async function drawPairs(action: 'draw' | 'clear'): Promise<void> {
+    const round = activeRound.value
+    if (!round || pairsBusyKey.value) return
+    pairsBusyKey.value = `${round.key}:${action}`
+    try {
+      const data = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/pairs`,
+        { method: 'POST', body: { action } }
+      )
+      payload.value = data.payload
+      toast.add({ title: action === 'draw' ? '对阵已抽好' : '对阵已清除', color: 'success' })
+    } catch (error) {
+      toast.add({ title: apiErrorMessage(error, '操作失败，请重试'), color: 'error' })
+    } finally {
+      pairsBusyKey.value = ''
+    }
   }
 
   function reopenAdvance(): Promise<void> {
@@ -172,13 +198,17 @@ export function useCompetitionAdvance(options: UseCompetitionAdvanceOptions) {
 
   return {
     advanceBusyKey,
+    pairsBusyKey,
     advanceRows,
     advanceConfirmed,
     advanceCount,
+    duelPairs,
+    duelResolved,
     receipts,
     receiptConfirmedCount,
     toggleAdvance,
     confirmAdvance,
+    drawPairs,
     reopenAdvance,
     reminderSubject,
     reminderBody,

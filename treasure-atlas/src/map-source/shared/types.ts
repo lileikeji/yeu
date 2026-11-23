@@ -351,6 +351,9 @@ export interface CompetitionFormField {
 
 export type CompetitionScorePrecision = 'integer' | 'decimal'
 
+/** 决赛晋级方式：rank = 整轮前六；duel = 抽签 1v1，每组胜者进第二轮。 */
+export type CompetitionAdvanceMode = 'rank' | 'duel'
+
 export interface CompetitionRound {
   id: string
   key: CompetitionRoundKey
@@ -358,8 +361,10 @@ export interface CompetitionRound {
   position: number
   status: CompetitionRoundStatus
   judgeCount: number
-  /** 本轮晋级下一轮的人数；决赛为 null。复赛为 null 表示名额待定。 */
+  /** 本轮晋级下一轮的人数；决赛第一轮固定 6，决赛第二轮为 null。复赛为 null 表示名额待定。 */
   advanceCount: number | null
+  /** 决赛晋级方式；其他轮次固定 rank。 */
+  advanceMode: CompetitionAdvanceMode
   /** 晋级名单确认时间；空 = 还没确认，不能发结果邮件。 */
   rosterConfirmedAt: number | null
   /** 本轮结果查询通道是否已开（发出结果邮件后自动打开）。 */
@@ -707,6 +712,10 @@ export interface CompetitionRoundEntry {
   accompanimentUpdatedAt: number | null
   /** 1 = 已确认晋级下一轮，0 = 未晋级，null = 还没确认。 */
   advanced: number | null
+  /** 抽签 1v1 的组号；null = 还没分组。 */
+  pairNo: number | null
+  /** 组内位置 1 / 2；null = 还没分组。 */
+  pairSlot: number | null
   advancedFromRank: number | null
   average: number | null
   scoreCount: number
@@ -734,6 +743,16 @@ export interface CompetitionAdvanceRow {
   scoreCount: number
   rank: number | null
   advanced: boolean
+}
+
+/** 决赛抽签 1v1 的一组：两位选手、胜者与平分说明。 */
+export interface CompetitionDuelPair {
+  pairNo: number
+  entries: CompetitionRoundEntry[]
+  winnerEntryId: string | null
+  winnerName: string | null
+  ready: boolean
+  note: string
 }
 
 /** 结果查询回执状态。 */
@@ -766,6 +785,8 @@ export interface CompetitionRoundView extends CompetitionRound {
   sequential: boolean
   /** 顺序评分：当前这位选手与全场提交情况；未开启顺序评分时为 null。 */
   current: CompetitionCurrentSinger | null
+  /** 决赛抽签 1v1 的分组；非 duel 或不是决赛时为空数组。 */
+  duelPairs: CompetitionDuelPair[]
 }
 
 /**

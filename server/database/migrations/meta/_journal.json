@@ -575,6 +575,13 @@
       "when": 1795510000000,
       "tag": "0081_competition_popularity",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1795513600000,
+      "tag": "0082_competition_final_duel",
+      "breakpoints": true
     }
   ]
 }

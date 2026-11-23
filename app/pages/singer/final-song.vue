@@ -283,6 +283,12 @@ async function submit(): Promise<void> {
         </NuxtLink>
         <NuxtLink
           to="/singer/song"
+          class="text-[var(--color-green-700)] underline"
+        >
+          上传决赛背景视频
+        </NuxtLink>
+        <NuxtLink
+          to="/singer/song"
           class="text-[var(--muted-ink)] underline"
         >
           初赛/复赛填歌

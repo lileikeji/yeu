@@ -72,7 +72,9 @@ export default defineEventHandler(async (event) => {
     scoreCount: 5,
     rank: 3,
     qualified: round.advanceCount !== null,
-    forfeited: false
+    forfeited: false,
+    pairNo: null,
+    pairSlot: null
   }
   const sampleSinger = {
     ...sampleEntry.singer,
