@@ -189,10 +189,10 @@ test('insightConfigFromValues：网关三项缺一项就当未接入', () => {
 
 test('insightDigest：空数据不抛，且产出可序列化摘要', () => {
   const digest = insightDigest(report())
-  assert.equal(digest.overview.singers, 0)
+  assert.equal(digest.overview.finalists, 0)
   assert.deepEqual(digest.leaders, [])
   assert.deepEqual(digest.duels, [])
-  assert.equal(digest.rounds.length, 4)
+  assert.equal(digest.revival, null)
   assert.equal(JSON.parse(JSON.stringify(digest)).event, '仰恩大学歌手大赛')
 })
 
@@ -215,18 +215,39 @@ test('insightDigest：选手与对阵都有硬上限，不随名单膨胀', () =
   assert.ok(JSON.stringify(digest).length < 20_000)
 })
 
-test('insightDigest：未建模选手退化为按票数排序，避免空白分析', () => {
+test('insightDigest：决赛选手摘要带对手、胜率关系与两首歌准备', () => {
+  const singer = profile(1)
+  singer.finalPairNo = 1
+  singer.finalPairSlot = 1
+  singer.finalOpponentName = '选手2'
+  singer.finalDuelWon = true
+  singer.finalSongs = { firstSong: '第一首', secondSong: '第二首', revision: 1 }
+  const digest = insightDigest(report({
+    profiles: [singer],
+    profilesById: { s1: singer },
+    overview: { ...report().overview, finalCount: 1, finalSongsCount: 1, duelTotalCount: 1, duelReadyCount: 1 }
+  }))
+  assert.equal(digest.leaders[0]?.song, '第一首')
+  assert.equal(digest.leaders[0]?.secondSong, '第二首')
+  assert.equal(digest.leaders[0]?.opponent, '选手2')
+  assert.equal(digest.leaders[0]?.duelResult, '胜')
+  assert.equal(digest.leaders[0]?.finalSongsReady, true)
+})
+
+test('insightDigest：未建模选手按对阵顺序排序，不再拿人气票数当实力', () => {
   const low = profile(1, { hasRating: false, powerScore: null, powerRank: null, tier: '—' })
-  low.popularityVotes = 5
+  low.finalPairNo = 2
+  low.finalPairSlot = 1
   const high = profile(2, { hasRating: false, powerScore: null, powerRank: null, tier: '—' })
-  high.popularityVotes = 99
+  high.finalPairNo = 1
+  high.finalPairSlot = 1
   const digest = insightDigest(report({
     profiles: [low, high],
-    profilesById: { s1: low, s2: high },
-    overview: { ...report().overview, singerTotal: 2, ratedCount: 0, totalVotes: 104 }
+    profilesById: { s1: low, s2: high }
   }))
   assert.equal(digest.leaders[0]?.name, '选手2')
   assert.equal(digest.leaders[0]?.power, null)
+  assert.equal(digest.leaders[0]?.pairNo, 1)
 })
 
 test('insightFingerprint：同数据同指纹，数字一变就不同', () => {
@@ -236,7 +257,7 @@ test('insightFingerprint：同数据同指纹，数字一变就不同', () => {
   assert.match(insightFingerprint(base), /^[0-9a-f]{16}$/)
 
   const changed = insightDigest(report({
-    overview: { ...report().overview, totalVotes: 1 }
+    overview: { ...report().overview, finalCount: 1 }
   }))
   assert.notEqual(insightFingerprint(base), insightFingerprint(changed))
 })
@@ -415,7 +436,7 @@ test('后台任务：同一份数据只跑一次，重复点击复用同一个�
   let calls = 0
   const run = async (): Promise<CompetitionInsight> => {
     calls += 1
-    await new Promise<void>((resolve) => { setTimeout(resolve, 5) })
+    await new Promise<void>(resolve => setTimeout(resolve, 5))
     return { headline: '结论', highlights: [], risks: [], actions: [], caveats: [] }
   }
 

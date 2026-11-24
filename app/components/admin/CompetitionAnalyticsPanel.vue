@@ -433,7 +433,12 @@ async function generateInsight(): Promise<void> {
           两首歌 {{ report.overview.finalSongsCount }}/{{ report.overview.finalCount }} · 1v1 {{ report.overview.duelTotalCount }} 组
         </p>
         <p class="mt-0.5 text-xs text-zinc-400">
-          第二轮 {{ report.overview.final2Count }} 人<template v-if="report.overview.revivedCount > 0">（复活 {{ report.overview.revivedCount }} 人）</template>
+          <span v-if="report.overview.revivedCount > 0">
+            第二轮 {{ report.overview.final2Count }} 人（复活 {{ report.overview.revivedCount }} 人）
+          </span>
+          <span v-else>
+            第二轮 {{ report.overview.final2Count }} 人
+          </span>
         </p>
       </div>
 
@@ -455,13 +460,13 @@ async function generateInsight(): Promise<void> {
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            AI 智能分析
+            AI 选手与对阵分析
             <span class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
               {{ insightResult?.meta.model || '平台 AI' }}
             </span>
           </h2>
           <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            把当前统计交给平台 AI 网关，生成赛况判断与办赛建议。只读后台数据，不改任何评分；结论会写入面板，刷新或换页回来仍显示上次结果，只有再点一次按钮才会重新分析。
+            只分析决赛选手当前状态、两首歌准备情况、1v1 胜率与具体对阵，不写报名、签到等运营统计。只读后台数据，不改评分；结论会写入面板，刷新后仍显示上次结果。
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -506,7 +511,7 @@ async function generateInsight(): Promise<void> {
         <div class="grid gap-3 md:grid-cols-3">
           <div v-if="insightResult.insight.highlights.length > 0">
             <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-              亮点
+              选手状态
             </p>
             <ul class="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
               <li
@@ -521,7 +526,7 @@ async function generateInsight(): Promise<void> {
           </div>
           <div v-if="insightResult.insight.risks.length > 0">
             <p class="text-xs font-semibold text-amber-700 dark:text-amber-300">
-              风险
+              对阵风险
             </p>
             <ul class="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
               <li
@@ -536,7 +541,7 @@ async function generateInsight(): Promise<void> {
           </div>
           <div v-if="insightResult.insight.actions.length > 0">
             <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
-              建议
+              备战建议
             </p>
             <ul class="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
               <li
@@ -562,7 +567,7 @@ async function generateInsight(): Promise<void> {
         v-else
         class="mt-3 text-xs text-zinc-400"
       >
-        {{ insightLoading ? '正在分析当前赛况…' : '还没有分析结果，点右侧按钮生成。' }}
+        {{ insightLoading ? '正在分析选手状态与对阵…' : '还没有选手分析结果，点右侧按钮生成。' }}
       </p>
     </div>
 

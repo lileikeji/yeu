@@ -93,10 +93,6 @@ const organizationNavigation = computed(() => [{
             label: '歌手大赛',
             to: '/admin/competition',
             icon: 'i-lucide-mic-vocal'
-          }, {
-            label: '大赛可视化',
-            to: '/admin/competition-analytics',
-            icon: 'i-lucide-chart-column'
           }]
         : []), {
         label: '数据看板',
@@ -210,7 +206,6 @@ function isOrganizationRouteAllowed(path: string): boolean {
     || path === '/admin/activities'
     || path.startsWith('/admin/content/')
     || (path === '/admin/competition' && isMusicAssociation.value)
-    || (path === '/admin/competition-analytics' && isMusicAssociation.value)
     || (path === '/admin/yeuca' && isComputerAssociation.value)
     || (path === '/admin/miniapp' && canUseCapability('analytics.view'))
     || (path === '/admin/overview' && canUseCapability('analytics.view'))

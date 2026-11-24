@@ -377,13 +377,6 @@ onBeforeUnmount(stopLiveRefresh)
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <UButton
-          icon="i-lucide-chart-column"
-          label="数据可视化"
-          to="/admin/competition-analytics"
-          color="neutral"
-          variant="soft"
-        />
-        <UButton
           icon="i-lucide-megaphone"
           label="宣传页"
           to="/singer"
@@ -2491,7 +2484,7 @@ onBeforeUnmount(stopLiveRefresh)
                 class="flex flex-wrap items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-sm"
                 :class="candidate.revived
                   ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-500/10'
-                  : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
+                  : 'border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900'"
               >
                 <div class="flex min-w-0 flex-wrap items-center gap-2">
                   <span class="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">

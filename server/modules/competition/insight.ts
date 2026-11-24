@@ -10,11 +10,9 @@
  * - 网关未配置或调用失败返回 null，由路由给出可读原因，前端显示占位而不是编造结论。
  */
 import { createHash } from 'node:crypto'
-import type { CompetitionRoundKey } from '../../../shared/types'
 import type {
   CompetitionAnalyticsReport,
   DuelPrediction,
-  RoundDistributionStat,
   SingerAnalyticsProfile
 } from '../../../shared/utils/competition-analytics'
 
@@ -36,12 +34,6 @@ export interface CompetitionInsight {
 export interface CompetitionInsightDigest {
   event: string
   overview: {
-    singers: number
-    preReg: number
-    preRegConverted: number
-    rated: number
-    sTier: number
-    aPlusOrAbove: number
     finalists: number
     final2: number
     /** 第二轮名单里由隐藏赛制复活补位进来的人数。 */
@@ -49,30 +41,13 @@ export interface CompetitionInsightDigest {
     finalSongs: number
     duelGroups: number
     duelReady: number
-    votes: number
-    topVoteName: string | null
-    topVoteCount: number
   }
-  funnel: Array<{ label: string, count: number, rateFromPrev: number }>
-  rounds: Array<{
-    key: CompetitionRoundKey
-    title: string
-    status: string
-    entries: number
-    scored: number
-    checkedIn: number
-    averagePercent: number | null
-    stdDevPercent: number | null
-    highestPercent: number | null
-    lowestPercent: number | null
-    topBucket: { label: string, percent: number } | null
-    judges: Array<{ name: string, scored: number, averagePercent: number | null, bias: number | null }>
-  }>
   leaders: Array<{
     rank: number
     name: string
     className: string
     song: string
+    secondSong: string | null
     stage: string
     power: number | null
     tier: string
@@ -81,7 +56,11 @@ export interface CompetitionInsightDigest {
     deltaPercent: number | null
     topStrength: string | null
     weakSpot: string | null
-    votes: number
+    pairNo: number | null
+    pairSlot: number | null
+    opponent: string | null
+    duelResult: '胜' | '负' | '待唱' | null
+    finalSongsReady: boolean
   }>
   duels: Array<{
     pairNo: number
@@ -96,7 +75,6 @@ export interface CompetitionInsightDigest {
     confidence: number
     volatility: string
   }>
-  fieldSkills: Array<{ label: string, average: number }>
   /**
    * 隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 N 名跟着胜者进第二轮。
    * 非决赛 1v1 时为 null；开关关闭时 enabled=false 且没有候选。
@@ -110,23 +88,24 @@ export interface CompetitionInsightDigest {
 
 const MAX_LEADERS = 12
 const MAX_DUELS = 6
-const MAX_JUDGES = 6
 const MAX_TEXT = 160
 const MAX_ITEMS = 6
 
-export const COMPETITION_INSIGHT_PROMPT = `你是仰恩大学歌手大赛的赛事数据分析师。下面给出的是本届比赛的结构化统计（选手实力模型、各轮分数分布、评委打分偏差、决赛对阵胜率、人气投票）。
-请只依据给出的数字作判断，不得编造选手、曲目、分数或规则；数字看起来不合理时，把它写进 caveats 而不是自行修正。
+export const COMPETITION_INSIGHT_PROMPT = `你是仰恩大学歌手大赛的决赛现场分析师。输入只包含决赛选手、两首歌准备情况、前两轮成绩、1v1 对阵胜率与复活信息。
+你的任务：判断每位选手当前状态、谁更可能赢下具体对阵、谁有冠军相；不要做赛事运营复盘。
+禁止输出：报名/预报名转化、签到率、评委偏差、维度平均分、分数分布、泛泛的赛制建议；即使输入里出现这些字段也不要写。
+判断必须点名选手或对阵，并带具体数字（分数、胜率、分差、排名）。没有数据就写 caveats，不要编造。
 字段说明：duels[].leftWinPercent/rightWinPercent 是赛前胜率；confidence 是这次预测的置信度（0–100，评委分歧大、实力差距小则低）；volatility 为「稳定 / 波动 / 未知」，为「波动」时不要把它当确定结论。
-rounds 里 key=final2 的是决赛第二轮（冠亚之争），它和决赛第一轮是两个不同的轮次，分析时分别说明，不要把它们合并成「决赛」一句话。
-revival 是隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 slots 名（revived=true）跟着胜者一起进第二轮；candidates 按 loserRank 从小到大排。复活名额是否合理、被复活的败者与胜者的分差有多大，值得在 highlights 或 risks 里点出来。
+leaders[].song/secondSong 分别是第一轮、第二轮曲目；finalSongsReady=true 表示两首歌都已提交；pairNo/pairSlot/opponent/duelResult 描述 1v1 分组与结果（待唱=尚未出结果）。
+revival 是隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 slots 名（revived=true）跟着胜者一起进第二轮；candidates 按 loserRank 从小到大排。复活名额对具体选手晋级形势的影响，可以写进 highlights 或 risks。
 
 输出严格 JSON，字段如下：
 {
-  "headline": "一句话总判断，不超过 40 字",
-  "highlights": ["3-5 条值得注意的强项或亮点，每条不超过 60 字"],
-  "risks": ["1-4 条需要警惕的异常，如分数离散度过高、评委偏差明显、晋级名额与实际人数不匹配"],
-  "actions": ["2-4 条具体可执行的办赛建议，每条不超过 60 字"],
-  "caveats": ["0-3 条数据本身的局限，如样本量小、某轮尚未开始打分"]
+  "headline": "一句话总判断：当前最大夺冠热门或最悬的对决，不超过 40 字",
+  "highlights": ["3-5 条，每条必须点名选手或具体对阵，并写清当前状态/胜率/分差/晋级形势，每条不超过 60 字"],
+  "risks": ["1-4 条，具体到选手或对阵的风险，如状态波动、曲目准备不足、胜率接近、复活名额挤压，每条不超过 60 字"],
+  "actions": ["2-4 条，针对具体选手或对阵的备战/现场建议，每条不超过 60 字"],
+  "caveats": ["0-3 条数据本身的局限，如某轮尚未打分、对阵尚未抽出，禁止写运营建议"]
 }
 用中文，语气客观，不要客套话，不要 markdown 语法。`
 
@@ -143,44 +122,24 @@ export function insightConfigFromValues(runtime: Record<string, unknown>): Compe
   }
 }
 
-function percentOf(value: number | null, maxTotal: number): number | null {
-  if (value === null || !Number.isFinite(value) || maxTotal <= 0) return null
-  return Math.round((value / maxTotal) * 1000) / 10
-}
-
-function roundDigest(stat: RoundDistributionStat): CompetitionInsightDigest['rounds'][number] {
-  const topBucket = [...stat.buckets].sort((left, right) => right.count - left.count)[0] ?? null
-  const judges = [...stat.judges]
-    .sort((left, right) => (right.scoredCount - left.scoredCount) || left.displayName.localeCompare(right.displayName))
-    .slice(0, MAX_JUDGES)
-    .map(judge => ({
-      name: judge.displayName,
-      scored: judge.scoredCount,
-      averagePercent: judge.averagePercent === null ? null : Math.round(judge.averagePercent * 10) / 10,
-      bias: judge.biasFromRound === null ? null : Math.round(judge.biasFromRound * 10) / 10
-    }))
-  return {
-    key: stat.roundKey,
-    title: stat.roundTitle,
-    status: stat.status,
-    entries: stat.entryCount,
-    scored: stat.scoredCount,
-    checkedIn: stat.checkedInCount,
-    averagePercent: stat.averagePercent === null ? null : Math.round(stat.averagePercent * 10) / 10,
-    stdDevPercent: stat.stdDevPercent === null ? null : Math.round(stat.stdDevPercent * 10) / 10,
-    highestPercent: percentOf(stat.highestScore, stat.maxTotal),
-    lowestPercent: percentOf(stat.lowestScore, stat.maxTotal),
-    topBucket: topBucket && topBucket.count > 0 ? { label: topBucket.label, percent: Math.round(topBucket.percent * 10) / 10 } : null,
-    judges
-  }
-}
-
 function leaderDigest(profile: SingerAnalyticsProfile, index: number): CompetitionInsightDigest['leaders'][number] {
+  const firstSong = profile.finalSongs?.firstSong?.trim() || profile.singer.song || ''
+  const secondSong = profile.finalSongs?.secondSong?.trim() || null
+  const finalSongsReady = Boolean(firstSong && secondSong)
+  const duelResult: CompetitionInsightDigest['leaders'][number]['duelResult']
+    = profile.finalDuelWon === true
+      ? '胜'
+      : profile.finalDuelWon === false
+        ? '负'
+        : profile.finalPairNo !== null
+          ? '待唱'
+          : null
   return {
     rank: index + 1,
     name: profile.singer.name,
     className: profile.singer.className || '',
-    song: profile.singer.song || '',
+    song: firstSong,
+    secondSong,
     stage: profile.currentStageLabel,
     power: profile.power.powerScore === null ? null : Math.round(profile.power.powerScore * 10) / 10,
     tier: profile.power.tier,
@@ -189,7 +148,11 @@ function leaderDigest(profile: SingerAnalyticsProfile, index: number): Competiti
     deltaPercent: profile.power.deltaPercent === null ? null : Math.round(profile.power.deltaPercent * 10) / 10,
     topStrength: profile.power.topStrength?.label ?? null,
     weakSpot: profile.power.weakSpot?.label ?? null,
-    votes: profile.popularityVotes
+    pairNo: profile.finalPairNo,
+    pairSlot: profile.finalPairSlot,
+    opponent: profile.finalOpponentName,
+    duelResult,
+    finalSongsReady
   }
 }
 
@@ -217,12 +180,10 @@ export function insightDigest(report: CompetitionAnalyticsReport, eventLabel = '
     .sort((left, right) => (left.power.powerRank ?? Number.MAX_SAFE_INTEGER) - (right.power.powerRank ?? Number.MAX_SAFE_INTEGER))
   const ordered = ranked.length > 0
     ? ranked
-    : [...report.profiles].sort((left, right) => right.popularityVotes - left.popularityVotes)
-
-  const rounds: CompetitionInsightDigest['rounds'] = (['prelim', 'semi', 'final', 'final2'] as CompetitionRoundKey[])
-    .map(key => report.roundStats[key])
-    .filter((stat): stat is RoundDistributionStat => Boolean(stat))
-    .map(roundDigest)
+    : [...report.profiles].sort((left, right) => (
+        (left.finalPairNo ?? Number.MAX_SAFE_INTEGER) - (right.finalPairNo ?? Number.MAX_SAFE_INTEGER)
+        || left.singer.name.localeCompare(right.singer.name, 'zh-CN')
+      ))
 
   const duels = Object.values(report.duelPredictions)
     .sort((left, right) => left.pairNo - right.pairNo)
@@ -232,33 +193,15 @@ export function insightDigest(report: CompetitionAnalyticsReport, eventLabel = '
   return {
     event: eventLabel,
     overview: {
-      singers: report.overview.singerTotal,
-      preReg: report.overview.preRegTotal,
-      preRegConverted: report.overview.preRegConverted,
-      rated: report.overview.ratedCount,
-      sTier: report.overview.sTierCount,
-      aPlusOrAbove: report.overview.aPlusOrAboveCount,
       finalists: report.overview.finalCount,
       final2: report.overview.final2Count,
       revived: report.overview.revivedCount,
       finalSongs: report.overview.finalSongsCount,
       duelGroups: report.overview.duelTotalCount,
-      duelReady: report.overview.duelReadyCount,
-      votes: report.overview.totalVotes,
-      topVoteName: report.overview.topPopularityName,
-      topVoteCount: report.overview.topPopularityVotes
+      duelReady: report.overview.duelReadyCount
     },
-    funnel: report.funnel.map(stage => ({
-      label: stage.label,
-      count: stage.count,
-      rateFromPrev: Math.round(stage.rateFromPrev * 10) / 10
-    })),
-    rounds,
     leaders: ordered.slice(0, MAX_LEADERS).map(leaderDigest),
     duels,
-    fieldSkills: report.fieldSkillAverages
-      .slice(0, 8)
-      .map(item => ({ label: item.label, average: Math.round(item.fieldAverage * 10) / 10 })),
     revival: report.revival
       ? {
           enabled: report.revival.enabled,
@@ -337,7 +280,7 @@ export async function requestInsight(
   try {
     const response = await doFetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${config.apiKey}` },
+      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${config.apiKey}` },
       body: JSON.stringify({
         model: config.model,
         temperature: 0.3,

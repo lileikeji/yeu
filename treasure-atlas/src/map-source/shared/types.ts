@@ -327,6 +327,10 @@ export interface CompetitionEvent {
   formFields: CompetitionFormField[]
   dimensions: CompetitionDimension[]
   maxTotal: number
+  /** 隐藏赛制复活开关：开启后决赛第一轮 1v1 的败者可复活进第二轮。 */
+  revivalEnabled: boolean
+  /** 复活名额（1–6），revivalEnabled 为 false 时不生效。 */
+  revivalSlots: number
   createdAt: number
   updatedAt: number
 }
@@ -720,6 +724,8 @@ export interface CompetitionRoundEntry {
   accompanimentUpdatedAt: number | null
   /** 1 = 已确认晋级下一轮，0 = 未晋级，null = 还没确认。 */
   advanced: number | null
+  /** 由隐藏赛制复活进来（决赛第一轮败者按均分补位）。 */
+  revived: boolean
   /** 抽签 1v1 的组号；null = 还没分组。 */
   pairNo: number | null
   /** 组内位置 1 / 2；null = 还没分组。 */
@@ -751,6 +757,8 @@ export interface CompetitionAdvanceRow {
   scoreCount: number
   rank: number | null
   advanced: boolean
+  /** 勾选来源：true = 隐藏赛制复活补位（对手已确定），false = 正常排名/胜者晋级。 */
+  revived: boolean
 }
 
 /** 决赛抽签 1v1 的一组：两位选手、胜者与平分说明。 */
@@ -761,6 +769,34 @@ export interface CompetitionDuelPair {
   winnerName: string | null
   ready: boolean
   note: string
+}
+
+/** 复活候选：决赛第一轮 1v1 输掉的那个人，按本轮均分排队。 */
+export interface CompetitionRevivalCandidate {
+  entryId: string
+  singerId: string
+  name: string
+  className: string
+  /** 本轮平均分；null = 没有评分，不参与复活排序。 */
+  average: number | null
+  scoreCount: number
+  /** 败者内部的名次（1 = 分数最高的败者）。 */
+  loserRank: number
+  /** 是否落在复活名额内。 */
+  revived: boolean
+}
+
+/**
+ * 隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排序，前 N 名跟着胜者一起进第二轮。
+ * 只有「决赛 + 抽签 1v1」才可能有这个状态，其他轮次为 null。
+ */
+export interface CompetitionRevivalState {
+  /** 后台开关是否打开（打开才有候选名单）。 */
+  enabled: boolean
+  /** 复活名额。 */
+  slots: number
+  /** 已分出胜负的败者，按均分从高到低；revived = 落在名额内。 */
+  candidates: CompetitionRevivalCandidate[]
 }
 
 /** 结果查询回执状态。 */
@@ -795,6 +831,8 @@ export interface CompetitionRoundView extends CompetitionRound {
   current: CompetitionCurrentSinger | null
   /** 决赛抽签 1v1 的分组；非 duel 或不是决赛时为空数组。 */
   duelPairs: CompetitionDuelPair[]
+  /** 隐藏赛制复活状态；只有决赛 + 抽签 1v1 才有，其他轮次为 null。 */
+  revival: CompetitionRevivalState | null
 }
 
 /**
