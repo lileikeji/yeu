@@ -237,6 +237,56 @@ function displayScoreForTab(profile: SingerAnalyticsProfile): string {
   }
   return profile.power.powerScore !== null ? profile.power.powerScore.toFixed(2) : '—'
 }
+
+interface CompetitionInsightView {
+  headline: string
+  highlights: string[]
+  risks: string[]
+  actions: string[]
+  caveats: string[]
+}
+
+interface CompetitionInsightResponse {
+  insight: CompetitionInsightView
+  meta: {
+    model: string
+    cached: boolean
+    generatedAt: number
+    fingerprint: string
+  }
+}
+
+const insightLoading = ref(false)
+const insightError = ref('')
+const insightResult = ref<CompetitionInsightResponse | null>(null)
+
+const insightGeneratedAtLabel = computed(() => {
+  const generatedAt = insightResult.value?.meta.generatedAt
+  if (!generatedAt) return ''
+  return new Date(generatedAt).toLocaleString('zh-CN', { hour12: false })
+})
+
+async function generateInsight(): Promise<void> {
+  if (insightLoading.value) return
+  insightLoading.value = true
+  insightError.value = ''
+  try {
+    const result = await adminFetch<CompetitionInsightResponse>(
+      '/api/admin/competition/analytics/insight',
+      { method: 'POST' }
+    )
+    insightResult.value = result
+    toast.add({
+      title: result.meta.cached ? '这份数据的分析已存在，直接复用' : 'AI 分析已生成',
+      color: 'success'
+    })
+  } catch (error) {
+    insightError.value = apiErrorMessage(error, 'AI 分析生成失败，请稍后重试。')
+    toast.add({ title: 'AI 分析未能生成', description: insightError.value, color: 'warning' })
+  } finally {
+    insightLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -318,6 +368,114 @@ function displayScoreForTab(profile: SingerAnalyticsProfile): string {
           {{ report.overview.topPopularityName ? `榜首 ${report.overview.topPopularityName} (${report.overview.topPopularityVotes})` : '暂无投票数据' }}
         </p>
       </div>
+    </div>
+
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">
+            AI 智能分析
+            <span class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
+              {{ insightResult ? insightResult.meta.model : '平台 AI' }}
+            </span>
+          </h2>
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            把当前统计交给平台 AI 网关，生成赛况判断与办赛建议。只读后台数据，不改任何评分；同一份数据 10 分钟内复用结果。
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span
+            v-if="insightResult"
+            class="text-xs tabular-nums text-zinc-400"
+          >
+            {{ insightGeneratedAtLabel }}
+          </span>
+          <button
+            type="button"
+            class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="insightLoading"
+            @click="generateInsight"
+          >
+            {{ insightLoading ? '分析中…' : insightResult ? '重新分析' : '生成分析' }}
+          </button>
+        </div>
+      </div>
+
+      <p
+        v-if="insightError"
+        class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+      >
+        {{ insightError }}
+      </p>
+
+      <div
+        v-else-if="insightResult"
+        class="mt-3 space-y-3"
+      >
+        <p class="text-base font-bold text-zinc-900 dark:text-zinc-50">
+          {{ insightResult.insight.headline }}
+        </p>
+        <div class="grid gap-3 md:grid-cols-3">
+          <div v-if="insightResult.insight.highlights.length > 0">
+            <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              亮点
+            </p>
+            <ul class="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+              <li
+                v-for="item in insightResult.insight.highlights"
+                :key="item"
+                class="flex gap-1.5"
+              >
+                <span class="text-emerald-500">·</span>
+                <span>{{ item }}</span>
+              </li>
+            </ul>
+          </div>
+          <div v-if="insightResult.insight.risks.length > 0">
+            <p class="text-xs font-semibold text-amber-700 dark:text-amber-300">
+              风险
+            </p>
+            <ul class="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+              <li
+                v-for="item in insightResult.insight.risks"
+                :key="item"
+                class="flex gap-1.5"
+              >
+                <span class="text-amber-500">·</span>
+                <span>{{ item }}</span>
+              </li>
+            </ul>
+          </div>
+          <div v-if="insightResult.insight.actions.length > 0">
+            <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+              建议
+            </p>
+            <ul class="mt-1 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+              <li
+                v-for="item in insightResult.insight.actions"
+                :key="item"
+                class="flex gap-1.5"
+              >
+                <span class="text-zinc-400">·</span>
+                <span>{{ item }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <p
+          v-if="insightResult.insight.caveats.length > 0"
+          class="text-xs text-zinc-400"
+        >
+          数据局限：{{ insightResult.insight.caveats.join('；') }}
+        </p>
+      </div>
+
+      <p
+        v-else
+        class="mt-3 text-xs text-zinc-400"
+      >
+        {{ insightLoading ? '正在分析当前赛况…' : '还没有分析结果，点右侧按钮生成。' }}
+      </p>
     </div>
 
     <div class="grid gap-4 xl:grid-cols-12">
