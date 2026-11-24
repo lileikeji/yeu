@@ -17,7 +17,8 @@ import { useAdminRequest } from '../../../../utils/http'
  *
  * 数据由服务端自己算（同一个 computeCompetitionAnalytics），不接受前端回传的统计结果：
  * 否则模型总结的是前端传来的数字，一旦前端算错或被人改，结论就跟着错。
- * 同一份数据 10 分钟内复用同一份分析，避免每点一次按钮烧一次网关额度。
+ * 结论生成后会落盘（见 insight-store），刷新页面读的是落盘那份；
+ * 只有用户再点一次按钮才会重新生成，1 分钟内的连点复用同一份，避免重复烧网关额度。
  */
 
 interface CachedInsight {
@@ -26,7 +27,7 @@ interface CachedInsight {
   generatedAt: number
 }
 
-const INSIGHT_CACHE_TTL_MS = 10 * 60 * 1000
+const INSIGHT_CACHE_TTL_MS = 60 * 1000
 const INSIGHT_CACHE_MAX_ENTRIES = 20
 const insightCache = new Map<string, CachedInsight>()
 

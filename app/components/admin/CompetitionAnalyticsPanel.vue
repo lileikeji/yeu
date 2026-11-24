@@ -301,7 +301,7 @@ async function generateInsight(): Promise<void> {
     )
     insightResult.value = result
     toast.add({
-      title: result.meta.cached ? '这份数据的分析已存在，直接复用' : 'AI 分析已生成并写入面板',
+      title: result.meta.cached ? '刚刚生成过同一份数据，直接复用（1 分钟内不重复调用）' : 'AI 分析已生成并写入面板',
       color: 'success'
     })
   } catch (error) {
