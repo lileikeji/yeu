@@ -1,0 +1,14 @@
+id: no-apologetic-hack-comments
+language: TypeScript
+severity: error
+message: "禁止留下 FIXME / HACK / WORKAROUND 逃生舱注释，请直接在代码结构层把问题修干净。"
+rule:
+  kind: comment
+  regex: "(?i)\\b(FIXME|HACK|WORKAROUND)\\b"
+---
+id: no-debugger-statement
+language: TypeScript
+severity: error
+message: "禁止在代码中遗留 debugger 语句。"
+rule:
+  pattern: debugger

@@ -1,4 +1,5 @@
 allowBuilds:
+  '@ast-grep/cli': true
   '@parcel/watcher': false
   '@tailwindcss/oxide': false
   better-sqlite3: true
