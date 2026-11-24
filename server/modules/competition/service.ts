@@ -77,6 +77,7 @@ import type {
   CompetitionReceiptState,
   CompetitionRegistrationStatus,
   CompetitionResultLookup,
+  CompetitionRevivalState,
   CompetitionRound,
   CompetitionRoundEntry,
   CompetitionEntryAccompaniment,
@@ -498,6 +499,8 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     qqGroupUrl: row.qqGroupUrl ?? '',
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
+    revivalEnabled: row.revivalEnabled === true,
+    revivalSlots: row.revivalSlots > 0 ? row.revivalSlots : 2,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
   }
@@ -749,6 +752,9 @@ export interface UpdateCompetitionInput {
   formFields?: unknown
   trimExtremes?: unknown
   qqGroupUrl?: unknown
+  /** 隐藏赛制复活开关与名额。 */
+  revivalEnabled?: unknown
+  revivalSlots?: unknown
 }
 
 function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
@@ -826,12 +832,20 @@ export function updateCompetitionEvent(
   const qqGroupUrl = input.qqGroupUrl === undefined
     ? (row.qqGroupUrl ?? '')
     : String(input.qqGroupUrl).trim().slice(0, 400)
+  const revivalEnabled = input.revivalEnabled === undefined
+    ? row.revivalEnabled === true
+    : input.revivalEnabled === true
+  const revivalSlots = input.revivalSlots === undefined
+    ? revivalSlotSetting(row)
+    : Math.min(REVIVAL_MAX_SLOTS, Math.max(REVIVAL_MIN_SLOTS, Math.trunc(Number(input.revivalSlots) || 2)))
   client.db.update(competitionEvents).set({
     title,
     registrationOpen,
     edition,
     qqGroupUrl,
     trimExtremes: trimExtremes ? 1 : 0,
+    revivalEnabled,
+    revivalSlots,
     scheduleJson: JSON.stringify(schedule),
     formFieldsJson: JSON.stringify(formFields),
     dimensionsJson: JSON.stringify(dimensions),
@@ -1228,6 +1242,81 @@ function buildDuelPairs(
     })
 }
 
+const REVIVAL_MIN_SLOTS = 1
+const REVIVAL_MAX_SLOTS = 6
+
+/** 后台设置的复活名额（1–6，默认 2）；开关是否生效由调用方判断。 */
+function revivalSlotSetting(eventRow: EventRow | null): number {
+  const raw = Number(eventRow?.revivalSlots ?? 2)
+  if (!Number.isFinite(raw)) return 2
+  return Math.min(REVIVAL_MAX_SLOTS, Math.max(REVIVAL_MIN_SLOTS, Math.trunc(raw)))
+}
+
+/** 实际生效的复活名额；开关关掉就是 0。 */
+export function revivalSlotsOf(eventRow: EventRow | null): number {
+  return eventRow?.revivalEnabled === true ? revivalSlotSetting(eventRow) : 0
+}
+
+/**
+ * 隐藏赛制复活：只有「决赛 + 抽签 1v1」才有这个状态。
+ *
+ * 候选人是每组已经分出胜负的败者，按本轮均分从高到低排；轮空组没有败者，
+ * 没有评分的败者也不排队——宁可少复活，也不能让缺席的人占掉名额。
+ */
+export function revivalState(
+  client: DatabaseClient,
+  round: RoundRow,
+  eventRow: EventRow | null
+): CompetitionRevivalState | null {
+  if (round.key !== 'final' || round.advanceMode !== 'duel') return null
+  const slots = revivalSlotSetting(eventRow)
+  if (eventRow?.revivalEnabled !== true) return { enabled: false, slots, candidates: [] }
+
+  const entries = listRoundEntryRows(client, round.id)
+  const scoreRows = listRoundScores(client, round.id)
+  const trimExtremes = trimExtremesFor(client, round)
+  const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
+  const totalsBySinger = new Map<string, number[]>()
+  for (const score of scoreRows) {
+    const list = totalsBySinger.get(score.singerId) ?? []
+    list.push(roundCompetitionScore(Number(score.totalScore ?? 0)))
+    totalsBySinger.set(score.singerId, list)
+  }
+
+  const losers: Array<{ entry: EntryRow, average: number, scoreCount: number }> = []
+  for (const [pairNo, outcome] of duelOutcomes(entries, scoreRows, trimExtremes)) {
+    if (!outcome.winnerEntryId) continue
+    const pairEntries = entries.filter(entry => entry.pairNo === pairNo)
+    if (pairEntries.length < 2) continue
+    const loser = pairEntries.find(entry => entry.id !== outcome.winnerEntryId)
+    if (!loser) continue
+    const totals = totalsBySinger.get(loser.singerId) ?? []
+    const average = averageOf(totals, trimExtremes)
+    if (average === null) continue
+    losers.push({ entry: loser, average, scoreCount: totals.length })
+  }
+  losers.sort((left, right) =>
+    (right.average - left.average) || (left.entry.sortOrder - right.entry.sortOrder))
+
+  return {
+    enabled: true,
+    slots,
+    candidates: losers.map((row, index) => {
+      const singer = singersById.get(row.entry.singerId)
+      return {
+        entryId: row.entry.id,
+        singerId: row.entry.singerId,
+        name: singer?.name ?? '未知选手',
+        className: singer?.className ?? '',
+        average: row.average,
+        scoreCount: row.scoreCount,
+        loserRank: index + 1,
+        revived: index < slots
+      }
+    })
+  }
+}
+
 function buildRoundRanking(
   round: RoundRow,
   entries: EntryRow[],
@@ -1303,6 +1392,7 @@ function buildRoundRanking(
         contestDay: row.entry.contestDay ?? null,
         checkedInAt: row.entry.checkedInAt ?? null,
         advanced: row.entry.advanced ?? null,
+        revived: row.entry.revived === 1,
         pairNo: row.entry.pairNo ?? null,
         pairSlot: row.entry.pairSlot ?? null,
         advancedFromRank: row.entry.advancedFromRank,
@@ -1332,6 +1422,7 @@ function buildRoundRanking(
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
+      revived: row.entry.revived === 1,
       pairNo: row.entry.pairNo ?? null,
       pairSlot: row.entry.pairSlot ?? null,
       advancedFromRank: row.entry.advancedFromRank,
@@ -1354,6 +1445,7 @@ function buildRoundRanking(
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
       advanced: row.entry.advanced ?? null,
+      revived: row.entry.revived === 1,
       pairNo: row.entry.pairNo ?? null,
       pairSlot: row.entry.pairSlot ?? null,
       advancedFromRank: row.entry.advancedFromRank,
@@ -1912,7 +2004,8 @@ function roundView(
     hasScores: scoreRows.length > 0,
     sequential: round.sequentialMode === 1,
     current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows),
-    duelPairs
+    duelPairs,
+    revival: revivalState(client, round, eventRow)
   }
 }
 
@@ -4908,16 +5001,27 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
     : null
   // advanced 为空 = 还没人动过这一轮的勾选，默认按名次勾前 N 名；
   // 一旦有人勾/取消，就以其存下来的值为准，未被碰过的仍按默认名次。
-  return ranking.map((row, index) => ({
-    entryId: row.id,
-    singer: row.singer,
-    average: row.average,
-    scoreCount: row.scoreCount,
-    rank: row.rank,
-    advanced: row.advanced === null
-      ? (duelMode ? duelWinners?.has(row.id) === true : index < limit)
-      : row.advanced === 1
-  }))
+  // 隐藏赛制复活：败者里的前 N 名跟着胜者一起进第二轮，默认勾选也要算上他们。
+  const revival = duelMode ? revivalState(client, round, getEvent(client, round.eventId) ?? null) : null
+  const revivedIds = new Set(
+    (revival?.candidates ?? [])
+      .filter(candidate => candidate.revived)
+      .map(candidate => candidate.entryId)
+  )
+  return ranking.map((row, index) => {
+    const defaultChecked = duelMode
+      ? (duelWinners?.has(row.id) === true || revivedIds.has(row.id))
+      : index < limit
+    return {
+      entryId: row.id,
+      singer: row.singer,
+      average: row.average,
+      scoreCount: row.scoreCount,
+      rank: row.rank,
+      advanced: row.advanced === null ? defaultChecked : row.advanced === 1,
+      revived: revivedIds.has(row.id)
+    }
+  })
 }
 
 /**
@@ -4971,6 +5075,8 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   }
   const duelMode = round.key === 'final' && round.advanceMode === 'duel'
   let duelWinnerIds: Set<string> | null = null
+  let duelAllowedIds: Set<string> | null = null
+  let revivedEntryIds = new Set<string>()
   if (duelMode) {
     const entries = listRoundEntryRows(client, round.id)
     if (entries.length === 0) validationError('本轮还没有参赛名单', 'advanced')
@@ -4991,22 +5097,29 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
         .map(outcome => outcome.winnerEntryId)
         .filter((entryId): entryId is string => Boolean(entryId))
     )
+    // 隐藏赛制复活：败者里的前 N 名跟胜者一起进第二轮。
+    const revival = revivalState(client, round, getEvent(client, round.eventId) ?? null)
+    revivedEntryIds = new Set(
+      (revival?.candidates ?? [])
+        .filter(candidate => candidate.revived)
+        .map(candidate => candidate.entryId)
+    )
+    duelAllowedIds = new Set([...duelWinnerIds, ...revivedEntryIds])
   }
   // 确认时也把默认勾选落库，保证「看到的」和「进去的」是同一批人。
   materializeAdvanceDefaults(client, round)
   const rows = listAdvanceRows(client, round)
-  const picked = rows.filter(row => row.advanced)
+  // 抽签赛制不接受手动勾选：晋级集合恒等于「各组胜者 + 复活名额」。这里按当前设置
+  // 重算一遍，免得复活开关改过之后残留的旧勾选把名单带偏。
+  const picked = duelAllowedIds
+    ? rows.filter(row => duelAllowedIds!.has(row.entryId))
+    : rows.filter(row => row.advanced)
   if (picked.length === 0) {
     validationError('至少要勾选一位晋级选手', 'advanced')
   }
-  if (duelWinnerIds) {
-    if (picked.length !== duelWinnerIds.size) {
-      validationError(`抽签赛制应晋级 ${duelWinnerIds.size} 位小组胜者，当前勾选了 ${picked.length} 位`, 'advanced')
-    }
-    const wrong = picked.filter(row => !duelWinnerIds!.has(row.entryId))
-    if (wrong.length > 0) {
-      validationError('抽签赛制只能晋级各组胜者，请先重新抽签或修正评分', 'advanced')
-    }
+  if (duelAllowedIds && picked.length !== duelAllowedIds.size) {
+    const reviveNote = revivedEntryIds.size > 0 ? ` + ${revivedEntryIds.size} 位复活` : ''
+    validationError(`抽签赛制应晋级 ${duelWinnerIds!.size} 位小组胜者${reviveNote}，当前名单只有 ${picked.length} 位`, 'advanced')
   }
 
   const nextRound = nextRoundOf(client, round)
@@ -5041,8 +5154,12 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
     }
   }
   client.db.transaction((transaction) => {
+    // 晋级标记以 picked 为准：抽签赛制下 picked 是重算的「胜者 + 复活者」，
+    // 不能沿用 rows 里可能过期的勾选值。
+    const advancedEntryIds = new Set(picked.map(row => row.entryId))
     for (const row of rows) {
-      transaction.update(competitionRoundEntries).set({ advanced: row.advanced ? 1 : 0 })
+      transaction.update(competitionRoundEntries)
+        .set({ advanced: advancedEntryIds.has(row.entryId) ? 1 : 0 })
         .where(eq(competitionRoundEntries.id, row.entryId)).run()
     }
     transaction.update(competitionRounds).set({ rosterConfirmedAt: now, updatedAt: now })
@@ -5081,6 +5198,7 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
             .set({
               sortOrder: index + 1,
               advancedFromRank: row.rank ?? null,
+              revived: revivedEntryIds.has(row.entryId) ? 1 : 0,
               ...(secondSong ? { song: secondSong } : {}),
               ...secondVideo
             })
@@ -5093,6 +5211,7 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
           singerId: row.singer.id,
           sortOrder: index + 1,
           advancedFromRank: row.rank ?? null,
+          revived: revivedEntryIds.has(row.entryId) ? 1 : 0,
           // 下一轮的曲目：进决赛第二轮时取第二首歌，其他轮留空等选手自己填
           song: secondSong,
           ...secondVideo,

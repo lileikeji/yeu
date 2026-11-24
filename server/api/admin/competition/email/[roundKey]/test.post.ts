@@ -64,6 +64,7 @@ export default defineEventHandler(async (event) => {
     contestDay: null,
     checkedInAt: null,
     advanced: null,
+    revived: false,
     advancedFromRank: null,
     song: null,
     accompaniment: null,

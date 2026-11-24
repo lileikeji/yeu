@@ -432,6 +432,9 @@ async function generateInsight(): Promise<void> {
         <p class="mt-0.5 text-xs text-zinc-400">
           两首歌 {{ report.overview.finalSongsCount }}/{{ report.overview.finalCount }} · 1v1 {{ report.overview.duelTotalCount }} 组
         </p>
+        <p class="mt-0.5 text-xs text-zinc-400">
+          第二轮 {{ report.overview.final2Count }} 人<template v-if="report.overview.revivedCount > 0">（复活 {{ report.overview.revivedCount }} 人）</template>
+        </p>
       </div>
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">

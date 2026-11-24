@@ -44,6 +44,8 @@ export interface CompetitionInsightDigest {
     aPlusOrAbove: number
     finalists: number
     final2: number
+    /** 第二轮名单里由隐藏赛制复活补位进来的人数。 */
+    revived: number
     finalSongs: number
     duelGroups: number
     duelReady: number
@@ -95,6 +97,15 @@ export interface CompetitionInsightDigest {
     volatility: string
   }>
   fieldSkills: Array<{ label: string, average: number }>
+  /**
+   * 隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 N 名跟着胜者进第二轮。
+   * 非决赛 1v1 时为 null；开关关闭时 enabled=false 且没有候选。
+   */
+  revival: {
+    enabled: boolean
+    slots: number
+    candidates: Array<{ loserRank: number, name: string, average: number | null, revived: boolean }>
+  } | null
 }
 
 const MAX_LEADERS = 12
@@ -106,6 +117,8 @@ const MAX_ITEMS = 6
 export const COMPETITION_INSIGHT_PROMPT = `你是仰恩大学歌手大赛的赛事数据分析师。下面给出的是本届比赛的结构化统计（选手实力模型、各轮分数分布、评委打分偏差、决赛对阵胜率、人气投票）。
 请只依据给出的数字作判断，不得编造选手、曲目、分数或规则；数字看起来不合理时，把它写进 caveats 而不是自行修正。
 字段说明：duels[].leftWinPercent/rightWinPercent 是赛前胜率；confidence 是这次预测的置信度（0–100，评委分歧大、实力差距小则低）；volatility 为「稳定 / 波动 / 未知」，为「波动」时不要把它当确定结论。
+rounds 里 key=final2 的是决赛第二轮（冠亚之争），它和决赛第一轮是两个不同的轮次，分析时分别说明，不要把它们合并成「决赛」一句话。
+revival 是隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 slots 名（revived=true）跟着胜者一起进第二轮；candidates 按 loserRank 从小到大排。复活名额是否合理、被复活的败者与胜者的分差有多大，值得在 highlights 或 risks 里点出来。
 
 输出严格 JSON，字段如下：
 {
@@ -227,6 +240,7 @@ export function insightDigest(report: CompetitionAnalyticsReport, eventLabel = '
       aPlusOrAbove: report.overview.aPlusOrAboveCount,
       finalists: report.overview.finalCount,
       final2: report.overview.final2Count,
+      revived: report.overview.revivedCount,
       finalSongs: report.overview.finalSongsCount,
       duelGroups: report.overview.duelTotalCount,
       duelReady: report.overview.duelReadyCount,
@@ -244,7 +258,19 @@ export function insightDigest(report: CompetitionAnalyticsReport, eventLabel = '
     duels,
     fieldSkills: report.fieldSkillAverages
       .slice(0, 8)
-      .map(item => ({ label: item.label, average: Math.round(item.fieldAverage * 10) / 10 }))
+      .map(item => ({ label: item.label, average: Math.round(item.fieldAverage * 10) / 10 })),
+    revival: report.revival
+      ? {
+          enabled: report.revival.enabled,
+          slots: report.revival.slots,
+          candidates: report.revival.candidates.slice(0, MAX_ITEMS).map(candidate => ({
+            loserRank: candidate.loserRank,
+            name: candidate.name,
+            average: candidate.average === null ? null : Math.round(candidate.average * 10) / 10,
+            revived: candidate.revived
+          }))
+        }
+      : null
   }
 }
 

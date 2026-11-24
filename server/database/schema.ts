@@ -1105,6 +1105,10 @@ export const competitionEvents = sqliteTable('competition_events', {
   qqGroupUrl: text('qq_group_url').notNull().default(''),
   reminderBody: text('reminder_body'),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
+  /** 1 = 开启隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分复活进第二轮。 */
+  revivalEnabled: integer('revival_enabled', { mode: 'boolean' }).notNull().default(false),
+  /** 复活名额（1–6）；revivalEnabled 为 0 时不生效。 */
+  revivalSlots: integer('revival_slots').notNull().default(2),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
@@ -1331,6 +1335,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   originalSize: integer('original_size'),
   /** 1 = 已确认晋级下一轮，0 = 未晋级，空 = 还没确认（按排名自动判定）。 */
   advanced: integer('advanced'),
+  /** 1 = 由隐藏赛制复活进来（决赛第一轮败者按均分补位），0 = 正常晋级。 */
+  revived: integer('revived').notNull().default(0),
   /** 抽签 1v1 的组号；空 = 还没分组。 */
   pairNo: integer('pair_no'),
   /** 组内位置 1 / 2；空 = 还没分组。 */

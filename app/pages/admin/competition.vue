@@ -510,6 +510,39 @@ onBeforeUnmount(stopLiveRefresh)
               </div>
             </UFormField>
           </div>
+          <div class="mt-3 rounded-md border border-dashed border-amber-300 bg-amber-50/60 p-3 dark:border-amber-800 dark:bg-amber-950/20">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-3">
+                <USwitch
+                  :model-value="settings.revivalEnabled"
+                  @update:model-value="value => settings && (settings.revivalEnabled = value === true)"
+                />
+                <span class="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                  隐藏赛制 · 复活赛
+                </span>
+                <span class="text-xs text-zinc-600 dark:text-zinc-300">
+                  {{ settings.revivalEnabled ? `已开启：败者组前 ${settings.revivalSlots} 名复活进第二轮` : '已关闭：决赛第一轮只取各组胜者' }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">复活名额</span>
+                <UInput
+                  :model-value="String(settings.revivalSlots)"
+                  type="number"
+                  min="1"
+                  max="6"
+                  class="w-20"
+                  :disabled="!settings.revivalEnabled"
+                  @update:model-value="value => settings && (settings.revivalSlots = Math.min(6, Math.max(1, Math.trunc(Number(value) || 2))))"
+                />
+              </div>
+            </div>
+            <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              开启后，决赛第一轮抽签 1v1 输掉的人按本轮平均分排队，分数最高的前 N 名跟着各组胜者一起进第二轮；
+              轮空组和没评分的人不参与复活。改完要点下方的「保存设置」才生效。
+            </p>
+          </div>
+
           <div class="mt-3 grid gap-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
             <p>
               赛制：初赛全员参加，结束后取前 30 名进入复赛；复赛晋级名额在复赛页设置（可先留空）；
@@ -2431,6 +2464,59 @@ onBeforeUnmount(stopLiveRefresh)
           </div>
 
           <div
+            v-if="activeRound.revival && activeRound.revival.enabled"
+            class="border-b border-zinc-100 px-4 py-4 dark:border-zinc-800"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                复活赛 · 败者组排名
+              </h3>
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ activeRound.revival.slots }} 个复活名额：前 {{ activeRound.revival.slots }} 名跟各组胜者一起进下一轮
+              </span>
+            </div>
+            <div
+              v-if="activeRound.revival.candidates.length === 0"
+              class="mt-2 rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+            >
+              还没有可复活的败者。等各组 1v1 都分出胜负，这里会按本轮平均分自动排队。
+            </div>
+            <div
+              v-else
+              class="mt-2 space-y-1.5"
+            >
+              <div
+                v-for="candidate in activeRound.revival.candidates"
+                :key="candidate.entryId"
+                class="flex flex-wrap items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-sm"
+                :class="candidate.revived
+                  ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-500/10'
+                  : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
+              >
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <span class="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    败者第 {{ candidate.loserRank }}
+                  </span>
+                  <span class="truncate font-medium text-zinc-800 dark:text-zinc-100">{{ candidate.name }}</span>
+                  <span
+                    v-if="candidate.className"
+                    class="shrink-0 text-xs text-zinc-500 dark:text-zinc-400"
+                  >{{ candidate.className }}</span>
+                  <span
+                    v-if="candidate.revived"
+                    class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800 dark:bg-amber-500/20 dark:text-amber-200"
+                  >
+                    复活
+                  </span>
+                </div>
+                <span class="shrink-0 tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
+                  {{ candidate.average === null ? '未评分' : candidate.average.toFixed(2) }} · {{ candidate.scoreCount }} 位评委
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div
             v-if="advanceRows.length === 0"
             class="px-4 py-8 text-center text-sm text-zinc-400"
           >
@@ -2493,6 +2579,12 @@ onBeforeUnmount(stopLiveRefresh)
                   </td>
                   <td class="px-3 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
                     {{ row.singer.name }}
+                    <span
+                      v-if="row.revived"
+                      class="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-normal text-amber-800 dark:bg-amber-500/20 dark:text-amber-200"
+                    >
+                      复活
+                    </span>
                   </td>
                   <td class="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">
                     {{ row.singer.song }}

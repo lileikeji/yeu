@@ -1373,6 +1373,9 @@ export const updateCompetitionSchema = z.object({
   schedule: z.array(competitionScheduleItemSchema).min(1).max(12).optional(),
   formFields: z.array(competitionFormFieldSchema).min(1).max(7).optional(),
   trimExtremes: z.boolean().optional(),
+  /** 隐藏赛制复活：开关与名额（1–6）。 */
+  revivalEnabled: z.boolean().optional(),
+  revivalSlots: z.number().int().min(1).max(6).optional(),
   qqGroupUrl: z.string().trim().max(400).optional()
 }).strict()
 

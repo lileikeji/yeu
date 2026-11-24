@@ -21,6 +21,10 @@ export interface SettingsDraft {
   trimExtremes: boolean
   /** 邮件模板「加群按钮」跳转的 QQ 群链接。 */
   qqGroupUrl: string
+  /** 隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分复活进第二轮。 */
+  revivalEnabled: boolean
+  /** 复活名额（1–6）。 */
+  revivalSlots: number
   schedule: CompetitionScheduleItem[]
   formFields: CompetitionFormField[]
   dimensions: CompetitionDimension[]
@@ -121,6 +125,8 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
       registrationOpen: source.registrationOpen,
       trimExtremes: source.trimExtremes === true,
       qqGroupUrl: source.qqGroupUrl ?? '',
+      revivalEnabled: source.revivalEnabled === true,
+      revivalSlots: source.revivalSlots > 0 ? source.revivalSlots : 2,
       schedule: cloneSchedule(source.schedule),
       formFields: cloneFormFields(source.formFields),
       dimensions: cloneDimensions(source.dimensions)
@@ -178,6 +184,8 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
           registrationOpen: draft.registrationOpen,
           trimExtremes: draft.trimExtremes,
           qqGroupUrl: draft.qqGroupUrl.trim(),
+          revivalEnabled: draft.revivalEnabled,
+          revivalSlots: Math.min(6, Math.max(1, Math.trunc(Number(draft.revivalSlots) || 2))),
           schedule: draft.schedule.map(item => ({
             key: item.key,
             dateLabel: item.dateLabel.trim(),

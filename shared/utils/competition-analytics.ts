@@ -7,6 +7,7 @@ import type {
   CompetitionRoundKey,
   CompetitionRoundStatus,
   CompetitionRoundView,
+  CompetitionRevivalState,
   CompetitionScore,
   CompetitionSinger
 } from '../types'
@@ -84,6 +85,8 @@ export interface SingerAnalyticsProfile {
   currentStageLabel: string
   inFinal: boolean
   inFinal2: boolean
+  /** 隐藏赛制复活进来（决赛第一轮败者补位）的选手。 */
+  revived: boolean
   finalPairNo: number | null
   finalPairSlot: number | null
   finalOpponentName: string | null
@@ -174,6 +177,8 @@ export interface CompetitionAnalyticsReport {
     aPlusOrAboveCount: number
     finalCount: number
     final2Count: number
+    /** 第二轮名单里由复活补位进来的数量。 */
+    revivedCount: number
     finalSongsCount: number
     duelReadyCount: number
     duelTotalCount: number
@@ -187,6 +192,8 @@ export interface CompetitionAnalyticsReport {
   profilesById: Record<string, SingerAnalyticsProfile>
   duelPredictions: Record<number, DuelPrediction>
   fieldSkillAverages: Array<{ key: string, label: string, fieldAverage: number }>
+  /** 隐藏赛制复活状态（只读，来自决赛第一轮的败者排序）；非决赛 1v1 为 null。 */
+  revival: CompetitionRevivalState | null
 }
 
 const PRELIM_WEIGHT_BOTH = 0.35
@@ -699,7 +706,8 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
         hasScores: false,
         sequential: false,
         current: null,
-        duelPairs: []
+        duelPairs: [],
+        revival: null
       }
       contextByKey.set(key, buildRoundContext(emptyRound, eventDimensions, eventTrimExtremes))
     }
@@ -729,6 +737,10 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
     finalEntriesBySinger.set(entry.singer.id, entry)
   }
   const final2SingerIds = new Set((final2Round?.entries ?? []).map(entry => entry.singer.id))
+  // 复活进来的选手：报名册上标记 revived，分析里要单独计数，不能跟正常晋级混在一起。
+  const revivedSingerIds = new Set(
+    (final2Round?.entries ?? []).filter(entry => entry.revived).map(entry => entry.singer.id)
+  )
 
   const duelInfoBySinger = new Map<string, {
     pairNo: number
@@ -1010,6 +1022,7 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
       currentStageLabel,
       inFinal,
       inFinal2,
+      revived: revivedSingerIds.has(singerId),
       finalPairNo: duelInfo?.pairNo ?? finalEntry?.pairNo ?? null,
       finalPairSlot: duelInfo?.pairSlot ?? finalEntry?.pairSlot ?? null,
       finalOpponentName: duelInfo?.opponentName ?? null,
@@ -1098,6 +1111,7 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
       aPlusOrAboveCount: ratedSorted.filter(item => (item.powerScore ?? 0) >= 85).length,
       finalCount: finalCtx.distribution.entryCount,
       final2Count: final2Ctx.distribution.entryCount,
+      revivedCount: revivedSingerIds.size,
       finalSongsCount,
       duelReadyCount: (finalRound?.duelPairs ?? []).filter(pair => pair.ready).length,
       duelTotalCount: (finalRound?.duelPairs ?? []).length,
@@ -1115,6 +1129,7 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
     profiles,
     profilesById,
     duelPredictions,
-    fieldSkillAverages
+    fieldSkillAverages,
+    revival: finalRound?.revival ?? null
   }
 }
