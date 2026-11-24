@@ -1372,6 +1372,11 @@ export const competitionFinalSongs = sqliteTable('competition_final_songs', {
   /** 1 = 第一轮曲目；2 = 第二轮曲目。 */
   slot: integer('slot').notNull(),
   song: text('song').notNull(),
+  /** 这一首歌对应的 MP4 背景视频，存 cos:<objectKey>；空 = 还没传。 */
+  videoUrl: text('video_url'),
+  videoName: text('video_name'),
+  videoSize: integer('video_size'),
+  videoUpdatedAt: integer('video_updated_at'),
   /** 每次成功提交 +1；客户端提交时回传它做冲突检测。 */
   version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at'),

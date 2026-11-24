@@ -589,6 +589,13 @@
       "when": 1795520000000,
       "tag": "0083_competition_popularity_risk",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
+      "when": 1795523600000,
+      "tag": "0084_competition_final_song_videos",
+      "breakpoints": true
     }
   ]
 }

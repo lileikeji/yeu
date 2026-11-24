@@ -15,6 +15,10 @@ const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const conflict = ref(false)
+const videoBusy = ref<1 | 2 | null>(null)
+const videoPercent = ref<number | null>(null)
+const firstVideoInput = ref<HTMLInputElement | null>(null)
+const secondVideoInput = ref<HTMLInputElement | null>(null)
 
 useSeoMeta({ title: '决赛两首歌提交', robots: 'noindex, nofollow' })
 
@@ -39,6 +43,102 @@ function fillFrom(data: CompetitionFinalSongsState): void {
   state.value = data
   firstSong.value = data.firstSong ?? ''
   secondSong.value = data.secondSong ?? ''
+}
+
+function formatSize(size: number | null): string {
+  if (!size) return ''
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(size / 1024))} KB`
+}
+
+function pickVideo(slot: 1 | 2): void {
+  if (videoBusy.value !== null) return
+  if (!state.value || state.value.revision < 1) {
+    toast.add({ title: '先提交两首歌，再传视频', color: 'warning' })
+    return
+  }
+  if (!state.value.editable) return
+  const input = slot === 1 ? firstVideoInput.value : secondVideoInput.value
+  input?.click()
+}
+
+function putVideoWithProgress(url: string, file: File): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('PUT', url, true)
+    request.setRequestHeader('Content-Type', 'video/mp4')
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        videoPercent.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
+      }
+    }
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        videoPercent.value = 100
+        resolve()
+        return
+      }
+      reject(new Error(`视频直传失败（${request.status}）`))
+    }
+    request.onerror = () => reject(new Error('视频直传失败，检查网络后重试一次'))
+    request.ontimeout = () => reject(new Error('视频直传超时，重试一次'))
+    request.timeout = 30 * 60 * 1000
+    request.send(file)
+  })
+}
+
+async function uploadVideo(slot: 1 | 2, event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !state.value) return
+  if (!file.name.toLowerCase().endsWith('.mp4')) {
+    toast.add({ title: '背景视频只收 MP4', color: 'warning' })
+    return
+  }
+  if (file.size > 500 * 1024 * 1024) {
+    toast.add({ title: '背景视频不能超过 500MB', color: 'warning' })
+    return
+  }
+  videoBusy.value = slot
+  videoPercent.value = 0
+  try {
+    const ticket = await plainFetch<{ key: string, uploadUrl: string }>(
+      '/api/public/competition/final-songs/video-ticket',
+      {
+        method: 'POST',
+        body: {
+          name: name.value.trim(),
+          studentNo: studentNo.value.trim(),
+          contact: contact.value.trim(),
+          slot,
+          filename: file.name
+        }
+      }
+    )
+    await putVideoWithProgress(ticket.uploadUrl, file)
+    const data = await plainFetch<CompetitionFinalSongsState>(
+      '/api/public/competition/final-songs/video-commit',
+      {
+        method: 'POST',
+        body: {
+          name: name.value.trim(),
+          studentNo: studentNo.value.trim(),
+          contact: contact.value.trim(),
+          slot,
+          key: ticket.key,
+          size: file.size
+        }
+      }
+    )
+    fillFrom(data)
+    toast.add({ title: slot === 1 ? '第一首视频收到了' : '第二首视频收到了', color: 'success' })
+  } catch (caught) {
+    toast.add({ title: messageOf(caught), color: 'error' })
+  } finally {
+    videoBusy.value = null
+    videoPercent.value = null
+  }
 }
 
 async function lookup(): Promise<void> {
@@ -272,15 +372,116 @@ async function submit(): Promise<void> {
             当前版本：v{{ state.revision }}
           </p>
         </template>
+
+        <div class="mt-5 border-t border-[var(--line)] pt-5">
+          <h2 class="text-base font-bold">
+            两首歌的背景视频
+          </h2>
+          <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
+            每首歌各传一个 MP4 视频，第一首在决赛第一轮播，第二首进前六后在第二轮播。
+            先在下面提交两首歌，再分别上传视频。
+          </p>
+
+          <div class="mt-3 rounded-xl border border-[var(--line)] p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">
+                  第一首{{ state.firstSong ? `《${state.firstSong}》` : '（未填）' }}
+                </p>
+                <p
+                  v-if="state.firstVideo"
+                  class="truncate text-xs text-[var(--muted-ink)]"
+                >
+                  {{ state.firstVideo.name }}<span v-if="state.firstVideo.size"> · {{ formatSize(state.firstVideo.size) }}</span>
+                </p>
+                <p
+                  v-else
+                  class="text-xs text-[var(--muted-ink)]"
+                >
+                  还没传
+                </p>
+              </div>
+              <button
+                v-if="state.editable"
+                type="button"
+                :disabled="videoBusy !== null || state.revision < 1"
+                class="shrink-0 rounded-lg border border-[var(--color-green-600)] px-3 py-2 text-xs font-medium text-[var(--color-green-700)] disabled:cursor-not-allowed disabled:opacity-50"
+                @click="pickVideo(1)"
+              >
+                {{ videoBusy === 1 ? `上传中 ${videoPercent ?? 0}%` : (state.firstVideo ? '更换第一首视频' : '上传第一首视频') }}
+              </button>
+            </div>
+            <video
+              v-if="state.firstVideo"
+              :src="state.firstVideo.url"
+              controls
+              playsinline
+              class="mt-3 max-h-56 w-full rounded-lg bg-black"
+            />
+            <input
+              ref="firstVideoInput"
+              type="file"
+              accept="video/mp4,.mp4"
+              class="hidden"
+              @change="uploadVideo(1, $event)"
+            >
+          </div>
+
+          <div class="mt-3 rounded-xl border border-[var(--line)] p-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">
+                  第二首{{ state.secondSong ? `《${state.secondSong}》` : '（未填）' }}
+                </p>
+                <p
+                  v-if="state.secondVideo"
+                  class="truncate text-xs text-[var(--muted-ink)]"
+                >
+                  {{ state.secondVideo.name }}<span v-if="state.secondVideo.size"> · {{ formatSize(state.secondVideo.size) }}</span>
+                </p>
+                <p
+                  v-else
+                  class="text-xs text-[var(--muted-ink)]"
+                >
+                  还没传
+                </p>
+              </div>
+              <button
+                v-if="state.editable"
+                type="button"
+                :disabled="videoBusy !== null || state.revision < 1"
+                class="shrink-0 rounded-lg border border-[var(--color-green-600)] px-3 py-2 text-xs font-medium text-[var(--color-green-700)] disabled:cursor-not-allowed disabled:opacity-50"
+                @click="pickVideo(2)"
+              >
+                {{ videoBusy === 2 ? `上传中 ${videoPercent ?? 0}%` : (state.secondVideo ? '更换第二首视频' : '上传第二首视频') }}
+              </button>
+            </div>
+            <video
+              v-if="state.secondVideo"
+              :src="state.secondVideo.url"
+              controls
+              playsinline
+              class="mt-3 max-h-56 w-full rounded-lg bg-black"
+            />
+            <input
+              ref="secondVideoInput"
+              type="file"
+              accept="video/mp4,.mp4"
+              class="hidden"
+              @change="uploadVideo(2, $event)"
+            >
+          </div>
+
+          <p
+            v-if="state.editable && state.revision < 1"
+            class="mt-2 text-xs text-amber-700"
+          >
+            先提交上面两首歌，视频按钮才会启用。
+          </p>
+        </div>
       </div>
 
       <div class="mt-6 flex justify-center gap-4 text-xs">
-        <NuxtLink
-          to="/singer/song"
-          class="text-[var(--color-green-700)] underline"
-        >
-          上传决赛背景视频
-        </NuxtLink>
         <NuxtLink
           to="/singer/song"
           class="text-[var(--muted-ink)] underline"

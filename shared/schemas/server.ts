@@ -1541,6 +1541,24 @@ export const competitionFinalSongsSubmitSchema = z.object({
   revision: z.number().int().min(0).max(1_000_000)
 }).strict()
 
+/** 决赛两首歌各自上传背景视频：先拿直传地址，再由 commit 校验对象。 */
+export const competitionFinalSongVideoTicketSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  slot: z.union([z.literal(1), z.literal(2)]),
+  filename: z.string().trim().min(1).max(160)
+}).strict()
+
+export const competitionFinalSongVideoCommitSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  slot: z.union([z.literal(1), z.literal(2)]),
+  key: z.string().trim().min(4).max(512),
+  size: z.number().int().positive().max(500 * 1024 * 1024)
+}).strict()
+
 export const competitionAdminFinalSongsSchema = z.object({
   singerId: z.string().trim().min(1).max(64),
   firstSong: z.string().trim().min(1).max(100),

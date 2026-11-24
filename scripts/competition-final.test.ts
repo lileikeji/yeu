@@ -20,6 +20,7 @@ import {
   ensureCompetitionEvent,
   getAdminCompetitionPayload,
   getFinalSongEditor,
+  getFinalSongVideoUploadTarget,
   getRankBoard,
   getRoundByKey,
   listRoundEntryRows,
@@ -241,6 +242,16 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   }
   assert.equal(client.db.select().from(competitionFinalSongs).all().length, 24)
 
+  // 视频只收 MP4；歌曲没提交之前不能先传视频。
+  assert.throws(
+    () => getFinalSongVideoUploadTarget(client, contentId, {
+      name: singers[0]!.name,
+      studentNo: singers[0]!.studentNo ?? '',
+      contact: singers[0]!.qq ?? ''
+    }, 1, '背景.mp3'),
+    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+  )
+
   // 同一组歌重提、只换顺序都不算重复，可以正常保存（版本号继续递增）。
   const tweak = { name: singers[11]!.name, studentNo: singers[11]!.studentNo ?? '', contact: singers[11]!.qq ?? '' }
   const sameAgain = submitFinalSongsByThreeFactors(
@@ -317,7 +328,7 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
     ),
     (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_SONG_DEDICATED'
   )
-  // 伴奏接口也不能顺手改决赛歌名。
+  // 决赛的音频/视频入口都关闭，只能走两首歌页面。
   await assert.rejects(
     () => submitAccompanimentByThreeFactors(
       client,
@@ -326,7 +337,7 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
       { filename: '伴奏.mp3', data: new Uint8Array([1, 2, 3]) },
       '另一首'
     ),
-    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_SONG_DEDICATED'
+    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
 
   assert.equal(
@@ -404,13 +415,23 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   assert.equal(finalOnly.rows.length, 12)
   assert.equal(finalOnly.rows[0]?.stage, undefined)
 
+  // 第二首歌的视频在确认晋级时一起带到 final2 名单，下一轮直接能用。
+  for (const [index, singer] of singers.slice(0, 6).entries()) {
+    client.sqlite.prepare(
+      'UPDATE competition_final_songs SET video_url = ?, video_name = ?, video_size = ? WHERE singer_id = ? AND slot = 2'
+    ).run(`cos:final/second-${index + 1}.mp4`, `第二首视频${index + 1}.mp4`, 1000 + index, singer.id)
+  }
+
   assert.equal(confirmAdvanceRoster(client, finalRound).advanced, 6)
   let final2Round = getRoundByKey(client, event.id, 'final2')
   const final2Rows = listRoundEntryRows(client, final2Round.id)
   assert.equal(final2Rows.length, 6)
-  // 晋级第二轮的人带的是自己提交的第二首歌。
+  // 晋级第二轮的人带的是自己提交的第二首歌与视频。
   for (const [index, singer] of singers.slice(0, 6).entries()) {
-    assert.equal(final2Rows.find(row => row.singerId === singer.id)?.song, `决赛二曲${index + 1}`)
+    const row = final2Rows.find(item => item.singerId === singer.id)
+    assert.equal(row?.song, `决赛二曲${index + 1}`)
+    assert.equal(row?.accompanimentUrl, `cos:final/second-${index + 1}.mp4`)
+    assert.equal(row?.accompanimentSize, 1000 + index)
   }
 
   // 第一轮名次：1..6 是 选手1..选手6。
@@ -472,6 +493,35 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   assert.equal(secondOnly.rows.length, 6)
   assert.equal(secondOnly.round.key, 'final2')
 
+  // 两首歌各自保留自己的视频，编辑器按 slot 回读。
+  client.sqlite.prepare(
+    'UPDATE competition_final_songs SET video_url = ?, video_name = ?, video_size = ?, video_updated_at = ? WHERE singer_id = ? AND slot = 1'
+  ).run('cos:final/video-one.mp4', '选手1-决赛一曲1.mp4', 1234, Date.now(), singers[0]!.id)
+  client.sqlite.prepare(
+    'UPDATE competition_final_songs SET video_url = ?, video_name = ?, video_size = ?, video_updated_at = ? WHERE singer_id = ? AND slot = 2'
+  ).run('cos:final/video-two.mp4', '选手1-决赛二曲1.mp4', 2345, Date.now(), singers[0]!.id)
+  const withVideos = getFinalSongEditor(client, contentId, {
+    name: singers[0]!.name,
+    studentNo: singers[0]!.studentNo ?? '',
+    contact: singers[0]!.qq ?? ''
+  })
+  assert.equal(withVideos.firstVideo?.name, '选手1-决赛一曲1.mp4')
+  assert.equal(withVideos.firstVideo?.size, 1234)
+  assert.equal(withVideos.secondVideo?.name, '选手1-决赛二曲1.mp4')
+  assert.equal(withVideos.secondVideo?.size, 2345)
+
+  closeDatabase(path)
+  rmSync(join(path, '..'), { recursive: true, force: true })
+})
+
+test('迁移 0084：两首歌表各自保存视频地址、文件名、大小和更新时间', () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const columns = client.sqlite.prepare('PRAGMA table_info(competition_final_songs)').all() as Array<{ name: string }>
+  const names = columns.map(column => column.name)
+  for (const name of ['video_url', 'video_name', 'video_size', 'video_updated_at']) {
+    assert.ok(names.includes(name), `缺少 ${name}`)
+  }
   closeDatabase(path)
   rmSync(join(path, '..'), { recursive: true, force: true })
 })

@@ -27,7 +27,7 @@ import { createZip, StreamingZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
-import { contentTypeForName, cosConfig, newAccompanimentKey, presignCosGet, putCosObject, type CosConfig } from '../../utils/cos-storage'
+import { contentTypeForName, cosConfig, headCosObject, newAccompanimentKey, presignCosGet, presignCosPut, putCosObject, type CosConfig } from '../../utils/cos-storage'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -5015,7 +5015,12 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   }
   const now = Date.now()
   // 决赛第二轮的曲目来自「决赛两首歌」提交里的第二首；确认前六时一并写进名单。
-  const secondSongBySinger = new Map<string, string>()
+  const secondSongBySinger = new Map<string, {
+    song: string
+    videoUrl: string | null
+    videoName: string | null
+    videoSize: number | null
+  }>()
   if (nextRound?.key === 'final2') {
     const songRows = client.db.select().from(competitionFinalSongs)
       .where(and(
@@ -5025,7 +5030,14 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
       .all()
     for (const songRow of songRows) {
       const value = (songRow.song ?? '').trim()
-      if (value) secondSongBySinger.set(songRow.singerId, value)
+      if (value) {
+        secondSongBySinger.set(songRow.singerId, {
+          song: value,
+          videoUrl: songRow.videoUrl,
+          videoName: songRow.videoName,
+          videoSize: songRow.videoSize
+        })
+      }
     }
   }
   client.db.transaction((transaction) => {
@@ -5051,13 +5063,26 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
       const existingBySinger = new Map(existing.map(entry => [entry.singerId, entry]))
       picked.forEach((row, index) => {
         const found = existingBySinger.get(row.singer.id)
-        const secondSong = secondSongBySinger.get(row.singer.id) ?? null
+        const secondFinal = secondSongBySinger.get(row.singer.id)
+        const secondSong = secondFinal?.song ?? null
+        const secondVideo = secondFinal?.videoUrl
+          ? {
+              accompanimentUrl: secondFinal.videoUrl,
+              accompanimentName: secondFinal.videoName,
+              accompanimentSize: secondFinal.videoSize,
+              accompanimentUpdatedAt: now,
+              originalUrl: null,
+              originalName: null,
+              originalSize: null
+            }
+          : {}
         if (found) {
           transaction.update(competitionRoundEntries)
             .set({
               sortOrder: index + 1,
               advancedFromRank: row.rank ?? null,
-              ...(secondSong ? { song: secondSong } : {})
+              ...(secondSong ? { song: secondSong } : {}),
+              ...secondVideo
             })
             .where(eq(competitionRoundEntries.id, found.id)).run()
           return
@@ -5070,6 +5095,7 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
           advancedFromRank: row.rank ?? null,
           // 下一轮的曲目：进决赛第二轮时取第二首歌，其他轮留空等选手自己填
           song: secondSong,
+          ...secondVideo,
           createdAt: now
         }).run()
       })
@@ -5423,10 +5449,29 @@ export function submitSongByThreeFactors(
   }
 }
 
+interface FinalSongRow {
+  song: string
+  version: number
+  video: CompetitionEntryAccompaniment | null
+}
+
 interface FinalSongRows {
-  first: { song: string, version: number } | null
-  second: { song: string, version: number } | null
+  first: FinalSongRow | null
+  second: FinalSongRow | null
   revision: number
+}
+
+/** 决赛两首歌的视频和轮次伴奏同构：存 cos:<key>，读时换成临时签名地址。 */
+function finalSongVideoOf(row: {
+  videoUrl: string | null
+  videoName: string | null
+  videoSize: number | null
+}): CompetitionEntryAccompaniment | null {
+  return serializeAccompaniment({
+    accompanimentUrl: row.videoUrl,
+    accompanimentName: row.videoName,
+    accompanimentSize: row.videoSize
+  })
 }
 
 function readFinalSongsForEvent(
@@ -5457,8 +5502,8 @@ function readFinalSongs(client: DatabaseClient, eventId: string, singerId: strin
   const first = rows.find(row => row.slot === 1) ?? null
   const second = rows.find(row => row.slot === 2) ?? null
   return {
-    first: first ? { song: first.song, version: first.version } : null,
-    second: second ? { song: second.song, version: second.version } : null,
+    first: first ? { song: first.song, version: first.version, video: finalSongVideoOf(first) } : null,
+    second: second ? { song: second.song, version: second.version, video: finalSongVideoOf(second) } : null,
     revision: Math.max(0, ...rows.map(row => Number(row.version ?? 0)))
   }
 }
@@ -5539,6 +5584,8 @@ export function getFinalSongEditor(
     stageTitle: `决赛 · 两首歌（${finalRound.title} + 第二轮）`,
     firstSong: songs.first?.song ?? (entry?.song ?? '').trim(),
     secondSong: songs.second?.song ?? '',
+    firstVideo: songs.first?.video ?? null,
+    secondVideo: songs.second?.video ?? null,
     revision: songs.revision,
     editable: reason === '',
     reason
@@ -5584,7 +5631,7 @@ export function submitFinalSongsByThreeFactors(
   assertFinalSongAvailable(client, eventRow.id, singer.id, secondSong)
 
   const expectedRevision = Number(input.revision ?? 0)
-  const nextRevision = client.db.transaction((transaction): number => {
+  client.db.transaction((transaction): number => {
     const rows = transaction.select().from(competitionFinalSongs)
       .where(and(
         eq(competitionFinalSongs.eventId, eventRow.id),
@@ -5632,15 +5679,115 @@ export function submitFinalSongsByThreeFactors(
     return revision
   })
 
-  return {
-    singerName: singer.name,
-    stageTitle: `决赛 · 两首歌（${finalRound.title} + 第二轮）`,
-    firstSong,
-    secondSong,
-    revision: nextRevision,
-    editable: true,
-    reason: ''
+  return getFinalSongEditor(client, contentId, input)
+}
+
+/** 决赛两首歌的视频直传地址：歌曲还没提交时不允许先传视频，避免出现无主对象。 */
+export function getFinalSongVideoUploadTarget(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  filename: string
+): { key: string, uploadUrl: string, expiresIn: number } {
+  const { singer, eventRow, finalRound, final2Round, entry } = finalSongContext(client, contentId, input)
+  const reason = finalSongLockReason(client, finalRound, final2Round, entry)
+  if (reason) conflictError('COMPETITION_FINAL_SONGS_LOCKED', reason)
+  const songs = readFinalSongs(client, eventRow.id, singer.id)
+  const row = slot === 1 ? songs.first : songs.second
+  if (!row) conflictError('SONG_REQUIRED', '先提交两首歌，再给每首歌上传背景视频')
+  if (!filename.trim().toLowerCase().endsWith('.mp4')) {
+    validationError('决赛背景视频只收 MP4', 'filename')
   }
+  const config = cosConfig()
+  if (!config) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Storage not configured',
+      data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' }
+    })
+  }
+  const key = newAccompanimentKey(config, 'mp4')
+  return {
+    key,
+    uploadUrl: presignCosPut(config, key, 'video/mp4', 900),
+    expiresIn: 900
+  }
+}
+
+/** 直传完成后把视频 key 写回这首歌，并同步到第一轮/第二轮实际使用的出场记录。 */
+export async function saveFinalSongVideoByThreeFactors(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  key: string,
+  reportedSize: number
+): Promise<CompetitionFinalSongsState> {
+  const { singer, eventRow, finalRound, final2Round, entry } = finalSongContext(client, contentId, input)
+  const reason = finalSongLockReason(client, finalRound, final2Round, entry)
+  if (reason) conflictError('COMPETITION_FINAL_SONGS_LOCKED', reason)
+  const songs = readFinalSongs(client, eventRow.id, singer.id)
+  const row = slot === 1 ? songs.first : songs.second
+  if (!row) conflictError('SONG_REQUIRED', '先提交两首歌，再给每首歌上传背景视频')
+  if (accompanimentExtension(key) !== 'mp4') {
+    validationError('决赛背景视频只收 MP4', 'key')
+  }
+  const config = cosConfig()
+  if (!config) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Storage not configured',
+      data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' }
+    })
+  }
+  const head = await headCosObject(config, key)
+  if (!head) validationError('没有找到刚上传的视频，请重新传一次', 'key')
+  if (head.size <= 0 || head.size > 500 * 1024 * 1024) {
+    validationError('视频大小需要在 500MB 以内', 'key')
+  }
+  const contentType = (head.contentType || '').split(';')[0]!.trim().toLowerCase()
+  if (contentType && contentType !== 'video/mp4' && contentType !== 'application/octet-stream' && contentType !== 'binary/octet-stream') {
+    validationError('上传的文件不是 MP4 视频', 'key')
+  }
+  if (Math.abs(head.size - reportedSize) > 1024 * 1024) {
+    validationError('视频大小对不上，请重新上传', 'size')
+  }
+  const name = accompanimentDisplayName(singer.name, row.song, 'mp4')
+  const now = Date.now()
+  client.db.transaction((transaction) => {
+    transaction.update(competitionFinalSongs)
+      .set({
+        videoUrl: `cos:${key}`,
+        videoName: name,
+        videoSize: head.size,
+        videoUpdatedAt: now,
+        updatedAt: now
+      })
+      .where(and(
+        eq(competitionFinalSongs.eventId, eventRow.id),
+        eq(competitionFinalSongs.singerId, singer.id),
+        eq(competitionFinalSongs.slot, slot)
+      )).run()
+    const targetRoundId = slot === 1 ? finalRound.id : final2Round?.id
+    if (targetRoundId) {
+      transaction.update(competitionRoundEntries)
+        .set({
+          accompanimentUrl: `cos:${key}`,
+          accompanimentName: name,
+          accompanimentSize: head.size,
+          accompanimentUpdatedAt: now,
+          originalUrl: null,
+          originalName: null,
+          originalSize: null
+        })
+        .where(and(
+          eq(competitionRoundEntries.roundId, targetRoundId),
+          eq(competitionRoundEntries.singerId, singer.id)
+        )).run()
+    }
+  })
+  return getFinalSongEditor(client, contentId, input)
 }
 
 /**
@@ -5780,51 +5927,15 @@ export async function setEntryAccompaniment(
   file: { filename: string, data: Uint8Array }
 ): Promise<CompetitionEntryAccompaniment> {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  if (round.key === 'final' || round.key === 'final2') {
+    conflictError('COMPETITION_FINAL_VIDEO_DEDICATED', '决赛两首歌的背景视频，请到「决赛两首歌」页面分别上传')
+  }
   const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
   if (!entry) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这条出场记录' } })
   }
   const singer = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, entry.singerId)).get()
-  if (round.key === 'final' || round.key === 'final2') {
-    const extension = (file.filename.split('.').at(-1) || '').toLowerCase()
-    if (extension !== 'mp4') {
-      validationError('决赛只收 MP4 视频背景', 'filename')
-    }
-    if (file.data.byteLength === 0) {
-      validationError('视频文件是空的，重选一次', 'file')
-    }
-    if (file.data.byteLength > 500 * 1024 * 1024) {
-      throw createError({ statusCode: 413, statusMessage: 'Video is too large', data: { code: 'PAYLOAD_TOO_LARGE', message: '决赛背景视频不能超过 500MB' } })
-    }
-    const config = cosConfig()
-    if (!config) {
-      throw createError({ statusCode: 503, statusMessage: 'Storage not configured', data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' } })
-    }
-    const key = newAccompanimentKey(config, 'mp4')
-    await putCosObject(config, key, file.data, 'video/mp4')
-    const songValue = cleanSongTitle(entry.song ?? '', singer?.name ?? '')
-      || cleanSongTitle(singer?.song ?? '', singer?.name ?? '')
-    const name = accompanimentDisplayName(singer?.name ?? '', songValue, 'mp4')
-    client.db.update(competitionRoundEntries)
-      .set({
-        accompanimentUrl: `cos:${key}`,
-        accompanimentName: name,
-        accompanimentSize: file.data.byteLength,
-        accompanimentUpdatedAt: Date.now(),
-        originalUrl: null,
-        originalName: null,
-        originalSize: null
-      })
-      .where(eq(competitionRoundEntries.id, entryId))
-      .run()
-    return {
-      name,
-      url: presignCosGet(config, key, 6 * 60 * 60, 'video/mp4'),
-      size: file.data.byteLength,
-      original: null
-    }
-  }
   let data = file.data
   let sniffed = detectUploadedAudioType(data)
   const originalData = data
@@ -6011,6 +6122,9 @@ export async function commitAccompanimentKey(
   song?: string
 ): Promise<CompetitionEntryAccompaniment> {
   if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能再改伴奏')
+  if (round.key === 'final' || round.key === 'final2') {
+    conflictError('COMPETITION_FINAL_VIDEO_DEDICATED', '决赛两首歌的背景视频，请到「决赛两首歌」页面分别上传')
+  }
   const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
   const singer = entry
     ? client.db.select().from(competitionSingers).where(eq(competitionSingers.id, entry.singerId)).get()
@@ -6022,37 +6136,6 @@ export async function commitAccompanimentKey(
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')
   }
   const songValue = incoming || entrySong
-  if (round.key === 'final' || round.key === 'final2') {
-    if (accompanimentExtension(file.key) !== 'mp4') {
-      validationError('决赛只收 MP4 视频背景', 'key')
-    }
-    const config = cosConfig()
-    if (!config) {
-      throw createError({ statusCode: 503, statusMessage: 'Storage not configured', data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' } })
-    }
-    const name = accompanimentDisplayName(
-      singer?.name ?? '',
-      songValue || singer?.song || '',
-      'mp4'
-    )
-    client.db.update(competitionRoundEntries)
-      .set({
-        accompanimentUrl: `cos:${file.key}`,
-        accompanimentName: name,
-        accompanimentSize: file.size,
-        accompanimentUpdatedAt: Date.now(),
-        originalUrl: null,
-        originalName: null,
-        originalSize: null
-      })
-      .where(eq(competitionRoundEntries.id, entryId))
-      .run()
-    return {
-      name,
-      url: presignCosGet(config, file.key, 6 * 60 * 60, 'video/mp4'),
-      size: file.size
-    }
-  }
   let sourceKey = file.key
   let sourceSize = file.size
   const originalKey = file.key
@@ -6134,23 +6217,15 @@ export async function submitAccompanimentByThreeFactors(
   if (!round) {
     throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'ENTRY_NOT_FOUND', message: '没找到这一轮的出场记录' } })
   }
+  if (round.key === 'final' || round.key === 'final2') {
+    conflictError('COMPETITION_FINAL_VIDEO_DEDICATED', '决赛两首歌的背景视频，请到「决赛两首歌」页面分别上传')
+  }
   const incoming = (song ?? '').trim()
   if (incoming) {
-    // 决赛曲目只能走两首歌接口，这里改歌会绕过版本锁与查重；伴奏照传，歌名必须与已提交的一致。
-    if (round.key === 'final' || round.key === 'final2') {
-      const lockedSong = (entrySongOf(client, stage.targetEntryId) ?? '').trim()
-      if (!lockedSong) {
-        conflictError('SONG_REQUIRED', '先在「决赛两首歌」页面提交曲目，再回来传伴奏')
-      }
-      if (songCompareKey(incoming) !== songCompareKey(lockedSong)) {
-        conflictError('COMPETITION_FINAL_SONG_DEDICATED', '决赛曲目请到「决赛两首歌」页面修改，这里只传伴奏')
-      }
-    } else {
-      client.db.update(competitionRoundEntries).set({ song: incoming })
-        .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
-      client.db.update(competitionSingers).set({ song: incoming })
-        .where(eq(competitionSingers.id, singer.id)).run()
-    }
+    client.db.update(competitionRoundEntries).set({ song: incoming })
+      .where(eq(competitionRoundEntries.id, stage.targetEntryId)).run()
+    client.db.update(competitionSingers).set({ song: incoming })
+      .where(eq(competitionSingers.id, singer.id)).run()
   }
   if (!entrySongOf(client, stage.targetEntryId)) {
     conflictError('SONG_REQUIRED', '先把这一轮的曲目填上，再传伴奏')

@@ -351,12 +351,12 @@ async function submit() {
           v-if="finalStage && state.editable"
           class="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm leading-relaxed text-amber-900"
         >
-          决赛两首歌请到
+          决赛两首歌和两个背景视频都请到
           <NuxtLink
             to="/singer/final-song"
             class="font-medium underline"
           >「决赛两首歌」页面</NuxtLink>
-          一次提交；本页只用来给决赛曲目上传 MP4 背景视频，改歌名不会生效。
+          一次提交；本页不再单独收决赛视频，改歌名也不会生效。
         </p>
         <p
           v-if="!state.editable"
@@ -366,10 +366,12 @@ async function submit() {
         </p>
         <template v-else>
           <label
+            v-if="!finalStage"
             class="mt-4 block text-sm font-medium"
             for="song"
           >新曲目</label>
           <UInput
+            v-if="!finalStage"
             id="song"
             v-model="song"
             class="mt-1 w-full"
@@ -378,7 +380,10 @@ async function submit() {
             placeholder="写具体歌名，如 晴天"
             @keyup.enter="submit"
           />
-          <div class="mt-4 rounded-xl border border-dashed border-[var(--line)] p-3">
+          <div
+            v-if="!finalStage"
+            class="mt-4 rounded-xl border border-dashed border-[var(--line)] p-3"
+          >
             <p class="text-sm font-medium">
               {{ finalStage ? '决赛背景视频' : '伴奏' }} <span class="text-xs font-normal text-[var(--muted-ink)]">选填，不传也行，之后还能再传</span>
             </p>

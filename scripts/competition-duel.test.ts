@@ -269,7 +269,7 @@ test('抽签 1v1 平分且评委多数相同：不静默晋级，提示加赛', 
   rmSync(join(path, '..'), { recursive: true, force: true })
 })
 
-test('决赛伴奏接口只收 MP4 背景视频', async () => {
+test('决赛单视频入口关闭，统一走两首歌页分别上传', async () => {
   const { client, path } = temporaryDatabase()
   runMigrations(client)
   const contentId = createContent(client, 'duel-video')
@@ -298,15 +298,15 @@ test('决赛伴奏接口只收 MP4 背景视频', async () => {
   const entry = listRoundEntryRows(client, finalRound.id)[0]!
   await assert.rejects(
     () => setEntryAccompaniment(client, finalRound, entry.id, { filename: '背景.mp3', data: new Uint8Array([1, 2, 3]) }),
-    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
   await assert.rejects(
     () => commitAccompanimentKey(client, finalRound, entry.id, { key: 'uploads/背景.mp3', name: '背景.mp3', size: 3 }),
-    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
   await assert.rejects(
     () => setEntryAccompaniment(client, finalRound, entry.id, { filename: '背景.mp4', data: new Uint8Array([1, 2, 3]) }),
-    (error: unknown) => codeOf(error) === 'STORAGE_NOT_CONFIGURED'
+    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
 
   closeDatabase(path)
