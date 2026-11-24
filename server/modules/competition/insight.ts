@@ -122,7 +122,7 @@ export function insightConfigFromValues(runtime: Record<string, unknown>): Compe
     baseUrl,
     apiKey,
     model: String(runtime.competitionInsightModel || runtime.aiGatewayModel || 'gpt-5.4'),
-    timeoutMs: Math.max(10_000, Number(runtime.competitionInsightTimeoutMs) || 45_000)
+    timeoutMs: Math.max(10_000, Number(runtime.competitionInsightTimeoutMs ?? runtime.aiGatewayTimeoutMs) || 45_000)
   }
 }
 
@@ -283,13 +283,22 @@ export function parseInsight(text: string): CompetitionInsight | null {
 }
 
 /** 调一次网关。失败返回 null，交给上层当作「本次没有分析」。 */
+/**
+ * 平台网关的 baseUrl 只到主机端口（如 http://127.0.0.1:18080），OpenAI 兼容路由挂在 /v1 下。
+ * 若运维把 /v1 写进了 baseUrl，就不要再叠一层。
+ */
+export function chatCompletionsUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, '')
+  return /\/v1$/.test(trimmed) ? `${trimmed}/chat/completions` : `${trimmed}/v1/chat/completions`
+}
+
 export async function requestInsight(
   config: CompetitionInsightConfig,
   digest: CompetitionInsightDigest,
   options: { fetchImpl?: typeof fetch } = {}
 ): Promise<CompetitionInsight | null> {
   const doFetch = options.fetchImpl ?? fetch
-  const url = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`
+  const url = chatCompletionsUrl(config.baseUrl)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), config.timeoutMs)
   try {

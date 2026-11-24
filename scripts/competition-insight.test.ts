@@ -9,6 +9,7 @@ import type {
 } from '../shared/utils/competition-analytics'
 import {
   COMPETITION_INSIGHT_PROMPT,
+  chatCompletionsUrl,
   insightConfigFromValues,
   insightDigest,
   insightFingerprint,
@@ -264,6 +265,13 @@ test('parseInsight：过滤非字符串、裁掉超长与超额条目', () => {
   assert.ok(parsed.highlights[1]?.length === 161 && parsed.highlights[1].endsWith('…'))
 })
 
+test('chatCompletionsUrl：baseUrl 带不带 /v1 都落到同一条路由', () => {
+  assert.equal(chatCompletionsUrl('http://127.0.0.1:18080'), 'http://127.0.0.1:18080/v1/chat/completions')
+  assert.equal(chatCompletionsUrl('http://127.0.0.1:18080/'), 'http://127.0.0.1:18080/v1/chat/completions')
+  assert.equal(chatCompletionsUrl(' http://127.0.0.1:18080/v1 '), 'http://127.0.0.1:18080/v1/chat/completions')
+  assert.equal(chatCompletionsUrl('https://api.example.com/openai/v1/'), 'https://api.example.com/openai/v1/chat/completions')
+})
+
 test('requestInsight：请求体带模型与提示词，成功时解析出结论', async () => {
   const calls: Array<{ url: string, body: Record<string, unknown>, auth: string | null }> = []
   const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
@@ -288,7 +296,7 @@ test('requestInsight：请求体带模型与提示词，成功时解析出结论
   assert.equal(insight.headline, '稳中求变')
   assert.deepEqual(insight.actions, ['锁定曲目'])
   assert.equal(calls.length, 1)
-  assert.equal(calls[0]?.url, 'https://gw.example.com/chat/completions')
+  assert.equal(calls[0]?.url, 'https://gw.example.com/v1/chat/completions')
   assert.equal(calls[0]?.auth, 'Bearer secret')
   assert.equal(calls[0]?.body.model, 'gpt-5.4')
   const messages = calls[0]?.body.messages as Array<{ role: string, content: string }>
