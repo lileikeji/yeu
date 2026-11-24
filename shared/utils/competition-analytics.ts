@@ -106,6 +106,13 @@ export interface DuelPrediction {
   tag: string
   upset: boolean
   note: string
+  /**
+   * 这次预测的置信度（0–100）。两人前两轮的评委分歧越小，胜率越可信；
+   * 分歧大到一定程度，两个实力分本身就不稳，概率要往 50% 收。
+   */
+  confidence: number
+  /** 波动档位，直接给面板显示，不用前端再判断阈值。 */
+  volatility: '稳定' | '波动' | '未知'
 }
 
 export interface ScoreBucketStat {
@@ -521,6 +528,34 @@ function buildPowerSummaryNote(
   return `仅采集到初赛成绩（第 ${prelim?.rank ?? '—'} 名，百分制 ${prelim?.percentScore?.toFixed(1) ?? '—'}%），待复赛开赛后更新加权。`
 }
 
+/**
+ * 一位选手前两轮「评委分歧」的加权标准差（百分制）。
+ *
+ * 评委之间越一致，这个值越小，这位选手的实力分越可信；越小样本（只有一轮评分）
+ * 时直接用该轮权重归一，不会因为缺一轮就把分歧算成 0。
+ */
+export function singerSpreadSigma(profile: SingerAnalyticsProfile): number | null {
+  const parts: Array<{ value: number, weight: number }> = []
+  const prelimSigma = profile.power.prelim?.judgeStdDev ?? null
+  const semiSigma = profile.power.semi?.judgeStdDev ?? null
+  if (prelimSigma !== null && Number.isFinite(prelimSigma)) {
+    parts.push({ value: prelimSigma, weight: profile.power.prelimWeight })
+  }
+  if (semiSigma !== null && Number.isFinite(semiSigma)) {
+    parts.push({ value: semiSigma, weight: profile.power.semiWeight })
+  }
+  if (parts.length === 0) return null
+  const totalWeight = parts.reduce((sum, part) => sum + part.weight, 0)
+  if (!(totalWeight > 0)) return null
+  const weighted = parts.reduce((sum, part) => sum + part.value * part.weight, 0) / totalWeight
+  return roundCompetitionScore(weighted)
+}
+
+/**
+ * 1v1 赛前胜率。传入双方评委分歧（sigma）后按分歧程度收缩：sigma 越大，
+ * 两个实力分越不可靠，概率越向 50% 靠；不传 sigma 时退化为纯实力分模型，
+ * 与历史行为完全一致。
+ */
 export function predictDuelWinProbability(
   leftPower: number | null,
   rightPower: number | null,
@@ -531,9 +566,20 @@ export function predictDuelWinProbability(
     leftEntryId?: string | null
     rightEntryId?: string | null
     winnerEntryId?: string | null
+    /** 左侧选手前两轮评委打分标准差的加权值（百分制）。 */
+    leftSigma?: number | null
+    /** 右侧选手前两轮评委打分标准差的加权值（百分制）。 */
+    rightSigma?: number | null
   } = {}
 ): DuelPrediction {
   const pairNo = options.pairNo ?? 0
+  const leftSigma = typeof options.leftSigma === 'number' && Number.isFinite(options.leftSigma) && options.leftSigma >= 0
+    ? options.leftSigma
+    : null
+  const rightSigma = typeof options.rightSigma === 'number' && Number.isFinite(options.rightSigma) && options.rightSigma >= 0
+    ? options.rightSigma
+    : null
+
   if (leftPower === null || rightPower === null || !Number.isFinite(leftPower) || !Number.isFinite(rightPower)) {
     return {
       pairNo,
@@ -546,15 +592,29 @@ export function predictDuelWinProbability(
       powerDiff: null,
       tag: '实力数据待补',
       upset: false,
-      note: '至少一方缺少前两轮评分，暂无法计算 1v1 赛前胜率。'
+      note: '至少一方缺少前两轮评分，暂无法计算 1v1 赛前胜率。',
+      confidence: 0,
+      volatility: '未知'
     }
   }
 
   const diff = roundCompetitionScore(leftPower - rightPower)
-  const rawLeft = 100 / (1 + Math.exp(-diff / 6))
+
+  // 只有双方都有评委分歧数据时才收缩；单边缺失会让收缩系数偏向一侧，宁可不缩。
+  const sigma = leftSigma !== null && rightSigma !== null ? (leftSigma + rightSigma) / 2 : null
+  const shrink = sigma === null ? 1 : 1 / (1 + sigma / 10)
+  const effectiveDiff = diff * shrink
+  const rawLeft = 100 / (1 + Math.exp(-effectiveDiff / 6))
   const leftWinProb = Math.round(clamp(rawLeft, 5, 95))
   const rightWinProb = 100 - leftWinProb
   const absDiff = Math.abs(diff)
+
+  const confidence = sigma === null
+    ? 55
+    : Math.round(clamp(90 - sigma * 3 - absDiff * 0.3, 25, 95))
+  const volatility: DuelPrediction['volatility'] = sigma === null
+    ? '未知'
+    : (sigma >= 8 ? '波动' : '稳定')
 
   let tag = '常规对决'
   if (leftPower >= 83 && rightPower >= 83 && absDiff <= 4) {
@@ -574,6 +634,11 @@ export function predictDuelWinProbability(
   const leaderText = absDiff < 0.01
     ? '双方赛前实力分完全持平'
     : `${diff > 0 ? '左侧' : '右侧'}实力分领先 ${absDiff.toFixed(2)} 分（预计胜率 ${Math.max(leftWinProb, rightWinProb)}%）`
+  const sigmaText = sigma === null
+    ? ''
+    : (volatility === '波动'
+        ? `；评委分歧偏大（σ≈${sigma.toFixed(1)}），该实力分参考价值有限`
+        : `；评委判断一致（σ≈${sigma.toFixed(1)}）`)
 
   return {
     pairNo,
@@ -586,7 +651,9 @@ export function predictDuelWinProbability(
     powerDiff: diff,
     tag,
     upset,
-    note: upset ? `${leaderText}；实际赛果出现低分逆袭。` : leaderText
+    confidence,
+    volatility,
+    note: upset ? `${leaderText}；实际赛果出现低分逆袭。` : `${leaderText}${sigmaText}`
   }
 }
 
@@ -973,7 +1040,9 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
         rightSingerId: rightEntry?.singer.id ?? null,
         leftEntryId: leftEntry?.id ?? null,
         rightEntryId: rightEntry?.id ?? null,
-        winnerEntryId: pair.winnerEntryId
+        winnerEntryId: pair.winnerEntryId,
+        leftSigma: leftProfile ? singerSpreadSigma(leftProfile) : null,
+        rightSigma: rightProfile ? singerSpreadSigma(rightProfile) : null
       }
     )
   }

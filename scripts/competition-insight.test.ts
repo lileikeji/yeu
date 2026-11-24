@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import type { CompetitionRoundKey } from '../shared/types'
 import type {
@@ -16,6 +19,12 @@ import {
   parseInsight,
   requestInsight
 } from '../server/modules/competition/insight'
+import {
+  insightStoreFile,
+  readStoredInsight,
+  writeStoredInsight,
+  type StoredCompetitionInsight
+} from '../server/modules/competition/insight-store'
 
 type ReportOverrides = Partial<CompetitionAnalyticsReport>
 
@@ -130,12 +139,14 @@ function duel(pairNo: number): DuelPrediction {
     rightSingerId: 's2',
     leftPower: 88,
     rightPower: 80,
-    leftWinProb: 0.72,
-    rightWinProb: 0.28,
+    leftWinProb: 72,
+    rightWinProb: 28,
     powerDiff: 8,
     tag: '稳',
     upset: false,
-    note: '实力接近'
+    note: '实力接近',
+    confidence: 78,
+    volatility: '稳定'
   }
 }
 
@@ -193,6 +204,8 @@ test('insightDigest：选手与对阵都有硬上限，不随名单膨胀', () =
   assert.equal(digest.leaders[0]?.rank, 1)
   assert.equal(digest.duels[0]?.left, '选手1')
   assert.equal(digest.duels[0]?.leftWinPercent, 72)
+  assert.equal(digest.duels[0]?.confidence, 78)
+  assert.equal(digest.duels[0]?.volatility, '稳定')
   assert.ok(JSON.stringify(digest).length < 20_000)
 })
 
@@ -319,4 +332,74 @@ test('requestInsight：HTTP 失败、抛错、内容不可解析都返回 null',
   assert.equal(await requestInsight(config, digest, { fetchImpl: failStatus }), null)
   assert.equal(await requestInsight(config, digest, { fetchImpl: throwError }), null)
   assert.equal(await requestInsight(config, digest, { fetchImpl: badBody }), null)
+})
+
+test('insight-store：写盘后能原样读回，不同赛事各存一份', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yeu-insight-store-'))
+  const dbPath = join(dir, 'yeu.sqlite')
+  const value: StoredCompetitionInsight = {
+    eventId: 'event-a',
+    eventTitle: '仰恩大学歌手大赛',
+    insight: { headline: '整体稳定', highlights: ['初赛均分 88'], risks: [], actions: ['提前备伴奏'], caveats: [] },
+    model: 'deepseek-flash',
+    fingerprint: 'abcdef0123456789',
+    generatedAt: 1_760_000_000_000,
+    savedAt: 1_760_000_000_500,
+    savedByAdminId: 'admin-1'
+  }
+
+  assert.equal(readStoredInsight(dbPath, 'event-a'), null)
+
+  writeStoredInsight(dbPath, value)
+  const roundTrip = readStoredInsight(dbPath, 'event-a')
+  assert.ok(roundTrip)
+  assert.equal(roundTrip.insight.headline, '整体稳定')
+  assert.deepEqual(roundTrip.insight.highlights, ['初赛均分 88'])
+  assert.equal(roundTrip.fingerprint, 'abcdef0123456789')
+  assert.equal(roundTrip.savedByAdminId, 'admin-1')
+
+  // 换代后另一届读到的是自己那份，不会被覆盖。
+  assert.equal(readStoredInsight(dbPath, 'event-b'), null)
+  writeStoredInsight(dbPath, { ...value, eventId: 'event-b', insight: { ...value.insight, headline: '下一届' } })
+  assert.equal(readStoredInsight(dbPath, 'event-b')?.insight.headline, '下一届')
+  assert.equal(readStoredInsight(dbPath, 'event-a')?.insight.headline, '整体稳定')
+
+  // 落盘是 JSON 文件，跟着数据库同目录，备份脚本能一起带走。
+  const file = insightStoreFile(dbPath, 'event-a')
+  assert.ok(file.startsWith(dir))
+  assert.ok(file.endsWith('event-a.json'))
+  assert.equal(JSON.parse(readFileSync(file, 'utf8')).eventId, 'event-a')
+
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('insight-store：文件损坏或缺字段时读回 null，不让面板炸掉', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yeu-insight-broken-'))
+  const dbPath = join(dir, 'yeu.sqlite')
+
+  writeStoredInsight(dbPath, {
+    eventId: 'event-x',
+    eventTitle: 't',
+    insight: { headline: 'ok', highlights: [], risks: [], actions: [], caveats: [] },
+    model: 'm',
+    fingerprint: 'f',
+    generatedAt: 1,
+    savedAt: 1,
+    savedByAdminId: null
+  })
+  const file = insightStoreFile(dbPath, 'event-x')
+  assert.ok(readStoredInsight(dbPath, 'event-x'))
+
+  writeFileSync(file, '{ this is not json', 'utf8')
+  assert.equal(readStoredInsight(dbPath, 'event-x'), null)
+
+  writeFileSync(file, JSON.stringify({ eventId: 'event-x', insight: {} }), 'utf8')
+  assert.equal(readStoredInsight(dbPath, 'event-x'), null)
+
+  // eventId 里的路径分隔符被清掉，不会写到目录之外。
+  const weird = insightStoreFile(dbPath, '../etc/passwd')
+  assert.ok(weird.startsWith(dir))
+  assert.ok(!weird.includes('..'))
+
+  rmSync(dir, { recursive: true, force: true })
 })

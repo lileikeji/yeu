@@ -23,7 +23,9 @@ import {
 import {
   computeCompetitionAnalytics,
   powerTierOf,
-  predictDuelWinProbability
+  predictDuelWinProbability,
+  singerSpreadSigma,
+  type SingerAnalyticsProfile
 } from '../shared/utils/competition-analytics'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
@@ -442,6 +444,61 @@ test('边界场景：空赛事、单人成轮、单轮缺失与 1v1 预测标签
   const missing = predictDuelWinProbability(85, null, { pairNo: 4 })
   assert.equal(missing.tag, '实力数据待补')
   assert.equal(missing.leftWinProb, null)
+})
+
+test('评委分歧收缩：sigma 越大胜率越靠 50%，置信度越低，不传 sigma 则与旧行为一致', () => {
+  const base = predictDuelWinProbability(88, 80, { pairNo: 1 })
+  const wideSigma = predictDuelWinProbability(88, 80, {
+    pairNo: 1,
+    leftSigma: 12,
+    rightSigma: 14
+  })
+
+  // 不传 sigma：完全走纯实力分模型。
+  assert.equal(base.volatility, '未知')
+  assert.equal(base.confidence, 55)
+  assert.ok((base.leftWinProb ?? 0) > 60)
+
+  // 传了大分歧：领先方概率被拉回中间，但双方仍互补为 100。
+  assert.ok((wideSigma.leftWinProb ?? 0) < (base.leftWinProb ?? 0))
+  assert.ok((wideSigma.leftWinProb ?? 0) > 50)
+  assert.equal((wideSigma.leftWinProb ?? 0) + (wideSigma.rightWinProb ?? 0), 100)
+  assert.equal(wideSigma.volatility, '波动')
+  assert.ok(wideSigma.confidence < base.confidence)
+
+  // 分歧很小：基本保持原判，置信度高。
+  const tight = predictDuelWinProbability(88, 80, { pairNo: 1, leftSigma: 1, rightSigma: 1 })
+  assert.equal(tight.volatility, '稳定')
+  assert.ok(tight.confidence > 80)
+  assert.ok(Math.abs((tight.leftWinProb ?? 0) - (base.leftWinProb ?? 0)) <= 2)
+
+  // 只给单边 sigma 时不收缩：单边数据会把系数拉偏，宁可不缩。
+  const oneSide = predictDuelWinProbability(88, 80, { pairNo: 1, leftSigma: 20 })
+  assert.equal(oneSide.leftWinProb, base.leftWinProb)
+  assert.equal(oneSide.volatility, '未知')
+})
+
+test('singerSpreadSigma：按轮次权重加权评委标准差，缺一轮不会算成 0', () => {
+  const both = {
+    power: {
+      prelimWeight: 0.35,
+      semiWeight: 0.65,
+      prelim: { judgeStdDev: 2 },
+      semi: { judgeStdDev: 6 }
+    }
+  } as unknown as SingerAnalyticsProfile
+  // 初赛 σ=2（权重 0.35）、复赛 σ=6（权重 0.65）→ 2*0.35 + 6*0.65 = 4.6
+  assert.equal(singerSpreadSigma(both), 4.6)
+
+  const semiOnly = {
+    power: { prelimWeight: 0, semiWeight: 1, prelim: null, semi: { judgeStdDev: 5.5 } }
+  } as unknown as SingerAnalyticsProfile
+  assert.equal(singerSpreadSigma(semiOnly), 5.5)
+
+  const noData = {
+    power: { prelimWeight: 0, semiWeight: 0, prelim: null, semi: null }
+  } as unknown as SingerAnalyticsProfile
+  assert.equal(singerSpreadSigma(noData), null)
 })
 
 test('真实 SQLite 集成测试：12 名选手跑通初赛、复赛与决赛 1v1 抽签后的完整数据可视化与对阵预测', async () => {

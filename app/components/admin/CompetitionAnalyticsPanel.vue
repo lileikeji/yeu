@@ -253,6 +253,10 @@ interface CompetitionInsightResponse {
     cached: boolean
     generatedAt: number
     fingerprint: string
+    /** 落盘时间；GET 与 POST 都会给，前端只用来显示「上次分析于」。 */
+    savedAt?: number
+    /** true = 落盘结论依据的数据与当前数据已不一致，可提示重新分析。 */
+    stale?: boolean
   }
 }
 
@@ -266,6 +270,26 @@ const insightGeneratedAtLabel = computed(() => {
   return new Date(generatedAt).toLocaleString('zh-CN', { hour12: false })
 })
 
+const insightStale = computed(() => insightResult.value?.meta.stale === true)
+
+/** 打开面板先铺上次落盘的结论：不点按钮就不重新生成，避免刷新页面白烧一次额度。 */
+async function loadStoredInsight(): Promise<void> {
+  try {
+    const result = await adminFetch<{ insight: CompetitionInsightView | null, meta: CompetitionInsightResponse['meta'] | null }>(
+      '/api/admin/competition/analytics/insight'
+    )
+    if (result?.insight && result.meta) {
+      insightResult.value = { insight: result.insight, meta: result.meta }
+    }
+  } catch {
+    // 读取历史结论失败不打扰后台操作，页面仍可手动生成。
+  }
+}
+
+onMounted(() => {
+  void loadStoredInsight()
+})
+
 async function generateInsight(): Promise<void> {
   if (insightLoading.value) return
   insightLoading.value = true
@@ -277,7 +301,7 @@ async function generateInsight(): Promise<void> {
     )
     insightResult.value = result
     toast.add({
-      title: result.meta.cached ? '这份数据的分析已存在，直接复用' : 'AI 分析已生成',
+      title: result.meta.cached ? '这份数据的分析已存在，直接复用' : 'AI 分析已生成并写入面板',
       color: 'success'
     })
   } catch (error) {
@@ -380,10 +404,17 @@ async function generateInsight(): Promise<void> {
             </span>
           </h2>
           <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            把当前统计交给平台 AI 网关，生成赛况判断与办赛建议。只读后台数据，不改任何评分；同一份数据 10 分钟内复用结果。
+            把当前统计交给平台 AI 网关，生成赛况判断与办赛建议。只读后台数据，不改任何评分；结论会写入面板，刷新或换页回来仍显示上次结果，只有再点一次按钮才会重新分析。
           </p>
         </div>
         <div class="flex items-center gap-2">
+          <span
+            v-if="insightStale"
+            class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
+            title="这份结论依据的是上一次的统计数据，赛况已有更新"
+          >
+            数据已更新
+          </span>
           <span
             v-if="insightResult"
             class="text-xs tabular-nums text-zinc-400"
@@ -698,6 +729,12 @@ async function generateInsight(): Promise<void> {
                 :style="{ width: `${item.prediction.leftWinProb}%` }"
               />
             </div>
+            <p class="text-[11px] text-zinc-400 tabular-nums">
+              预测置信度 {{ item.prediction.confidence }}%
+              <span v-if="item.prediction.volatility === '波动'">· 评委分歧偏大，只当趋势参考</span>
+              <span v-else-if="item.prediction.volatility === '稳定'">· 评委判断一致，可信度较高</span>
+              <span v-else>· 缺前两轮分歧数据，仅按实力分推算</span>
+            </p>
           </div>
 
           <div class="mt-2.5 grid grid-cols-2 gap-2">

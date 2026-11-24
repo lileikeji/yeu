@@ -90,6 +90,9 @@ export interface CompetitionInsightDigest {
     tag: string
     upset: boolean
     note: string
+    /** 预测置信度 0–100，来自两人前两轮评委分歧；模型据此判断「这场能不能当参考」。 */
+    confidence: number
+    volatility: string
   }>
   fieldSkills: Array<{ label: string, average: number }>
 }
@@ -102,6 +105,7 @@ const MAX_ITEMS = 6
 
 export const COMPETITION_INSIGHT_PROMPT = `你是仰恩大学歌手大赛的赛事数据分析师。下面给出的是本届比赛的结构化统计（选手实力模型、各轮分数分布、评委打分偏差、决赛对阵胜率、人气投票）。
 请只依据给出的数字作判断，不得编造选手、曲目、分数或规则；数字看起来不合理时，把它写进 caveats 而不是自行修正。
+字段说明：duels[].leftWinPercent/rightWinPercent 是赛前胜率；confidence 是这次预测的置信度（0–100，评委分歧大、实力差距小则低）；volatility 为「稳定 / 波动 / 未知」，为「波动」时不要把它当确定结论。
 
 输出严格 JSON，字段如下：
 {
@@ -181,11 +185,14 @@ function duelDigest(prediction: DuelPrediction, nameOf: (id: string | null) => s
     pairNo: prediction.pairNo,
     left: nameOf(prediction.leftSingerId),
     right: nameOf(prediction.rightSingerId),
-    leftWinPercent: prediction.leftWinProb === null ? null : Math.round(prediction.leftWinProb * 1000) / 10,
-    rightWinPercent: prediction.rightWinProb === null ? null : Math.round(prediction.rightWinProb * 1000) / 10,
+    // leftWinProb 本身是 0–100 的百分数，这里只保留一位小数，不能再乘 100。
+    leftWinPercent: prediction.leftWinProb === null ? null : Math.round(prediction.leftWinProb * 10) / 10,
+    rightWinPercent: prediction.rightWinProb === null ? null : Math.round(prediction.rightWinProb * 10) / 10,
     tag: prediction.tag,
     upset: prediction.upset,
-    note: (prediction.note || '').slice(0, MAX_TEXT)
+    note: (prediction.note || '').slice(0, MAX_TEXT),
+    confidence: prediction.confidence,
+    volatility: prediction.volatility
   }
 }
 

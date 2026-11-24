@@ -6,6 +6,7 @@ import {
   requestInsight,
   type CompetitionInsight
 } from '../../../../modules/competition/insight'
+import { writeStoredInsight } from '../../../../modules/competition/insight-store'
 import { getAdminCompetitionPayload } from '../../../../modules/competition/service'
 import { writeAudit } from '../../../../utils/audit'
 import { resolveCompetitionContentId } from '../../../../utils/competition-admin'
@@ -63,7 +64,10 @@ export default defineEventHandler(async (event) => {
 
   const payload = getAdminCompetitionPayload(client, contentId)
   const report = computeCompetitionAnalytics(payload)
-  const digest = insightDigest(report, '仰恩大学歌手大赛')
+  const eventId = payload.event.id
+  const eventTitle = payload.event.title || '仰恩大学歌手大赛'
+  const databasePath = String(useRuntimeConfig(event).databasePath || process.env.NUXT_DATABASE_PATH || './data/yeu.sqlite')
+  const digest = insightDigest(report, eventTitle)
   const fingerprint = insightFingerprint(digest)
   const now = Date.now()
 
@@ -75,7 +79,9 @@ export default defineEventHandler(async (event) => {
         model: cached.model,
         cached: true,
         generatedAt: cached.generatedAt,
-        fingerprint
+        fingerprint,
+        savedAt: cached.generatedAt,
+        stale: false
       }
     }
   }
@@ -90,11 +96,21 @@ export default defineEventHandler(async (event) => {
   }
 
   writeCached(fingerprint, { insight, model: config.model, generatedAt: now })
+  writeStoredInsight(databasePath, {
+    eventId,
+    eventTitle,
+    insight,
+    model: config.model,
+    fingerprint,
+    generatedAt: now,
+    savedAt: now,
+    savedByAdminId: session.admin.id
+  })
   writeAudit(client, event, {
     actorAdminId: session.admin.id,
     action: 'competition.insight',
     entityType: 'competition_analytics',
-    entityId: String(contentId ?? ''),
+    entityId: eventId,
     details: { model: config.model, fingerprint, cached: false }
   })
 
@@ -104,7 +120,9 @@ export default defineEventHandler(async (event) => {
       model: config.model,
       cached: false,
       generatedAt: now,
-      fingerprint
+      fingerprint,
+      savedAt: now,
+      stale: false
     }
   }
 })
