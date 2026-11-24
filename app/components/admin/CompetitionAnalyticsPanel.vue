@@ -246,19 +246,35 @@ interface CompetitionInsightView {
   caveats: string[]
 }
 
+interface CompetitionInsightMeta {
+  model: string
+  cached: boolean
+  generatedAt: number | null
+  fingerprint: string | null
+  /** 落盘时间；GET 与 POST 都会给，前端只用来显示「上次分析于」。 */
+  savedAt?: number | null
+  /** true = 落盘结论依据的数据与当前数据已不一致，可提示重新分析。 */
+  stale?: boolean
+  /** true = 服务端已经接了任务，结论要靠轮询取（网关一次要跑十几秒）。 */
+  pending?: boolean
+  jobState?: 'running' | 'done' | 'failed' | null
+  jobError?: string | null
+}
+
+/** 接口原始返回：还没生成完时 insight 为空，meta 一定有。 */
+interface CompetitionInsightApiResponse {
+  insight: CompetitionInsightView | null
+  meta: CompetitionInsightMeta | null
+}
+
+/** 面板上展示用的结构：能显示就说明 insight 已经拿到了。 */
 interface CompetitionInsightResponse {
   insight: CompetitionInsightView
-  meta: {
-    model: string
-    cached: boolean
-    generatedAt: number
-    fingerprint: string
-    /** 落盘时间；GET 与 POST 都会给，前端只用来显示「上次分析于」。 */
-    savedAt?: number
-    /** true = 落盘结论依据的数据与当前数据已不一致，可提示重新分析。 */
-    stale?: boolean
-  }
+  meta: CompetitionInsightMeta
 }
+
+const INSIGHT_POLL_INTERVAL_MS = 1500
+const INSIGHT_POLL_MAX_TRIES = 40
 
 const insightLoading = ref(false)
 const insightError = ref('')
@@ -275,7 +291,7 @@ const insightStale = computed(() => insightResult.value?.meta.stale === true)
 /** 打开面板先铺上次落盘的结论：不点按钮就不重新生成，避免刷新页面白烧一次额度。 */
 async function loadStoredInsight(): Promise<void> {
   try {
-    const result = await adminFetch<{ insight: CompetitionInsightView | null, meta: CompetitionInsightResponse['meta'] | null }>(
+    const result = await adminFetch<CompetitionInsightApiResponse>(
       '/api/admin/competition/analytics/insight'
     )
     if (result?.insight && result.meta) {
@@ -290,20 +306,58 @@ onMounted(() => {
   void loadStoredInsight()
 })
 
+function waitInsightPoll(ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+/**
+ * 生成请求只负责起任务，结论靠轮询取：
+ * 网关一次要跑十几秒，挂在原请求上等，客户端超时或切页就会把已经算好的结果丢掉。
+ */
+async function pollInsight(fingerprint: string): Promise<CompetitionInsightResponse | null> {
+  for (let attempt = 0; attempt < INSIGHT_POLL_MAX_TRIES; attempt += 1) {
+    await waitInsightPoll(INSIGHT_POLL_INTERVAL_MS)
+    const result = await adminFetch<CompetitionInsightApiResponse>(
+      '/api/admin/competition/analytics/insight'
+    )
+    if (result.meta?.jobState === 'failed') {
+      throw new Error(result.meta.jobError || '平台 AI 没有返回可解析的分析结果')
+    }
+    if (result.insight && result.meta?.fingerprint === fingerprint) {
+      return { insight: result.insight, meta: result.meta }
+    }
+  }
+  return null
+}
+
 async function generateInsight(): Promise<void> {
   if (insightLoading.value) return
   insightLoading.value = true
   insightError.value = ''
   try {
-    const result = await adminFetch<CompetitionInsightResponse>(
+    const posted = await adminFetch<CompetitionInsightApiResponse>(
       '/api/admin/competition/analytics/insight',
       { method: 'POST' }
     )
-    insightResult.value = result
-    toast.add({
-      title: result.meta.cached ? '刚刚生成过同一份数据，直接复用（1 分钟内不重复调用）' : 'AI 分析已生成并写入面板',
-      color: 'success'
-    })
+    if (posted.insight && posted.meta && !posted.meta.pending) {
+      insightResult.value = { insight: posted.insight, meta: posted.meta }
+      toast.add({
+        title: '刚刚生成过同一份数据，直接复用（1 分钟内不重复调用）',
+        color: 'success'
+      })
+      return
+    }
+    const fingerprint = posted.meta?.fingerprint ?? ''
+    const polled = await pollInsight(fingerprint)
+    if (!polled) {
+      insightError.value = '这次生成偏慢，结论已保存在服务端，稍后刷新页面即可看到。'
+      toast.add({ title: 'AI 分析仍在生成', description: insightError.value, color: 'warning' })
+      return
+    }
+    insightResult.value = polled
+    toast.add({ title: 'AI 分析已生成并写入面板', color: 'success' })
   } catch (error) {
     insightError.value = apiErrorMessage(error, 'AI 分析生成失败，请稍后重试。')
     toast.add({ title: 'AI 分析未能生成', description: insightError.value, color: 'warning' })
@@ -400,7 +454,7 @@ async function generateInsight(): Promise<void> {
           <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">
             AI 智能分析
             <span class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
-              {{ insightResult ? insightResult.meta.model : '平台 AI' }}
+              {{ insightResult?.meta.model || '平台 AI' }}
             </span>
           </h2>
           <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

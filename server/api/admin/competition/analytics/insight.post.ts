@@ -6,6 +6,7 @@ import {
   requestInsight,
   type CompetitionInsight
 } from '../../../../modules/competition/insight'
+import { ensureInsightJob, markInsightJobDone, readInsightJob } from '../../../../modules/competition/insight-jobs'
 import { writeStoredInsight } from '../../../../modules/competition/insight-store'
 import { getAdminCompetitionPayload } from '../../../../modules/competition/service'
 import { writeAudit } from '../../../../utils/audit'
@@ -18,7 +19,10 @@ import { useAdminRequest } from '../../../../utils/http'
  * 数据由服务端自己算（同一个 computeCompetitionAnalytics），不接受前端回传的统计结果：
  * 否则模型总结的是前端传来的数字，一旦前端算错或被人改，结论就跟着错。
  * 结论生成后会落盘（见 insight-store），刷新页面读的是落盘那份；
- * 只有用户再点一次按钮才会重新生成，1 分钟内的连点复用同一份，避免重复烧网关额度。
+ * 只有用户再点一次按钮才会重新生成。
+ *
+ * 网关一次要跑几秒到几十秒，直接挂在请求上等，客户端超时或切页就会把结果丢掉；
+ * 因此这里只负责起任务，立刻返回 pending，由前端轮询 GET 取结果（见 insight-jobs）。
  */
 
 interface CachedInsight {
@@ -82,48 +86,53 @@ export default defineEventHandler(async (event) => {
         generatedAt: cached.generatedAt,
         fingerprint,
         savedAt: cached.generatedAt,
-        stale: false
+        stale: false,
+        pending: false
       }
     }
   }
 
-  const insight = await requestInsight(config, digest)
-  if (!insight) {
-    throw createError({
-      statusCode: 502,
-      statusMessage: 'AI 分析生成失败',
-      message: '平台 AI 没有返回可解析的分析结果，请稍后重试。'
+  const running = readInsightJob(fingerprint)
+  if (!running || running.state !== 'running') {
+    const task = ensureInsightJob(fingerprint, config.model, async () => {
+      const insight = await requestInsight(config, digest)
+      if (!insight) return null
+      writeCached(fingerprint, { insight, model: config.model, generatedAt: Date.now() })
+      markInsightJobDone(fingerprint, insight)
+      writeStoredInsight(databasePath, {
+        eventId,
+        eventTitle,
+        insight,
+        model: config.model,
+        fingerprint,
+        generatedAt: Date.now(),
+        savedAt: Date.now(),
+        savedByAdminId: session.admin.id
+      })
+      return insight
+    })
+    // 响应返回后任务继续跑：客户端断开也不会把已经算出来的结论丢掉。
+    event.waitUntil(task)
+    writeAudit(client, event, {
+      actorAdminId: session.admin.id,
+      action: 'competition.insight',
+      entityType: 'competition_analytics',
+      entityId: eventId,
+      details: { model: config.model, fingerprint, stage: 'requested' }
     })
   }
 
-  writeCached(fingerprint, { insight, model: config.model, generatedAt: now })
-  writeStoredInsight(databasePath, {
-    eventId,
-    eventTitle,
-    insight,
-    model: config.model,
-    fingerprint,
-    generatedAt: now,
-    savedAt: now,
-    savedByAdminId: session.admin.id
-  })
-  writeAudit(client, event, {
-    actorAdminId: session.admin.id,
-    action: 'competition.insight',
-    entityType: 'competition_analytics',
-    entityId: eventId,
-    details: { model: config.model, fingerprint, cached: false }
-  })
-
+  setResponseStatus(event, 202)
   return {
-    insight,
+    insight: null,
     meta: {
       model: config.model,
       cached: false,
-      generatedAt: now,
+      generatedAt: null,
       fingerprint,
-      savedAt: now,
-      stale: false
+      savedAt: null,
+      stale: false,
+      pending: true
     }
   }
 })

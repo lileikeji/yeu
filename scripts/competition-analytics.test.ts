@@ -743,3 +743,43 @@ test('fast-check 性质 3：固定其他选手时，同步提高目标选手初�
     { numRuns: 200 }
   )
 })
+
+test('强弱项按相对全场平均判断：全场都低分的维度不会变成所有人的短板', () => {
+  const dims: CompetitionDimension[] = [
+    { key: 'pitch', label: '音准', weight: 50 },
+    { key: 'stage', label: '舞台表现', weight: 50 }
+  ]
+  const singers = [
+    makeSinger('s1', '甲', 1),
+    makeSinger('s2', '乙', 2),
+    makeSinger('s3', '丙', 3)
+  ]
+  // 舞台表现这一维度全场只给到 55–65，音准全场 85–95：
+  // 按绝对分取最低，三个人都会被标成「舞台表现」，那不是个人短板，是维度难度。
+  const prelim = makeRoundShell('prelim', '初赛', 1, dims, 100, {
+    entries: [
+      makeEntry(singers[0]!, 1, 75, 1, 2),
+      makeEntry(singers[1]!, 2, 75, 1, 2),
+      makeEntry(singers[2]!, 3, 75, 1, 2)
+    ],
+    scores: [
+      buildScore('round-prelim', 's1', 'j1', '评委1', dims, { pitch: 85, stage: 65 }, 100),
+      buildScore('round-prelim', 's2', 'j1', '评委1', dims, { pitch: 95, stage: 55 }, 100),
+      buildScore('round-prelim', 's3', 'j1', '评委1', dims, { pitch: 90, stage: 60 }, 100)
+    ]
+  })
+  const report = computeCompetitionAnalytics(makePayload(singers, [prelim], dims))
+
+  const first = report.profilesById.s1!
+  assert.equal(first.power.weakSpot?.label, '音准')
+  assert.equal(first.power.topStrength?.label, '舞台表现')
+
+  const second = report.profilesById.s2!
+  assert.equal(second.power.weakSpot?.label, '舞台表现')
+  assert.equal(second.power.topStrength?.label, '音准')
+
+  // 正好踩在全场平均上的选手，差距不足阈值，两头都不贴标签。
+  const third = report.profilesById.s3!
+  assert.equal(third.power.weakSpot, null)
+  assert.equal(third.power.topStrength, null)
+})

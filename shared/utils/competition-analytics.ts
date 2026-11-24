@@ -191,6 +191,8 @@ export interface CompetitionAnalyticsReport {
 
 const PRELIM_WEIGHT_BOTH = 0.35
 const SEMI_WEIGHT_BOTH = 0.65
+/** 强项/短板要和全场平均差出这么多分（百分点）才认定，差距过小说明只是评委尺度波动。 */
+const SKILL_GAP_THRESHOLD = 2
 
 const SCORE_BUCKET_RANGES: Array<{ label: string, min: number, max: number }> = [
   { label: '90–100%', min: 90, max: 100.01 },
@@ -933,9 +935,18 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
     let topStrength: SkillAxisStat | null = null
     let weakSpot: SkillAxisStat | null = null
     if (skillProfile.length > 0) {
-      const sortedSkills = skillProfile.slice().sort((left, right) => right.rate - left.rate)
-      topStrength = sortedSkills[0] ?? null
-      weakSpot = skillProfile.length >= 2 ? (sortedSkills[sortedSkills.length - 1] ?? null) : null
+      // 强弱项按「相对全场平均」判断：某个维度若全场都给低分，那是维度难度或评委尺度问题，
+      // 不是这个人的短板；按绝对分取最低会让人人都被标成同一个维度（例如首轮没有的舞台分）。
+      const ranked = skillProfile
+        .map(item => ({ item, gap: item.rate - item.fieldAverage }))
+        .sort((left, right) =>
+          (right.gap - left.gap)
+          || (right.item.rate - left.item.rate)
+          || left.item.key.localeCompare(right.item.key))
+      const best = ranked[0]
+      if (best && best.gap >= SKILL_GAP_THRESHOLD) topStrength = best.item
+      const worst = ranked[ranked.length - 1]
+      if (ranked.length >= 2 && worst && worst.gap <= -SKILL_GAP_THRESHOLD) weakSpot = worst.item
     }
 
     const tierInfo = powerTierOf(draft.powerScore)

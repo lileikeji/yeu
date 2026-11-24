@@ -17,8 +17,14 @@ import {
   insightDigest,
   insightFingerprint,
   parseInsight,
-  requestInsight
+  requestInsight,
+  type CompetitionInsight
 } from '../server/modules/competition/insight'
+import {
+  ensureInsightJob,
+  readInsightJob,
+  resetInsightJobs
+} from '../server/modules/competition/insight-jobs'
 import {
   insightStoreFile,
   readStoredInsight,
@@ -402,4 +408,46 @@ test('insight-store：文件损坏或缺字段时读回 null，不让面板炸�
   assert.ok(!weird.includes('..'))
 
   rmSync(dir, { recursive: true, force: true })
+})
+
+test('后台任务：同一份数据只跑一次，重复点击复用同一个任务', async () => {
+  resetInsightJobs()
+  let calls = 0
+  const run = async (): Promise<CompetitionInsight> => {
+    calls += 1
+    await new Promise<void>((resolve) => { setTimeout(resolve, 5) })
+    return { headline: '结论', highlights: [], risks: [], actions: [], caveats: [] }
+  }
+
+  const first = ensureInsightJob('fp-1', 'deepseek-flash', run)
+  const second = ensureInsightJob('fp-1', 'deepseek-flash', run)
+  assert.equal(readInsightJob('fp-1')?.state, 'running')
+
+  await Promise.all([first, second])
+  assert.equal(calls, 1)
+  const job = readInsightJob('fp-1')
+  assert.equal(job?.state, 'done')
+  assert.equal(job?.insight?.headline, '结论')
+  assert.equal(job?.error, null)
+
+  // 已经跑完的任务不再重跑，客户端直接读结果。
+  await ensureInsightJob('fp-1', 'deepseek-flash', run)
+  assert.equal(calls, 1)
+  resetInsightJobs()
+})
+
+test('后台任务：模型没给出可解析结果时标记失败，不写成功状态', async () => {
+  resetInsightJobs()
+  await ensureInsightJob('fp-2', 'deepseek-flash', async () => null)
+  const failed = readInsightJob('fp-2')
+  assert.equal(failed?.state, 'failed')
+  assert.equal(failed?.insight, null)
+  assert.match(String(failed?.error), /没有返回可解析/)
+
+  await ensureInsightJob('fp-3', 'deepseek-flash', async () => {
+    throw new Error('ECONNRESET')
+  })
+  assert.equal(readInsightJob('fp-3')?.state, 'failed')
+  assert.equal(readInsightJob('fp-3')?.error, 'ECONNRESET')
+  resetInsightJobs()
 })
