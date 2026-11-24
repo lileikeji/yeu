@@ -11,7 +11,7 @@ import { DEFAULT_COMPETITION_DIMENSIONS } from '~~/shared/utils/competition'
 import { adminFetch } from '~~/app/utils/admin-request'
 import { apiErrorMessage } from './useCompetitionRoster'
 
-type SectionKey = 'settings' | 'singers' | 'popularity' | 'email' | 'materials' | CompetitionRoundKey
+type SectionKey = 'settings' | 'analytics' | 'singers' | 'popularity' | 'email' | 'materials' | CompetitionRoundKey
 
 export interface SettingsDraft {
   title: string
@@ -46,6 +46,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
 
   const sections = [
     { key: 'settings', label: '赛事设置', icon: 'i-lucide-sliders-horizontal' },
+    { key: 'analytics', label: '数据可视化', icon: 'i-lucide-chart-column' },
     { key: 'singers', label: '选手库', icon: 'i-lucide-list-music' },
     { key: 'prelim', label: '初赛', icon: 'i-lucide-flag' },
     { key: 'semi', label: '复赛', icon: 'i-lucide-git-branch' },
@@ -86,7 +87,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
 
   const activeRound = computed<CompetitionRoundView | null>(() => {
     const key = activeSection.value
-    if (key === 'settings' || key === 'singers' || key === 'popularity' || key === 'email' || key === 'materials') return null
+    if (key === 'settings' || key === 'analytics' || key === 'singers' || key === 'popularity' || key === 'email' || key === 'materials') return null
     return payload.value?.rounds.find(round => round.key === key) ?? null
   })
 

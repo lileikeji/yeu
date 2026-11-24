@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE, competitionMaxTotal } from '~~/shared/utils/competition'
-import type { CompetitionAdminPayload, CompetitionDimension, CompetitionRoundEntry, CompetitionRoundKey, CompetitionRoundView } from '~~/shared/types'
+import { computeCompetitionAnalytics } from '~~/shared/utils/competition-analytics'
+import type { CompetitionAdminPayload, CompetitionDimension, CompetitionDuelPair, CompetitionRoundEntry, CompetitionRoundKey, CompetitionRoundView } from '~~/shared/types'
 
 definePageMeta({ layout: 'admin' })
 
@@ -204,7 +205,7 @@ const {
 
 const {
   SCHEDULE_KEY_OPTIONS, addScheduleRow, removeScheduleRow, restoreDefaultFormFields, formatDateTime,
-  weightPercent, rosterEntries, rosterQuery, rosterVisible, missingJudgeCount,
+  weightPercent, rosterEntries, rosterQuery, rosterVisible, duelRosterVisible, missingJudgeCount,
   rosterOrderMode, sortOrderBusy, sortOrderValue, setSortOrderDraft, applySortOrders,
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
   wrongStatus, advanceHint, canRedraw, canClearRoster, rankClass,
@@ -252,6 +253,18 @@ const {
   reminderSubject, reminderBody, reminderSaving, reminderSending, saveReminderTemplate, sendReminders,
   editionLabel, editionCreating, createEdition
 } = useCompetitionAdvance({ payload, activeRound, load, toast })
+
+/** 只有决赛第一轮切到 1v1 时，出场名单才改成按组展示；其他轮次保持原表格。 */
+const isDuelFinal = computed(() => activeRound.value?.key === 'final' && activeRound.value.advanceMode === 'duel')
+const visibleRoster = computed(() => {
+  const round = activeRound.value
+  if (!round) return []
+  return isDuelFinal.value ? duelRosterVisible(round) : rosterVisible(round)
+})
+
+function duelPairOf(entry: CompetitionRoundEntry): CompetitionDuelPair | null {
+  return activeRound.value?.duelPairs?.find(pair => pair.pairNo === entry.pairNo) ?? null
+}
 
 const {
   emailRound, emailRounds, emailScope, emailSavingTemplate, emailSending, emailTesting, emailTestAddress, emailBodyRef,
@@ -344,6 +357,8 @@ function startLiveRefresh(): void {
   }, 5000)
 }
 
+const analyticsReport = computed(() => payload.value ? computeCompetitionAnalytics(payload.value) : null)
+
 onMounted(async () => {
   await load()
   startLiveRefresh()
@@ -361,6 +376,13 @@ onBeforeUnmount(stopLiveRefresh)
         </h1>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          icon="i-lucide-chart-column"
+          label="数据可视化"
+          to="/admin/competition-analytics"
+          color="neutral"
+          variant="soft"
+        />
         <UButton
           icon="i-lucide-megaphone"
           label="宣传页"
@@ -824,6 +846,17 @@ onBeforeUnmount(stopLiveRefresh)
               : '初赛默认五维、每维 0-10（满分 50）；复赛/决赛每维 0-20（满分 100）。改完点「保存本轮维度」。' }}
           </p>
         </div>
+      </section>
+
+      <section
+        v-if="activeSection === 'analytics' && payload"
+        class="space-y-4"
+      >
+        <AdminCompetitionAnalyticsPanel
+          :payload="payload"
+          @update:payload="payload = $event"
+          @refresh="load"
+        />
       </section>
 
       <section
@@ -1818,14 +1851,17 @@ onBeforeUnmount(stopLiveRefresh)
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <div>
               <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                出场名单
+                {{ isDuelFinal ? '对阵名单' : '出场名单' }}
               </h3>
               <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                复赛/决赛名单由上一轮晋级后抽签生成，可拖动调整。
+                {{ isDuelFinal
+                  ? '按 1v1 分组显示；每组两人，胜者进第二轮。抽签与确认在下方晋级结算区操作。'
+                  : '复赛/决赛名单由上一轮晋级后抽签生成，可拖动调整。' }}
               </p>
             </div>
             <div class="flex items-center gap-2">
               <input
+                v-if="!isDuelFinal"
                 v-model="rosterQuery"
                 type="search"
                 placeholder="搜选手名字或歌名"
@@ -1833,6 +1869,7 @@ onBeforeUnmount(stopLiveRefresh)
                 aria-label="搜索出场名单"
               >
               <select
+                v-if="!isDuelFinal"
                 v-model="rosterOrderMode"
                 class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1.5 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
                 aria-label="名单显示顺序"
@@ -1844,9 +1881,12 @@ onBeforeUnmount(stopLiveRefresh)
                   按出场号排
                 </option>
               </select>
-              <span class="hidden text-[11px] text-zinc-500 sm:inline dark:text-zinc-400">填号=签到</span>
+              <span
+                v-if="!isDuelFinal"
+                class="hidden text-[11px] text-zinc-500 sm:inline dark:text-zinc-400"
+              >填号=签到</span>
               <UButton
-                v-if="activeRound.status !== 'closed'"
+                v-if="activeRound.status !== 'closed' && !isDuelFinal"
                 size="xs"
                 color="neutral"
                 variant="soft"
@@ -1914,7 +1954,7 @@ onBeforeUnmount(stopLiveRefresh)
               <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
                 <tr>
                   <th class="w-24 px-4 py-2 font-medium">
-                    出场顺序
+                    {{ isDuelFinal ? '出场号' : '出场顺序' }}
                   </th>
                   <th class="px-3 py-2 font-medium">
                     选手
@@ -1943,215 +1983,255 @@ onBeforeUnmount(stopLiveRefresh)
                 </tr>
               </thead>
               <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                <tr
-                  v-for="(entry, index) in rosterVisible(activeRound)"
+                <template
+                  v-for="(entry, index) in visibleRoster"
                   :key="entry.id"
-                  :draggable="activeRound.status !== 'closed'"
-                  class="transition-colors"
-                  :class="[
-                    entry.id === draggingEntryId ? 'opacity-40' : '',
-                    entry.id === dragOverEntryId ? 'bg-green-50 dark:bg-green-950/40' : ''
-                  ]"
-                  @dragstart="startDragEntry(activeRound, entry, $event)"
-                  @dragover="dragOverEntry(entry, $event)"
-                  @drop.prevent="dropOnEntry(activeRound, entry)"
-                  @dragend="endDragEntry"
                 >
-                  <td class="cursor-grab px-3 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
-                    <span class="inline-flex items-center gap-1">
-                      <UIcon
-                        v-if="activeRound.status !== 'closed'"
-                        name="i-lucide-grip-vertical"
-                        class="size-3.5 text-zinc-300 dark:text-zinc-600"
-                        aria-hidden="true"
-                      />
-                      <input
-                        v-if="activeRound.status !== 'closed'"
-                        :value="sortOrderValue(entry)"
-                        type="text"
-                        inputmode="numeric"
-                        class="w-12 rounded border border-zinc-200 px-1 py-0.5 text-center text-sm tabular-nums focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
-                        :placeholder="String(index + 1)"
-                        :aria-label="`${entry.singer.name} 出场顺序`"
-                        @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
-                      >
-                      <span v-else>{{ rosterOrderMode === 'draw' ? (entry.sortOrder || index + 1) : index + 1 }}</span>
-                    </span>
-                  </td>
-                  <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                    {{ entry.singer.name }}
-                  </td>
-                  <td class="px-3 py-2 text-zinc-600 dark:text-zinc-300">
-                    <div
-                      v-if="activeRound.key === 'final'"
-                      class="flex min-w-[15rem] flex-col gap-1"
+                  <tr
+                    v-if="isDuelFinal && (index === 0 || visibleRoster[index - 1]?.pairNo !== entry.pairNo)"
+                    class="bg-zinc-50/80 dark:bg-zinc-900/40"
+                  >
+                    <td
+                      colspan="9"
+                      class="px-4 py-2"
                     >
-                      <label class="flex items-center gap-1 text-[11px] text-zinc-400">
-                        第一首
-                        <input
-                          :value="finalSongsValue(entry).firstSong"
-                          class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                          :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
-                          placeholder="第一轮唱"
-                          @input="setFinalSongsDraft(entry, 'firstSong', ($event.target as HTMLInputElement).value)"
-                        >
-                      </label>
-                      <label class="flex items-center gap-1 text-[11px] text-zinc-400">
-                        第二首
-                        <input
-                          :value="finalSongsValue(entry).secondSong"
-                          class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                          :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
-                          placeholder="进前六后唱"
-                          @input="setFinalSongsDraft(entry, 'secondSong', ($event.target as HTMLInputElement).value)"
-                        >
-                      </label>
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="subtle"
-                        icon="i-lucide-check"
-                        class="self-start"
-                        :loading="finalSongsBusyId === entry.singer.id"
-                        :disabled="activeRound.status === 'closed'"
-                        @click="saveFinalSongs(activeRound, entry)"
-                      >
-                        保存两首
-                      </UButton>
-                    </div>
-                    <template v-else>
-                      <input
-                        v-if="activeRound?.status !== 'closed' && activeRound?.key !== 'final2'"
-                        :value="entrySongValue(entry, activeRound?.key)"
-                        class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
-                        :disabled="entrySongBusyId === entry.id"
-                        @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
-                        @change="saveEntrySong(activeRound!, entry)"
-                      >
-                      <span v-else>{{ entrySongValue(entry, activeRound?.key) }}</span>
-                    </template>
-                  </td>
-                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    <template v-if="activeRound?.key !== 'prelim'">
-                      <label
-                        class="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-xs hover:border-emerald-500 dark:border-zinc-700"
-                        :class="accompanimentBusyId === entry.id ? 'opacity-60' : ''"
-                      >
-                        <input
-                          type="file"
-                          class="hidden"
-                          accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,video/mp4,.mp4"
-                          :disabled="accompanimentBusyId === entry.id || activeRound?.status === 'closed'"
-                          @change="onPickAccompaniment(activeRound!, entry, $event)"
-                        >
-                        {{ entry.accompaniment
-                          ? (entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '换背景视频' : '换伴奏')
-                          : ((activeRound?.key === 'final' || activeRound?.key === 'final2') ? '传背景视频' : '传伴奏') }}
-                      </label>
-                      <template v-if="entry.accompaniment">
-                        <button
-                          type="button"
-                          class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-                          :aria-label="entry.accompaniment?.name.toLowerCase().endsWith('.mp4') ? '预览背景视频' : '试听伴奏'"
-                          @click="openAccompaniment(entry)"
-                        >
-                          <UIcon
-                            name="i-lucide-play"
-                            class="size-3"
-                          />
-                          {{ entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '预览' : '试听' }}
-                        </button>
-                        <span class="ml-1 text-[11px]">
-                          {{ entry.accompaniment.name }}
-                          <span class="text-zinc-400">· {{ accompanimentSize(entry.accompaniment.size) }}</span>
-                          <span
-                            v-if="entry.accompanimentUpdatedAt"
-                            class="block text-[11px] text-zinc-400 tabular-nums"
-                          >
-                            更新于 {{ formatDateTime(entry.accompanimentUpdatedAt) }}
-                          </span>
+                      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span class="font-bold text-zinc-700 dark:text-zinc-200">
+                          第 {{ entry.pairNo ?? '—' }} 组
                         </span>
-                      </template>
-                    </template>
-                    <span v-else>—</span>
-                  </td>
-                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ entry.singer.className || '—' }}
-                  </td>
-                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ entry.advancedFromRank ? `上一轮第 ${entry.advancedFromRank} 名` : '选手库' }}
-                  </td>
-                  <td class="px-3 py-2">
-                    <div class="flex items-center gap-1">
-                      <button
-                        v-if="entry.singer.photoUrl"
-                        type="button"
-                        class="size-10 overflow-hidden rounded border border-zinc-200 dark:border-zinc-700"
-                        :aria-label="`查看${entry.singer.name}的照片`"
-                        @click="openPhoto(entry)"
-                      >
-                        <img
-                          :src="entry.singer.photoUrl"
-                          :alt="entry.singer.name"
-                          class="size-10 object-cover"
+                        <span
+                          v-if="duelPairOf(entry)?.ready"
+                          class="text-emerald-700 dark:text-emerald-300"
                         >
-                      </button>
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="outline"
-                        :icon="entry.singer.photoUrl ? 'i-lucide-image-up' : 'i-lucide-upload'"
-                        :loading="photoBusyId === entry.id"
-                        :aria-label="`上传${entry.singer.name}的照片`"
-                        @click="pickPhoto(entry)"
+                          胜者：{{ duelPairOf(entry)?.winnerName }}
+                        </span>
+                        <span
+                          v-else
+                          class="text-amber-700 dark:text-amber-300"
+                        >
+                          {{ duelPairOf(entry)?.entries.length === 2 ? '待比赛 / 待裁定' : '未分组' }}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr
+                    :draggable="activeRound.status !== 'closed' && !isDuelFinal"
+                    class="transition-colors"
+                    :class="[
+                      entry.id === draggingEntryId ? 'opacity-40' : '',
+                      entry.id === dragOverEntryId ? 'bg-green-50 dark:bg-green-950/40' : ''
+                    ]"
+                    @dragstart="startDragEntry(activeRound, entry, $event)"
+                    @dragover="dragOverEntry(entry, $event)"
+                    @drop.prevent="dropOnEntry(activeRound, entry)"
+                    @dragend="endDragEntry"
+                  >
+                    <td
+                      class="px-3 py-2 font-semibold tabular-nums text-zinc-900 dark:text-zinc-100"
+                      :class="isDuelFinal ? '' : 'cursor-grab active:cursor-grabbing'"
+                    >
+                      <span class="inline-flex items-center gap-1">
+                        <UIcon
+                          v-if="activeRound.status !== 'closed' && !isDuelFinal"
+                          name="i-lucide-grip-vertical"
+                          class="size-3.5 text-zinc-300 dark:text-zinc-600"
+                          aria-hidden="true"
+                        />
+                        <input
+                          v-if="activeRound.status !== 'closed' && !isDuelFinal"
+                          :value="sortOrderValue(entry)"
+                          type="text"
+                          inputmode="numeric"
+                          class="w-12 rounded border border-zinc-200 px-1 py-0.5 text-center text-sm tabular-nums focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+                          :placeholder="String(index + 1)"
+                          :aria-label="`${entry.singer.name} 出场顺序`"
+                          @input="setSortOrderDraft(entry.id, ($event.target as HTMLInputElement).value)"
+                        >
+                        <span v-else>{{ isDuelFinal ? (entry.sortOrder || '—') : (rosterOrderMode === 'draw' ? (entry.sortOrder || index + 1) : index + 1) }}</span>
+                      </span>
+                    </td>
+                    <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                      {{ entry.singer.name }}
+                    </td>
+                    <td class="px-3 py-2 text-zinc-600 dark:text-zinc-300">
+                      <div
+                        v-if="activeRound.key === 'final'"
+                        class="flex min-w-[15rem] flex-col gap-1"
                       >
-                        {{ entry.singer.photoUrl ? '换' : '上传' }}
+                        <label class="flex items-center gap-1 text-[11px] text-zinc-400">
+                          第一首
+                          <input
+                            :value="finalSongsValue(entry).firstSong"
+                            class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                            :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
+                            placeholder="第一轮唱"
+                            @input="setFinalSongsDraft(entry, 'firstSong', ($event.target as HTMLInputElement).value)"
+                          >
+                        </label>
+                        <label class="flex items-center gap-1 text-[11px] text-zinc-400">
+                          第二首
+                          <input
+                            :value="finalSongsValue(entry).secondSong"
+                            class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                            :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
+                            placeholder="进前六后唱"
+                            @input="setFinalSongsDraft(entry, 'secondSong', ($event.target as HTMLInputElement).value)"
+                          >
+                        </label>
+                        <UButton
+                          size="xs"
+                          color="neutral"
+                          variant="subtle"
+                          icon="i-lucide-check"
+                          class="self-start"
+                          :loading="finalSongsBusyId === entry.singer.id"
+                          :disabled="activeRound.status === 'closed'"
+                          @click="saveFinalSongs(activeRound, entry)"
+                        >
+                          保存两首
+                        </UButton>
+                      </div>
+                      <template v-else>
+                        <input
+                          v-if="activeRound?.status !== 'closed' && activeRound?.key !== 'final2'"
+                          :value="entrySongValue(entry, activeRound?.key)"
+                          class="w-full min-w-[8rem] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-zinc-200 focus:border-emerald-500 focus:outline-none dark:hover:border-zinc-700"
+                          :disabled="entrySongBusyId === entry.id"
+                          @input="setEntrySongDraft(entry, ($event.target as HTMLInputElement).value)"
+                          @change="saveEntrySong(activeRound!, entry)"
+                        >
+                        <span v-else>{{ entrySongValue(entry, activeRound?.key) }}</span>
+                      </template>
+                    </td>
+                    <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      <template v-if="activeRound?.key !== 'prelim'">
+                        <label
+                          class="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-xs hover:border-emerald-500 dark:border-zinc-700"
+                          :class="accompanimentBusyId === entry.id ? 'opacity-60' : ''"
+                        >
+                          <input
+                            type="file"
+                            class="hidden"
+                            accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac,video/mp4,.mp4"
+                            :disabled="accompanimentBusyId === entry.id || activeRound?.status === 'closed'"
+                            @change="onPickAccompaniment(activeRound!, entry, $event)"
+                          >
+                          {{ entry.accompaniment
+                            ? (entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '换背景视频' : '换伴奏')
+                            : ((activeRound?.key === 'final' || activeRound?.key === 'final2') ? '传背景视频' : '传伴奏') }}
+                        </label>
+                        <template v-if="entry.accompaniment">
+                          <button
+                            type="button"
+                            class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                            :aria-label="entry.accompaniment?.name.toLowerCase().endsWith('.mp4') ? '预览背景视频' : '试听伴奏'"
+                            @click="openAccompaniment(entry)"
+                          >
+                            <UIcon
+                              name="i-lucide-play"
+                              class="size-3"
+                            />
+                            {{ entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '预览' : '试听' }}
+                          </button>
+                          <span class="ml-1 text-[11px]">
+                            {{ entry.accompaniment.name }}
+                            <span class="text-zinc-400">· {{ accompanimentSize(entry.accompaniment.size) }}</span>
+                            <span
+                              v-if="entry.accompanimentUpdatedAt"
+                              class="block text-[11px] text-zinc-400 tabular-nums"
+                            >
+                              更新于 {{ formatDateTime(entry.accompanimentUpdatedAt) }}
+                            </span>
+                          </span>
+                        </template>
+                      </template>
+                      <span v-else>—</span>
+                    </td>
+                    <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      {{ entry.singer.className || '—' }}
+                    </td>
+                    <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      {{ entry.advancedFromRank ? `上一轮第 ${entry.advancedFromRank} 名` : '选手库' }}
+                    </td>
+                    <td class="px-3 py-2">
+                      <div class="flex items-center gap-1">
+                        <button
+                          v-if="entry.singer.photoUrl"
+                          type="button"
+                          class="size-10 overflow-hidden rounded border border-zinc-200 dark:border-zinc-700"
+                          :aria-label="`查看${entry.singer.name}的照片`"
+                          @click="openPhoto(entry)"
+                        >
+                          <img
+                            :src="entry.singer.photoUrl"
+                            :alt="entry.singer.name"
+                            class="size-10 object-cover"
+                          >
+                        </button>
+                        <UButton
+                          size="xs"
+                          color="neutral"
+                          variant="outline"
+                          :icon="entry.singer.photoUrl ? 'i-lucide-image-up' : 'i-lucide-upload'"
+                          :loading="photoBusyId === entry.id"
+                          :aria-label="`上传${entry.singer.name}的照片`"
+                          @click="pickPhoto(entry)"
+                        >
+                          {{ entry.singer.photoUrl ? '换' : '上传' }}
+                        </UButton>
+                      </div>
+                    </td>
+                    <td class="px-3 py-2">
+                      <span
+                        class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
+                        :class="queueStateClass(entry)"
+                      >
+                        {{ queueStateText(entry) }}
+                      </span>
+                    </td>
+                    <td class="px-3 py-2">
+                      <UButton
+                        size="xs"
+                        :color="entry.checkedInAt ? 'success' : 'neutral'"
+                        :variant="entry.checkedInAt ? 'soft' : 'outline'"
+                        :loading="checkInBusyId === entry.id"
+                        :disabled="activeRound.status === 'closed'"
+                        @click="toggleEntryCheckIn(activeRound, entry)"
+                      >
+                        {{ entry.checkedInAt ? '已签到' : '签到' }}
                       </UButton>
-                    </div>
-                  </td>
-                  <td class="px-3 py-2">
-                    <span
-                      class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      :class="queueStateClass(entry)"
-                    >
-                      {{ queueStateText(entry) }}
-                    </span>
-                  </td>
-                  <td class="px-3 py-2">
-                    <UButton
-                      size="xs"
-                      :color="entry.checkedInAt ? 'success' : 'neutral'"
-                      :variant="entry.checkedInAt ? 'soft' : 'outline'"
-                      :loading="checkInBusyId === entry.id"
-                      :disabled="activeRound.status === 'closed'"
-                      @click="toggleEntryCheckIn(activeRound, entry)"
-                    >
-                      {{ entry.checkedInAt ? '已签到' : '签到' }}
-                    </UButton>
-                  </td>
-                  <td class="px-4 py-2">
-                    <div class="flex items-center gap-1">
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="soft"
-                        icon="i-lucide-arrow-up"
-                        aria-label="上移"
-                        :disabled="index === 0 || activeRound.status === 'closed'"
-                        @click="moveEntry(activeRound, entry, -1)"
-                      />
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="soft"
-                        icon="i-lucide-arrow-down"
-                        aria-label="下移"
-                        :disabled="index === rosterEntries(activeRound).length - 1 || activeRound.status === 'closed'"
-                        @click="moveEntry(activeRound, entry, 1)"
-                      />
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td class="px-4 py-2">
+                      <div
+                        v-if="!isDuelFinal"
+                        class="flex items-center gap-1"
+                      >
+                        <UButton
+                          size="xs"
+                          color="neutral"
+                          variant="soft"
+                          icon="i-lucide-arrow-up"
+                          aria-label="上移"
+                          :disabled="index === 0 || activeRound.status === 'closed'"
+                          @click="moveEntry(activeRound, entry, -1)"
+                        />
+                        <UButton
+                          size="xs"
+                          color="neutral"
+                          variant="soft"
+                          icon="i-lucide-arrow-down"
+                          aria-label="下移"
+                          :disabled="index === rosterEntries(activeRound).length - 1 || activeRound.status === 'closed'"
+                          @click="moveEntry(activeRound, entry, 1)"
+                        />
+                      </div>
+                      <span
+                        v-else
+                        class="text-[11px] text-zinc-400"
+                      >按组固定</span>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -2294,19 +2374,45 @@ onBeforeUnmount(stopLiveRefresh)
                     待裁定
                   </span>
                 </div>
-                <div class="space-y-1.5">
+                <div class="space-y-2">
                   <div
-                    v-for="entry in pair.entries"
+                    v-for="(entry, entryIndex) in pair.entries"
                     :key="entry.id"
-                    class="flex items-center justify-between gap-2 rounded px-2 py-1 text-sm"
+                    class="relative rounded-md border px-2.5 py-2 pr-10 text-sm"
                     :class="entry.id === pair.winnerEntryId
-                      ? 'bg-emerald-50 font-bold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200'
-                      : 'text-zinc-700 dark:text-zinc-300'"
+                      ? 'border-emerald-300 bg-emerald-50 font-bold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200'
+                      : 'border-zinc-200 bg-zinc-50/70 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-800/40 dark:text-zinc-300'"
                   >
-                    <span class="truncate">{{ entry.singer.name }}</span>
-                    <span class="shrink-0 tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
-                      {{ entry.average === null ? '未评分' : entry.average.toFixed(2) }}
-                    </span>
+                    <div class="absolute right-2 top-2">
+                      <AdminCompetitionPowerPopover
+                        :profile="analyticsReport?.profilesById[entry.singer.id]"
+                        :opponent="pair.entries[1 - entryIndex] ? analyticsReport?.profilesById[pair.entries[1 - entryIndex]!.singer.id] : null"
+                        :prediction="analyticsReport?.duelPredictions[pair.pairNo]"
+                        :side="entryIndex === 0 ? 'left' : 'right'"
+                        :pair-no="pair.pairNo"
+                        compact
+                      />
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="truncate">{{ entry.singer.name }}</span>
+                      <span class="shrink-0 tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ entry.average === null ? '未评分' : entry.average.toFixed(2) }}
+                      </span>
+                    </div>
+                    <div
+                      v-if="analyticsReport?.profilesById[entry.singer.id]?.power.hasRating"
+                      class="mt-1 flex items-center justify-between gap-2 text-xs font-normal text-zinc-500 dark:text-zinc-400"
+                    >
+                      <span>
+                        实力 {{ analyticsReport.profilesById[entry.singer.id]!.power.tier }} · {{ analyticsReport.profilesById[entry.singer.id]!.power.powerScore?.toFixed(1) }}
+                      </span>
+                      <span
+                        v-if="analyticsReport?.duelPredictions[pair.pairNo]?.leftWinProb !== null && analyticsReport?.duelPredictions[pair.pairNo]?.rightWinProb !== null"
+                        class="tabular-nums"
+                      >
+                        胜率 {{ entryIndex === 0 ? analyticsReport.duelPredictions[pair.pairNo]!.leftWinProb : analyticsReport.duelPredictions[pair.pairNo]!.rightWinProb }}%
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <p

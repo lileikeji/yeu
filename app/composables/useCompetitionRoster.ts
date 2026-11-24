@@ -182,6 +182,13 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       || (entry.singer.song ?? '').toLowerCase().includes(keyword))
   }
 
+  /** 1v1 决赛按组号、组内顺序排列；未分组的排在最后，避免和普通出场顺序混在一起。 */
+  function duelRosterVisible(round: CompetitionRoundView): CompetitionRoundEntry[] {
+    return [...round.entries].sort((left, right) =>
+      (left.pairNo ?? Number.MAX_SAFE_INTEGER) - (right.pairNo ?? Number.MAX_SAFE_INTEGER)
+      || (left.pairSlot ?? Number.MAX_SAFE_INTEGER) - (right.pairSlot ?? Number.MAX_SAFE_INTEGER))
+  }
+
   function queueStateText(entry: CompetitionRoundEntry): string {
     if (entry.queueState === 'singing') return '演唱中'
     if (entry.queueState === 'finished') return '已结束'
@@ -747,6 +754,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     rosterEntries,
     rosterQuery,
     rosterVisible,
+    duelRosterVisible,
     rosterOrderMode,
     sortOrderDraft,
     sortOrderBusy,
