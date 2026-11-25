@@ -6477,6 +6477,50 @@ function documentTitleLocalAnswer(client: DatabaseClient, query: string): ApiAss
   }
 }
 
+const SPORTS_MEET_RE = /(?:第[一二三四五六七八九十百\d]+届)?(?:学校|校)?(?:运动会|校运会|体育节)/u
+const SPORTS_ITEM_RE = /(拔河|篮球|足球|排球|羽毛球|乒乓球|网球|田径|接力|跳远|跳高|铅球|啦啦操|健美操|跳绳|踢毽子)/u
+
+/**
+ * 体育赛事查询：「第三十五届运动会拔河比赛结果」这类问句，站内标题只写系部+项目
+ * （「工商管理系运动会拔河比赛倾力搏争」），整串 LIKE 永远不命中，最后退成
+ * 「资料没找到」。这里按「运动会 + 项目词」聚合报道：给出赛事时间地点赛制（摘自正文
+ * 首段）与报道清单，具体名次仍指向原文 —— 同一届不同系的报道结论可能不同，不能替它们合并。
+ */
+function sportsEventReportLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  if (!SPORTS_MEET_RE.test(query)) return null
+  const item = query.match(SPORTS_ITEM_RE)?.[1]
+  if (!item) return null
+  const rows = client.db.select({
+    id: knowledgeDocuments.id,
+    title: knowledgeDocuments.title,
+    originalUrl: knowledgeDocuments.originalUrl,
+    extractedText: knowledgeDocuments.extractedText
+  }).from(knowledgeDocuments)
+    .where(and(like(knowledgeDocuments.title, `%${item}%`), eq(knowledgeDocuments.status, 'ready')))
+    .all()
+    .filter(row => /运动会|校运会/u.test(row.title))
+  if (rows.length === 0) return null
+  const lead = rows
+    .map(row => (row.extractedText ?? '').replace(/\s+/gu, ' '))
+    .map(text => text.match(/[^。；]{0,30}?运动会[^。；]{0,50}/u)?.[0] ?? '')
+    .map(text => text.trim())
+    .find(Boolean)
+  const caption = lead ? `${lead}。` : ''
+  return {
+    query,
+    mode: 'local',
+    answer: `站内收有 ${rows.length} 篇${item}比赛的运动会报道。${caption}各系赛况与名次写在各自的报道里，点开下面的原文核对。`,
+    citations: rows.slice(0, 4).map(row => ({
+      title: row.title,
+      url: row.originalUrl ?? `/search?knowledge=${encodeURIComponent(row.id)}`,
+      snippet: `${row.title}（官网原文）`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.78
+  }
+}
+
 /**
  * 主题路由：一批线上真实问句（「晚上10点后能回学校吗」「查寝」「成绩哪里搜索」）
  * 与已审核条目的字面重合太少，检索打分永远选不中，最后退成“请打开原文核对”或
@@ -8353,6 +8397,9 @@ async function answerCampusQuestionCore(
   // 主题路由（“晚上10点后能回学校吗/查寝/成绩哪里搜索”）→ 对接已核验条目
   const earlyKnowledgeRoute = knowledgeTopicRouteAnswer(client, rawQuery)
   if (earlyKnowledgeRoute) return asEarlyLocalAnswer(earlyKnowledgeRoute)
+  // 体育赛事（“第三十五届运动会拔河比赛结果”）→ 按运动会+项目聚合站内报道
+  const earlySportsEvent = sportsEventReportLocalAnswer(client, rawQuery)
+  if (earlySportsEvent) return asEarlyLocalAnswer(earlySportsEvent)
   // 文档标题直答（“专业介绍”）→ 官网资料索引 + 原文链接
   const earlyDocumentTitle = documentTitleLocalAnswer(client, rawQuery)
   if (earlyDocumentTitle) return asEarlyLocalAnswer(earlyDocumentTitle)
