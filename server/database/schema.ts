@@ -1419,6 +1419,17 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   showResults: integer('show_results', { mode: 'boolean' }).notNull().default(false),
   /** 大屏取码密钥；后台可以一键更换，旧大屏链接立即失效。 */
   displayKey: text('display_key').notNull(),
+  /** 核验模式：wechat_mp（公众号口令领专属凭证，默认）或 device_strict（免关注降级）。 */
+  authMode: text('auth_mode', { enum: ['wechat_mp', 'device_strict'] }).notNull().default('wechat_mp'),
+  /** 现场引导关注的公众号名称与二维码 URL（留空则展示内置默认二维码）。 */
+  wechatAccountName: text('wechat_account_name').notNull().default('仰恩大学指南'),
+  wechatQrUrl: text('wechat_qr_url').notNull().default(''),
+  /** 实时规则命中高危分值时是否自动进入冻结隔离池（不计入公开与大屏票数）。 */
+  autoQuarantine: integer('auto_quarantine', { mode: 'boolean' }).notNull().default(true),
+  /** AI 巡检是否直接将确认刷票作废、将复核正常冻结票放行。 */
+  aiAutoModerate: integer('ai_auto_moderate', { mode: 'boolean' }).notNull().default(true),
+  /** 当前唯一有效大屏会话 cookie 的 HMAC 哈希；建新会话或轮换 key 会令旧会话失效。 */
+  displaySessionHash: text('display_session_hash'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
@@ -1427,18 +1438,23 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   check('competition_popularity_settings_qr_rotate_check', sql`${table.qrRotateSeconds} between 10 and 300`)
 ])
 
-/** 人气奖选票：一台设备一行；改票只改 singer_id 并累加 version/change_count。 */
+/** 人气奖选票：一台设备/微信号一行；改票只改 singer_id 并累加 version/change_count。 */
 export const competitionPopularityBallots = sqliteTable('competition_popularity_ballots', {
   id: text('id').primaryKey(),
   eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
   singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
   /** HMAC(secret, device id)；不落原始 cookie，避免数据库泄露后伪造选票。 */
   deviceHash: text('device_hash').notNull(),
+  /** 微信公众号 OpenID 脱敏 HMAC 哈希（仅 wechat_mp 模式填充）；赛事内唯一。 */
+  voterOpenidHash: text('voter_openid_hash'),
   /** 投票请求的 IP HMAC；仅用于后台风险提示，不对外返回。 */
   ipHash: text('ip_hash'),
   /** 同 IP 多设备风险标记；1 = 仅标记，不拦截。 */
   risk: integer('risk').notNull().default(0),
-  /** 是否被管理员作废（0=有效，1=已作废）；作废后不计入公开与大屏票数，可恢复。 */
+  /** 实时高危自动冻结隔离（0=正常，1=冻结待审）；冻结票不计入公开与大屏票数。 */
+  quarantined: integer('quarantined').notNull().default(0),
+  quarantinedReason: text('quarantined_reason'),
+  /** 是否被管理员或 AI 作废（0=有效，1=已作废）；作废后不计入公开与大屏票数，可恢复。 */
   voided: integer('voided').notNull().default(0),
   voidedReason: text('voided_reason'),
   voidedAt: integer('voided_at'),
@@ -1457,9 +1473,13 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   updatedAt: timestamp('updated_at')
 }, table => [
   uniqueIndex('competition_popularity_ballots_event_device_unique').on(table.eventId, table.deviceHash),
+  uniqueIndex('competition_popularity_ballots_event_openid_unique')
+    .on(table.eventId, table.voterOpenidHash)
+    .where(sql`${table.voterOpenidHash} is not null`),
   index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
   index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt),
-  index('competition_popularity_ballots_event_voided_idx').on(table.eventId, table.voided, table.createdAt)
+  index('competition_popularity_ballots_event_voided_idx').on(table.eventId, table.voided, table.createdAt),
+  index('competition_popularity_ballots_event_quarantined_idx').on(table.eventId, table.quarantined, table.createdAt)
 ])
 
 /** 人气奖逐票流水日志：记录每一次投票、改票与前置脚本拦截事件，支撑刷票预估与记忆 AI 巡检。 */
@@ -1511,6 +1531,8 @@ export const competitionPopularityInspections = sqliteTable('competition_popular
   model: text('model').notNull().default(''),
   triggerSource: text('trigger_source', { enum: ['auto', 'manual'] }).notNull().default('manual'),
   createdByAdminId: text('created_by_admin_id'),
+  autoVoidedCount: integer('auto_voided_count').notNull().default(0),
+  autoReleasedCount: integer('auto_released_count').notNull().default(0),
   createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`)
 }, table => [
   index('competition_popularity_inspections_event_created_idx').on(table.eventId, table.createdAt),

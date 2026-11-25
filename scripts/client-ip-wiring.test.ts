@@ -11,6 +11,7 @@ test('rate-limited public and auth IP resolution uses hardened client-ip helper'
     'server/api/public/feedback.post.ts',
     'server/api/public/amap-owner-drafts.get.ts',
     'server/api/public/competition/popularity/token.get.ts',
+    'server/api/public/competition/popularity/display-session.post.ts',
     'server/api/public/competition/popularity/state.get.ts',
     'server/api/public/competition/popularity/vote.post.ts'
   ]

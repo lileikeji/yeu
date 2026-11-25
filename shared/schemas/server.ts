@@ -1580,11 +1580,20 @@ export const competitionPopularitySettingsSchema = z.object({
   allowChange: z.boolean(),
   maxChanges: z.number().int().min(0).max(20),
   qrRotateSeconds: z.number().int().min(10).max(300),
-  showResults: z.boolean()
+  showResults: z.boolean(),
+  authMode: z.enum(['wechat_mp', 'device_strict']).optional(),
+  wechatAccountName: z.string().trim().min(1).max(40).optional(),
+  wechatQrUrl: z.string().trim().max(260).optional(),
+  autoQuarantine: z.boolean().optional(),
+  aiAutoModerate: z.boolean().optional()
 }).strict()
 
 export const competitionPopularityActionSchema = z.object({
   action: z.enum(['open', 'close', 'disable', 'reset-votes', 'rotate-display-key'])
+}).strict()
+
+export const competitionPopularityDisplaySessionSchema = z.object({
+  key: z.string().trim().min(8).max(80)
 }).strict()
 
 export const competitionPopularityVoteEnvSchema = z.object({
@@ -1594,9 +1603,10 @@ export const competitionPopularityVoteEnvSchema = z.object({
   touch: z.number().int().min(0).max(32).optional()
 }).strict()
 
-/** 投票：token 来自大屏二维码；revision 必填，防止两个窗口互相覆盖。 */
+/** 投票：凭证来自微信口令专属链接或大屏二维码；revision 必填，防止两个窗口互相覆盖。 */
 export const competitionPopularityVoteSchema = z.object({
-  token: z.string().trim().min(20).max(2000),
+  token: z.string().trim().min(20).max(2000).optional(),
+  vt: z.string().trim().min(20).max(2000).optional(),
   singerId: z.string().trim().min(1).max(64),
   revision: z.number().int().min(0).max(1_000_000),
   /** 本机签名设备令牌；cookie 被清后仍能识别同一浏览器。 */
@@ -1607,7 +1617,7 @@ export const competitionPopularityVoteSchema = z.object({
 }).strict()
 
 export const competitionPopularityModerateSchema = z.object({
-  mode: z.enum(['void', 'restore']),
+  mode: z.enum(['void', 'restore', 'release']),
   ballotIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
   reason: z.string().trim().max(120).optional()
 }).strict()
@@ -1622,17 +1632,18 @@ export const competitionPopularityInspectSchema = z.object({
 
 export const competitionPopularityAuditQuerySchema = z.object({
   singerId: z.string().trim().max(64).optional(),
-  filter: z.enum(['all', 'suspect', 'watch', 'voided', 'blocked']).optional(),
+  filter: z.enum(['all', 'quarantined', 'suspect', 'watch', 'voided', 'blocked']).optional(),
   q: z.string().trim().max(64).optional(),
   limit: z.coerce.number().int().min(20).max(500).optional()
 }).strict()
 
 export const competitionPopularityTokenQuerySchema = z.object({
-  key: z.string().trim().min(8).max(80)
+  key: z.string().trim().min(8).max(80).optional()
 }).strict()
 
 export const competitionPopularityStateQuerySchema = z.object({
-  t: z.string().trim().min(20).max(2000),
+  t: z.string().trim().min(20).max(2000).optional(),
+  vt: z.string().trim().min(20).max(2000).optional(),
   /** 本机签名设备令牌；可选，缺失时退回 cookie。 */
   d: z.string().trim().min(20).max(2000).optional()
 }).strict()

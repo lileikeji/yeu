@@ -65,6 +65,7 @@ import type {
   CompetitionJudgeCredentials,
   CompetitionJudgePayload,
   CompetitionPopularityAdminState,
+  CompetitionPopularityAuthMode,
   CompetitionPopularityBallot,
   CompetitionPopularityCandidate,
   CompetitionPopularityPublicState,
@@ -2307,6 +2308,11 @@ export interface CompetitionPopularitySettingsInput {
   maxChanges: number
   qrRotateSeconds: number
   showResults: boolean
+  authMode?: CompetitionPopularityAuthMode
+  wechatAccountName?: string
+  wechatQrUrl?: string
+  autoQuarantine?: boolean
+  aiAutoModerate?: boolean
 }
 
 export type CompetitionPopularityAction = 'open' | 'close' | 'disable' | 'reset-votes' | 'rotate-display-key'
@@ -2333,6 +2339,11 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     qrRotateSeconds: Number(row.qrRotateSeconds),
     showResults: row.showResults,
     displayKey: row.displayKey,
+    authMode: row.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp',
+    wechatAccountName: row.wechatAccountName || '仰恩大学指南',
+    wechatQrUrl: row.wechatQrUrl || '',
+    autoQuarantine: Boolean(row.autoQuarantine ?? true),
+    aiAutoModerate: Boolean(row.aiAutoModerate ?? true),
     updatedAt: Number(row.updatedAt ?? 0)
   }
 }
@@ -2361,6 +2372,12 @@ export function ensurePopularitySettings(
     qrRotateSeconds: 30,
     showResults: false,
     displayKey: randomBytes(18).toString('base64url'),
+    authMode: 'wechat_mp',
+    wechatAccountName: '仰恩大学指南',
+    wechatQrUrl: '',
+    autoQuarantine: true,
+    aiAutoModerate: true,
+    displaySessionHash: null,
     createdAt: now,
     updatedAt: now
   }).run()
@@ -2441,15 +2458,19 @@ export function getPopularityAdminState(
   const allBallots = client.db.select().from(competitionPopularityBallots)
     .where(eq(competitionPopularityBallots.eventId, eventId))
     .all()
-  const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0)
+  const nonVoidedBallots = allBallots.filter(ballot => Number(ballot.voided) === 0)
+  const activeBallots = nonVoidedBallots.filter(ballot => Number(ballot.quarantined) === 0)
+  const quarantinedVotes = nonVoidedBallots.length - activeBallots.length
+  const voidedVotes = allBallots.length - nonVoidedBallots.length
   const totalVotes = activeBallots.length
   return {
     settings: popularitySettingsView(settings),
     candidates,
     totalVotes,
     results: popularityResultRows(candidates, activeBallots, totalVotes),
-    riskVotes: activeBallots.filter(ballot => Number(ballot.risk) === 1 || Number(ballot.suspicionScore) >= 60).length,
-    voidedVotes: allBallots.length - activeBallots.length,
+    riskVotes: nonVoidedBallots.filter(ballot => Number(ballot.risk) === 1 || Number(ballot.suspicionScore) >= 60).length,
+    voidedVotes,
+    quarantinedVotes,
     status: popularityStatusOf(settings),
     updatedAt: Number(settings.updatedAt ?? 0)
   }
@@ -2458,15 +2479,18 @@ export function getPopularityAdminState(
 export function getPopularityPublicState(
   client: DatabaseClient,
   eventId: string,
-  deviceHash: string
+  deviceHash: string,
+  options: { wechatVerified?: boolean, requiresWechatTicket?: boolean } = {}
 ): CompetitionPopularityPublicState {
   const settings = ensurePopularitySettings(client, eventId)
   const candidates = listPopularityCandidates(client, eventId)
   const allBallots = client.db.select().from(competitionPopularityBallots)
     .where(eq(competitionPopularityBallots.eventId, eventId))
     .all()
-  const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0)
-  const mine = allBallots.find(ballot => ballot.deviceHash === deviceHash) ?? null
+  const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0 && Number(ballot.quarantined) === 0)
+  const mine = deviceHash
+    ? (allBallots.find(ballot => ballot.deviceHash === deviceHash || ballot.voterOpenidHash === deviceHash) ?? null)
+    : null
   const mineActive = mine && Number(mine.voided) === 0 ? mine : null
   const status = popularityStatusOf(settings)
   const results = popularityResultRows(candidates, activeBallots, activeBallots.length)
@@ -2479,7 +2503,10 @@ export function getPopularityPublicState(
     (countBySinger.get(right.singerId) ?? 0) - (countBySinger.get(left.singerId) ?? 0)
     || left.number - right.number
   ))
-  const canChange = status === 'open'
+  const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
+  const requiresWechatTicket = options.requiresWechatTicket ?? (authMode === 'wechat_mp' && !options.wechatVerified)
+  const canChange = !requiresWechatTicket
+    && status === 'open'
     && candidates.length > 0
     && (!mine || (Number(mine.voided) === 0 && settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
 
@@ -2497,6 +2524,11 @@ export function getPopularityPublicState(
     totalVotes: activeBallots.length,
     myBallot: mineActive ? popularityBallotView(mineActive) : null,
     canChange,
+    authMode,
+    wechatVerified: Boolean(options.wechatVerified),
+    requiresWechatTicket,
+    wechatAccountName: settings.wechatAccountName || '仰恩大学指南',
+    wechatQrUrl: settings.wechatQrUrl || '',
     results: settings.showResults ? results : null,
     now: Date.now()
   }
@@ -2510,14 +2542,18 @@ export interface PopularityVoteTelemetry {
   qrNonce?: string | null
   qrAgeMs?: number | null
   qrRotateSeconds?: number | null
+  missingFetchMeta?: boolean
+  voterOpenidHash?: string | null
+  autoQuarantineOverride?: boolean
+  now?: number
 }
 
 /**
  * 同 IP 多设备只做轻量标记，并在此基础上叠加多维实时可疑度评分（0–100）：
- * 涵盖同 IP 多设备、同硬件环境反复开无痕换身份、极短页面停留、无 Cookie 回传、
- * 1 分钟同候选聚集爆发以及旧二维码窗口期滞后复投。
+ * 涵盖同 IP 多设备、同硬件环境反复开无痕换身份、机器等距节拍规律提交、
+ * 极短页面停留、无 Cookie 回传、缺少 Fetch 元数据、1 分钟同候选聚集爆发以及旧二维码滞后复投。
  */
-const POPULARITY_IP_WINDOW_MS = 10 * 60 * 1000
+const POPULARITY_IP_WINDOW_MS = 30 * 60 * 1000
 const POPULARITY_IP_DEVICE_THRESHOLD = 5
 
 function nextPopularityLogSeq(client: DatabaseClient, eventId: string): number {
@@ -2538,7 +2574,7 @@ function evaluateRealtimeBallotSuspicion(
     telemetry?: PopularityVoteTelemetry
   }
 ): { risk: number, suspicionScore: number, suspicionReasons: string[] } {
-  const now = Date.now()
+  const now = input.telemetry?.now ?? Date.now()
   const since = now - POPULARITY_IP_WINDOW_MS
   const reasons: string[] = []
   let score = 0
@@ -2560,11 +2596,11 @@ function evaluateRealtimeBallotSuspicion(
     devices.add(input.deviceHash)
     if (devices.size >= POPULARITY_IP_DEVICE_THRESHOLD) {
       risk = 1
-      score += 35
-      reasons.push(`同IP10分钟第${devices.size}台设备`)
+      score += 40
+      reasons.push(`同IP30分钟第${devices.size}台设备`)
     } else if (devices.size >= 3) {
-      score += 15
-      reasons.push(`同IP10分钟${devices.size}台设备`)
+      score += 20
+      reasons.push(`同IP30分钟${devices.size}台设备`)
     }
 
     const sameSingerDevices = new Set(
@@ -2572,8 +2608,39 @@ function evaluateRealtimeBallotSuspicion(
     )
     sameSingerDevices.add(input.deviceHash)
     if (sameSingerDevices.size >= 4) {
-      score += 20
+      score += 25
       reasons.push(`同IP集中投该选手(${sameSingerDevices.size}票)`)
+    } else if (sameSingerDevices.size === 3) {
+      score += 20
+      reasons.push('同IP连投该选手(3票)')
+    }
+
+    // 机器等距节拍检测：同 IP 最近多票呈现低方差固定间隔（如脚本 per-ip-gap 10s 稳态）
+    if (input.action === 'cast') {
+      const recentCastRows = client.sqlite.prepare(
+        `SELECT created_at AS createdAt FROM competition_popularity_vote_logs
+         WHERE event_id = ? AND ip_hash = ? AND action = 'cast' AND created_at > ?
+         ORDER BY created_at DESC LIMIT 5`
+      ).all(eventId, input.ipHash, since) as Array<{ createdAt: number }>
+      const times = [...recentCastRows.map(r => Number(r.createdAt)).reverse(), now]
+      if (times.length >= 4) {
+        const gaps: number[] = []
+        for (let i = 1; i < times.length; i += 1) {
+          const gap = times[i]! - times[i - 1]!
+          if (gap > 0 && gap <= 120_000) gaps.push(gap)
+        }
+        if (gaps.length >= 3) {
+          const mean = gaps.reduce((sum, v) => sum + v, 0) / gaps.length
+          if (mean >= 1500 && mean <= 30_000) {
+            const variance = gaps.reduce((sum, v) => sum + (v - mean) ** 2, 0) / gaps.length
+            const cv = Math.sqrt(variance) / mean
+            if (cv < 0.18) {
+              score += 40
+              reasons.push(`等距节拍规律提交(${Math.round(mean / 1000)}s间隔)`)
+            }
+          }
+        }
+      }
     }
   }
 
@@ -2613,6 +2680,11 @@ function evaluateRealtimeBallotSuspicion(
     reasons.push('无历史Cookie回传')
   }
 
+  if (input.telemetry?.missingFetchMeta) {
+    score += 20
+    reasons.push('请求头缺少浏览器Fetch元数据')
+  }
+
   const qrAgeMs = input.telemetry?.qrAgeMs
   const rotateSeconds = input.telemetry?.qrRotateSeconds
   if (typeof qrAgeMs === 'number' && typeof rotateSeconds === 'number' && rotateSeconds > 0) {
@@ -2635,6 +2707,10 @@ function evaluateRealtimeBallotSuspicion(
   if (input.action === 'change') {
     score += 5
     reasons.push('改票操作')
+  }
+
+  if (input.telemetry?.voterOpenidHash) {
+    score = Math.max(0, score - 20)
   }
 
   return {
@@ -2662,19 +2738,37 @@ export function recordPopularityBallot(
   const candidate = listPopularityCandidates(client, eventId).find(item => item.singerId === singerId)
   if (!candidate) conflictError('POPULARITY_CANDIDATE_INVALID', '这位选手不在人气奖候选名单里')
 
-  const existing = client.db.select().from(competitionPopularityBallots)
-    .where(and(
-      eq(competitionPopularityBallots.eventId, eventId),
-      eq(competitionPopularityBallots.deviceHash, deviceHash)
-    ))
-    .get()
+  const normalizedOpenIdHash = telemetry?.voterOpenidHash?.trim() || null
+  const existing = normalizedOpenIdHash
+    ? client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          or(
+            eq(competitionPopularityBallots.voterOpenidHash, normalizedOpenIdHash),
+            eq(competitionPopularityBallots.deviceHash, deviceHash)
+          )
+        ))
+        .get()
+    : client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          eq(competitionPopularityBallots.deviceHash, deviceHash)
+        ))
+        .get()
+
+  const wechatVerified = Boolean(normalizedOpenIdHash || existing?.voterOpenidHash)
+  const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
+  const stateOptions = {
+    wechatVerified,
+    requiresWechatTicket: authMode === 'wechat_mp' && !wechatVerified
+  }
 
   if (existing && Number(existing.voided) === 1) {
-    conflictError('POPULARITY_BALLOT_VOIDED', '当前设备选票已被风控锁定，无法更改')
+    conflictError('POPULARITY_BALLOT_VOIDED', '当前选票已被风控作废，无法更改')
   }
 
   if (existing && existing.singerId === singerId) {
-    return getPopularityPublicState(client, eventId, deviceHash)
+    return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
   }
 
   const normalizedIpHash = ipHash ?? null
@@ -2685,6 +2779,8 @@ export function recordPopularityBallot(
     : null
   const cookiePresent = telemetry?.cookiePresent ? 1 : 0
   const qrNonce = telemetry?.qrNonce ? telemetry.qrNonce.slice(0, 24) : null
+  const autoQuarantine = telemetry?.autoQuarantineOverride ?? Boolean(settings.autoQuarantine ?? true)
+  const quarantineThreshold = normalizedOpenIdHash ? 80 : 60
 
   if (!existing) {
     if (revision != null && revision !== 0) {
@@ -2697,8 +2793,12 @@ export function recordPopularityBallot(
       action: 'cast',
       telemetry
     })
+    const quarantined = autoQuarantine && evalResult.suspicionScore >= quarantineThreshold ? 1 : 0
+    const quarantinedReason = quarantined
+      ? `高危特征自动冻结(${evalResult.suspicionScore}分)`
+      : null
     const reasonsJson = JSON.stringify(evalResult.suspicionReasons)
-    const now = Date.now()
+    const now = telemetry?.now ?? Date.now()
     const ballotId = randomUUID()
     const inserted = client.sqlite.transaction(() => {
       const result = client.db.insert(competitionPopularityBallots).values({
@@ -2706,8 +2806,11 @@ export function recordPopularityBallot(
         eventId,
         singerId,
         deviceHash,
+        voterOpenidHash: normalizedOpenIdHash,
         ipHash: normalizedIpHash,
         risk: evalResult.risk,
+        quarantined,
+        quarantinedReason,
         voided: 0,
         suspicionScore: evalResult.suspicionScore,
         suspicionReasonsJson: reasonsJson,
@@ -2741,21 +2844,43 @@ export function recordPopularityBallot(
         suspicionReasonsJson: reasonsJson,
         createdAt: now
       }).run()
+      if (quarantined === 1 && normalizedIpHash && !normalizedOpenIdHash) {
+        client.sqlite.prepare(
+          `UPDATE competition_popularity_ballots
+           SET quarantined = 1,
+               quarantined_reason = COALESCE(quarantined_reason, '同IP聚集簇回溯连坐冻结'),
+               updated_at = ?
+           WHERE event_id = ? AND ip_hash = ? AND singer_id = ?
+             AND voter_openid_hash IS NULL
+             AND voided = 0 AND quarantined = 0
+             AND COALESCE(voided_by, '') != 'admin-restored'
+             AND created_at > ?`
+        ).run(now, eventId, normalizedIpHash, singerId, now - POPULARITY_IP_WINDOW_MS)
+      }
       return true
     })()
 
     if (!inserted) {
-      // 两台设备同时首投的极小概率竞态：让后到的那次退回冲突，由页面刷新后重投。
-      const raced = client.db.select().from(competitionPopularityBallots)
-        .where(and(
-          eq(competitionPopularityBallots.eventId, eventId),
-          eq(competitionPopularityBallots.deviceHash, deviceHash)
-        ))
-        .get()
-      if (raced?.singerId === singerId) return getPopularityPublicState(client, eventId, deviceHash)
+      const raced = normalizedOpenIdHash
+        ? client.db.select().from(competitionPopularityBallots)
+            .where(and(
+              eq(competitionPopularityBallots.eventId, eventId),
+              or(
+                eq(competitionPopularityBallots.voterOpenidHash, normalizedOpenIdHash),
+                eq(competitionPopularityBallots.deviceHash, deviceHash)
+              )
+            ))
+            .get()
+        : client.db.select().from(competitionPopularityBallots)
+            .where(and(
+              eq(competitionPopularityBallots.eventId, eventId),
+              eq(competitionPopularityBallots.deviceHash, deviceHash)
+            ))
+            .get()
+      if (raced?.singerId === singerId) return getPopularityPublicState(client, eventId, raced.deviceHash, stateOptions)
       conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
     }
-    return getPopularityPublicState(client, eventId, deviceHash)
+    return getPopularityPublicState(client, eventId, deviceHash, stateOptions)
   }
 
   if (!settings.allowChange || Number(existing.changeCount) >= Number(settings.maxChanges)) {
@@ -2767,7 +2892,7 @@ export function recordPopularityBallot(
 
   const evalResult = evaluateRealtimeBallotSuspicion(client, eventId, {
     singerId,
-    deviceHash,
+    deviceHash: existing.deviceHash,
     ipHash: normalizedIpHash ?? existing.ipHash,
     action: 'change',
     telemetry
@@ -2782,13 +2907,26 @@ export function recordPopularityBallot(
     }
   })()
   const reasonsJson = JSON.stringify(mergedReasons)
-  const now = Date.now()
+  const now = telemetry?.now ?? Date.now()
+  const shouldQuarantine = Number(existing.quarantined) === 1
+    || (
+      autoQuarantine
+      && existing.voidedBy !== 'admin-restored'
+      && evalResult.suspicionScore >= quarantineThreshold
+    )
+  const nextQuarantined = shouldQuarantine ? 1 : 0
+  const nextQuarantinedReason = nextQuarantined
+    ? (existing.quarantinedReason || `高危特征自动冻结(${evalResult.suspicionScore}分)`)
+    : null
 
   const updated = client.sqlite.transaction(() => {
     const result = client.db.update(competitionPopularityBallots).set({
       singerId,
+      voterOpenidHash: existing.voterOpenidHash ?? normalizedOpenIdHash,
       ipHash: normalizedIpHash ?? existing.ipHash,
       risk: Math.max(Number(existing.risk), evalResult.risk),
+      quarantined: nextQuarantined,
+      quarantinedReason: nextQuarantinedReason,
       suspicionScore: mergedScore,
       suspicionReasonsJson: reasonsJson,
       uaSummary,
@@ -2813,7 +2951,7 @@ export function recordPopularityBallot(
       prevSingerId: existing.singerId,
       action: 'change',
       blockCode: null,
-      deviceHash,
+      deviceHash: existing.deviceHash,
       ipHash: normalizedIpHash ?? existing.ipHash,
       envHash: envHash ?? existing.envHash,
       qrNonce,
@@ -2831,7 +2969,7 @@ export function recordPopularityBallot(
     conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
   }
 
-  return getPopularityPublicState(client, eventId, deviceHash)
+  return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
 }
 
 export function updatePopularitySettings(
@@ -2842,7 +2980,7 @@ export function updatePopularitySettings(
   if (input.opensAt != null && input.closesAt != null && input.opensAt >= input.closesAt) {
     validationError('开始时间必须早于截止时间', 'opensAt')
   }
-  ensurePopularitySettings(client, eventId)
+  const existing = ensurePopularitySettings(client, eventId)
   client.db.update(competitionPopularitySettings).set({
     enabled: input.enabled,
     title: input.title.trim(),
@@ -2853,6 +2991,15 @@ export function updatePopularitySettings(
     maxChanges: input.maxChanges,
     qrRotateSeconds: input.qrRotateSeconds,
     showResults: input.showResults,
+    authMode: input.authMode ?? existing.authMode,
+    wechatAccountName: input.wechatAccountName !== undefined
+      ? (input.wechatAccountName.trim() || '仰恩大学指南')
+      : existing.wechatAccountName,
+    wechatQrUrl: input.wechatQrUrl !== undefined
+      ? input.wechatQrUrl.trim()
+      : existing.wechatQrUrl,
+    autoQuarantine: input.autoQuarantine ?? existing.autoQuarantine,
+    aiAutoModerate: input.aiAutoModerate ?? existing.aiAutoModerate,
     updatedAt: Date.now()
   }).where(eq(competitionPopularitySettings.eventId, eventId)).run()
   return getPopularityAdminState(client, eventId)
@@ -2898,10 +3045,23 @@ export function applyPopularityAction(
   } else {
     client.db.update(competitionPopularitySettings).set({
       displayKey: randomBytes(18).toString('base64url'),
+      displaySessionHash: null,
       updatedAt: now
     }).where(eq(competitionPopularitySettings.id, settings.id)).run()
   }
   return getPopularityAdminState(client, eventId)
+}
+
+export function updatePopularityDisplaySessionHash(
+  client: DatabaseClient,
+  eventId: string,
+  sessionHash: string
+): void {
+  const settings = ensurePopularitySettings(client, eventId)
+  client.db.update(competitionPopularitySettings).set({
+    displaySessionHash: sessionHash,
+    updatedAt: Date.now()
+  }).where(eq(competitionPopularitySettings.id, settings.id)).run()
 }
 
 export function getPopularityDisplayKey(

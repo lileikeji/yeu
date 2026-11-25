@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CompetitionPopularityPublicState } from '~~/shared/types'
+import type { CompetitionPopularityAuthMode, CompetitionPopularityPublicState } from '~~/shared/types'
 
 definePageMeta({ layout: false })
 
@@ -8,6 +8,7 @@ useSeoMeta({ title: '人气奖投票大屏', robots: 'noindex, nofollow' })
 const route = useRoute()
 const DISPLAY_KEY_STORAGE = 'yeu:popularity-display-key:v1'
 const displayKey = ref('')
+const displaySessionReady = ref(false)
 
 function syncDisplayKeyFromLocation(): void {
   const queryKey = String(route.query.key ?? '').trim()
@@ -31,10 +32,14 @@ function syncDisplayKeyFromLocation(): void {
 }
 
 interface TokenState {
-  token: string
   expiresAt: number
   qrDataUrl: string
   rotateSeconds: number
+  authMode: CompetitionPopularityAuthMode
+  wechatAccountName: string
+  wechatQrUrl: string
+  wechatPasscode: string
+  state: CompetitionPopularityPublicState
 }
 
 const tokenState = ref<TokenState | null>(null)
@@ -44,7 +49,6 @@ const now = ref(Date.now())
 
 let tickTimer: ReturnType<typeof setInterval> | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
-let stateTimer: ReturnType<typeof setInterval> | null = null
 let stopped = false
 
 function messageOf(caught: unknown): string {
@@ -52,36 +56,50 @@ function messageOf(caught: unknown): string {
   return data?.data?.message ?? data?.message ?? '大屏链接无效或已过期。'
 }
 
-async function refreshToken(): Promise<void> {
-  if (stopped) return
-  if (!displayKey.value) {
-    error.value = '缺少大屏密钥，请从后台重新复制链接。'
-    return
-  }
-  try {
-    const data = await plainFetch<TokenState>(
-      `/api/public/competition/popularity/token?key=${encodeURIComponent(displayKey.value)}`
-    )
-    tokenState.value = data
-    error.value = ''
-    await refreshState()
-    refreshTimer = setTimeout(() => void refreshToken(), Math.max(10, data.rotateSeconds) * 1000)
-  } catch (caught) {
-    tokenState.value = null
-    error.value = messageOf(caught)
-    refreshTimer = setTimeout(() => void refreshToken(), 5000)
-  }
+function errorCodeOf(caught: unknown): string {
+  const data = (caught as { data?: { data?: { code?: string }, code?: string } })?.data
+  return data?.data?.code ?? data?.code ?? ''
 }
 
-async function refreshState(): Promise<void> {
-  const token = tokenState.value?.token
-  if (!token) return
+async function ensureDisplaySession(): Promise<void> {
+  if (!displayKey.value || displaySessionReady.value) return
+  await plainFetch<{ ok: boolean }>(
+    '/api/public/competition/popularity/display-session',
+    {
+      method: 'POST',
+      body: { key: displayKey.value }
+    }
+  )
+  displaySessionReady.value = true
+}
+
+async function refreshToken(): Promise<void> {
+  if (stopped) return
   try {
-    state.value = await plainFetch<CompetitionPopularityPublicState>(
-      `/api/public/competition/popularity/state?t=${encodeURIComponent(token)}`
+    if (displayKey.value && !displaySessionReady.value) {
+      await ensureDisplaySession()
+    }
+    const data = await plainFetch<TokenState>(
+      '/api/public/competition/popularity/token'
     )
-  } catch {
-    // token 过期时让 refreshToken 换新码，不在这里反复报错。
+    tokenState.value = data
+    state.value = data.state
+    error.value = ''
+    const nextDelayMs = Math.min(10, Math.max(5, data.rotateSeconds)) * 1000
+    refreshTimer = setTimeout(() => void refreshToken(), nextDelayMs)
+  } catch (caught) {
+    const code = errorCodeOf(caught)
+    if (code === 'POPULARITY_DISPLAY_SESSION_REQUIRED' && displayKey.value) {
+      displaySessionReady.value = false
+    }
+    if (!displayKey.value && code === 'POPULARITY_DISPLAY_SESSION_REQUIRED') {
+      tokenState.value = null
+      error.value = '缺少大屏密钥，请从后台重新复制链接。'
+    } else {
+      tokenState.value = null
+      error.value = messageOf(caught)
+    }
+    refreshTimer = setTimeout(() => void refreshToken(), 5000)
   }
 }
 
@@ -101,15 +119,11 @@ onMounted(() => {
   tickTimer = setInterval(() => {
     now.value = Date.now()
   }, 1000)
-  stateTimer = setInterval(() => {
-    void refreshState()
-  }, 10_000)
 })
 
 onBeforeUnmount(() => {
   stopped = true
   if (tickTimer) clearInterval(tickTimer)
-  if (stateTimer) clearInterval(stateTimer)
   if (refreshTimer) clearTimeout(refreshTimer)
 })
 </script>
@@ -153,12 +167,27 @@ onBeforeUnmount(() => {
           >
             {{ error || '正在生成二维码…' }}
           </div>
-          <p class="mt-4 text-center text-lg font-bold">
-            微信扫一扫，投出人气奖
-          </p>
-          <p class="mt-1 text-center text-xs text-[var(--muted-ink)]">
-            二维码每 {{ tokenState?.rotateSeconds ?? 30 }} 秒自动更换
-          </p>
+          <template v-if="tokenState?.authMode === 'wechat_mp'">
+            <div class="mt-4 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-sunken)] px-4 py-3 text-center">
+              <p class="text-xs font-semibold tracking-wider text-[var(--color-green-600)]">
+                关注「{{ tokenState.wechatAccountName }}」发送口令领票
+              </p>
+              <p class="mt-1 text-3xl font-black tracking-widest text-[var(--ink)]">
+                投票 {{ tokenState.wechatPasscode }}
+              </p>
+              <p class="mt-1 text-xs text-[var(--muted-ink)]">
+                口令每分钟刷新 · 一人一微信号一票
+              </p>
+            </div>
+          </template>
+          <template v-else>
+            <p class="mt-4 text-center text-lg font-bold">
+              微信扫一扫，投出人气奖
+            </p>
+            <p class="mt-1 text-center text-xs text-[var(--muted-ink)]">
+              二维码每 {{ tokenState?.rotateSeconds ?? 30 }} 秒自动更换
+            </p>
+          </template>
           <p
             v-if="error"
             class="mt-2 text-center text-xs text-red-600"

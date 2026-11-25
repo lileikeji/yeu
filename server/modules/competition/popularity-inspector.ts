@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   competitionEvents,
+  competitionPopularityBallots,
   competitionPopularityInspections,
   competitionPopularityVoteLogs
 } from '../../database/schema'
@@ -13,6 +14,7 @@ import type {
 import { chatCompletionsUrl, insightConfigFromValues, type CompetitionInsightConfig } from './insight'
 import { computePopularityGuardReport, POPULARITY_AUTO_BATCH_SIZE } from './popularity-guard'
 import { ensurePopularityInspectionJob } from './popularity-inspection-jobs'
+import { ensurePopularitySettings } from './service'
 
 export type PopularityInspectionMode = 'auto-batch' | 'manual-batch' | 'single-log' | 'singer-focus'
 
@@ -52,6 +54,9 @@ export interface PopularityInspectionDigest {
     env: string | null
     qr: string | null
     score: number
+    status: 'valid' | 'quarantined' | 'voided' | 'blocked'
+    wechatVerified: boolean
+    adminProtected: boolean
     reasons: string[]
   }>
 }
@@ -63,6 +68,7 @@ export interface PopularityInspectionParsedResult {
   headline: string
   findings: string[]
   flaggedSeqs: number[]
+  releaseSeqs: number[]
   memoryNote: string
 }
 
@@ -70,16 +76,18 @@ const MAX_LOGS_IN_PROMPT = 35
 const MAX_FINDINGS = 6
 const MAX_TEXT_LEN = 180
 
-export const POPULARITY_INSPECTOR_PROMPT = `你是仰恩大学歌手大赛人气奖投票的风控日志巡检员。
+export const POPULARITY_INSPECTOR_PROMPT = `你是仰恩大学歌手大赛人气奖投票的风控日志巡检与自动执法员。
 输入包含：
 1. candidateOverview：各选手当前有效票数与预估刷票数；
 2. rollingMemory：之前各个巡检批次留下的跨批次记忆（历史 ip/env/qr 聚集特征与异常倾向）；
-3. logs：本次待检的投票/改票/拦截日志（每条带 seq 序号、时间戳、动作、目标选手、页面停留 dwellMs、cookiePresent、ua、脱敏短标签 device/ip/env/qr、规则分与命中原因）。
+3. logs：本次待检的投票/改票/拦截日志（每条带 seq 序号、时间、动作、当前 status[valid/quarantined/voided/blocked]、wechatVerified、adminProtected、停留 dwellMs、cookiePresent、ua、脱敏短标签 device/ip/env/qr、规则分与命中原因）。
 
-你的任务：
-- 结合 rollingMemory 与本批 logs，判断本批是否存在刷票（例如同 ip_xxx 或同 env_xxx 反复切设备、dwellMs < 1200ms 且无 cookie、同码段 qr_xxx 集中灌票、跨批次慢速对同一选手持续注水）。
+你的职责（系统已开启自动执法，你的 flaggedSeqs 与 releaseSeqs 会直接执行数据库作废与放行）：
+- 结合 rollingMemory 与本批 logs 判断是否存在刷票（同 ip_xxx/env_xxx 切设备、等距节拍、缺少 Fetch 元数据、dwellMs 极短且无 cookie、同码段集中灌票、跨批次慢速注水）。
+- 对确认刷票（且 adminProtected=false）的 seq 填入 flaggedSeqs，系统将直接自动作废其对应选票（voided=1）；对 adminProtected=true（管理员人工复核放行）不要重复标入 flaggedSeqs。
+- 对本批处于 status='quarantined'（实时冻结待审）但核验为正常观众的选票（例如 wechatVerified=true 且停顿自然、无同环境重复切号），填入 releaseSeqs，系统将自动解除冻结放行计票。
 - 输出直白短句，写清 seq 序号、选手姓名、数字（票数、毫秒、标签如 ip_a1b2c3），禁用「闭环/赋能/全方位/深度/值得关注/综合来看/呈现出/彰显」等空话。
-- memoryNote 用 1-2 句（不超过 140 字）提炼本批可留给下一批巡检记住的关键线索（如「ip_a1b2c3+env_d4e5f6 连续投向张三 9 票，无 Cookie」或「本批未见聚集，仅 2 次快速点击」）。
+- memoryNote 用 1-2 句（不超过 140 字）提炼本批可留给下一批巡检记住的关键线索。
 
 输出严格 JSON：
 {
@@ -88,7 +96,8 @@ export const POPULARITY_INSPECTOR_PROMPT = `你是仰恩大学歌手大赛人气
   "estimatedBrushCount": 0-logs.length 的整数,
   "headline": "不超过 40 字的一句话结论",
   "findings": ["1-5 条短句核查发现，写清 seq 与人名/标签"],
-  "flaggedSeqs": [需要重点关注或可作废的日志 seq 整数数组],
+  "flaggedSeqs": [确认刷票、应直接作废的日志 seq 整数数组],
+  "releaseSeqs": [复核正常、应解除冻结放行的日志 seq 整数数组],
   "memoryNote": "不超过 140 字的跨批次记忆摘要"
 }
 只输出 JSON，不要 markdown 包裹或多余解释。`
@@ -155,6 +164,15 @@ export function parsePopularityInspectionOutput(
       )).slice(0, MAX_LOGS_IN_PROMPT)
     : []
 
+  const flaggedSet = new Set(flaggedSeqs)
+  const releaseSeqs = Array.isArray(rec.releaseSeqs)
+    ? Array.from(new Set(
+        rec.releaseSeqs
+          .map(item => Number(item))
+          .filter(num => Number.isInteger(num) && allowedSeqs.has(num) && !flaggedSet.has(num))
+      )).slice(0, MAX_LOGS_IN_PROMPT)
+    : []
+
   const memoryNote = typeof rec.memoryNote === 'string'
     ? rec.memoryNote.trim().slice(0, MAX_TEXT_LEN)
     : ''
@@ -166,6 +184,7 @@ export function parsePopularityInspectionOutput(
     headline,
     findings,
     flaggedSeqs,
+    releaseSeqs,
     memoryNote
   }
 }
@@ -303,6 +322,26 @@ export function preparePopularityInspection(
   const fromSeq = Number(selectedRows[0]!.seq)
   const toSeq = Number(selectedRows[selectedRows.length - 1]!.seq)
 
+  const ballotIds = Array.from(new Set(
+    selectedRows.map(r => r.ballotId).filter((id): id is string => Boolean(id))
+  ))
+  const ballotRows = ballotIds.length > 0
+    ? client.db.select({
+        id: competitionPopularityBallots.id,
+        voided: competitionPopularityBallots.voided,
+        quarantined: competitionPopularityBallots.quarantined,
+        voidedBy: competitionPopularityBallots.voidedBy,
+        voterOpenidHash: competitionPopularityBallots.voterOpenidHash
+      })
+        .from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          inArray(competitionPopularityBallots.id, ballotIds)
+        ))
+        .all()
+    : []
+  const ballotMap = new Map(ballotRows.map(b => [b.id, b]))
+
   const recentMemories: CompetitionPopularityMemoryEntry[] = report.rollingMemory.slice(-8)
   const digest: PopularityInspectionDigest = {
     event: eventRow?.title || '仰恩大学歌手大赛',
@@ -333,6 +372,14 @@ export function preparePopularityInspection(
       } catch {
         reasons = []
       }
+      const ballot = row.ballotId ? ballotMap.get(row.ballotId) : undefined
+      const status: 'valid' | 'quarantined' | 'voided' | 'blocked' = row.action === 'blocked'
+        ? 'blocked'
+        : ballot && Number(ballot.voided) === 1
+          ? 'voided'
+          : ballot && Number(ballot.quarantined) === 1
+            ? 'quarantined'
+            : 'valid'
       return {
         seq: Number(row.seq),
         at: new Date(Number(row.createdAt)).toLocaleTimeString('zh-CN', { hour12: false }),
@@ -348,6 +395,9 @@ export function preparePopularityInspection(
         env: shortLabel('env', row.envHash),
         qr: shortLabel('qr', row.qrNonce),
         score: Number(row.suspicionScore),
+        status,
+        wechatVerified: Boolean(ballot?.voterOpenidHash),
+        adminProtected: ballot?.voidedBy === 'admin-restored',
         reasons
       }
     })
@@ -373,27 +423,108 @@ export function savePopularityInspectionResult(
 ): CompetitionPopularityInspectionItem {
   const id = randomUUID()
   const now = Date.now()
-  client.db.insert(competitionPopularityInspections).values({
-    id,
-    eventId,
-    mode: input.mode,
-    fromSeq: prepared.fromSeq,
-    toSeq: prepared.toSeq,
-    targetLogId: prepared.targetLogId,
-    targetSingerId: prepared.targetSingerId,
-    logCount: prepared.logCount,
-    verdict: parsed.verdict,
-    confidence: parsed.confidence,
-    estimatedBrushInBatch: parsed.estimatedBrushCount,
-    headline: parsed.headline,
-    findingsJson: JSON.stringify(parsed.findings),
-    flaggedSeqsJson: JSON.stringify(parsed.flaggedSeqs),
-    memoryNote: parsed.memoryNote,
-    model,
-    triggerSource: input.triggerSource,
-    createdByAdminId: input.adminId,
-    createdAt: now
-  }).run()
+  const settings = ensurePopularitySettings(client, eventId)
+  const aiAutoModerate = Boolean(settings.aiAutoModerate ?? true)
+
+  let autoVoidedCount = 0
+  let autoReleasedCount = 0
+  let flaggedBallotIds: string[] = []
+
+  client.sqlite.transaction(() => {
+    const seqRows = client.db.select({
+      seq: competitionPopularityVoteLogs.seq,
+      ballotId: competitionPopularityVoteLogs.ballotId
+    })
+      .from(competitionPopularityVoteLogs)
+      .where(and(
+        eq(competitionPopularityVoteLogs.eventId, eventId),
+        gte(competitionPopularityVoteLogs.seq, prepared.fromSeq),
+        lte(competitionPopularityVoteLogs.seq, prepared.toSeq)
+      ))
+      .all()
+
+    const ballotBySeq = new Map<number, string>()
+    for (const row of seqRows) {
+      if (row.ballotId) ballotBySeq.set(Number(row.seq), row.ballotId)
+    }
+
+    flaggedBallotIds = Array.from(new Set(
+      parsed.flaggedSeqs
+        .map(seq => ballotBySeq.get(seq) ?? null)
+        .filter((bid): bid is string => Boolean(bid))
+    ))
+
+    if (aiAutoModerate) {
+      const flaggedSet = new Set(parsed.flaggedSeqs)
+      const voidTargetIds = (parsed.verdict === 'suspect' || parsed.confidence >= 65)
+        ? flaggedBallotIds
+        : []
+
+      if (voidTargetIds.length > 0) {
+        const placeholders = voidTargetIds.map(() => '?').join(', ')
+        const voidRes = client.sqlite.prepare(
+          `UPDATE competition_popularity_ballots
+           SET voided = 1, quarantined = 0, quarantined_reason = NULL,
+               voided_by = 'ai-inspector', voided_reason = ?, voided_at = ?, updated_at = ?
+           WHERE event_id = ? AND id IN (${placeholders})
+             AND voided = 0 AND COALESCE(voided_by, '') != 'admin-restored'`
+        ).run(`AI巡检自动作废: ${parsed.headline}`, now, now, eventId, ...voidTargetIds)
+        autoVoidedCount = Number(voidRes.changes ?? 0)
+      }
+
+      const voidedIdSet = new Set(voidTargetIds)
+      const releaseSeqs = new Set<number>(parsed.releaseSeqs)
+      if (parsed.verdict === 'clean' && parsed.confidence >= 70) {
+        for (const item of prepared.digest.logs) {
+          if (item.status === 'quarantined' && !flaggedSet.has(item.seq)) {
+            releaseSeqs.add(item.seq)
+          }
+        }
+      }
+
+      const releaseTargetIds = Array.from(new Set(
+        Array.from(releaseSeqs)
+          .map(seq => ballotBySeq.get(seq) ?? null)
+          .filter((bid): bid is string => typeof bid === 'string' && bid.length > 0)
+          .filter(bid => !voidedIdSet.has(bid))
+      ))
+
+      if (releaseTargetIds.length > 0) {
+        const placeholders = releaseTargetIds.map(() => '?').join(', ')
+        const releaseRes = client.sqlite.prepare(
+          `UPDATE competition_popularity_ballots
+           SET quarantined = 0, quarantined_reason = NULL, updated_at = ?
+           WHERE event_id = ? AND id IN (${placeholders})
+             AND quarantined = 1 AND voided = 0`
+        ).run(now, eventId, ...releaseTargetIds)
+        autoReleasedCount = Number(releaseRes.changes ?? 0)
+      }
+    }
+
+    client.db.insert(competitionPopularityInspections).values({
+      id,
+      eventId,
+      mode: input.mode,
+      fromSeq: prepared.fromSeq,
+      toSeq: prepared.toSeq,
+      targetLogId: prepared.targetLogId,
+      targetSingerId: prepared.targetSingerId,
+      logCount: prepared.logCount,
+      verdict: parsed.verdict,
+      confidence: parsed.confidence,
+      estimatedBrushInBatch: parsed.estimatedBrushCount,
+      headline: parsed.headline,
+      findingsJson: JSON.stringify(parsed.findings),
+      flaggedSeqsJson: JSON.stringify(parsed.flaggedSeqs),
+      memoryNote: parsed.memoryNote,
+      model,
+      triggerSource: input.triggerSource,
+      createdByAdminId: input.adminId,
+      autoVoidedCount,
+      autoReleasedCount,
+      createdAt: now
+    }).run()
+  })()
 
   return {
     id,
@@ -410,10 +541,12 @@ export function savePopularityInspectionResult(
     headline: parsed.headline,
     findings: parsed.findings,
     flaggedSeqs: parsed.flaggedSeqs,
-    flaggedBallotIds: [],
+    flaggedBallotIds,
     memoryNote: parsed.memoryNote,
     model,
     triggerSource: input.triggerSource,
+    autoVoidedCount,
+    autoReleasedCount,
     createdAt: now
   }
 }
@@ -433,31 +566,35 @@ export async function runPopularityInspectionNow(
 }
 
 /**
- * 每满 20 条新增投票日志时在后台自动启动一次微批记忆巡检，
- * 不阻塞观众端响应；如果本批已有正在跑的任务则直接复用。
+ * 每满 20 条新增投票日志（或产生实时冻结且未检积压 >= 3 条）时在后台自动启动微批巡检，
+ * 不阻塞观众端响应；巡检结论会直接自动作废确认刷票或放行正常冻结票。
  */
 export function maybeTriggerAutoPopularityInspection(
   client: DatabaseClient,
   eventId: string,
   config: CompetitionInsightConfig | null,
-  options: { fetchImpl?: typeof fetch } = {}
+  options: { fetchImpl?: typeof fetch, hasNewQuarantined?: boolean } = {}
 ): Promise<void> | null {
   if (!config) return null
   const seqRow = client.sqlite.prepare(
     'SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM competition_popularity_vote_logs WHERE event_id = ?'
   ).get(eventId) as { maxSeq: number } | undefined
   const latestSeq = Number(seqRow?.maxSeq ?? 0)
-  if (latestSeq < POPULARITY_AUTO_BATCH_SIZE) return null
+  if (latestSeq <= 0) return null
 
   const lastRow = client.sqlite.prepare(
     `SELECT COALESCE(MAX(to_seq), 0) AS lastToSeq FROM competition_popularity_inspections
      WHERE event_id = ? AND mode = 'auto-batch'`
   ).get(eventId) as { lastToSeq: number } | undefined
   const lastToSeq = Number(lastRow?.lastToSeq ?? 0)
-  if (latestSeq - lastToSeq < POPULARITY_AUTO_BATCH_SIZE) return null
+  const pendingCount = latestSeq - lastToSeq
+  const fastQuarantineTrigger = Boolean(options.hasNewQuarantined) && pendingCount >= 3
+  if (pendingCount < POPULARITY_AUTO_BATCH_SIZE && !fastQuarantineTrigger) return null
 
   const fromSeq = lastToSeq + 1
-  const toSeq = lastToSeq + POPULARITY_AUTO_BATCH_SIZE
+  const toSeq = pendingCount >= POPULARITY_AUTO_BATCH_SIZE
+    ? lastToSeq + POPULARITY_AUTO_BATCH_SIZE
+    : latestSeq
   const jobKey = `auto:${eventId}:${fromSeq}-${toSeq}`
   const { promise } = ensurePopularityInspectionJob(eventId, jobKey, 'auto-batch', config.model, async () => {
     const result = await runPopularityInspectionNow(client, eventId, config, {

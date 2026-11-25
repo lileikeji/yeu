@@ -629,6 +629,9 @@ export interface CompetitionFinalSongsPair {
 /** 人气奖投票状态：关闭 / 未到开始时间 / 进行中 / 已截止。 */
 export type CompetitionPopularityStatus = 'disabled' | 'scheduled' | 'open' | 'closed'
 
+/** 人气奖核验模式：公众号口令领专属票券（一人一微信一票） / 免关注设备严格风控降级。 */
+export type CompetitionPopularityAuthMode = 'wechat_mp' | 'device_strict'
+
 export interface CompetitionPopularitySettings {
   enabled: boolean
   title: string
@@ -644,6 +647,11 @@ export interface CompetitionPopularitySettings {
   showResults: boolean
   /** 大屏取码密钥；只在后台返回。 */
   displayKey: string
+  authMode: CompetitionPopularityAuthMode
+  wechatAccountName: string
+  wechatQrUrl: string
+  autoQuarantine: boolean
+  aiAutoModerate: boolean
   updatedAt: number
 }
 
@@ -691,6 +699,11 @@ export interface CompetitionPopularityPublicState {
   deviceToken?: string
   /** 服务端签发的页面加载凭证，用于校验页面真实渲染与最短停留时长。 */
   pageTicket?: string
+  authMode?: CompetitionPopularityAuthMode
+  wechatVerified?: boolean
+  requiresWechatTicket?: boolean
+  wechatAccountName?: string
+  wechatQrUrl?: string
   /** 只有 showResults 为真时才有内容；否则一律 null。 */
   results: CompetitionPopularityResultRow[] | null
   now: number
@@ -703,8 +716,10 @@ export interface CompetitionPopularityAdminState {
   results: CompetitionPopularityResultRow[]
   /** 同 IP 多设备风险标记票数；仅提示，不拦截。 */
   riskVotes: number
-  /** 已被管理员风控作废的票数（不计入 totalVotes）。 */
+  /** 已被管理员或 AI 风控作废的票数（不计入 totalVotes）。 */
   voidedVotes?: number
+  /** 实时高危冻结隔离中的票数（不计入 totalVotes）。 */
+  quarantinedVotes?: number
   status: CompetitionPopularityStatus
   updatedAt: number
 }
@@ -715,8 +730,10 @@ export interface CompetitionPopularitySingerEstimate {
   singerId: string
   number: number
   name: string
-  /** 当前有效票（未作废）。 */
+  /** 当前有效票（未作废且未冻结）。 */
   validVotes: number
+  /** 冻结待审票数。 */
+  quarantinedVotes: number
   /** 已作废票数。 */
   voidedVotes: number
   /** 高危可疑票数（score >= 60，未作废）。 */
@@ -756,6 +773,7 @@ export interface CompetitionPopularityClusterItem {
   keyLabel: string
   ballotCount: number
   validCount: number
+  quarantinedCount: number
   voidedCount: number
   maxSuspicionScore: number
   topSingerName: string
@@ -785,8 +803,11 @@ export interface CompetitionPopularityVoteLogItem {
   effectiveScore: number
   riskLevel: CompetitionPopularityRiskLevel
   suspicionReasons: string[]
+  ballotQuarantined: boolean
+  ballotQuarantinedReason: string | null
   ballotVoided: boolean
   ballotVoidedReason: string | null
+  wechatVerified: boolean
   createdAt: number
 }
 
@@ -821,6 +842,8 @@ export interface CompetitionPopularityInspectionItem {
   memoryNote: string
   model: string
   triggerSource: 'auto' | 'manual'
+  autoVoidedCount: number
+  autoReleasedCount: number
   createdAt: number
 }
 
@@ -837,6 +860,7 @@ export interface CompetitionPopularityInspectionJobView {
 export interface CompetitionPopularityAuditReport {
   overview: {
     validVotes: number
+    quarantinedVotes: number
     voidedVotes: number
     blockedAttempts: number
     totalLogCount: number

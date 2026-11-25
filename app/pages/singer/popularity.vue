@@ -15,7 +15,37 @@ const error = ref('')
 const now = ref(Date.now())
 
 const DEVICE_STORAGE_KEY = 'yeu:popularity-device:v1'
+const WECHAT_TICKET_STORAGE_KEY = 'yeu:popularity-wechat-ticket:v1'
 let timer: ReturnType<typeof setInterval> | null = null
+
+function readWechatTicket(): string {
+  try {
+    return localStorage.getItem(WECHAT_TICKET_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function persistWechatTicket(value: string | undefined): void {
+  try {
+    if (value) localStorage.setItem(WECHAT_TICKET_STORAGE_KEY, value)
+    else localStorage.removeItem(WECHAT_TICKET_STORAGE_KEY)
+  } catch {
+    // 忽略 storage 限制
+  }
+}
+
+function syncWechatTicketFromLocation(): void {
+  const queryVt = String(route.query.vt ?? '').trim()
+  if (!queryVt) return
+  persistWechatTicket(queryVt)
+  try {
+    const clean = token.value ? `${window.location.pathname}?t=${encodeURIComponent(token.value)}` : window.location.pathname
+    window.history.replaceState(null, '', clean)
+  } catch {
+    // 忽略 history 限制
+  }
+}
 
 function readDeviceToken(): string {
   try {
@@ -39,24 +69,44 @@ function messageOf(caught: unknown): string {
   return data?.data?.message ?? data?.message ?? (caught as { message?: string })?.message ?? '出错了，稍后再试。'
 }
 
+function errorCodeOf(caught: unknown): string {
+  const data = (caught as { data?: { data?: { code?: string, blockCode?: string }, code?: string } })?.data
+  return data?.data?.blockCode ?? data?.data?.code ?? data?.code ?? ''
+}
+
 async function load(): Promise<void> {
-  if (!token.value) {
-    error.value = '请扫大屏上的二维码进入投票页。'
-    loading.value = false
-    return
-  }
   loading.value = true
   error.value = ''
   try {
-    const query = new URLSearchParams({ t: token.value })
+    const query = new URLSearchParams()
+    if (token.value) query.set('t', token.value)
+    const vt = readWechatTicket()
+    if (vt) query.set('vt', vt)
     const device = readDeviceToken()
     if (device) query.set('d', device)
+    const qs = query.toString()
     state.value = await plainFetch<CompetitionPopularityPublicState>(
-      `/api/public/competition/popularity/state?${query.toString()}`
+      qs ? `/api/public/competition/popularity/state?${qs}` : '/api/public/competition/popularity/state'
     )
     persistDeviceToken(state.value.deviceToken)
     now.value = Date.now()
   } catch (caught) {
+    if (errorCodeOf(caught) === 'POPULARITY_WECHAT_TICKET_INVALID') {
+      persistWechatTicket(undefined)
+      try {
+        const fallbackQuery = new URLSearchParams()
+        if (token.value) fallbackQuery.set('t', token.value)
+        const qs = fallbackQuery.toString()
+        state.value = await plainFetch<CompetitionPopularityPublicState>(
+          qs ? `/api/public/competition/popularity/state?${qs}` : '/api/public/competition/popularity/state'
+        )
+        error.value = messageOf(caught)
+        now.value = Date.now()
+        return
+      } catch {
+        // fallthrough
+      }
+    }
     error.value = messageOf(caught)
   } finally {
     loading.value = false
@@ -84,6 +134,13 @@ function collectClientEnv() {
 
 async function vote(singerId: string): Promise<void> {
   if (!state.value || savingId.value) return
+  if (state.value.requiresWechatTicket) {
+    toast.add({
+      title: `请先向公众号「${state.value.wechatAccountName || '仰恩大学指南'}」发送大屏口令领专属链接`,
+      color: 'warning'
+    })
+    return
+  }
   if (state.value.status !== 'open') {
     toast.add({ title: '投票还没开始或已经截止', color: 'warning' })
     return
@@ -99,13 +156,15 @@ async function vote(singerId: string): Promise<void> {
   savingId.value = singerId
   try {
     const device = readDeviceToken()
+    const vt = readWechatTicket()
     const env = collectClientEnv()
     const next = await plainFetch<CompetitionPopularityPublicState>(
       '/api/public/competition/popularity/vote',
       {
         method: 'POST',
         body: {
-          token: token.value,
+          ...(token.value ? { token: token.value } : {}),
+          ...(vt ? { vt } : {}),
           singerId,
           revision: state.value.myBallot?.version ?? 0,
           ...(device ? { d: device } : {}),
@@ -120,6 +179,11 @@ async function vote(singerId: string): Promise<void> {
     toast.add({ title: changed ? '改票成功' : '投票成功', color: 'success' })
   } catch (caught) {
     const err = caught as { statusCode?: number, data?: { data?: { blockCode?: string } } }
+    const code = errorCodeOf(caught)
+    if (code === 'WECHAT_TICKET_REQUIRED' || code === 'POPULARITY_WECHAT_TICKET_INVALID') {
+      persistWechatTicket(undefined)
+      void load()
+    }
     toast.add({ title: messageOf(caught), color: 'error' })
     if (err.statusCode === 409 || err.data?.data?.blockCode === 'MISSING_OR_INVALID_PAGE_TICKET') {
       void load()
@@ -143,10 +207,15 @@ function remainingText(): string {
   return `还剩 ${minutes} 分 ${String(rest).padStart(2, '0')} 秒`
 }
 
-const canVote = computed(() => state.value?.status === 'open' && (state.value?.candidates.length ?? 0) > 0)
+const canVote = computed(() => (
+  !state.value?.requiresWechatTicket
+  && state.value?.status === 'open'
+  && (state.value?.candidates.length ?? 0) > 0
+))
 const hasBallot = computed(() => Boolean(state.value?.myBallot))
 
 onMounted(() => {
+  syncWechatTicketFromLocation()
   void load()
   timer = setInterval(() => {
     now.value = Date.now()
@@ -192,6 +261,12 @@ onBeforeUnmount(() => {
           <span class="rounded-full bg-[var(--surface)] px-3 py-1 text-[var(--muted-ink)] shadow-sm">
             {{ state?.totalVotes ?? 0 }} 人已投
           </span>
+          <span
+            v-if="state?.wechatVerified"
+            class="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1 font-medium text-[var(--color-green-600)] shadow-sm"
+          >
+            微信身份已核验
+          </span>
         </div>
       </header>
 
@@ -210,6 +285,28 @@ onBeforeUnmount(() => {
       </div>
 
       <template v-else-if="state">
+        <div
+          v-if="state.requiresWechatTicket"
+          class="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 text-sm text-[var(--ink)] shadow-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="space-y-1">
+            <p class="font-bold text-[var(--color-green-600)]">
+              需要先向公众号领取专属投票链接
+            </p>
+            <p class="text-xs leading-relaxed text-[var(--muted-ink)]">
+              1. 打开微信关注「<strong>{{ state.wechatAccountName || '仰恩大学指南' }}</strong>」；<br>
+              2. 看现场大屏上的 2 位数字口令，发送「<strong>投票 XX</strong>」（如：投票 58）；<br>
+              3. 点回复的专属链接进入即可投票（一人一微信号一票）。
+            </p>
+          </div>
+          <img
+            v-if="state.wechatQrUrl"
+            :src="state.wechatQrUrl"
+            :alt="state.wechatAccountName || '公众号二维码'"
+            class="size-24 shrink-0 self-center rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] object-contain p-1"
+          >
+        </div>
+
         <p
           v-if="hasBallot"
           class="rounded-xl border border-rose-200 bg-[var(--surface)] px-4 py-3 text-sm text-rose-800 shadow-sm"
@@ -219,7 +316,7 @@ onBeforeUnmount(() => {
           <span v-else>投票后不可更改。</span>
         </p>
         <p
-          v-else-if="!canVote"
+          v-else-if="!canVote && !state.requiresWechatTicket"
           class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
         >
           {{ state.status === 'scheduled' ? '还没到开始时间，先看看候选人。' : state.status === 'closed' ? '投票已经截止。' : state.status === 'disabled' ? '主办方还没开启人气奖投票。' : '暂无可投票的候选名单。' }}
@@ -286,6 +383,7 @@ onBeforeUnmount(() => {
                 />
                 <span v-else-if="state.myBallot?.singerId === candidate.singerId">你已投票</span>
                 <span v-else-if="hasBallot && !state.canChange">你已投票</span>
+                <span v-else-if="state.requiresWechatTicket">请先从公众号领链接</span>
                 <span v-else-if="hasBallot">改投 TA</span>
                 <span v-else>投给 TA</span>
               </button>
@@ -322,7 +420,7 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="text-center text-xs leading-relaxed text-[var(--muted-ink)]">
-          每台设备限投一票；二维码失效请重扫大屏。
+          {{ state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。' }}
         </p>
 
         <div class="flex justify-center">

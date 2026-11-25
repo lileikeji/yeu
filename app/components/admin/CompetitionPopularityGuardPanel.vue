@@ -21,7 +21,7 @@ const loading = ref(false)
 const loadError = ref('')
 const report = ref<CompetitionPopularityAuditReport | null>(null)
 
-const logFilter = ref<'all' | 'suspect' | 'watch' | 'voided' | 'blocked'>('all')
+const logFilter = ref<'all' | 'quarantined' | 'suspect' | 'watch' | 'voided' | 'blocked'>('all')
 const logSingerId = ref('')
 const logQuery = ref('')
 const selectedBallotIds = ref<string[]>([])
@@ -33,14 +33,14 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 const singerOptions = computed(() => {
   const list = report.value?.singerEstimates ?? []
   return list.map(item => ({
-    label: `${item.number}号 ${item.name}（有效 ${item.validVotes} / 净估 ${item.estimatedRealVotes}）`,
+    label: `${item.number}号 ${item.name}（有效 ${item.validVotes} / 冻结 ${item.quarantinedVotes} / 净估 ${item.estimatedRealVotes}）`,
     value: item.singerId
   }))
 })
 
 const maxEstimateVotes = computed(() => {
   const list = report.value?.singerEstimates ?? []
-  return Math.max(1, ...list.map(item => item.validVotes + item.voidedVotes))
+  return Math.max(1, ...list.map(item => item.validVotes + item.quarantinedVotes + item.voidedVotes))
 })
 
 const maxTimelineCount = computed(() => {
@@ -110,6 +110,7 @@ function clusterKindLabel(kind: 'ip' | 'env' | 'qr'): string {
 function rowRiskClass(log: CompetitionPopularityVoteLogItem): string {
   if (log.action === 'blocked') return 'bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200'
   if (log.ballotVoided) return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
+  if (log.ballotQuarantined) return 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
   if (log.riskLevel === 'suspect') return 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
   if (log.riskLevel === 'watch') return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
   return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
@@ -118,6 +119,7 @@ function rowRiskClass(log: CompetitionPopularityVoteLogItem): string {
 function rowRiskText(log: CompetitionPopularityVoteLogItem): string {
   if (log.action === 'blocked') return '已拦截'
   if (log.ballotVoided) return '已作废'
+  if (log.ballotQuarantined) return `冻结 ${log.effectiveScore}`
   if (log.riskLevel === 'suspect') return `高危 ${log.effectiveScore}`
   if (log.riskLevel === 'watch') return `观察 ${log.effectiveScore}`
   return `正常 ${log.effectiveScore}`
@@ -166,11 +168,11 @@ function clearSelection(): void {
   selectedBallotIds.value = []
 }
 
-async function moderateBallots(mode: 'void' | 'restore', ballotIds: string[], reason?: string): Promise<void> {
+async function moderateBallots(mode: 'void' | 'restore' | 'release', ballotIds: string[], reason?: string): Promise<void> {
   const uniqueIds = Array.from(new Set(ballotIds)).filter(Boolean)
   if (uniqueIds.length === 0 || moderating.value) return
-  const verb = mode === 'void' ? '作废' : '恢复'
-  if (!window.confirm(`确认${verb}这 ${uniqueIds.length} 张选票？${mode === 'void' ? '作废后将从公开票数和大屏即时剔除，可随时恢复。' : '恢复后将重新计入总票数。'}`)) {
+  const verb = mode === 'void' ? '作废' : mode === 'release' ? '放行计票' : '恢复'
+  if (!window.confirm(`确认${verb}这 ${uniqueIds.length} 张选票？${mode === 'void' ? '作废后将从公开票数和大屏即时剔除，可随时恢复。' : '处理后将重新计入有效票数并免除 AI 重复自动拦截。'}`)) {
     return
   }
   moderating.value = true
@@ -339,7 +341,7 @@ onBeforeUnmount(() => {
           <span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">→ {{ report.overview.estimatedRealVotes }} 净</span>
         </p>
         <p class="mt-0.5 text-xs text-zinc-500">
-          已作废 {{ report.overview.voidedVotes }} 票
+          冻结 {{ report.overview.quarantinedVotes }} · 作废 {{ report.overview.voidedVotes }} 票
         </p>
       </div>
 
@@ -425,6 +427,10 @@ onBeforeUnmount(() => {
               <span class="font-semibold text-emerald-700 dark:text-emerald-300">净估 {{ item.estimatedRealVotes }}</span>
               <span class="text-rose-600 dark:text-rose-400">估刷 {{ item.estimatedBrushVotes }}（{{ item.brushRatePercent }}%）</span>
               <span
+                v-if="item.quarantinedVotes > 0"
+                class="text-amber-600 dark:text-amber-400"
+              >冻结 {{ item.quarantinedVotes }}</span>
+              <span
                 v-if="item.voidedVotes > 0"
                 class="text-zinc-400"
               >已废 {{ item.voidedVotes }}</span>
@@ -441,6 +447,11 @@ onBeforeUnmount(() => {
               class="h-full bg-rose-400"
               :style="{ width: `${Math.round((Math.max(0, item.validVotes - item.estimatedRealVotes) / maxEstimateVotes) * 100)}%` }"
               title="未作废高危水分"
+            />
+            <div
+              class="h-full bg-amber-400"
+              :style="{ width: `${Math.round((item.quarantinedVotes / maxEstimateVotes) * 100)}%` }"
+              title="冻结待审选票"
             />
             <div
               class="h-full bg-zinc-400"
@@ -647,11 +658,11 @@ onBeforeUnmount(() => {
                 <span class="ml-1 text-zinc-500">({{ cluster.ballotCount }} 票)</span>
               </p>
               <p class="mt-0.5 truncate text-zinc-500">
-                主投 {{ cluster.topSingerName }} ({{ cluster.topSingerVotes }} 票) · 有效 {{ cluster.validCount }} / 已废 {{ cluster.voidedCount }}
+                主投 {{ cluster.topSingerName }} ({{ cluster.topSingerVotes }} 票) · 有效 {{ cluster.validCount }} / 冻结 {{ cluster.quarantinedCount }} / 已废 {{ cluster.voidedCount }}
               </p>
             </div>
             <UButton
-              v-if="cluster.validCount > 0"
+              v-if="cluster.validCount > 0 || cluster.quarantinedCount > 0"
               size="xs"
               color="error"
               variant="soft"
@@ -744,6 +755,14 @@ onBeforeUnmount(() => {
                   {{ modeLabel(item.mode) }} #{{ item.fromSeq }}-{{ item.toSeq }}（{{ item.logCount }} 条）
                 </span>
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ item.headline }}</span>
+                <span
+                  v-if="item.autoVoidedCount > 0"
+                  class="rounded bg-rose-100 px-1.5 py-0.5 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
+                >AI自动作废 {{ item.autoVoidedCount }} 票</span>
+                <span
+                  v-if="item.autoReleasedCount > 0"
+                  class="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                >AI自动放行 {{ item.autoReleasedCount }} 票</span>
               </div>
               <div class="flex items-center gap-2">
                 <span class="tabular-nums text-zinc-400">{{ formatDateTime(item.createdAt) }}</span>
@@ -784,6 +803,9 @@ onBeforeUnmount(() => {
             >
               <option value="all">
                 全部日志
+              </option>
+              <option value="quarantined">
+                冻结待审
               </option>
               <option value="suspect">
                 高危可疑
@@ -856,9 +878,9 @@ onBeforeUnmount(() => {
               color="neutral"
               variant="outline"
               :loading="moderating"
-              @click="moderateBallots('restore', selectedBallotIds, '批量恢复选票')"
+              @click="moderateBallots('release', selectedBallotIds, '批量放行恢复选票')"
             >
-              恢复已选
+              放行/恢复已选
             </UButton>
             <UButton
               v-if="selectedBallotIds.length > 0"
@@ -940,7 +962,13 @@ onBeforeUnmount(() => {
                   </p>
                 </td>
                 <td class="py-2 pr-2 text-zinc-600 dark:text-zinc-300">
-                  <p>{{ log.uaSummary }} · Cookie:{{ log.cookiePresent ? '有' : '无' }}</p>
+                  <p>
+                    {{ log.uaSummary }} · Cookie:{{ log.cookiePresent ? '有' : '无' }}
+                    <span
+                      v-if="log.wechatVerified"
+                      class="ml-1 rounded bg-emerald-100 px-1 py-0.5 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                    >已绑微信</span>
+                  </p>
                   <p class="tabular-nums text-zinc-400">
                     {{ log.ipTag ?? 'ip_none' }} · {{ log.envTag ?? 'env_none' }} · {{ log.qrNonceTag ?? 'qr_none' }}
                   </p>
@@ -982,6 +1010,16 @@ onBeforeUnmount(() => {
                       @click="runInspection({ mode: 'single-log', logId: log.id })"
                     >
                       AI单票
+                    </UButton>
+                    <UButton
+                      v-if="log.ballotId && log.ballotQuarantined"
+                      size="xs"
+                      color="primary"
+                      variant="ghost"
+                      :loading="moderating"
+                      @click="moderateBallots('release', [log.ballotId], `手动放行日志 #${log.seq}`)"
+                    >
+                      放行
                     </UButton>
                     <UButton
                       v-if="log.ballotId && !log.ballotVoided"

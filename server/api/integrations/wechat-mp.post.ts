@@ -13,8 +13,11 @@ import {
   releaseBotMessage,
   reserveBotMessage
 } from '../../modules/bots/service'
+import { handleWechatMpPopularityMessage } from '../../modules/competition/popularity-wechat'
 import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
+import { getSecurityConfig } from '../../utils/security'
+import { getRequestURL } from 'h3'
 
 const MAX_CALLBACK_BYTES = 128 * 1024
 const PASSIVE_REPLY_BUDGET_MS = 3_800
@@ -87,35 +90,46 @@ export default defineEventHandler(async (event) => {
     throw error
   }
 
-  const question = {
-    platform: 'wechat' as const,
-    messageId: incoming.messageId,
-    conversationId: incoming.fromUserName,
-    senderId: incoming.fromUserName,
-    question: incoming.content
-  }
   const config = botAssistantConfig(runtime as unknown as Record<string, unknown>)
   config.maxReplyChars = Math.min(config.maxReplyChars, 600)
-  let replyMessage = ''
-  const assistantTask = answerAndSendBotQuestion({
-    client,
-    question,
-    config,
-    send: async (message) => {
-      replyMessage = message
-    }
+  const siteOrigin = String(runtime.public?.siteUrl || config.siteUrl || '').replace(/\/+$/, '') || getRequestURL(event).origin
+  const security = getSecurityConfig(event)
+  const popularityReply = handleWechatMpPopularityMessage(client, {
+    fromUserName: incoming.fromUserName,
+    content: incoming.content,
+    siteOrigin,
+    secret: security.secret
   })
-  const completedWithinBudget = await Promise.race([
-    assistantTask.then(() => true).catch(() => false),
-    new Promise<false>(resolve => setTimeout(() => resolve(false), PASSIVE_REPLY_BUDGET_MS))
-  ])
-  if (!completedWithinBudget || !replyMessage) {
-    void assistantTask.catch(() => releaseBotMessage('wechat', incoming.messageId))
-    replyMessage = formatBotReply(
-      '这个问题需要多查一会儿，请稍后再发送一次。我会优先使用刚整理好的资料。',
-      config.siteUrl,
-      config.maxReplyChars
-    )
+
+  let replyMessage = popularityReply ?? ''
+  if (popularityReply == null) {
+    const question = {
+      platform: 'wechat' as const,
+      messageId: incoming.messageId,
+      conversationId: incoming.fromUserName,
+      senderId: incoming.fromUserName,
+      question: incoming.content
+    }
+    const assistantTask = answerAndSendBotQuestion({
+      client,
+      question,
+      config,
+      send: async (message) => {
+        replyMessage = message
+      }
+    })
+    const completedWithinBudget = await Promise.race([
+      assistantTask.then(() => true).catch(() => false),
+      new Promise<false>(resolve => setTimeout(() => resolve(false), PASSIVE_REPLY_BUDGET_MS))
+    ])
+    if (!completedWithinBudget || !replyMessage) {
+      void assistantTask.catch(() => releaseBotMessage('wechat', incoming.messageId))
+      replyMessage = formatBotReply(
+        '这个问题需要多查一会儿，请稍后再发送一次。我会优先使用刚整理好的资料。',
+        config.siteUrl,
+        config.maxReplyChars
+      )
+    }
   }
 
   setHeader(event, 'Content-Type', 'application/xml; charset=utf-8')

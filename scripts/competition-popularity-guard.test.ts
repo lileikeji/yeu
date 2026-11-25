@@ -21,6 +21,7 @@ import {
   preparePopularityInspection,
   runPopularityInspectionNow
 } from '../server/modules/competition/popularity-inspector'
+import { handleWechatMpPopularityMessage } from '../server/modules/competition/popularity-wechat'
 import {
   applyPopularityAction,
   createSinger,
@@ -29,17 +30,24 @@ import {
   getPopularityPublicState,
   getRoundByKey,
   recordPopularityBallot,
+  updatePopularityDisplaySessionHash,
   updatePopularitySettings
 } from '../server/modules/competition/service'
 import {
+  computePopularityWechatPasscode,
   detectAutomatedPopularityAgent,
+  hasBrowserFetchMetadata,
   hasMatchingPopularityDeviceCookie,
   issuePopularityPageTicket,
   issuePopularityToken,
+  issuePopularityWechatTicket,
   popularityIpHash,
+  popularityOpenIdHash,
   summarizePopularityUserAgent,
   verifyPopularityPageTicket,
-  verifyPopularityToken
+  verifyPopularityToken,
+  verifyPopularityWechatPasscode,
+  verifyPopularityWechatTicket
 } from '../server/utils/competition-popularity'
 import { hashOpaqueToken } from '../server/utils/security'
 import type { H3Event } from 'h3'
@@ -155,6 +163,18 @@ test('刷票预估、批量作废/恢复与作废设备锁改票联动准确', (
   const { client, path } = tempDb()
   runMigrations(client)
   const { event, singers } = createEventWithSingers(client)
+  updatePopularitySettings(client, event.id, {
+    enabled: true,
+    title: '人气奖投票',
+    subtitle: '现场扫码',
+    opensAt: Date.now() - 5_000,
+    closesAt: Date.now() + 300_000,
+    allowChange: true,
+    maxChanges: 2,
+    qrRotateSeconds: 30,
+    showResults: true,
+    autoQuarantine: false
+  })
   const [singerA, singerB] = singers as [typeof singers[number], typeof singers[number]]
 
   const sharedIp = popularityIpHash('secret-1', '198.51.100.2')
@@ -383,6 +403,255 @@ test('记忆 AI 巡检：满20条自动微批巡检并将跨批次memoryNote传�
   // 验证第二次调用 AI 时 user prompt 里真实包含第一批 memoryNote
   const secondMessages = capturedBodies[1]?.messages as Array<{ content: string }>
   assert.ok(secondMessages[1]?.content.includes('ip与env聚集在1-10号，持续注水选手1'))
+
+  cleanup(client, path)
+})
+
+test('0087 微信口令领票与唯一索引：动态口令核验、同一微信号跨设备防重投', () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const secret = 'fortress-wechat-secret-0123456789'
+  const now = 1_795_534_500_000
+
+  const idxRows = client.sqlite.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('competition_popularity_ballots_event_openid_unique', 'competition_popularity_ballots_event_quarantined_idx') ORDER BY name`
+  ).all() as Array<{ name: string }>
+  assert.deepEqual(idxRows.map(r => r.name), [
+    'competition_popularity_ballots_event_openid_unique',
+    'competition_popularity_ballots_event_quarantined_idx'
+  ])
+
+  const passcode = computePopularityWechatPasscode(secret, event.id, now)
+  assert.match(passcode, /^\d{2}$/)
+  assert.equal(verifyPopularityWechatPasscode(secret, event.id, passcode, now), true)
+  assert.equal(verifyPopularityWechatPasscode(secret, event.id, passcode, now + 59_000), true)
+
+  // 非投票指令返回 null 交给原校园助手
+  assert.equal(
+    handleWechatMpPopularityMessage(client, {
+      fromUserName: 'oUser_001',
+      content: '图书馆几点关门',
+      siteOrigin: 'https://yx.huiliyill.cn',
+      secret,
+      now
+    }),
+    null
+  )
+
+  // 错误口令返回提示
+  const wrongReply = handleWechatMpPopularityMessage(client, {
+    fromUserName: 'oUser_001',
+    content: '投票 00',
+    siteOrigin: 'https://yx.huiliyill.cn',
+    secret,
+    now
+  })
+  assert.ok(wrongReply && wrongReply.includes('口令不正确'))
+
+  // 正确口令秒发专属 vt 链接
+  const okReply = handleWechatMpPopularityMessage(client, {
+    fromUserName: 'oUser_001',
+    content: `投票 ${passcode}`,
+    siteOrigin: 'https://yx.huiliyill.cn',
+    secret,
+    now
+  })
+  assert.ok(okReply && okReply.includes('/singer/popularity?vt='))
+  const match = /\?vt=([^\s]+)/.exec(okReply!)
+  assert.ok(match)
+  const ticketRaw = decodeURIComponent(match![1]!)
+  const verified = verifyPopularityWechatTicket(secret, ticketRaw, now + 1000)
+  assert.ok(verified)
+  assert.equal(verified.eventId, event.id)
+  assert.equal(verified.openIdHash, popularityOpenIdHash(secret, event.id, 'oUser_001'))
+
+  // 同一微信号在手机浏览器首次投票
+  const s1 = recordPopularityBallot(client, event.id, 'browser-dev-1', singers[0]!.id, 0, 'ip-1', {
+    voterOpenidHash: verified.openIdHash,
+    cookiePresent: true,
+    dwellMs: 4000,
+    uaSummary: 'iOS/WeChat'
+  })
+  assert.equal(s1.totalVotes, 1)
+  assert.equal(s1.wechatVerified, true)
+
+  // 同一微信号把 vt 转发给另一台设备（换了 deviceHash）再首投同一个人仅幂等不加票；投给别人受同一张票 revision/改票规则约束
+  const issuedOther = issuePopularityWechatTicket(secret, event.id, verified.openIdHash, 600_000, now)
+  assert.ok(verifyPopularityWechatTicket(secret, issuedOther.ticket, now))
+  assert.throws(() => recordPopularityBallot(client, event.id, 'browser-dev-2', singers[1]!.id, 0, 'ip-2', {
+    voterOpenidHash: verified.openIdHash,
+    cookiePresent: true,
+    dwellMs: 4000
+  }), err => codeOf(err) === 'POPULARITY_CONFLICT')
+  assert.equal(getPopularityAdminState(client, event.id).totalVotes, 1)
+
+  // Fetch Metadata 校验与大屏会话哈希更新
+  const browserEvt = {
+    node: { req: { headers: { 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' } } }
+  } as unknown as H3Event
+  const scriptEvt = {
+    node: { req: { headers: {} } }
+  } as unknown as H3Event
+  assert.equal(hasBrowserFetchMetadata(browserEvt), true)
+  assert.equal(hasBrowserFetchMetadata(scriptEvt), false)
+  updatePopularityDisplaySessionHash(client, event.id, 'session-hash-v1')
+  applyPopularityAction(client, event.id, 'rotate-display-key')
+  const stateAfterRotate = getPopularityPublicState(client, event.id, '')
+  assert.equal(stateAfterRotate.requiresWechatTicket, true)
+
+  cleanup(client, path)
+})
+
+test('0087 实时自动冻结与 AI 巡检直接执法：等距节拍隔离不计票，AI 直接作废与放行，人工放行免疫', async () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const [singerA, singerB] = singers as [typeof singers[number], typeof singers[number]]
+  updatePopularitySettings(client, event.id, {
+    enabled: true,
+    title: '人气奖投票',
+    subtitle: '现场扫码',
+    opensAt: Date.now() - 5_000,
+    closesAt: Date.now() + 300_000,
+    allowChange: true,
+    maxChanges: 1,
+    qrRotateSeconds: 30,
+    showResults: true,
+    authMode: 'device_strict',
+    autoQuarantine: true,
+    aiAutoModerate: true
+  })
+
+  const attackerIp = popularityIpHash('secret-fortress', '198.51.100.99')
+  const baseNow = Date.now() - 120_000
+
+  // 模仿 popularity-flood-v2.mjs：单 IP 每 10 秒等距投同一选手、每票换新设备与独立 env、无 Fetch Metadata
+  for (let i = 0; i < 6; i += 1) {
+    recordPopularityBallot(
+      client,
+      event.id,
+      `flood-v2-dev-${i}`,
+      singerA.id,
+      0,
+      attackerIp,
+      {
+        uaSummary: 'iOS/Safari',
+        envHash: `flood-v2-env-${i}`,
+        dwellMs: 3100,
+        cookiePresent: true,
+        qrNonce: 'qr-v2',
+        qrAgeMs: 4000,
+        qrRotateSeconds: 30,
+        missingFetchMeta: true,
+        now: baseNow + i * 10_000
+      }
+    )
+  }
+
+  // 再制造 1 张因为礼堂同基站+点得快被规则误冻的正常票（随后 AI 复核放行，再加 1 张人工放行票测免疫）
+  recordPopularityBallot(
+    client,
+    event.id,
+    'false-positive-dev',
+    singerB.id,
+    0,
+    attackerIp,
+    {
+      uaSummary: 'iOS/WeChat',
+      envHash: 'clean-unique-env',
+      dwellMs: 1100,
+      cookiePresent: true,
+      missingFetchMeta: false,
+      now: baseNow + 65_000
+    }
+  )
+
+  const adminBeforeAi = getPopularityAdminState(client, event.id)
+  const reportBeforeAi = computePopularityGuardReport(client, event.id, { aiConfigured: true })
+  assert.ok((adminBeforeAi.quarantinedVotes ?? 0) >= 4, '等距节拍与同IP多新设备票应实时自动冻结隔离')
+  assert.ok(adminBeforeAi.totalVotes < 4, '被冻结隔离的高危票不得计入公开有效票')
+  assert.equal(getPopularityPublicState(client, event.id, '').totalVotes, adminBeforeAi.totalVotes)
+
+  // 找到所有 seq，让 AI 巡检直接自动作废前 6 票（flaggedSeqs: [1..6]），并自动放行第 7 票（releaseSeqs: [7]）
+  const releaseSeq = reportBeforeAi.logs.find(l => l.singerId === singerB.id)!.seq
+  const mockAi: typeof fetch = async () => new Response(JSON.stringify({
+    choices: [{
+      message: {
+        content: JSON.stringify({
+          verdict: 'suspect',
+          confidence: 95,
+          estimatedBrushCount: 6,
+          headline: 'seq 1-6 为同IP 10s 等距脚本刷票',
+          findings: ['seq 1-6 每10s规律切换设备与env且无Fetch元数据', `seq ${releaseSeq} 为微信正常停留误冻票`],
+          flaggedSeqs: [1, 2, 3, 4, 5, 6],
+          releaseSeqs: [releaseSeq],
+          memoryNote: 'ip 存在每10秒换env稳态刷票'
+        })
+      }
+    }]
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+  // 触发冻结加急自动巡检（未满 20 条，因 hasNewQuarantined=true 且 >=3 条直接触发）
+  const fastAuto = maybeTriggerAutoPopularityInspection(client, event.id, {
+    baseUrl: 'http://127.0.0.1:18080',
+    apiKey: 'k',
+    model: 'm',
+    timeoutMs: 10_000
+  }, { fetchImpl: mockAi, hasNewQuarantined: true })
+  assert.ok(fastAuto, '存在实时冻结票且未检>=3条时应触发快速自动巡检')
+  await fastAuto
+
+  const adminAfterAi = getPopularityAdminState(client, event.id)
+  assert.equal(adminAfterAi.voidedVotes, 6, 'AI 巡检应直接将 seq 1-6 自动置为 voided=1')
+  assert.equal(adminAfterAi.quarantinedVotes, 0, 'AI 巡检应直接放行第 7 票并清零冻结池')
+  assert.equal(adminAfterAi.totalVotes, 1, '最终仅保留经过 AI 放行的 1 张正常票')
+  assert.equal(adminAfterAi.results.find(r => r.singerId === singerA.id)?.count, 0)
+  assert.equal(adminAfterAi.results.find(r => r.singerId === singerB.id)?.count, 1)
+
+  const reportAfterAi = computePopularityGuardReport(client, event.id, { aiConfigured: true })
+  assert.equal(reportAfterAi.inspections[0]?.autoVoidedCount, 6)
+  assert.equal(reportAfterAi.inspections[0]?.autoReleasedCount, 1)
+
+  // 管理员手动恢复其中第 1 票后应写入 admin-restored 豁免标记，后续 AI 再次标疑该票也不得二次作废
+  const seq1BallotId = reportAfterAi.logs.find(l => l.seq === 1)!.ballotId!
+  moderatePopularityBallots(client, event.id, 'admin-1', {
+    mode: 'release',
+    ballotIds: [seq1BallotId],
+    reason: '人工复核确认为线下观众'
+  })
+  const immuneResult = await runPopularityInspectionNow(client, event.id, {
+    baseUrl: 'http://127.0.0.1:18080',
+    apiKey: 'k',
+    model: 'm',
+    timeoutMs: 10_000
+  }, {
+    mode: 'manual-batch',
+    triggerSource: 'manual',
+    adminId: 'admin-1',
+    fromSeq: 1,
+    toSeq: 7
+  }, {
+    fetchImpl: async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            verdict: 'suspect',
+            confidence: 92,
+            estimatedBrushCount: 1,
+            headline: '复测仍怀疑 seq 1',
+            findings: ['复核 seq 1'],
+            flaggedSeqs: [1],
+            releaseSeqs: [],
+            memoryNote: '复核测试'
+          })
+        }
+      }]
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  })
+  assert.ok(immuneResult)
+  assert.equal(immuneResult.autoVoidedCount, 0, '管理员手动恢复放行后的选票应豁免 AI 二次作废')
+  assert.equal(getPopularityAdminState(client, event.id).totalVotes, 2)
 
   cleanup(client, path)
 })

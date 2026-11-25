@@ -37,7 +37,7 @@ type InspectionRow = typeof competitionPopularityInspections.$inferSelect
 
 export interface PopularityAuditQueryOptions {
   singerId?: string
-  filter?: 'all' | 'suspect' | 'watch' | 'voided' | 'blocked'
+  filter?: 'all' | 'quarantined' | 'suspect' | 'watch' | 'voided' | 'blocked'
   q?: string
   limit?: number
   aiConfigured?: boolean
@@ -246,7 +246,7 @@ export function moderatePopularityBallots(
   client: DatabaseClient,
   eventId: string,
   adminId: string | null,
-  input: { mode: 'void' | 'restore', ballotIds: string[], reason?: string }
+  input: { mode: 'void' | 'restore' | 'release', ballotIds: string[], reason?: string }
 ): { updatedCount: number } {
   const uniqueIds = Array.from(new Set(input.ballotIds)).filter(Boolean)
   if (uniqueIds.length === 0) return { updatedCount: 0 }
@@ -256,6 +256,8 @@ export function moderatePopularityBallots(
   const result = input.mode === 'void'
     ? client.db.update(competitionPopularityBallots).set({
         voided: 1,
+        quarantined: 0,
+        quarantinedReason: null,
         voidedReason: reason,
         voidedAt: now,
         voidedBy: adminId,
@@ -266,9 +268,11 @@ export function moderatePopularityBallots(
       )).run()
     : client.db.update(competitionPopularityBallots).set({
         voided: 0,
+        quarantined: 0,
+        quarantinedReason: null,
         voidedReason: null,
         voidedAt: null,
-        voidedBy: null,
+        voidedBy: 'admin-restored',
         updatedAt: now
       }).where(and(
         eq(competitionPopularityBallots.eventId, eventId),
@@ -309,13 +313,17 @@ export function computePopularityGuardReport(
   let suspectValidVotes = 0
   let watchValidVotes = 0
   let validVotes = 0
+  let quarantinedVotes = 0
   let voidedVotes = 0
 
   const baseEstimates = candidates.map((candidate) => {
     const singerBallots = ballotsBySinger.get(candidate.singerId) ?? []
-    const active = singerBallots.filter(b => Number(b.voided) === 0)
-    const voided = singerBallots.length - active.length
+    const nonVoided = singerBallots.filter(b => Number(b.voided) === 0)
+    const active = nonVoided.filter(b => Number(b.quarantined) === 0)
+    const quarantined = nonVoided.length - active.length
+    const voided = singerBallots.length - nonVoided.length
     validVotes += active.length
+    quarantinedVotes += quarantined
     voidedVotes += voided
 
     let activeBrushProbSum = 0
@@ -332,6 +340,15 @@ export function computePopularityGuardReport(
         reasonCounter.set(reason, (reasonCounter.get(reason) ?? 0) + 1)
       }
     }
+    for (const ballot of nonVoided) {
+      if (Number(ballot.quarantined) !== 1) continue
+      const score = ballotScoreMap.get(ballot.id) ?? Number(ballot.suspicionScore ?? 0)
+      if (score >= 60) suspectCount += 1
+      else if (score >= 30) watchCount += 1
+      for (const reason of ballotReasonsMap.get(ballot.id) ?? []) {
+        reasonCounter.set(reason, (reasonCounter.get(reason) ?? 0) + 1)
+      }
+    }
 
     suspectValidVotes += suspectCount
     watchValidVotes += watchCount
@@ -339,8 +356,8 @@ export function computePopularityGuardReport(
 
     const activeBrushEst = Math.min(active.length, Math.round(activeBrushProbSum))
     const estimatedRealVotes = Math.max(0, active.length - activeBrushEst)
-    const estimatedBrushVotes = activeBrushEst + voided
-    const denominator = active.length + voided
+    const estimatedBrushVotes = activeBrushEst + quarantined + voided
+    const denominator = active.length + quarantined + voided
     const brushRatePercent = denominator > 0 ? Math.round((estimatedBrushVotes / denominator) * 1000) / 10 : 0
     const topReasons = Array.from(reasonCounter.entries())
       .sort((a, b) => b[1] - a[1])
@@ -352,6 +369,7 @@ export function computePopularityGuardReport(
       number: candidate.number,
       name: candidate.name,
       validVotes: active.length,
+      quarantinedVotes: quarantined,
       voidedVotes: voided,
       suspectVotes: suspectCount,
       watchVotes: watchCount,
@@ -457,12 +475,14 @@ export function computePopularityGuardReport(
       if (list.length < minThreshold) continue
       const singerCounts = new Map<string, number>()
       let validCount = 0
+      let quarantinedCount = 0
       let voidedCount = 0
       let maxScore = 0
       let latestAt = 0
       for (const b of list) {
-        if (Number(b.voided) === 0) validCount += 1
-        else voidedCount += 1
+        if (Number(b.voided) === 1) voidedCount += 1
+        else if (Number(b.quarantined) === 1) quarantinedCount += 1
+        else validCount += 1
         maxScore = Math.max(maxScore, ballotScoreMap.get(b.id) ?? Number(b.suspicionScore ?? 0))
         latestAt = Math.max(latestAt, Number(b.updatedAt ?? b.createdAt ?? 0))
         singerCounts.set(b.singerId, (singerCounts.get(b.singerId) ?? 0) + 1)
@@ -474,6 +494,7 @@ export function computePopularityGuardReport(
         keyLabel: shortTag(kind, key),
         ballotCount: list.length,
         validCount,
+        quarantinedCount,
         voidedCount,
         maxSuspicionScore: maxScore,
         topSingerName: candidateNameById.get(topSingerId) ?? '未知选手',
@@ -506,9 +527,11 @@ export function computePopularityGuardReport(
       ...(ballot ? (ballotReasonsMap.get(ballot.id) ?? []) : [])
     ])).slice(0, 6)
     const ballotVoided = ballot ? Number(ballot.voided) === 1 : false
+    const ballotQuarantined = ballot ? (!ballotVoided && Number(ballot.quarantined) === 1) : false
     const riskLevel: CompetitionPopularityRiskLevel = log.action === 'blocked' ? 'suspect' : riskLevelOf(effectiveScore)
 
     if (options.singerId && log.singerId !== options.singerId) continue
+    if (filter === 'quarantined' && !ballotQuarantined) continue
     if (filter === 'suspect' && !(riskLevel === 'suspect' && log.action !== 'blocked')) continue
     if (filter === 'watch' && riskLevel !== 'watch') continue
     if (filter === 'voided' && !ballotVoided) continue
@@ -557,8 +580,11 @@ export function computePopularityGuardReport(
       effectiveScore,
       riskLevel,
       suspicionReasons: mergedReasons,
+      ballotQuarantined,
+      ballotQuarantinedReason: ballot?.quarantinedReason ?? null,
       ballotVoided,
       ballotVoidedReason: ballot?.voidedReason ?? null,
+      wechatVerified: Boolean(ballot?.voterOpenidHash),
       createdAt: Number(log.createdAt)
     })
 
@@ -599,6 +625,8 @@ export function computePopularityGuardReport(
       memoryNote: row.memoryNote,
       model: row.model,
       triggerSource: row.triggerSource,
+      autoVoidedCount: Number(row.autoVoidedCount ?? 0),
+      autoReleasedCount: Number(row.autoReleasedCount ?? 0),
       createdAt: Number(row.createdAt)
     }
   })
@@ -625,12 +653,13 @@ export function computePopularityGuardReport(
     .reduce((max, row) => Math.max(max, Number(row.toSeq)), 0)
   const pendingAutoCount = Math.max(0, latestSeq - lastAutoInspectedSeq)
   const blockedAttempts = logsAsc.filter(log => log.action === 'blocked').length
-  const totalEstimatedBrush = Math.round(totalExpectedBrushActive) + voidedVotes
-  const totalDenominator = validVotes + voidedVotes
+  const totalEstimatedBrush = Math.round(totalExpectedBrushActive) + quarantinedVotes + voidedVotes
+  const totalDenominator = validVotes + quarantinedVotes + voidedVotes
 
   return {
     overview: {
       validVotes,
+      quarantinedVotes,
       voidedVotes,
       blockedAttempts,
       totalLogCount: logsAsc.length,

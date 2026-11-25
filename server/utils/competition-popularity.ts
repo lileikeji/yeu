@@ -10,9 +10,16 @@ const DEVICE_TOKEN_PURPOSE = 'competition-popularity-device-token'
 const PAGE_TICKET_PURPOSE = 'competition-popularity-page-ticket'
 const IP_PURPOSE = 'competition-popularity-ip'
 const ENV_PURPOSE = 'competition-popularity-env'
+const PASSCODE_PURPOSE = 'competition-popularity-wechat-passcode'
+const OPENID_PURPOSE = 'competition-popularity-openid'
+const WECHAT_TICKET_PURPOSE = 'competition-popularity-wechat-ticket'
+const DISPLAY_SESSION_PURPOSE = 'competition-popularity-display-session'
 const DEVICE_COOKIE = 'yeu_popularity_device'
+const DISPLAY_SESSION_COOKIE = 'yeu_popularity_display'
 
 const PAGE_TICKET_TTL_MS = 30 * 60_000
+const WECHAT_TICKET_TTL_MS = 45 * 60_000
+const PASSCODE_WINDOW_MS = 60_000
 export const POPULARITY_MIN_DWELL_MS = 400
 
 const AUTOMATED_UA_PATTERN = /curl|wget|python-requests|python-urllib|aiohttp|httpx|go-http-client|okhttp|axios|node-fetch|undici|got\/|postmanruntime|insomnia|httpie|headlesschrome|phantomjs|playwright|puppeteer|selenium|webdriver/i
@@ -33,6 +40,13 @@ export interface PopularityPageTicketPayload {
   eventId: string
   deviceHash: string
   expectedRevision: number
+  issuedAt: number
+  expiresAt: number
+}
+
+export interface PopularityWechatTicketPayload {
+  eventId: string
+  openIdHash: string
   issuedAt: number
   expiresAt: number
 }
@@ -338,4 +352,129 @@ export function resolvePopularityDevice(
     deviceHash: hashOpaqueToken(secret, DEVICE_PURPOSE, deviceId),
     token: issuePopularityDeviceToken(secret, eventId, deviceId)
   }
+}
+
+/** 每分钟轮换的 2 位现场动态口令（10–99），供大屏展示与公众号回复领票核对。 */
+export function computePopularityWechatPasscode(
+  secret: string,
+  eventId: string,
+  now = Date.now()
+): string {
+  const bucket = Math.floor(now / PASSCODE_WINDOW_MS)
+  const digest = createHmac('sha256', secret)
+    .update(PASSCODE_PURPOSE)
+    .update('\0')
+    .update(`${eventId}:${bucket}`)
+    .digest()
+  const numeric = 10 + (digest.readUInt16BE(0) % 90)
+  return String(numeric)
+}
+
+export function verifyPopularityWechatPasscode(
+  secret: string,
+  eventId: string,
+  code: string | null | undefined,
+  now = Date.now()
+): boolean {
+  const normalized = (code || '').trim()
+  if (!/^\d{2}$/.test(normalized)) return false
+  const current = computePopularityWechatPasscode(secret, eventId, now)
+  const previous = computePopularityWechatPasscode(secret, eventId, now - PASSCODE_WINDOW_MS)
+  return safeEqual(normalized, current) || safeEqual(normalized, previous)
+}
+
+export function popularityOpenIdHash(secret: string, eventId: string, openId: string): string {
+  return hashOpaqueToken(secret, OPENID_PURPOSE, `${eventId}:${openId.trim()}`)
+}
+
+export function issuePopularityWechatTicket(
+  secret: string,
+  eventId: string,
+  openIdHash: string,
+  ttlMs = WECHAT_TICKET_TTL_MS,
+  now = Date.now()
+): { ticket: string, expiresAt: number } {
+  const expiresAt = now + Math.max(60_000, Math.min(3 * 3600_000, ttlMs))
+  const nonce = randomBytes(10).toString('base64url')
+  const payload = Buffer.from(`${eventId}.${openIdHash}.${now}.${expiresAt}.${nonce}`).toString('base64url')
+  const signature = createHmac('sha256', secret)
+    .update(WECHAT_TICKET_PURPOSE)
+    .update('\0')
+    .update(payload)
+    .digest('base64url')
+  return { ticket: `${payload}.${signature}`, expiresAt }
+}
+
+export function verifyPopularityWechatTicket(
+  secret: string,
+  ticket: string | null | undefined,
+  now = Date.now()
+): PopularityWechatTicketPayload | null {
+  if (!ticket) return null
+  const separator = ticket.lastIndexOf('.')
+  if (separator <= 0) return null
+  const payload = ticket.slice(0, separator)
+  const signature = ticket.slice(separator + 1)
+  const expected = createHmac('sha256', secret)
+    .update(WECHAT_TICKET_PURPOSE)
+    .update('\0')
+    .update(payload)
+    .digest('base64url')
+  if (!safeEqual(signature, expected)) return null
+
+  let decoded: string
+  try {
+    decoded = Buffer.from(payload, 'base64url').toString('utf8')
+  } catch {
+    return null
+  }
+  const [eventId, openIdHash, issuedRaw, expiresRaw] = decoded.split('.')
+  const issuedAt = Number(issuedRaw)
+  const expiresAt = Number(expiresRaw)
+  if (
+    !eventId
+    || !openIdHash
+    || openIdHash.length < 16
+    || !Number.isFinite(issuedAt)
+    || !Number.isFinite(expiresAt)
+    || issuedAt > now + 5000
+    || expiresAt <= now
+  ) {
+    return null
+  }
+  return { eventId, openIdHash, issuedAt, expiresAt }
+}
+
+export function issuePopularityDisplaySession(
+  event: H3Event,
+  secret: string,
+  secureCookies: boolean
+): string {
+  const sessionToken = createOpaqueToken()
+  setCookie(event, DISPLAY_SESSION_COOKIE, sessionToken, {
+    path: '/api/public/competition/popularity',
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: secureCookies,
+    maxAge: 60 * 60 * 12
+  })
+  return hashOpaqueToken(secret, DISPLAY_SESSION_PURPOSE, sessionToken)
+}
+
+export function hasValidPopularityDisplaySession(
+  event: H3Event,
+  secret: string,
+  expectedSessionHash: string | null | undefined
+): boolean {
+  if (!expectedSessionHash) return false
+  const sessionToken = getCookie(event, DISPLAY_SESSION_COOKIE)
+  if (!validDeviceId(sessionToken)) return false
+  const actualHash = hashOpaqueToken(secret, DISPLAY_SESSION_PURPOSE, sessionToken)
+  return safeEqual(actualHash, expectedSessionHash)
+}
+
+export function hasBrowserFetchMetadata(event: H3Event): boolean {
+  const mode = (getHeader(event, 'sec-fetch-mode') || '').trim().toLowerCase()
+  const dest = (getHeader(event, 'sec-fetch-dest') || '').trim().toLowerCase()
+  return (mode === 'cors' || mode === 'same-origin') && dest === 'empty'
 }

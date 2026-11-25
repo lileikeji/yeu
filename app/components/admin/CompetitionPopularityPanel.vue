@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
   CompetitionPopularityAdminState,
+  CompetitionPopularityAuthMode,
   CompetitionPopularitySettings
 } from '~~/shared/types'
 
@@ -25,7 +26,12 @@ const draft = reactive<SettingsDraft>({
   allowChange: false,
   maxChanges: 1,
   qrRotateSeconds: 30,
-  showResults: false
+  showResults: false,
+  authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
+  wechatAccountName: '仰恩大学指南',
+  wechatQrUrl: '',
+  autoQuarantine: true,
+  aiAutoModerate: true
 })
 
 const saving = ref(false)
@@ -60,7 +66,12 @@ function sync(): void {
     allowChange: settings.allowChange,
     maxChanges: settings.maxChanges,
     qrRotateSeconds: settings.qrRotateSeconds,
-    showResults: settings.showResults
+    showResults: settings.showResults,
+    authMode: settings.authMode ?? 'wechat_mp',
+    wechatAccountName: settings.wechatAccountName ?? '仰恩大学指南',
+    wechatQrUrl: settings.wechatQrUrl ?? '',
+    autoQuarantine: settings.autoQuarantine ?? true,
+    aiAutoModerate: settings.aiAutoModerate ?? true
   })
 }
 
@@ -118,7 +129,12 @@ async function saveSettings(): Promise<void> {
         allowChange: draft.allowChange,
         maxChanges: Number(draft.maxChanges),
         qrRotateSeconds: Number(draft.qrRotateSeconds),
-        showResults: draft.showResults
+        showResults: draft.showResults,
+        authMode: draft.authMode,
+        wechatAccountName: draft.wechatAccountName.trim() || '仰恩大学指南',
+        wechatQrUrl: draft.wechatQrUrl.trim(),
+        autoQuarantine: draft.autoQuarantine,
+        aiAutoModerate: draft.aiAutoModerate
       }
     })
     toast.add({ title: '人气奖设置已保存', color: 'success' })
@@ -308,6 +324,75 @@ async function copyDisplayUrl(): Promise<void> {
           公开页展示实时票数（默认隐藏，避免从众）
         </label>
 
+        <div class="mt-4 space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <div>
+            <label
+              class="block text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+              for="popularity-auth-mode"
+            >身份核验与防刷策略</label>
+            <select
+              id="popularity-auth-mode"
+              v-model="draft.authMode"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            >
+              <option value="wechat_mp">
+                公众号口令领专属链接（推荐 · 一人一微信号一票）
+              </option>
+              <option value="device_strict">
+                免关注扫码降级（大屏单会话 + 设备严格风控）
+              </option>
+            </select>
+          </div>
+          <div
+            v-if="draft.authMode === 'wechat_mp'"
+            class="grid gap-2 sm:grid-cols-2"
+          >
+            <div>
+              <label
+                class="block text-xs text-zinc-600 dark:text-zinc-400"
+                for="popularity-wechat-name"
+              >公众号名称</label>
+              <UInput
+                id="popularity-wechat-name"
+                v-model="draft.wechatAccountName"
+                size="sm"
+                class="mt-1 w-full"
+                maxlength="40"
+              />
+            </div>
+            <div>
+              <label
+                class="block text-xs text-zinc-600 dark:text-zinc-400"
+                for="popularity-wechat-qr"
+              >公众号二维码地址（选填）</label>
+              <UInput
+                id="popularity-wechat-qr"
+                v-model="draft.wechatQrUrl"
+                size="sm"
+                placeholder="/images/... 或 https://..."
+                class="mt-1 w-full"
+                maxlength="260"
+              />
+            </div>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+            <input
+              v-model="draft.autoQuarantine"
+              type="checkbox"
+              class="size-4 rounded border-zinc-300"
+            >
+            高危特征自动冻结隔离（不计入公开与大屏票数）
+          </label>
+          <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+            <input
+              v-model="draft.aiAutoModerate"
+              type="checkbox"
+              class="size-4 rounded border-zinc-300"
+            >
+            AI 巡检直接自动处置风险票（自动作废刷票 / 放行正常冻结票，人工放行保留豁免）
+          </label>
+        </div>
+
         <div class="mt-5 flex flex-wrap gap-2">
           <UButton
             color="primary"
@@ -395,13 +480,10 @@ async function copyDisplayUrl(): Promise<void> {
 
         <div class="mt-5 rounded-md bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
           <p>
-            当前有效票 {{ voteTotal }} 票（已作废 {{ props.state?.voidedVotes ?? 0 }} 票）；规则高危 {{ props.state?.riskVotes ?? 0 }} 票。
+            当前有效票 {{ voteTotal }} 票（冻结待审 {{ props.state?.quarantinedVotes ?? 0 }} 票 · 已作废 {{ props.state?.voidedVotes ?? 0 }} 票）；规则高危 {{ props.state?.riskVotes ?? 0 }} 票。
           </p>
           <p class="mt-1">
-            前置拦截：非浏览器脚本 UA、伪造或缺失页面加载凭证、页面停留低于 400ms 的请求将被直接拦截并记录。
-          </p>
-          <p class="mt-1">
-            说明：对同一 IP / 硬件环境 / 码段的刷票风险与 AI 记忆巡检见下方防刷面板，支持一键作废或恢复异常选票。
+            前置防御：大屏单实例 HttpOnly 会话锁死 + 不返明文 token；脚本 UA、缺 Cookie、无效凭证及 400ms 内极快提交直接拦截；高危自动冻结并由记忆 AI 巡检直接处置。
           </p>
         </div>
       </div>
