@@ -455,7 +455,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
           />
         </div>
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          只有名录内成员能在主站会员入口激活，同时开通同账密 Git 账号。停用或未激活进不了 {{ gitea.publicGitUrl }}。
+          仅名录内已激活成员可登录 {{ gitea.publicGitUrl }}。
           <span
             v-if="gitea.error"
             class="text-rose-600 dark:text-rose-400 font-medium"
@@ -605,7 +605,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
         v-if="filteredMembers.length === 0"
         class="p-10 text-center text-sm text-zinc-500"
       >
-        没有匹配的成员。右上角可以导入或新增，通过后对方就能注册。
+        没有匹配的成员
       </div>
 
       <div
@@ -773,7 +773,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
             >
               <UInput
                 v-model="memberForm.name"
-                placeholder="用于白名单核验"
+                placeholder="真实姓名"
                 class="w-full"
               />
             </UFormField>
@@ -980,7 +980,7 @@ function statusBadgeMeta(status: YeucaMemberStatus): { label: string, color: 'su
       <template #body>
         <div class="space-y-4">
           <div class="rounded-lg border border-sky-200 dark:border-sky-900/70 bg-sky-50/70 dark:bg-sky-950/30 p-3 text-xs leading-5 text-zinc-700 dark:text-zinc-300">
-            导入名录内的同学，进入主站「会员入口」输入<strong>学号 + 姓名</strong>核验通过后，即可自设密码完成注册并自动获得 Git 代码站账号。
+            导入后，成员可在官网「会员入口」核验<strong>学号 + 姓名</strong>并激活 Git 账号。
             <span
               v-if="isMinister && scopedDepartment"
               class="font-semibold text-sky-800 dark:text-sky-200"

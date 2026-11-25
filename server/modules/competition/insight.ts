@@ -91,23 +91,23 @@ const MAX_DUELS = 6
 const MAX_TEXT = 160
 const MAX_ITEMS = 6
 
-export const COMPETITION_INSIGHT_PROMPT = `你是仰恩大学歌手大赛的决赛现场分析师。输入只包含决赛选手、两首歌准备情况、前两轮成绩、1v1 对阵胜率与复活信息。
-你的任务：判断每位选手当前状态、谁更可能赢下具体对阵、谁有冠军相；不要做赛事运营复盘。
+export const COMPETITION_INSIGHT_PROMPT = `你是仰恩大学歌手大赛的决赛现场记录员。输入包含决赛选手、两首歌准备情况、前两轮成绩、1v1 对阵胜率与复活信息。
+你的任务：用直白短句写出每位选手当前分数和排名、每组 1v1 谁占优、谁曲目还没齐，不做赛事运营复盘。
 禁止输出：报名/预报名转化、签到率、评委偏差、维度平均分、分数分布、泛泛的赛制建议；即使输入里出现这些字段也不要写。
-判断必须点名选手或对阵，并带具体数字（分数、胜率、分差、排名）。没有数据就写 caveats，不要编造。
-字段说明：duels[].leftWinPercent/rightWinPercent 是赛前胜率；confidence 是这次预测的置信度（0–100，评委分歧大、实力差距小则低）；volatility 为「稳定 / 波动 / 未知」，为「波动」时不要把它当确定结论。
+文风硬约束：一条只讲一两件事，直接写人名、歌名和数字（分数、胜率、分差、名次），不要写空洞修辞；禁用「展现出、彰显、强劲、赋能、闭环、全方位、深度、格局、冠军相、脱颖而出、值得关注、综合来看、悬念」等套话。没有数据就写 caveats，不要编造。
+字段说明：duels[].leftWinPercent/rightWinPercent 是赛前胜率；confidence 是这次预测的置信度（0–100，评委分差大、分差小时会变低）；volatility 为「稳定 / 波动 / 未知」，为「波动」时只当参考，不要写成一定赢。
 leaders[].song/secondSong 分别是第一轮、第二轮曲目；finalSongsReady=true 表示两首歌都已提交；pairNo/pairSlot/opponent/duelResult 描述 1v1 分组与结果（待唱=尚未出结果）。
-revival 是隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 slots 名（revived=true）跟着胜者一起进第二轮；candidates 按 loserRank 从小到大排。复活名额对具体选手晋级形势的影响，可以写进 highlights 或 risks。
+revival 是隐藏赛制复活：决赛第一轮 1v1 的败者按本轮均分排队，前 slots 名（revived=true）跟着胜者一起进第二轮；candidates 按 loserRank 从小到大排。复活名额对具体选手晋级的影响，可以写进 highlights 或 risks。
 
 输出严格 JSON，字段如下：
 {
-  "headline": "一句话总判断：当前最大夺冠热门或最悬的对决，不超过 40 字",
-  "highlights": ["3-5 条，每条必须点名选手或具体对阵，并写清当前状态/胜率/分差/晋级形势，每条不超过 60 字"],
-  "risks": ["1-4 条，具体到选手或对阵的风险，如状态波动、曲目准备不足、胜率接近、复活名额挤压，每条不超过 60 字"],
-  "actions": ["2-4 条，针对具体选手或对阵的备战/现场建议，每条不超过 60 字"],
-  "caveats": ["0-3 条数据本身的局限，如某轮尚未打分、对阵尚未抽出，禁止写运营建议"]
+  "headline": "一句话写出排名前列或最接近的对阵（带分数或胜率），不超过 40 字",
+  "highlights": ["3-5 条，短句直陈具体选手或对阵的分数、胜率、分差与曲目情况，每条不超过 60 字"],
+  "risks": ["1-4 条，具体到选手或对阵的风险，如分差过小、未交两首歌、评委分差大、复活名额挤压，每条不超过 60 字"],
+  "actions": ["2-4 条，针对具体选手或对阵的现场核对/备赛动作，每条不超过 60 字"],
+  "caveats": ["0-3 条数据缺口，如某轮未打分、未抽签，不要写运营建议"]
 }
-用中文，语气客观，不要客套话，不要 markdown 语法。`
+用中文，短句陈述事实，不要客套话，不要 markdown 语法。`
 
 /** 只读配置，网关三项缺一行就当作未接入。 */
 export function insightConfigFromValues(runtime: Record<string, unknown>): CompetitionInsightConfig | null {

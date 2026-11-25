@@ -391,9 +391,6 @@ onMounted(() => {
             <h3 class="mt-5 text-2xl font-black">
               准备好就打开{{ activeTour.shortTitle }}
             </h3>
-            <p class="mt-2 text-sm leading-6 text-white/65">
-              点开以后，按住画面拖动就能四处看。
-            </p>
             <UButton
               icon="i-lucide-play"
               :label="`打开${activeTour.shortTitle}`"

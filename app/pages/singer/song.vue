@@ -276,9 +276,6 @@ async function submit() {
       <h1 class="mt-2 text-center text-2xl font-black">
         填写参赛曲目
       </h1>
-      <p class="mt-2 text-center text-sm text-[var(--muted-ink)]">
-        晋级了才需要填，填完想改再填一次。
-      </p>
 
       <div class="mt-6 rounded-2xl bg-[var(--surface)] p-5 shadow-sm">
         <label
@@ -470,7 +467,7 @@ async function submit() {
               </p>
             </div>
             <p class="mt-1 text-[11px] text-[var(--muted-ink)]">
-              {{ finalStage ? '支持 MP4，500MB 以内。微信里点开可以直接从聊天文件或手机里选。' : '支持 mp3 / m4a / wav / aac / ogg / flac，400MB 以内。微信里点开可以直接从聊天文件或手机里选。' }}
+              {{ finalStage ? 'MP4 格式，500MB 以内。' : 'mp3 / m4a / wav / aac / ogg / flac，400MB 以内。' }}
             </p>
           </div>
 

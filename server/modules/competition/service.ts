@@ -2351,7 +2351,7 @@ export function ensurePopularitySettings(
     eventId,
     enabled: false,
     title: '人气奖投票',
-    subtitle: '为你喜欢的选手投一票',
+    subtitle: '现场扫码投票，一人一票',
     opensAt: null,
     closesAt: null,
     allowChange: false,

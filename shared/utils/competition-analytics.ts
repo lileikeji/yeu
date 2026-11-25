@@ -248,13 +248,13 @@ function normalizeSkillKey(label: string): string {
 }
 
 export function powerTierOf(score: number | null): { tier: PowerTier, label: string } {
-  if (score === null || !Number.isFinite(score)) return { tier: '—', label: '待评分' }
-  if (score >= 90) return { tier: 'S', label: '夺冠热门' }
-  if (score >= 85) return { tier: 'A+', label: '强力争冠' }
-  if (score >= 80) return { tier: 'A', label: '稳健高分' }
-  if (score >= 75) return { tier: 'B+', label: '均衡实力' }
-  if (score >= 65) return { tier: 'B', label: '潜力冲击' }
-  return { tier: 'C', label: '待突破' }
+  if (score === null || !Number.isFinite(score)) return { tier: '—', label: '未评分' }
+  if (score >= 90) return { tier: 'S', label: '90+' }
+  if (score >= 85) return { tier: 'A+', label: '85–89' }
+  if (score >= 80) return { tier: 'A', label: '80–84' }
+  if (score >= 75) return { tier: 'B+', label: '75–79' }
+  if (score >= 65) return { tier: 'B', label: '65–74' }
+  return { tier: 'C', label: '<65' }
 }
 
 function roundSongLabel(entry: CompetitionRoundEntry, roundKey: CompetitionRoundKey): string {
@@ -519,22 +519,22 @@ function buildPowerSummaryNote(
   deltaPercent: number | null
 ): string {
   if (completeness === 'none') {
-    return '初赛与复赛暂无评委有效评分，待评分后生成综合实力评估。'
+    return '前两轮均未评分。'
   }
   if (completeness === 'both' && prelim && semi) {
     const trend = deltaPercent === null
       ? ''
       : (deltaPercent >= 2
-          ? `，复赛较初赛提升 +${deltaPercent.toFixed(1)}%`
+          ? `，复赛较初赛 +${deltaPercent.toFixed(1)}%`
           : (deltaPercent <= -2
-              ? `，复赛较初赛小幅回落 ${deltaPercent.toFixed(1)}%`
-              : '，两轮发挥保持稳定'))
-    return `综合初赛（35%，第 ${prelim.rank ?? '—'} 名）与复赛（65%，第 ${semi.rank ?? '—'} 名）标准化成绩${trend}。`
+              ? `，复赛较初赛 ${deltaPercent.toFixed(1)}%`
+              : '，两轮持平'))
+    return `初赛第 ${prelim.rank ?? '—'} 名，复赛第 ${semi.rank ?? '—'} 名${trend}。`
   }
   if (completeness === 'semi_only' && semi) {
-    return `仅采集到复赛成绩（第 ${semi.rank ?? '—'} 名，百分制 ${semi.percentScore?.toFixed(1) ?? '—'}%），按复赛单轮全权评估。`
+    return `仅复赛有分：第 ${semi.rank ?? '—'} 名（${semi.percentScore?.toFixed(1) ?? '—'}%）。`
   }
-  return `仅采集到初赛成绩（第 ${prelim?.rank ?? '—'} 名，百分制 ${prelim?.percentScore?.toFixed(1) ?? '—'}%），待复赛开赛后更新加权。`
+  return `仅初赛有分：第 ${prelim?.rank ?? '—'} 名（${prelim?.percentScore?.toFixed(1) ?? '—'}%）。`
 }
 
 /**
@@ -641,13 +641,13 @@ export function predictDuelWinProbability(
   }
 
   const leaderText = absDiff < 0.01
-    ? '双方赛前实力分完全持平'
-    : `${diff > 0 ? '左侧' : '右侧'}实力分领先 ${absDiff.toFixed(2)} 分（预计胜率 ${Math.max(leftWinProb, rightWinProb)}%）`
+    ? '两轮实力分相同'
+    : `${diff > 0 ? '左侧' : '右侧'}高 ${absDiff.toFixed(2)} 分（胜率 ${Math.max(leftWinProb, rightWinProb)}%）`
   const sigmaText = sigma === null
     ? ''
     : (volatility === '波动'
-        ? `；评委分歧偏大（σ≈${sigma.toFixed(1)}），该实力分参考价值有限`
-        : `；评委判断一致（σ≈${sigma.toFixed(1)}）`)
+        ? `；评委分差大（σ≈${sigma.toFixed(1)}）`
+        : `；评委分差小（σ≈${sigma.toFixed(1)}）`)
 
   return {
     pairNo,
@@ -662,7 +662,7 @@ export function predictDuelWinProbability(
     upset,
     confidence,
     volatility,
-    note: upset ? `${leaderText}；实际赛果出现低分逆袭。` : `${leaderText}${sigmaText}`
+    note: upset ? `${leaderText}；低分胜出。` : `${leaderText}${sigmaText}`
   }
 }
 
@@ -1075,12 +1075,12 @@ export function computeCompetitionAnalytics(payload: CompetitionAdminPayload): C
   const preRegConverted = payload.preRegistrations.filter(item => item.registeredAt !== null).length
   const funnelRaw: Array<{ key: string, label: string, count: number }> = [
     { key: 'prereg', label: '预报名', count: preRegTotal },
-    { key: 'singers', label: '选手库登记', count: payload.singers.length },
-    { key: 'prelim_checked', label: '初赛已签到', count: prelimCtx.distribution.checkedInCount },
-    { key: 'prelim_scored', label: '初赛有分完赛', count: prelimCtx.distribution.scoredCount },
-    { key: 'semi', label: '晋级复赛', count: semiCtx.distribution.entryCount },
-    { key: 'final', label: '晋级决赛第一轮', count: finalCtx.distribution.entryCount },
-    { key: 'final2', label: '晋级决赛第二轮', count: final2Ctx.distribution.entryCount }
+    { key: 'singers', label: '登记选手', count: payload.singers.length },
+    { key: 'prelim_checked', label: '初赛签到', count: prelimCtx.distribution.checkedInCount },
+    { key: 'prelim_scored', label: '初赛已评', count: prelimCtx.distribution.scoredCount },
+    { key: 'semi', label: '复赛', count: semiCtx.distribution.entryCount },
+    { key: 'final', label: '决赛一轮', count: finalCtx.distribution.entryCount },
+    { key: 'final2', label: '决赛二轮', count: final2Ctx.distribution.entryCount }
   ]
   const funnelBaseline = Math.max(1, funnelRaw[0]?.count || funnelRaw[1]?.count || 1)
   const funnel: FunnelStageStat[] = funnelRaw.map((stage, index) => {

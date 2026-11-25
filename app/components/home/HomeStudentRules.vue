@@ -20,7 +20,7 @@ import { scholarships, studentRuleCatalog } from '~~/data/student-rules'
           绩点、奖学金和学生规则，一处查清
         </h2>
         <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          已按学校官网公开文件整理 {{ scholarships.length }} 类奖学金、{{ studentRuleCatalog.length }} 项学生制度，并提供可直接试算的 GPA 计算器。
+          {{ scholarships.length }} 类奖学金 · {{ studentRuleCatalog.length }} 项校内制度 · GPA 计算器
         </p>
         <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-700 dark:text-zinc-200">
           <span class="inline-flex items-center gap-2">

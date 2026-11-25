@@ -323,7 +323,7 @@ async function pollInsight(fingerprint: string): Promise<CompetitionInsightRespo
       '/api/admin/competition/analytics/insight'
     )
     if (result.meta?.jobState === 'failed') {
-      throw new Error(result.meta.jobError || '平台 AI 没有返回可解析的分析结果')
+      throw new Error(result.meta.jobError || '未返回可解析的分析结果')
     }
     if (result.insight && result.meta?.fingerprint === fingerprint) {
       return { insight: result.insight, meta: result.meta }
@@ -344,7 +344,7 @@ async function generateInsight(): Promise<void> {
     if (posted.insight && posted.meta && !posted.meta.pending) {
       insightResult.value = { insight: posted.insight, meta: posted.meta }
       toast.add({
-        title: '刚刚生成过同一份数据，直接复用（1 分钟内不重复调用）',
+        title: '已是最新结果',
         color: 'success'
       })
       return
@@ -352,15 +352,15 @@ async function generateInsight(): Promise<void> {
     const fingerprint = posted.meta?.fingerprint ?? ''
     const polled = await pollInsight(fingerprint)
     if (!polled) {
-      insightError.value = '这次生成偏慢，结论已保存在服务端，稍后刷新页面即可看到。'
-      toast.add({ title: 'AI 分析仍在生成', description: insightError.value, color: 'warning' })
+      insightError.value = '生成较慢，结果已保存，稍后刷新即可查看。'
+      toast.add({ title: '仍在生成中', description: insightError.value, color: 'warning' })
       return
     }
     insightResult.value = polled
-    toast.add({ title: 'AI 分析已生成并写入面板', color: 'success' })
+    toast.add({ title: '简评已更新', color: 'success' })
   } catch (error) {
-    insightError.value = apiErrorMessage(error, 'AI 分析生成失败，请稍后重试。')
-    toast.add({ title: 'AI 分析未能生成', description: insightError.value, color: 'warning' })
+    insightError.value = apiErrorMessage(error, '生成失败，请稍后重试。')
+    toast.add({ title: '未能生成', description: insightError.value, color: 'warning' })
   } finally {
     insightLoading.value = false
   }
@@ -372,62 +372,62 @@ async function generateInsight(): Promise<void> {
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          参赛选手总库
+          选手总数
         </p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
           {{ report.overview.singerTotal }}
         </p>
         <p class="mt-0.5 text-xs text-zinc-400">
-          预报名 {{ report.overview.preRegTotal }} · 转正 {{ report.overview.preRegConverted }}
+          预报名 {{ report.overview.preRegTotal }} · 已登记 {{ report.overview.preRegConverted }}
         </p>
       </div>
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          初赛完赛均分
+          初赛平均分
         </p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
           {{ report.roundStats.prelim.averageScore !== null ? report.roundStats.prelim.averageScore.toFixed(2) : '—' }}
           <span class="text-xs font-normal text-zinc-400">/ {{ report.roundStats.prelim.maxTotal }}</span>
         </p>
         <p class="mt-0.5 text-xs text-zinc-400">
-          有分 {{ report.roundStats.prelim.scoredCount }} / {{ report.roundStats.prelim.entryCount }} 人
+          已评 {{ report.roundStats.prelim.scoredCount }} / {{ report.roundStats.prelim.entryCount }} 人
         </p>
       </div>
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          复赛完赛均分
+          复赛平均分
         </p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
           {{ report.roundStats.semi.averageScore !== null ? report.roundStats.semi.averageScore.toFixed(2) : '—' }}
           <span class="text-xs font-normal text-zinc-400">/ {{ report.roundStats.semi.maxTotal }}</span>
         </p>
         <p class="mt-0.5 text-xs text-zinc-400">
-          有分 {{ report.roundStats.semi.scoredCount }} / {{ report.roundStats.semi.entryCount }} 人
+          已评 {{ report.roundStats.semi.scoredCount }} / {{ report.roundStats.semi.entryCount }} 人
         </p>
       </div>
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          高潜实力梯度
+          实力分 85+
         </p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
           {{ report.overview.aPlusOrAboveCount }}
-          <span class="text-xs font-normal text-zinc-400">A+ 及以上</span>
+          <span class="text-xs font-normal text-zinc-400">人</span>
         </p>
         <p class="mt-0.5 text-xs text-zinc-400">
-          S 级 {{ report.overview.sTierCount }} 人 · 已建模 {{ report.overview.ratedCount }} 人
+          90+ {{ report.overview.sTierCount }} 人 · 已算分 {{ report.overview.ratedCount }} 人
         </p>
       </div>
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          决赛筹备与对阵
+          决赛人数
         </p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
           {{ report.overview.finalCount }}
-          <span class="text-xs font-normal text-zinc-400">入围</span>
+          <span class="text-xs font-normal text-zinc-400">人</span>
         </p>
         <p class="mt-0.5 text-xs text-zinc-400">
           两首歌 {{ report.overview.finalSongsCount }}/{{ report.overview.finalCount }} · 1v1 {{ report.overview.duelTotalCount }} 组
@@ -444,35 +444,27 @@ async function generateInsight(): Promise<void> {
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-3.5 dark:border-zinc-800 dark:bg-zinc-900">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          人气奖投票实况
+          人气奖票数
         </p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
           {{ report.overview.totalVotes }}
           <span class="text-xs font-normal text-zinc-400">票</span>
         </p>
         <p class="mt-0.5 truncate text-xs text-zinc-400">
-          {{ report.overview.topPopularityName ? `榜首 ${report.overview.topPopularityName} (${report.overview.topPopularityVotes})` : '暂无投票数据' }}
+          {{ report.overview.topPopularityName ? `最高 ${report.overview.topPopularityName}（${report.overview.topPopularityVotes} 票）` : '暂无投票' }}
         </p>
       </div>
     </div>
 
-    <div class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            AI 选手与对阵分析
-            <span class="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white">
-              {{ insightResult?.meta.model || '平台 AI' }}
-            </span>
-          </h2>
-          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            只分析决赛选手当前状态、两首歌准备情况、1v1 胜率与具体对阵，不写报名、签到等运营统计。只读后台数据，不改评分；结论会写入面板，刷新后仍显示上次结果。
-          </p>
-        </div>
+    <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+          对阵简评
+        </h2>
         <div class="flex items-center gap-2">
           <span
             v-if="insightStale"
-            class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
+            class="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200"
             title="这份结论依据的是上一次的统计数据，赛况已有更新"
           >
             数据已更新
@@ -483,20 +475,20 @@ async function generateInsight(): Promise<void> {
           >
             {{ insightGeneratedAtLabel }}
           </span>
-          <button
-            type="button"
-            class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="insightLoading"
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="soft"
+            :loading="insightLoading"
+            :label="insightLoading ? '生成中…' : insightResult ? '重新生成' : '生成简评'"
             @click="generateInsight"
-          >
-            {{ insightLoading ? '分析中…' : insightResult ? '重新分析' : '生成分析' }}
-          </button>
+          />
         </div>
       </div>
 
       <p
         v-if="insightError"
-        class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+        class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
       >
         {{ insightError }}
       </p>
@@ -559,7 +551,7 @@ async function generateInsight(): Promise<void> {
           v-if="insightResult.insight.caveats.length > 0"
           class="text-xs text-zinc-400"
         >
-          数据局限：{{ insightResult.insight.caveats.join('；') }}
+          注：{{ insightResult.insight.caveats.join('；') }}
         </p>
       </div>
 
@@ -567,22 +559,15 @@ async function generateInsight(): Promise<void> {
         v-else
         class="mt-3 text-xs text-zinc-400"
       >
-        {{ insightLoading ? '正在分析选手状态与对阵…' : '还没有选手分析结果，点右侧按钮生成。' }}
+        {{ insightLoading ? '正在生成…' : '暂无简评' }}
       </p>
     </div>
 
     <div class="grid gap-4 xl:grid-cols-12">
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-4 dark:border-zinc-800 dark:bg-zinc-900 xl:col-span-5">
-        <div class="flex items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              全赛程选手流转漏斗
-            </h2>
-            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              从预报名到决赛第二轮的实时沉淀与晋级转化率
-            </p>
-          </div>
-        </div>
+        <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+          各轮人数
+        </h2>
         <div class="mt-3 space-y-2.5">
           <div
             v-for="stage in report.funnel"
@@ -593,7 +578,7 @@ async function generateInsight(): Promise<void> {
               <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ stage.label }}</span>
               <span class="tabular-nums text-zinc-500 dark:text-zinc-400">
                 <strong class="text-zinc-900 dark:text-zinc-100">{{ stage.count }}</strong> 人
-                <span v-if="stage.key !== 'prereg'">· 转化 {{ stage.rateFromPrev.toFixed(0) }}%</span>
+                <span v-if="stage.key !== 'prereg'">· {{ stage.rateFromPrev.toFixed(0) }}%</span>
               </span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -608,14 +593,9 @@ async function generateInsight(): Promise<void> {
 
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-4 dark:border-zinc-800 dark:bg-zinc-900 xl:col-span-7">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              轮次分数段分布与评委尺度
-            </h2>
-            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              百分制归一化分数直方图与各位评委给分偏差（满分 {{ activeRoundStat.maxTotal }}）
-            </p>
-          </div>
+          <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+            分数分布与评委给分
+          </h2>
           <div class="flex flex-wrap gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-700">
             <button
               v-for="tab in roundDistributionTabs"
@@ -635,12 +615,12 @@ async function generateInsight(): Promise<void> {
         <div class="mt-3 grid gap-4 md:grid-cols-2">
           <div>
             <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-              <span>成绩分布（{{ activeRoundStat.scoredCount }} 人有分）</span>
+              <span>分数段（{{ activeRoundStat.scoredCount }} 人，满分 {{ activeRoundStat.maxTotal }}）</span>
               <span
                 v-if="activeRoundStat.highestScore !== null && activeRoundStat.lowestScore !== null"
                 class="tabular-nums"
               >
-                区间 {{ activeRoundStat.lowestScore.toFixed(1) }} ~ {{ activeRoundStat.highestScore.toFixed(1) }}
+                {{ activeRoundStat.lowestScore.toFixed(1) }} ~ {{ activeRoundStat.highestScore.toFixed(1) }}
               </span>
             </div>
             <div class="mt-2 space-y-2">
@@ -665,13 +645,13 @@ async function generateInsight(): Promise<void> {
 
           <div>
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
-              评委打分尺度对比（相对本轮均分）
+              评委给分（对比本轮均分）
             </p>
             <div
               v-if="activeRoundStat.judges.length === 0"
               class="mt-3 rounded-lg border border-dashed border-zinc-200 px-3 py-6 text-center text-xs text-zinc-400 dark:border-zinc-800"
             >
-              该轮次尚未生成评委账号。
+              暂无评委账号
             </div>
             <div
               v-else
@@ -709,14 +689,9 @@ async function generateInsight(): Promise<void> {
 
     <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-3 dark:border-zinc-800">
-        <div>
-          <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            决赛 1v1 对阵大盘与赛前实力预测
-          </h2>
-          <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            基于初赛（35%）与复赛（65%）的跨轮实力分模型；把鼠标移到每位选手右上角的 <strong>?</strong> 小问号可查看详细实力评分。
-          </p>
-        </div>
+        <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+          决赛 1v1 对阵
+        </h2>
         <div class="flex flex-wrap items-center gap-2">
           <UButton
             v-if="canDrawDuel"
@@ -732,7 +707,7 @@ async function generateInsight(): Promise<void> {
             v-if="final2Round && final2Round.entries.length > 0"
             class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
           >
-            第二轮已产生 {{ final2Round.entries.length }} 位选手
+            第二轮 {{ final2Round.entries.length }} 人
           </span>
         </div>
       </div>
@@ -760,7 +735,7 @@ async function generateInsight(): Promise<void> {
                 v-if="item.prediction?.upset"
                 class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
               >
-                爆冷逆袭
+                低分胜出
               </span>
             </div>
             <span
@@ -783,6 +758,12 @@ async function generateInsight(): Promise<void> {
           >
             <div class="flex items-center justify-between text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
               <span>预计胜率 {{ item.prediction.leftWinProb }}%</span>
+              <span
+                v-if="item.prediction.volatility === '波动'"
+                class="text-amber-600 dark:text-amber-300"
+              >
+                评委分差大
+              </span>
               <span>{{ item.prediction.rightWinProb }}%</span>
             </div>
             <div class="flex h-1.5 overflow-hidden rounded-full bg-amber-100 dark:bg-amber-950">
@@ -791,12 +772,6 @@ async function generateInsight(): Promise<void> {
                 :style="{ width: `${item.prediction.leftWinProb}%` }"
               />
             </div>
-            <p class="text-[11px] text-zinc-400 tabular-nums">
-              预测置信度 {{ item.prediction.confidence }}%
-              <span v-if="item.prediction.volatility === '波动'">· 评委分歧偏大，只当趋势参考</span>
-              <span v-else-if="item.prediction.volatility === '稳定'">· 评委判断一致，可信度较高</span>
-              <span v-else>· 缺前两轮分歧数据，仅按实力分推算</span>
-            </p>
           </div>
 
           <div class="mt-2.5 grid grid-cols-2 gap-2">
@@ -880,7 +855,7 @@ async function generateInsight(): Promise<void> {
         class="mt-4 space-y-3"
       >
         <p class="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300">
-          决赛目前尚未完成 1v1 抽签分组（当前模式：{{ finalRound.advanceMode === 'duel' ? '抽签 1v1' : '整轮前六晋级' }}）。以下为决赛入围选手实力卡，右上角 <strong>?</strong> 同样可悬浮查看前两轮详细实力拆解。
+          尚未抽签 1v1 分组（当前：{{ finalRound.advanceMode === 'duel' ? '抽签 1v1' : '前六晋级' }}）。
         </p>
         <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <div
@@ -921,25 +896,20 @@ async function generateInsight(): Promise<void> {
         v-else
         class="mt-4 rounded-lg border border-dashed border-zinc-200 px-4 py-8 text-center text-xs text-zinc-400 dark:border-zinc-800"
       >
-        尚未生成决赛参赛名单，待复赛结束并确认晋级名单后，即可在此进行决赛 1v1 分组与实力对位预测。
+        决赛名单未生成。
       </div>
     </div>
 
     <div class="grid gap-4 xl:grid-cols-12">
       <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-4 dark:border-zinc-800 dark:bg-zinc-900 xl:col-span-7">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              选手状况与评分排行榜
-            </h2>
-            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              点击任意行可查看单选手档案；移入 <strong>?</strong> 查看前两轮实力拆解
-            </p>
-          </div>
+          <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+            评分排行
+          </h2>
           <div class="flex flex-wrap gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-700">
             <button
               v-for="tab in [
-                { key: 'power' as const, label: '综合实力榜' },
+                { key: 'power' as const, label: '实力榜' },
                 { key: 'prelim' as const, label: '初赛榜' },
                 { key: 'semi' as const, label: '复赛榜' },
                 { key: 'final' as const, label: '决赛榜' },
@@ -1015,7 +985,7 @@ async function generateInsight(): Promise<void> {
                   状态
                 </th>
                 <th class="px-2.5 py-2 text-right font-medium">
-                  {{ rankTab === 'power' ? '综合实力' : '榜单分值' }}
+                  {{ rankTab === 'power' ? '实力分' : rankTab === 'popularity' ? '票数' : '均分' }}
                 </th>
                 <th class="w-10 px-2 py-2 text-center font-medium">
                   详情

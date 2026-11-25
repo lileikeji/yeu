@@ -232,9 +232,6 @@ function addFaq(): void {
             <h3 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
               顶部公告与首屏文案
             </h3>
-            <p class="text-xs text-zinc-500">
-              改这里就行，不用动前端代码。
-            </p>
           </div>
           <label class="inline-flex items-center gap-2 text-xs cursor-pointer">
             <input
@@ -307,9 +304,6 @@ function addFaq(): void {
             <h3 class="text-sm font-semibold">
               首页入口卡片
             </h3>
-            <p class="text-xs text-zinc-500">
-              角标、标题、简介、跳转都能改。
-            </p>
           </div>
           <UButton
             size="xs"
@@ -495,9 +489,6 @@ function addFaq(): void {
             <h3 class="text-sm font-semibold">
               AI 部四步演示
             </h3>
-            <p class="text-xs text-zinc-500">
-              对应部门页 AI 部的分步卡片。
-            </p>
           </div>
           <UButton
             size="xs"
@@ -683,9 +674,6 @@ function addFaq(): void {
             <h3 class="text-sm font-semibold">
               镜像源目录
             </h3>
-            <p class="text-xs text-zinc-500">
-              自建 PyPI/npm 代理和常用命令源。
-            </p>
           </div>
           <UButton
             size="xs"
@@ -750,7 +738,7 @@ function addFaq(): void {
               <UInput
                 v-model="m.cmd"
                 size="xs"
-                placeholder="一键复制配置命令"
+                placeholder="配置命令"
                 class="w-full font-mono"
               />
               <div class="flex gap-2">
@@ -776,7 +764,7 @@ function addFaq(): void {
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 space-y-3">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold">
-              一键换源脚本勾选项目
+              换源脚本选项
             </h3>
             <UButton
               size="xs"

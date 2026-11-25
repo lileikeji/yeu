@@ -465,11 +465,6 @@ onMounted(() => {
         <h1 class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
           活动管理
         </h1>
-        <p class="mt-1 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
-          {{ role === 'super'
-            ? '审核各社团与部门提交的活动，通过后自动进入首页通告、组织主页和地图教学卡片。'
-            : `${organizationTitle || '本组织'}发布的活动需经总管理员审核，审核通过后展示在前台。` }}
-        </p>
       </div>
       <UButton
         v-if="canCreate"
@@ -541,7 +536,7 @@ onMounted(() => {
       class="mx-auto size-9 text-gray-400"
     />
     <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
-      {{ activeStatus === 'all' ? '还没有活动，先发布一个吧。' : '当前筛选条件下没有活动。' }}
+      {{ activeStatus === 'all' ? '暂无活动。' : '当前筛选条件下没有活动。' }}
     </p>
   </div>
 

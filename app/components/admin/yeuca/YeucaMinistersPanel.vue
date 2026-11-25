@@ -201,10 +201,10 @@ onMounted(() => {
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
-            分部部长后台账号（总管创建）
+            分部部长账号
           </h2>
           <p class="text-xs text-zinc-500">
-            所有部长均共用 {{ adminOrigin }}/admin 登录页，首次登录强制改密；登录后只查看和编辑所分配部门的成员、招新审批与活动笔记。
+            首次登录强制改密，仅可管理所属部门。
           </p>
         </div>
         <UBadge
@@ -338,7 +338,7 @@ onMounted(() => {
         v-else-if="items.length === 0"
         class="p-10 text-center text-sm text-zinc-500"
       >
-        还没有给各部门创建部长账号。在上方选好部门后点击「生成部长账号与一次性初始密码」即可。
+        暂无分部部长账号
       </div>
 
       <div

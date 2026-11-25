@@ -169,9 +169,6 @@ onMounted(() => {
               size="xs"
             />
           </div>
-          <p class="text-xs text-zinc-500">
-            记录成员白名单核验、注册建 Git 号、Gitea 同步报错、会员登录异常，以及后台成员与部门操作。
-          </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -265,7 +262,7 @@ onMounted(() => {
         v-else-if="!data?.items.length"
         class="p-10 text-center text-sm text-zinc-500"
       >
-        当前筛选条件下暂无计协操作或会员开户审计记录。成员访问官网「会员入口」激活或后台执行操作后会实时记入这里。
+        当前筛选下暂无审计记录
       </div>
       <div
         v-else

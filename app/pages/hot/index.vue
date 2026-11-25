@@ -169,9 +169,6 @@ const dayText = signalRelativeTime
           <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
             最近有什么新消息
           </h1>
-          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            把教务处、各学院站点的通知和消息聚成一件件事，同一件事多个来源只算一条。时间取官网原文的发布日期，不是入库时间；排序先看热度，再看谁更近。
-          </p>
 
           <div
             v-if="!focusSlug"
@@ -253,7 +250,7 @@ const dayText = signalRelativeTime
           {{ reports[0]!.title }}
         </p>
         <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          共 {{ reports[0]!.stats.events }} 条：先列通知公告，再列最近几天的校园动态。
+          共 {{ reports[0]!.stats.events }} 条
         </p>
         <ul
           v-if="reports[0]!.lead.length"
@@ -324,7 +321,7 @@ const dayText = signalRelativeTime
             </button>
           </template>
           <template v-else-if="row.type === 'more'">
-            <span class="text-sm text-zinc-600 dark:text-zinc-300">校园动态 · {{ row.count }} 条（宣讲、讲堂、活动这类）</span>
+            <span class="text-sm text-zinc-600 dark:text-zinc-300">校园动态 · {{ row.count }} 条</span>
             <button
               type="button"
               class="min-h-8 shrink-0 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"

@@ -417,7 +417,7 @@ onMounted(loadStatus)
                 name="email"
                 type="email"
                 class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
-                placeholder="用于接收比赛结果通知"
+                placeholder="选填，如 example@qq.com"
                 @blur="syncQqFromEmail"
               >
             </div>

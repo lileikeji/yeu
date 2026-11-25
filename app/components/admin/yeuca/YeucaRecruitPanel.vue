@@ -165,9 +165,6 @@ function exportRecruitCsv(): void {
           <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
             招新通道
           </h2>
-          <p class="text-xs text-zinc-500">
-            开关控制官网「加入我们」的报名表。审核通过后可在下面一键入档。
-          </p>
         </div>
 
         <label class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium cursor-pointer">
@@ -250,7 +247,7 @@ function exportRecruitCsv(): void {
               :key="d.id"
               :value="d.name"
             >
-              兜底部门：{{ d.name }}
+              未选归入：{{ d.name }}
             </option>
           </select>
           <span

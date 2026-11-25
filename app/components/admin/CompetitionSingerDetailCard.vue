@@ -37,7 +37,7 @@ const tierBadgeClass = computed(() => {
 const sourceLabel = computed(() => {
   const src = props.profile?.singer.source
   if (src === 'form') return '现场登记'
-  if (src === 'pre') return '预报名转正'
+  if (src === 'pre') return '预报名'
   return '后台录入'
 })
 
@@ -137,7 +137,7 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
       v-if="!profile"
       class="grid min-h-72 place-items-center text-center text-sm text-zinc-400"
     >
-      在左侧排行榜点击任意选手，可查看单选手档案、声乐雷达图与各轮评委评分轨迹。
+      点击左侧选手查看详情
     </div>
 
     <div
@@ -164,10 +164,11 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
                 {{ profile.singer.name }}
               </h3>
               <span
+                v-if="profile.power.hasRating"
                 class="rounded-full px-2 py-0.5 text-xs font-bold"
                 :class="tierBadgeClass"
               >
-                {{ profile.power.tier }} · {{ profile.power.tierLabel }}
+                {{ profile.power.tier }}
               </span>
               <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                 {{ profile.currentStageLabel }}
@@ -181,9 +182,9 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
               · {{ sourceLabel }}
             </p>
             <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
-              主报曲目：《{{ profile.singer.song }}》
+              曲目：《{{ profile.singer.song }}》
               <template v-if="profile.finalSongs?.secondSong">
-                · 决赛二轮：《{{ profile.finalSongs.secondSong }}》
+                · 第二首：《{{ profile.finalSongs.secondSong }}》
               </template>
             </p>
           </div>
@@ -196,10 +197,10 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
             </p>
             <p class="mt-1 text-xs text-zinc-400">
               <template v-if="profile.power.powerRank">
-                实力总榜 #{{ profile.power.powerRank }}
+                第 {{ profile.power.powerRank }} 名
               </template>
               <template v-else>
-                暂无实力分
+                未算分
               </template>
             </p>
           </div>
@@ -263,16 +264,16 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
       <div class="rounded-lg border border-zinc-100 p-3 dark:border-zinc-800">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h4 class="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-            声乐能力多维画像（对比全场均线）
+            维度得分率
           </h4>
           <div class="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span class="inline-flex items-center gap-1">
               <span class="inline-block size-2 rounded-full bg-emerald-600" />
-              选手得分率
+              本人
             </span>
             <span class="inline-flex items-center gap-1">
               <span class="inline-block size-2 rounded-full bg-zinc-400" />
-              全场均值
+              本场平均
             </span>
           </div>
         </div>
@@ -281,7 +282,7 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
           v-if="skillAxes.length === 0"
           class="py-6 text-center text-xs text-zinc-400"
         >
-          暂无前两轮分维度评分，尚不能绘制声乐画像。
+          暂无维度评分
         </div>
 
         <div
@@ -372,13 +373,13 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
               class="pt-1 text-xs text-zinc-500 dark:text-zinc-400"
             >
               <template v-if="profile.power.topStrength">
-                优势项：<span class="font-semibold text-emerald-700 dark:text-emerald-300">{{ profile.power.topStrength.label }}</span>
+                高于均值：<span class="font-semibold text-emerald-700 dark:text-emerald-300">{{ profile.power.topStrength.label }}</span>
               </template>
               <template v-if="profile.power.topStrength && profile.power.weakSpot">
                 ·
               </template>
               <template v-if="profile.power.weakSpot">
-                可提升：<span class="font-semibold text-amber-700 dark:text-amber-300">{{ profile.power.weakSpot.label }}</span>
+                低于均值：<span class="font-semibold text-amber-700 dark:text-amber-300">{{ profile.power.weakSpot.label }}</span>
               </template>
             </p>
           </div>
@@ -395,7 +396,7 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
           >
             <div class="flex items-center justify-between">
               <span>{{ axis.label }}</span>
-              <span class="font-semibold tabular-nums">{{ axis.rate.toFixed(1) }}%（均线 {{ axis.fieldAverage.toFixed(1) }}%）</span>
+              <span class="font-semibold tabular-nums">{{ axis.rate.toFixed(1) }}%（均值 {{ axis.fieldAverage.toFixed(1) }}%）</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
               <div
@@ -409,7 +410,7 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
 
       <div class="space-y-2">
         <h4 class="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-          全赛程轨迹与评委打分明细
+          各轮成绩
         </h4>
         <div class="space-y-2">
           <div
@@ -464,7 +465,7 @@ function toggleRoundDetail(key: CompetitionRoundKey): void {
                   class="rounded px-1.5 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950"
                   @click="toggleRoundDetail(item.key)"
                 >
-                  {{ expandedRoundKey === item.key ? '收起' : `${item.snap.judgeScores.length} 评委明细` }}
+                  {{ expandedRoundKey === item.key ? '收起' : `评委分 (${item.snap.judgeScores.length})` }}
                 </button>
               </div>
             </div>

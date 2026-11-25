@@ -19,7 +19,7 @@ interface SettingsDraft extends Omit<CompetitionPopularitySettings, 'opensAt' | 
 const draft = reactive<SettingsDraft>({
   enabled: false,
   title: '人气奖投票',
-  subtitle: '为你喜欢的选手投一票',
+  subtitle: '现场扫码投票，一人一票',
   opensAtLocal: '',
   closesAtLocal: '',
   allowChange: false,
@@ -177,9 +177,6 @@ async function copyDisplayUrl(): Promise<void> {
         <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
           人气奖投票
         </h2>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          大屏动态二维码，观众扫码进入；每个浏览器一票。投票页按当前人气排行展示，二维码每 {{ draft.qrRotateSeconds }} 秒换一张。
-        </p>
       </div>
       <span
         class="rounded-full px-2.5 py-1 text-xs font-medium"
@@ -195,7 +192,7 @@ async function copyDisplayUrl(): Promise<void> {
           投票设置
         </h3>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          候选来自决赛第一轮名单，共 {{ candidateCount }} 人。设置只影响人气奖，不改比赛成绩。
+          候选共 {{ candidateCount }} 人（决赛第一轮名单），不计入比赛成绩。
         </p>
 
         <label class="mt-4 flex items-center gap-2 text-sm">
@@ -302,9 +299,6 @@ async function copyDisplayUrl(): Promise<void> {
           >
           允许改票（关闭即投票后锁定；最多 {{ draft.maxChanges }} 次）
         </label>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          默认关闭改票：投票后立即锁定。只有明确需要现场改票时才打开。
-        </p>
         <label class="mt-2 flex items-center gap-2 text-sm">
           <input
             v-model="draft.showResults"
@@ -358,7 +352,7 @@ async function copyDisplayUrl(): Promise<void> {
           大屏二维码
         </h3>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          把链接放到大屏设备打开；二维码会按上面的间隔自动更换。链接里含取码密钥，不要发到公开群。
+          含取码密钥，勿发公开群。
         </p>
         <div class="mt-3 flex gap-2">
           <input

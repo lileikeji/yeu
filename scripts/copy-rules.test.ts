@@ -12,7 +12,8 @@ import test from 'node:test'
  * docs/verification/final-review-2026-11-10/COPY-RULES.md，这里是它的机器检查。
  */
 
-const APP_DIRS = ['app', 'miniapp/pages', 'miniapp/services', 'miniapp/components']
+const APP_DIRS = ['app', 'miniapp/pages', 'miniapp/services', 'miniapp/components', 'yeuca/site/src']
+const EXTRA_COPY_FILES = ['shared/utils/yeuca-defaults.ts', 'shared/utils/competition-analytics.ts']
 
 /** 界面上不该再出现的说法：内部术语、模型与厂商名。
  *  「AI 搜索」与「AI 审核中」是产品自己保留的两个说法（站长 2026-11-11 明确要求保留），
@@ -35,6 +36,26 @@ const BANNED_TERMS = [
   /大模型/
 ]
 
+const AI_MARKETING_TERMS = [
+  /实时沉淀/,
+  /流转漏斗/,
+  /多维画像/,
+  /四维算法/,
+  /同场统治力/,
+  /进阶成长势能/,
+  /高潜实力/,
+  /对阵大盘/,
+  /赋能/,
+  /抓手/,
+  /保驾护航/,
+  /触手可及/,
+  /高效便捷/,
+  /全方位/,
+  /致力于/,
+  /测试全流程/,
+  /反响良好/
+]
+
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[]
   try {
@@ -50,7 +71,7 @@ function walk(dir: string, out: string[] = []): string[] {
       walk(full, out)
       continue
     }
-    if (/\.(vue|ts)$/.test(entry)) out.push(full)
+    if (/\.(vue|ts|astro)$/.test(entry)) out.push(full)
   }
   return out
 }
@@ -59,7 +80,7 @@ function readAll(files: string[]): Array<{ file: string, text: string }> {
   return files.map(file => ({ file, text: readFileSync(resolve(file), 'utf8') }))
 }
 
-const files = APP_DIRS.flatMap(dir => walk(dir))
+const files = [...APP_DIRS.flatMap(dir => walk(dir)), ...EXTRA_COPY_FILES]
 
 test('用户可见代码里不再出现内部术语与厂商名', () => {
   const offenders: string[] = []
@@ -129,4 +150,21 @@ test('前台页面不再提商家合作与付费位置', () => {
     }
   }
   assert.deepEqual(offenders, [], '前台页面还在提商家合作或付费位置')
+})
+
+test('界面文案不出现 AI 营销套话与浮夸造词', () => {
+  const offenders: string[] = []
+  for (const { file, text } of readAll(files)) {
+    for (const pattern of AI_MARKETING_TERMS) {
+      const hit = text.match(pattern)
+      if (hit) offenders.push(`${file}: ${hit[0]}`)
+    }
+  }
+  assert.deepEqual(offenders, [], '这些位置出现了 AI 营销套话或造词，请改用直白事实表达')
+})
+
+test('大赛分析面板不向界面暴露底层模型字段', () => {
+  const panel = readFileSync(resolve('app/components/admin/CompetitionAnalyticsPanel.vue'), 'utf8')
+  assert.doesNotMatch(panel, /insightResult\?\.meta\.model/)
+  assert.doesNotMatch(panel, /平台 AI/)
 })

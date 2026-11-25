@@ -160,7 +160,7 @@ onMounted(() => {
             访问记录
           </h2>
           <p class="mt-1 text-xs text-zinc-500">
-            官网每来一次请求记一行，脚本和爬虫单独标出来。数据留 {{ data?.retentionDays ?? 30 }} 天。
+            保留最近 {{ data?.retentionDays ?? 30 }} 天记录。
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-1.5">

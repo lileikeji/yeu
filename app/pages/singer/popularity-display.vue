@@ -103,7 +103,7 @@ onBeforeUnmount(() => {
             {{ state?.title ?? '人气奖投票' }}
           </h1>
           <p class="mt-2 text-base text-[var(--muted-ink)]">
-            {{ state?.subtitle || '扫一扫，为你喜欢的选手投一票' }}
+            {{ state?.subtitle || '现场扫码投票，一人一票' }}
           </p>
         </div>
         <div class="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-5 py-4 text-right">

@@ -37,9 +37,6 @@ function sheetFieldType(key: string): string | undefined {
           <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
             总表导出列
           </h2>
-          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            调整导出 Excel 的列与顺序，保存配置后生效。
-          </p>
         </div>
         <UButton
           icon="i-lucide-file-spreadsheet"
@@ -108,7 +105,7 @@ function sheetFieldType(key: string): string | undefined {
           总表在线预览
         </h2>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          按上方导出列实时预览全部提交，单元格可直接修改，失焦后自动保存并同步到文档与 Excel。
+          单元格修改失焦后自动保存。
         </p>
       </div>
       <div

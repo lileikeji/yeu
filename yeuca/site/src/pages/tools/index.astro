@@ -11,7 +11,7 @@ import Base from '../../layouts/Base.astro';
     <div class="wrap">
       <h1>常用调试小工具</h1>
       <p>
-        全部在浏览器本地计算，不向服务器发任何请求。做网工子网规划、AI 接口调试或安全基础题时顺手打开即用。
+        浏览器本地计算，不上传数据。
       </p>
     </div>
   </section>
@@ -23,7 +23,6 @@ import Base from '../../layouts/Base.astro';
         <div class="band-head" style="margin-bottom: 0.9rem;">
           <div>
             <h2 style="font-size: 1.32rem; margin: 0;">01 · IPv4 子网与反掩码计算</h2>
-            <p class="band-desc">输入 IP/前缀长度（例如 192.168.10.25/24），直接给出网络号、广播地址和 OSPF 反掩码。</p>
           </div>
           <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
             <button type="button" class="filter-chip" data-cidr-preset="192.168.1.10/24">/24 常用网段</button>
@@ -72,7 +71,6 @@ import Base from '../../layouts/Base.astro';
         <div class="band-head" style="margin-bottom: 0.9rem;">
           <div>
             <h2 style="font-size: 1.32rem; margin: 0;">02 · JSON 格式化与围栏剥离</h2>
-            <p class="band-desc">大模型返回常带 ```json 围栏或整段转义，可先清理围栏再做缩进与合法性校验。</p>
           </div>
           <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
             <button type="button" id="json-strip-fmt" class="btn btn-primary btn-sm">去围栏并格式化</button>
@@ -111,7 +109,6 @@ import Base from '../../layouts/Base.astro';
         <div class="band-head" style="margin-bottom: 0.9rem;">
           <div>
             <h2 style="font-size: 1.32rem; margin: 0;">03 · Base64 / URL 编解码与 Unix 时间戳</h2>
-            <p class="band-desc">支持 UTF-8 中文安全编码及秒/毫秒时间戳互转。</p>
           </div>
         </div>
 
@@ -168,7 +165,7 @@ import Base from '../../layouts/Base.astro';
       </div>
 
       <p class="muted" style="margin: 0; font-size: 0.84rem; border-top: 1px solid var(--line); padding-top: 1rem;">
-        需要安装依赖源或生成一键换源脚本，请移步 <a href="/mirrors/">镜像与常用源站</a>。
+        国内镜像与换源脚本见 <a href="/mirrors/">镜像与常用源站</a>。
       </p>
     </div>
   </section>

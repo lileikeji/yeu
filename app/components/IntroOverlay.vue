@@ -742,9 +742,6 @@ onUnmounted(clearRuntime)
           <h2 class="mt-2 text-xl font-bold tracking-normal text-[#ffefd4]">
             迎新指南
           </h2>
-          <p class="mt-2 max-w-[280px] text-xs leading-relaxed text-[#7dc79b]/80">
-            从校园地图开始，找到你的大学生活
-          </p>
           <button
             ref="enterButtonRef"
             data-intro-enter

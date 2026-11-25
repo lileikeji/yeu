@@ -426,9 +426,6 @@ onMounted(async () => {
                 </span>
               </div>
             </div>
-            <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              启用后报名页会展示收款码（点击可放大，微信可长按识别）并要求新生确认已缴费才能提交；会提示备注「{{ form.payment.note }}」。
-            </p>
             <div class="grid gap-3 md:grid-cols-2">
               <div
                 v-for="slot in [
@@ -498,7 +495,7 @@ onMounted(async () => {
               </span>
             </div>
             <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              为每个纳新人生成专属邀请码；通过 TA 的链接报名的记录会在数据库与总表最后一列自动标注邀请人。不带邀请码的报名不记录邀请人。
+              通过专属链接提交的报名会自动记录邀请人。
             </p>
           </div>
           <div class="flex flex-wrap items-end gap-3">
@@ -537,7 +534,7 @@ onMounted(async () => {
           v-if="referrers.length === 0"
           class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
         >
-          还没有纳新人，添加后即可分发带邀请码的报名链接。
+          暂无纳新人
         </div>
         <div
           v-else
@@ -854,7 +851,7 @@ onMounted(async () => {
           v-else-if="submissions.length === 0"
           class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
         >
-          还没有收到报名，开放表单后把报名页链接发给新生即可。
+          暂无报名记录
         </div>
         <div
           v-else

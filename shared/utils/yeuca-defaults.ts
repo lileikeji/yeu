@@ -78,7 +78,7 @@ export const DEFAULT_YEUCA_AI_WORKFLOW_STEPS: YeucaAiWorkflowStep[] = [
     title: '意图识别与路由',
     role: '区分提问属于「社团与部门介绍」「活动排期查询」还是「技术资料检索」',
     logic: '先过关键词规则，再走轻量分类提示词，把模糊提问转成明确意图标签。',
-    pitfall: '不让大模型在缺少明确文档数据时猜测时间或地点。',
+    pitfall: '缺少文档依据时不猜测时间或地点。',
     sample: '{ "intent": "query_activity", "dept": "AI 部", "keyword": "Agent 工作流" }'
   },
   {
@@ -105,7 +105,7 @@ export const DEFAULT_YEUCA_AI_WORKFLOW_STEPS: YeucaAiWorkflowStep[] = [
     title: 'Schema 校验与异常重试',
     role: '校验模型输出 JSON 结构，保证脚本与页面拿到的字段稳定可用',
     logic: '先正则剥离多余代码块围栏字符，再用 Zod 校验必填字段，异常时最多限次重试一次。',
-    pitfall: '绝不在未经剥离与校验的情况下直接假设 LLM 输出可直接渲染。',
+    pitfall: '输出未经剥离与字段校验不直接渲染。',
     sample: '{ "status": "ok", "verified": true, "source": "dept-ai" }'
   }
 ]
@@ -160,7 +160,7 @@ export const DEFAULT_YEUCA_ARCHIVE_TIMELINE: YeucaTimelineNode[] = [
     period: '近年拓展',
     tag: '新设',
     title: '增设 AI 部',
-    detail: '在编程、网络、安全、运维与宣传五部基础上单设 AI 部，聚焦大模型工具链、知识检索（RAG）与 Agent 脚本实践。'
+    detail: '在编程、网络、安全、运维与宣传五部基础上单设 AI 部，开展模型接口调用、文档检索（RAG）与工作流脚本训练。'
   }
 ]
 

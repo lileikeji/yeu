@@ -253,9 +253,6 @@ async function selectNearbyNeed(category: string): Promise<void> {
               >
                 不用从一长页攻略里慢慢翻
               </h2>
-              <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                选“学校周边”或“泉州市区”，再点吃饭、景点、夜游、看展等标签。每个标签会给出几种不同地点，挑一个适合当天时间和预算的就行。
-              </p>
               <p class="mt-5 inline-flex items-center gap-2 rounded-xl border border-green-200 dark:border-green-800 bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] dark:bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-green-900 dark:text-green-300">
                 <UIcon
                   name="i-lucide-route"
@@ -378,7 +375,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
                   {{ activeGuideScopeOption.label }} · {{ selectedGuideTag?.label }}
                 </p>
                 <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                  下面有 {{ selectedGuideItems.length }} 个选择，不用全部去。
+                  共 {{ selectedGuideItems.length }} 处
                 </p>
               </div>
               <p class="text-xs text-zinc-500 dark:text-zinc-400">

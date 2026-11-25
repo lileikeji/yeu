@@ -531,18 +531,7 @@ onBeforeUnmount(stopLiveRefresh)
               </div>
             </div>
             <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              开启后，决赛第一轮抽签 1v1 输掉的人按本轮平均分排队，分数最高的前 N 名跟着各组胜者一起进第二轮；
-              轮空组和没评分的人不参与复活。改完要点下方的「保存设置」才生效。
-            </p>
-          </div>
-
-          <div class="mt-3 grid gap-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
-            <p>
-              赛制：初赛全员参加，结束后取前 30 名进入复赛；复赛晋级名额在复赛页设置（可先留空）；
-              决赛决出最终排行。登记入口关闭后，现场扫码登记页不可再提交。
-            </p>
-            <p>
-              每轮评委相互独立，可在各轮页面单独生成账号。未在评分结束前提交成绩的选手，按弃权处理。
+              决赛第一轮 1v1 败者按本轮均分取前 N 名进第二轮；轮空与未评分不计。
             </p>
           </div>
         </div>
@@ -955,7 +944,7 @@ onBeforeUnmount(stopLiveRefresh)
                 <UInput
                   v-model="newSinger.email"
                   class="w-full"
-                  placeholder="用于接收结果邮件"
+                  placeholder="选填，如 example@qq.com"
                 />
               </UFormField>
               <UFormField label="QQ（可选）">
@@ -1173,7 +1162,7 @@ onBeforeUnmount(stopLiveRefresh)
                 :loading="reminderSending"
                 @click="sendReminders"
               >
-                一键提醒没到场的
+                提醒未到场选手
               </UButton>
             </div>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
@@ -2362,10 +2351,10 @@ onBeforeUnmount(stopLiveRefresh)
             </div>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               <template v-if="activeRound.advanceMode === 'duel'">
-                第一轮开唱前点「抽签分组」把 {{ activeRound.entries.length }} 位选手随机配成 {{ Math.floor(activeRound.entries.length / 2) }} 组；每组两人各唱第一首，平均分高者进第二轮。同分按评委多数、最高单项分依次裁定，仍同分需加赛或人工处理。
+                每组两人唱第一首，均分高者晋级；同分按评委多数、最高单项分裁定。
               </template>
               <template v-else>
-                本轮结束后在这一页勾出晋级的人；确认之后才能发通知邮件，改名单要先重新打开。
+                确认晋级名单后方可发送通知邮件。
               </template>
             </p>
           </div>
@@ -2378,7 +2367,7 @@ onBeforeUnmount(stopLiveRefresh)
               v-if="duelPairs.length === 0"
               class="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
             >
-              还没分组。第一轮开唱前点右上角「抽签分组」，系统会随机配成 1v1；已有评分后不能再抽。
+              尚未抽签分组（已有评分后不可重抽）。
             </div>
             <div
               v-else
@@ -2472,7 +2461,7 @@ onBeforeUnmount(stopLiveRefresh)
               v-if="activeRound.revival.candidates.length === 0"
               class="mt-2 rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
             >
-              还没有可复活的败者。等各组 1v1 都分出胜负，这里会按本轮平均分自动排队。
+              各组 1v1 出结果后按本轮均分排序。
             </div>
             <div
               v-else
@@ -3062,7 +3051,7 @@ onBeforeUnmount(stopLiveRefresh)
             <div class="flex flex-wrap items-center gap-2">
               <UButton
                 icon="i-lucide-send"
-                label="一键发送结果邮件"
+                label="发送结果邮件"
                 :loading="emailSending"
                 :disabled="emailRoundView?.status !== 'closed' || emailCountWithEmail(emailScope) <= 0"
                 @click="openSendConfirm"
@@ -3079,7 +3068,7 @@ onBeforeUnmount(stopLiveRefresh)
             <UInput
               v-model="emailTestAddress"
               class="w-64"
-              placeholder="你的邮箱，用于测试模板效果"
+              placeholder="接收测试邮件的邮箱"
             />
             <UButton
               icon="i-lucide-mail-check"
@@ -3232,9 +3221,6 @@ onBeforeUnmount(stopLiveRefresh)
                 <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                   海报拼接
                 </h3>
-                <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  上传海报图 → 选择二维码与位置 → 可用「遮盖贴片」盖住海报上不需要的文字（如水印）→ 下载成品图。
-                </p>
               </div>
               <div>
                 <input
@@ -3351,9 +3337,6 @@ onBeforeUnmount(stopLiveRefresh)
                       @click="clearPatches"
                     />
                   </div>
-                  <p class="text-xs leading-5 text-zinc-400">
-                    贴片颜色建议用吸管取海报邻近底色，盖住后更自然。
-                  </p>
                 </div>
               </div>
 
@@ -3678,8 +3661,7 @@ onBeforeUnmount(stopLiveRefresh)
       <template #body>
         <div class="space-y-4">
           <p class="rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-            这里改的是评委本人那一份评分，保存后平均分、名次、晋级标记立刻按同一套规则重算。
-            进行中也能改，用于现场救场（漏打维度、手机没电、算错）。
+            修改评委单份评分后，均分、名次与晋级状态立即重算。
           </p>
 
           <div class="space-y-2">

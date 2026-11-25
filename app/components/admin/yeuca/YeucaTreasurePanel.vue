@@ -369,19 +369,14 @@ onMounted(() => {
               name="i-lucide-map-pin"
               class="size-4 text-zinc-500 dark:text-zinc-400"
             />
-            <span>校园寻宝地图 · 计协联动控制台</span>
+            <span>校园寻宝点位</span>
             <UBadge
-              :label="isChief ? '总管全校调控' : `${scopedDepartment} · 部长分管`"
+              :label="isChief ? '全部门' : `${scopedDepartment} · 部长分管`"
               color="neutral"
               variant="outline"
               size="xs"
             />
           </div>
-          <p class="text-xs text-zinc-500">
-            {{ isChief
-              ? '可直接调整全校各点坐标、触发半径、题目暗号及计协会员打卡限制；所有修改实时同步至前端寻宝地图。'
-              : `分部隔离视角：可新增、编辑、下架「${scopedDepartment}」名下的点位与暗号；其他部门点位暗号与全局设置已锁定保密。` }}
-          </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -609,7 +604,7 @@ onMounted(() => {
           v-if="!filteredPoints.length"
           class="p-10 text-center text-sm text-zinc-500"
         >
-          没有匹配的寻宝点位。右上角可直接新增点位、坐标与题目。
+          没有匹配的寻宝点位
         </div>
 
         <div
@@ -763,7 +758,7 @@ onMounted(() => {
           v-if="!overview?.leaderboard.length"
           class="py-8 text-center text-xs text-zinc-500"
         >
-          暂无正式账号集章记录。学生用计协会员或迎新账号打卡后会记入此处。
+          暂无集章记录
         </div>
         <div
           v-else
@@ -947,7 +942,7 @@ onMounted(() => {
           <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 p-3 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                地理坐标配置（支持从「地图拾取坐标」直接粘贴 <code>经度, 纬度</code>）
+                地理坐标（可粘贴 <code>经度, 纬度</code>）
               </span>
               <div class="flex items-center gap-1.5">
                 <select

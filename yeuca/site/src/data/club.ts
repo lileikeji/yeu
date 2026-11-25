@@ -40,9 +40,9 @@ export const VERIFIED_DEPARTMENTS: DeptItem[] = [
     isFeatured: true,
     acceptingRecruit: true,
     summary:
-      '一起折腾大模型接口、Agent 工作流和本地文档检索（RAG），把单次问答改写成稳定能用的校内小脚本。',
+      '一起折腾模型接口、Agent 工作流和本地文档检索（RAG），把单次问答改写成稳定能用的校内小脚本。',
     focusList: [
-      '用脚本串起大模型和外部工具（Tool Calling / MCP）',
+      '用脚本串起模型接口和外部工具（Tool Calling / MCP）',
       '把长文档拆段，做关键词加向量的检索和效果核对',
       '约束返回 JSON 格式、加字段校验和接口报错重试',
     ],
@@ -204,7 +204,7 @@ export const ARCHIVE_TIMELINE = [
     period: '近年拓展',
     tag: '新设',
     title: '增设 AI 部',
-    detail: '在编程、网络、安全、运维与宣传五部基础上单设 AI 部，聚焦大模型工具链、知识检索（RAG）与 Agent 脚本实践。',
+    detail: '在编程、网络、安全、运维与宣传五部基础上单设 AI 部，开展模型接口调用、文档检索（RAG）与工作流脚本训练。',
   },
 ] as const;
 
@@ -323,7 +323,7 @@ export const STARTER_LINKS = [
     title: '清华大学开源软件镜像站帮助文档',
     host: 'mirrors.tuna.tsinghua.edu.cn',
     url: 'https://mirrors.tuna.tsinghua.edu.cn/help/',
-    note: '涵盖 Ubuntu / Debian / Docker / Conda 等常用系统源的一键替换指南。',
+    note: '涵盖 Ubuntu / Debian / Docker / Conda 等常用系统源的换源文档。',
   },
   {
     dept: '宣传部',
@@ -362,7 +362,7 @@ export const AI_WORKFLOW_STEPS = [
     title: '意图识别与路由',
     role: '区分提问属于「社团与部门介绍」「活动排期查询」还是「技术资料检索」',
     logic: '先过关键词规则，再走轻量分类提示词，把模糊提问转成明确意图标签。',
-    pitfall: '不让大模型在缺少明确文档数据时猜测时间或地点。',
+    pitfall: '缺少文档依据时不猜测时间或地点。',
     sample: '{ "intent": "query_activity", "dept": "AI 部", "keyword": "Agent 工作流" }',
   },
   {
@@ -389,7 +389,7 @@ export const AI_WORKFLOW_STEPS = [
     title: 'Schema 校验与异常重试',
     role: '校验模型输出 JSON 结构，保证脚本与页面拿到的字段稳定可用',
     logic: '先正则剥离多余代码块围栏字符，再用 Zod 校验必填字段，异常时最多限次重试一次。',
-    pitfall: '绝不在未经剥离与校验的情况下直接假设 LLM 输出可直接渲染。',
+    pitfall: '输出未经剥离与字段校验不直接渲染。',
     sample: '{ "status": "ok", "verified": true, "source": "dept-ai" }',
   },
 ] as const;
@@ -413,7 +413,7 @@ export const CLUB_FAQS = [
   },
   {
     q: '没有独立显卡或高性能电脑，也能参与 AI 部和编程训练吗？',
-    a: '可以。入门写 Python 脚本、工作流编排和算法题在普通轻薄本上都能跑，大模型调用走接口就行，不用本地显卡。',
+    a: '可以。入门写 Python 脚本、工作流编排和算法题在普通轻薄本上都能跑，接口调用在云端完成，不用本地显卡。',
   },
   {
     q: '加入以后一定要一直写代码或者强制打比赛吗？',

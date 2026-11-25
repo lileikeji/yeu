@@ -222,10 +222,7 @@ function exportRegCsv(): void {
 
 <template>
   <div class="space-y-4">
-    <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 flex flex-wrap items-center justify-between gap-3">
-      <div class="text-xs text-zinc-600 dark:text-zinc-300">
-        发布后同步到官网活动页和首页时间线，会员可报名，现场核验签到。
-      </div>
+    <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 flex flex-wrap items-center justify-end gap-3">
       <div class="flex gap-2">
         <UButton
           v-if="!isMinister"
@@ -250,7 +247,7 @@ function exportRegCsv(): void {
       v-if="activities.length === 0"
       class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
     >
-      还没有活动。右上角可以新建。
+      暂无活动
     </div>
 
     <div

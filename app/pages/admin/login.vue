@@ -191,7 +191,7 @@ onMounted(async () => {
             仰恩大学计算机协会
           </p>
           <p class="font-mono text-xs text-zinc-400">
-            YEUCA STUDIO · 管理控制台
+            管理后台
           </p>
         </div>
       </div>
@@ -205,9 +205,6 @@ onMounted(async () => {
           <h1 class="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-white">
             维护官网部门、动态、项目与图片素材
           </h1>
-          <p class="mt-3 text-sm leading-6 text-zinc-300">
-            使用计算机协会或总管理员账号登录后，修改直接同步到主站前端与迎新平台关联名片。
-          </p>
         </div>
 
         <div class="grid gap-2.5 text-xs">
@@ -218,10 +215,7 @@ onMounted(async () => {
             />
             <div>
               <p class="font-semibold text-zinc-100">
-                部门全量配置与工作流演示
-              </p>
-              <p class="mt-0.5 text-zinc-400">
-                增删改查部门简介、工具标签与是否开放招新
+                部门与招新状态
               </p>
             </div>
           </div>
@@ -234,9 +228,6 @@ onMounted(async () => {
               <p class="font-semibold text-zinc-100">
                 动态、笔记与 Git 项目联动
               </p>
-              <p class="mt-0.5 text-zinc-400">
-                发布图文公告、管理实验项目和赛事清单
-              </p>
             </div>
           </div>
           <div class="flex items-start gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 backdrop-blur-sm">
@@ -247,9 +238,6 @@ onMounted(async () => {
             <div>
               <p class="font-semibold text-zinc-100">
                 首屏实景图、迎新群码与相册直传
-              </p>
-              <p class="mt-0.5 text-zinc-400">
-                传图后一键保存即可在前台生效显示
               </p>
             </div>
           </div>
@@ -324,7 +312,7 @@ onMounted(async () => {
               {{ isYeucaHost ? '仰恩大学计算机协会' : '迎新指南' }}
             </p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
-              {{ isYeucaHost ? 'YEUCA STUDIO · 主站内容后台' : '内容管理后台' }}
+              {{ isYeucaHost ? '主站管理后台' : '内容管理后台' }}
             </p>
           </div>
         </div>
@@ -344,12 +332,6 @@ onMounted(async () => {
               <h1 class="mt-1.5 text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100">
                 {{ isYeucaHost ? '计协官网管理登录' : '管理员登录' }}
               </h1>
-              <p
-                v-if="isYeucaHost"
-                class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
-              >
-                仅限社团维护者与管理员访问，普通访问官网无需登录。
-              </p>
             </div>
 
             <div

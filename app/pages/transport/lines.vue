@@ -383,9 +383,6 @@ function formatPrice(value: number | null): string {
           <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-50">
             K2 / K6 线路图
           </h1>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            折线是线路实际走的道路，不是站点直连。点站点看站序，点线路名切换 K2 / K6。
-          </p>
         </div>
         <NuxtLink
           to="/transport"

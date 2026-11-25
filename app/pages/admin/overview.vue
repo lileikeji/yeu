@@ -419,9 +419,6 @@ function exportCsv() {
         <h1 class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           数据看板
         </h1>
-        <p class="text-sm text-zinc-600 dark:text-zinc-400">
-          访问、内容、纳新与后台操作的集中视图，数据来自本站访客与内容库。
-        </p>
         <p
           v-if="data"
           class="text-xs text-zinc-500 dark:text-zinc-500"

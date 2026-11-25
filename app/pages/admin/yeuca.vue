@@ -833,7 +833,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
             <div class="flex flex-wrap items-center gap-2 text-xs">
               <span class="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-[#a8121e]/25 px-2.5 py-0.5 font-mono font-semibold text-rose-200">
                 <span class="size-1.5 rounded-full bg-emerald-400" />
-                {{ isChief ? 'YEUCA STUDIO · 总管控制台' : `${scopedDepartment} · ${adminScope.title}` }}
+                {{ isChief ? '总管后台' : `${scopedDepartment} · ${adminScope.title}` }}
               </span>
               <span class="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 font-mono text-zinc-300">
                 {{ isChief ? '主站：yeuca.huiliyill.cn' : '分部数据隔离视角' }}
@@ -854,11 +854,8 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               >
               <div>
                 <h1 class="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                  仰恩大学计算机协会 · 主站、成员与 Git 控制台
+                  仰恩大学计算机协会
                 </h1>
-                <p class="mt-0.5 max-w-3xl text-sm leading-6 text-zinc-300">
-                  成员名录、招新审批、活动签到、各页文案，还有会员的 Git 代码站账号。
-                </p>
               </div>
             </div>
           </div>
@@ -1156,7 +1153,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                 维护「{{ scopedDepartment }}」官网展示页
               </h2>
               <p class="text-xs text-zinc-500">
-                保存后直接同步官网「部门」介绍与招新选项。部门名称与首页展示位由总管统一维护。
+                部门名称与首展位由总管维护。
               </p>
             </div>
             <label class="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium cursor-pointer">
@@ -1427,7 +1424,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           v-if="filteredPosts.length === 0"
           class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
         >
-          还没有内容。右上角可以发动态或笔记。
+          暂无内容
         </div>
 
         <div
@@ -1531,10 +1528,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
         v-if="activeTab === 'projects'"
         class="space-y-4"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm text-zinc-500">
-            首页项目区和项目档案墙展示的内容。
-          </p>
+        <div class="flex flex-wrap items-center justify-end gap-3">
           <div class="flex flex-wrap gap-2">
             <UButton
               icon="i-lucide-sparkles"
@@ -1556,7 +1550,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
           v-if="overview.projects.length === 0"
           class="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-10 text-center text-sm text-zinc-500"
         >
-          还没有项目。前台先显示 Git 仓库和 YeU 迎新平台。
+          暂无已发布项目
         </div>
 
         <div
@@ -1647,7 +1641,7 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
       >
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
           <span class="text-sm text-zinc-600 dark:text-zinc-300">
-            改完点右侧保存，官网即时生效。
+            修改后需点击保存
           </span>
           <UButton
             label="保存"
@@ -1775,9 +1769,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                   <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
                     迎新群二维码
                   </h2>
-                  <p class="text-xs text-zinc-500">
-                    会出现在「加入我们」的联络卡。
-                  </p>
                 </div>
                 <input
                   ref="qrImageInput"
@@ -1827,9 +1818,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
                     size="sm"
                     class="w-full font-mono text-xs"
                   />
-                  <p class="text-xs text-zinc-500">
-                    换群后重新上传。
-                  </p>
                 </div>
               </div>
             </div>
@@ -1843,9 +1831,6 @@ const projectStatusLabel: Record<YeucaProjectStatus, string> = {
               <h2 class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
                 实景相册
               </h2>
-              <p class="text-xs text-zinc-500">
-                机房、比赛、分享会的照片，传完出现在首页。
-              </p>
             </div>
             <input
               ref="galleryImageInput"

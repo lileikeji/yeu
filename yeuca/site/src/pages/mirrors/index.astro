@@ -29,7 +29,6 @@ const categories = ['全部', '语言与包', 'AI 与模型', '系统与容器']
         <div class="band-head" style="margin-bottom: 0.9rem;">
           <div>
             <h2 style="font-size: 1.32rem; margin: 0;">01 · 自建服务与缓存节点</h2>
-            <p class="band-desc">部署在同域 HTTPS 下，打开页面时会自动测一次连接耗时。</p>
           </div>
           <button type="button" id="reprobe-nodes-btn" class="btn btn-ghost btn-sm">重测延迟</button>
         </div>
@@ -123,7 +122,6 @@ const categories = ['全部', '语言与包', 'AI 与模型', '系统与容器']
         <div class="band-head" style="margin-bottom: 0.7rem;">
           <div>
             <h2 style="font-size: 1.32rem; margin: 0;">02 · 常用国内软件源目录</h2>
-            <p class="band-desc">主流工具的国内公共源命令与配置文件写法。</p>
           </div>
         </div>
 
@@ -203,7 +201,6 @@ const categories = ['全部', '语言与包', 'AI 与模型', '系统与容器']
         <div class="band-head" style="margin-bottom: 0.9rem;">
           <div>
             <h2 style="font-size: 1.32rem; margin: 0;">03 · 打包生成换源脚本</h2>
-            <p class="band-desc">选好系统与需要的工具，直接复制或下载脚本到本地终端跑一遍。</p>
           </div>
         </div>
 
@@ -377,7 +374,7 @@ const categories = ['全部', '语言与包', 'AI 与模型', '系统与容器']
     const chosen = activeScriptOptions.filter((o) => selectedIds.includes(o.id));
     const memberGitBlock = authedMember
       ? [
-          `# 已为您预填当前登录成员 (${authedMember.name} / ${authedMember.studentNo}) 的 Git 身份`,
+          `# 当前登录成员 (${authedMember.name} / ${authedMember.studentNo}) Git 身份`,
           `git config --global user.name "${authedMember.gitUsername || authedMember.studentNo}"`,
           `git config --global user.email "${authedMember.email}"`,
         ]

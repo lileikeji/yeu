@@ -221,9 +221,6 @@ async function submit(): Promise<void> {
       <h1 class="mt-2 text-center text-2xl font-black">
         决赛两首歌
       </h1>
-      <p class="mt-2 text-center text-sm text-[var(--muted-ink)]">
-        一次提交两首，自己决定哪首第一轮唱、哪首第二轮唱；第一轮进前六才会唱第二首。
-      </p>
 
       <div class="mt-6 rounded-2xl bg-[var(--surface)] p-5 shadow-sm">
         <label
@@ -348,9 +345,7 @@ async function submit(): Promise<void> {
           />
 
           <p class="mt-2 text-xs leading-relaxed text-[var(--muted-ink)]">
-            两首歌都要填具体歌名，不能填「待定」，也不能和初赛、复赛唱过的歌重复。
-            提交后还能改，直到决赛第一轮结束；每次提交都会带版本号，
-            如果别人（或你另一个窗口）先改过，这里会提示你先载入最新版本，不会直接覆盖。
+            禁填「待定」，不可与初赛、复赛曲目重复；决赛第一轮结束前可修改。
           </p>
 
           <button
@@ -378,8 +373,7 @@ async function submit(): Promise<void> {
             两首歌的背景视频
           </h2>
           <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-            每首歌各传一个 MP4 视频，第一首在决赛第一轮播，第二首进前六后在第二轮播。
-            先在下面提交两首歌，再分别上传视频。
+            MP4 格式，500MB 以内；先提交歌名再上传视频。
           </p>
 
           <div class="mt-3 rounded-xl border border-[var(--line)] p-3">

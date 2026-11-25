@@ -57,38 +57,43 @@ const winRateForSelf = computed(() => {
 const factorRows = computed(() => {
   const item = power.value
   if (!item || !item.hasRating) return []
+  const rankHint = item.prelim?.rank && item.semi?.rank
+    ? `初 #${item.prelim.rank} · 复 #${item.semi.rank}`
+    : (item.semi?.rank
+        ? `复赛 #${item.semi.rank}`
+        : (item.prelim?.rank ? `初赛 #${item.prelim.rank}` : '按名次折算'))
   return [
     {
       key: 'base',
-      label: '硬实力基准',
+      label: '两轮得分',
       weight: '55%',
       value: item.baseScore ?? 0,
       hint: `初 ${(item.prelimWeight * 100).toFixed(0)}% + 复 ${(item.semiWeight * 100).toFixed(0)}%`
     },
     {
       key: 'dominance',
-      label: '同场统治力',
+      label: '同场名次',
       weight: '25%',
       value: item.dominanceScore ?? 0,
-      hint: '超越率与同场 Z 值'
+      hint: rankHint
     },
     {
       key: 'stability',
-      label: '发挥稳定性',
+      label: '评委一致度',
       weight: '10%',
       value: item.stabilityScore ?? 0,
       hint: item.semi?.judgeStdDev != null
-        ? `复赛评委分差 ${item.semi.judgeStdDev.toFixed(2)}`
-        : (item.prelim?.judgeStdDev != null ? `初赛评委分差 ${item.prelim.judgeStdDev.toFixed(2)}` : '评委共识度')
+        ? `复赛分差 ${item.semi.judgeStdDev.toFixed(2)}`
+        : (item.prelim?.judgeStdDev != null ? `初赛分差 ${item.prelim.judgeStdDev.toFixed(2)}` : '单评委')
     },
     {
       key: 'momentum',
-      label: '进阶成长势能',
+      label: '复赛涨跌',
       weight: '10%',
       value: item.momentumScore ?? 0,
       hint: item.deltaPercent === null
-        ? '单轮中性基线'
-        : `复赛较初赛 ${item.deltaPercent >= 0 ? '+' : ''}${item.deltaPercent.toFixed(1)}%`
+        ? '仅单轮'
+        : `${item.deltaPercent >= 0 ? '+' : ''}${item.deltaPercent.toFixed(1)}%`
     }
   ]
 })
@@ -201,7 +206,7 @@ onBeforeUnmount(() => {
       :class="compact ? 'size-5' : 'size-6'"
       :aria-expanded="open"
       :aria-label="profile ? `查看${profile.singer.name}的详细实力评分` : '查看实力评分'"
-      title="查看基于前两轮的详细实力评分"
+      title="前两轮实力评分"
       @mouseenter="scheduleOpen"
       @mouseleave="scheduleClose"
       @focus="showNow"
@@ -228,16 +233,17 @@ onBeforeUnmount(() => {
             <div class="flex items-center gap-1.5">
               <span class="truncate text-sm font-bold text-zinc-900 dark:text-zinc-100">{{ profile.singer.name }}</span>
               <span
+                v-if="power.hasRating"
                 class="rounded-full px-2 py-0.5 text-xs font-bold"
                 :class="tierBadgeClass"
               >
-                {{ power.tier }} · {{ power.tierLabel }}
+                {{ power.tier }}
               </span>
             </div>
             <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
               {{ profile.singer.className || '未填班级' }}
               <template v-if="power.powerRank">
-                · 实力总榜第 {{ power.powerRank }} 名
+                · 第 {{ power.powerRank }} 名
               </template>
             </p>
           </div>
@@ -246,7 +252,7 @@ onBeforeUnmount(() => {
               {{ power.powerScore !== null ? power.powerScore.toFixed(2) : '—' }}
             </p>
             <p class="mt-0.5 text-xs text-zinc-400">
-              综合实力 / 100
+              实力分 / 100
             </p>
           </div>
         </div>
@@ -257,10 +263,13 @@ onBeforeUnmount(() => {
         >
           <div class="flex items-center justify-between gap-2 text-xs">
             <span class="font-semibold text-emerald-800 dark:text-emerald-200">
-              <template v-if="pairNo">第 {{ pairNo }} 组 </template>1v1 预测胜率 vs {{ opponent.singer.name }}
+              <template v-if="pairNo">第 {{ pairNo }} 组 </template>1v1 胜率 vs {{ opponent.singer.name }}
             </span>
             <span class="font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
               {{ winRateForSelf }}% : {{ 100 - winRateForSelf }}%
+              <template v-if="prediction.powerDiff !== null">
+                · 分差 {{ side === 'right' ? (prediction.powerDiff <= 0 ? '+' : '') + (-prediction.powerDiff).toFixed(1) : (prediction.powerDiff >= 0 ? '+' : '') + prediction.powerDiff.toFixed(1) }}
+              </template>
             </span>
           </div>
           <div class="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -269,53 +278,50 @@ onBeforeUnmount(() => {
               :style="{ width: `${winRateForSelf}%` }"
             />
           </div>
-          <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-            {{ prediction.tag }} · {{ prediction.note }}
-          </p>
         </div>
 
         <div class="mt-2.5 grid grid-cols-2 gap-2">
           <div class="rounded-lg bg-zinc-50 p-2 dark:bg-zinc-800/70">
             <p class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-              <span>初赛实绩</span>
-              <span v-if="power.prelimWeight > 0">权重 {{ Math.round(power.prelimWeight * 100) }}%</span>
+              <span>初赛</span>
+              <span v-if="power.prelimWeight > 0">{{ Math.round(power.prelimWeight * 100) }}%</span>
             </p>
             <p class="mt-1 font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
               <template v-if="power.prelim && power.prelim.average !== null">
                 {{ power.prelim.average.toFixed(2) }} / {{ power.prelim.maxTotal }}
               </template>
               <template v-else>
-                暂无成绩
+                未评分
               </template>
             </p>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               <template v-if="power.prelim && power.prelim.percentScore !== null">
-                {{ power.prelim.percentScore.toFixed(1) }}% · 第 {{ power.prelim.rank ?? '—' }} 名（超越 {{ power.prelim.percentile?.toFixed(0) ?? '—' }}%）
+                {{ power.prelim.percentScore.toFixed(1) }}% · 第 {{ power.prelim.rank ?? '—' }} / {{ power.prelim.totalScored }} 名
               </template>
               <template v-else>
-                未进入或未打分
+                —
               </template>
             </p>
           </div>
           <div class="rounded-lg bg-zinc-50 p-2 dark:bg-zinc-800/70">
             <p class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-              <span>复赛实绩</span>
-              <span v-if="power.semiWeight > 0">权重 {{ Math.round(power.semiWeight * 100) }}%</span>
+              <span>复赛</span>
+              <span v-if="power.semiWeight > 0">{{ Math.round(power.semiWeight * 100) }}%</span>
             </p>
             <p class="mt-1 font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
               <template v-if="power.semi && power.semi.average !== null">
                 {{ power.semi.average.toFixed(2) }} / {{ power.semi.maxTotal }}
               </template>
               <template v-else>
-                暂无成绩
+                未评分
               </template>
             </p>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               <template v-if="power.semi && power.semi.percentScore !== null">
-                {{ power.semi.percentScore.toFixed(1) }}% · 第 {{ power.semi.rank ?? '—' }} 名（超越 {{ power.semi.percentile?.toFixed(0) ?? '—' }}%）
+                {{ power.semi.percentScore.toFixed(1) }}% · 第 {{ power.semi.rank ?? '—' }} / {{ power.semi.totalScored }} 名
               </template>
               <template v-else>
-                未进入或未打分
+                —
               </template>
             </p>
           </div>
@@ -326,7 +332,7 @@ onBeforeUnmount(() => {
           class="mt-2.5 space-y-1.5"
         >
           <p class="font-semibold text-zinc-800 dark:text-zinc-200">
-            四维算法评分拆解
+            评分构成
           </p>
           <div
             v-for="row in factorRows"
@@ -361,12 +367,12 @@ onBeforeUnmount(() => {
           class="mt-2.5 border-t border-zinc-100 pt-2 dark:border-zinc-800"
         >
           <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
-            <span class="font-semibold text-zinc-800 dark:text-zinc-200">声乐分项能力</span>
+            <span class="font-semibold text-zinc-800 dark:text-zinc-200">维度得分率</span>
             <span
               v-if="power.topStrength"
               class="text-emerald-700 dark:text-emerald-300"
             >
-              强项：{{ power.topStrength.label }} {{ power.topStrength.rate.toFixed(1) }}%
+              最高：{{ power.topStrength.label }} {{ power.topStrength.rate.toFixed(1) }}%
             </span>
           </div>
           <div class="mt-1.5 flex flex-wrap gap-1.5">
@@ -379,10 +385,6 @@ onBeforeUnmount(() => {
             </span>
           </div>
         </div>
-
-        <p class="mt-2 text-xs leading-5 text-zinc-400">
-          {{ power.summaryNote }}
-        </p>
       </div>
     </Teleport>
   </span>

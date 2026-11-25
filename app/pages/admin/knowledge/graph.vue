@@ -935,7 +935,6 @@ onBeforeUnmount(() => {
           <div class="reader-body community-reader">
             <span class="community-stamp">社区</span>
             <h2>{{ selectedCommunity.label }}</h2>
-            <p>这个社区收录了 {{ selectedCommunity.node_count }} 页资料。进入后，搜索和类型筛选只会作用在当前社区，更适合顺着一个主题读下去。</p>
             <div class="community-facts">
               <div><strong>{{ selectedCommunity.node_count }}</strong><span>资料页</span></div>
               <div><strong>{{ selectedCommunity.is_weak ? '待补充' : '结构清晰' }}</strong><span>整理状态</span></div>
@@ -975,8 +974,7 @@ onBeforeUnmount(() => {
             <div class="empty-ink-mark">
               <UIcon name="i-lucide-mountain-snow" />
             </div>
-            <h2>从一座山开始</h2>
-            <p>每片云雾代表一个知识社区。先点社区看整体，再点节点看摘要；确认有用后再进入全文。</p>
+            <h2>选择社区或节点</h2>
             <ol>
               <li><span>一</span>悬停节点，快速预览</li>
               <li><span>二</span>点击节点，阅读摘要</li>

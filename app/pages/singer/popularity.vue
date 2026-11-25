@@ -297,8 +297,7 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="text-center text-xs leading-relaxed text-[var(--muted-ink)]">
-          每个浏览器限投一票，投票后不可更改；二维码会过期，失效时重新扫大屏上的新码。<br>
-          请勿把投票页转发到公开群，现场投票更公平。
+          每台设备限投一票；二维码失效请重扫大屏。
         </p>
 
         <div class="flex justify-center">

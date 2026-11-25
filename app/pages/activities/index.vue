@@ -29,9 +29,6 @@ useSeoMeta({
         <h1 class="text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100 md:text-3xl">
           校园活动
         </h1>
-        <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          社团与部门发布的活动，按开始时间排序。活动由组织负责人提交，校方审核后展示。
-        </p>
         <div class="mt-4 flex flex-wrap gap-2">
           <UButton
             to="/activities/treasure"
