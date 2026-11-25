@@ -16,6 +16,62 @@ const CAMPUS_SEARCH_ALIAS_GROUPS: readonly CampusSearchAliasGroup[] = [
     canonical: '迎新系统',
     aliases: ['迎新系统', '所在班级怎么查询', '查询所在班级', '查询班级', '班级查询', '分班查询', '编班查询'],
     kind: 'service'
+  },
+  {
+    canonical: '吉龙教学楼',
+    aliases: ['吉龙教学楼', '吉龙楼', '吉隆教学楼', '吉隆楼', '吉林楼', '吉林'],
+    kind: 'place'
+  },
+  {
+    canonical: '仰恩教学楼',
+    aliases: ['仰恩教学楼', '仰恩楼'],
+    kind: 'place'
+  },
+  {
+    canonical: '多功能报告厅',
+    aliases: ['多功能报告厅', '旧区报告厅', '报告厅'],
+    kind: 'place'
+  },
+  {
+    canonical: '仰恩基金会体育场',
+    aliases: ['仰恩基金会体育场', '基金会体育场', '基金操场', '基金会操场'],
+    kind: 'place'
+  },
+  {
+    canonical: '祥贤楼',
+    // 不要加两字「贤楼」：canonicalCampusPlaceForQuery 用的是 includes，
+    // 「普贤楼」里含「贤楼」，会把普贤楼错答成祥贤楼（2026-11-25 扫描实测）。
+    aliases: ['祥贤楼', '祥贤', '闲楼'],
+    kind: 'place'
+  },
+  {
+    // 「新区和昌楼」必须排在「和昌教学楼」之前：两栋楼在新旧区各有一栋，
+    // includes 匹配下宽组会先把「新区和昌楼」吃掉，答成旧区那栋。
+    canonical: '新区和昌教学楼',
+    aliases: ['新区和昌教学楼', '新区和昌楼', '新区合昌教学楼', '新区合昌楼', '第三教学区和昌'],
+    kind: 'place'
+  },
+  {
+    canonical: '和昌教学楼',
+    aliases: ['和昌教学楼', '和昌楼', '合昌教学楼', '合昌楼'],
+    kind: 'place'
+  },
+  {
+    // 校内没有单独的「普贤楼」点位，地图上标的是创业园（校内人 2026-11-25 确认）。
+    canonical: '创业园',
+    aliases: ['创业园', '普贤楼', '普贤'],
+    kind: 'place'
+  },
+  {
+    // 「新区广场」就是碑林广场；「无字碑」是高德上的独立地标，不并进来。
+    canonical: '碑林广场',
+    aliases: ['碑林广场', '新区广场'],
+    kind: 'place'
+  },
+  {
+    canonical: '旧区公交车上车点',
+    aliases: ['旧区公交车上车点', '公交车上车点', '公交上车点', '叮叮车上车点', '叮叮车在哪上车'],
+    kind: 'place'
   }
 ]
 
@@ -58,11 +114,22 @@ export function expandCampusSearchTerms(value: string): string[] {
 }
 
 export function canonicalCampusPlaceForQuery(value: string): string | null {
+  return campusPlaceAliasForQuery(value)?.canonical ?? null
+}
+
+/**
+ * 返回命中的别名原文，答案里用它说明「学生说的「普贤楼」在地图上叫「创业园」」。
+ * 同一组内取最长别名，避免「普贤」抢在「普贤楼」前面。
+ */
+export function campusPlaceAliasForQuery(value: string): { canonical: string, alias: string } | null {
   const compact = compactSearchText(value)
   if (!compact) return null
-  const group = CAMPUS_SEARCH_ALIAS_GROUPS.find(item => (
-    item.kind === 'place'
-    && item.aliases.some(alias => compact.includes(compactSearchText(alias)))
-  ))
-  return group?.canonical ?? null
+  for (const group of CAMPUS_SEARCH_ALIAS_GROUPS) {
+    if (group.kind !== 'place') continue
+    const alias = [...group.aliases]
+      .sort((left, right) => right.length - left.length)
+      .find(item => compact.includes(compactSearchText(item)))
+    if (alias) return { canonical: group.canonical, alias }
+  }
+  return null
 }

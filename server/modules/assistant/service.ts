@@ -49,6 +49,7 @@ import {
   normalizeAssistantQuery
 } from '../../../shared/utils/assistant-query'
 import {
+  campusPlaceAliasForQuery,
   canonicalCampusPlaceForQuery,
   expandCampusSearchTerms
 } from '../../../shared/utils/campus-search-aliases'
@@ -92,6 +93,7 @@ import {
   assistantKnowledgeEntries,
   assistantWebKnowledge,
   contents,
+  knowledgeDocuments,
   placeAmapRatings,
   placeReviews,
   places,
@@ -492,7 +494,7 @@ const MAX_MCP_CONCURRENCY = 2
 // 一个会话的答案发给另一个会话）；②knowledge_revision 落库并在读路径真比对；
 // ③模型没给引用时不再拿「证据列表前 N 条」充当引用；④内容安全拦截不进两级缓存；
 // ⑤内存缓存 FIFO 改 LRU，并补上证据不足的短 TTL 负缓存。命中语义变了，必须 bump。
-const ASSISTANT_CACHE_VERSION = 'rag-v89-entry-song'
+const ASSISTANT_CACHE_VERSION = 'rag-v92-campus-place-faculty'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** 证据不足（confidence < 0.6）的负缓存只活 60 秒：重试往往能拿到新证据。 */
 const ASSISTANT_ANSWER_GAP_CACHE_TTL_MS = 60 * 1000
@@ -2916,7 +2918,14 @@ const KNOWLEDGE_TOPIC_ALIASES: Readonly<Record<string, string>> = {
   助学: '国家助学金',
   一奖: '一等奖学金',
   二奖: '二等奖学金',
-  三奖: '三等奖学金'
+  三奖: '三等奖学金',
+  // 学生口语（线上 NO_EVIDENCE 实测）：裸「综测」被检索到成绩查询条目、
+  // 「查寝」没有任何条目、口语车名和教务系统简称各差一个字。
+  综测: '综合测评',
+  查寝: '迟归 宿舍检查',
+  小白车: '叮叮车',
+  教务管理系统: '教务系统',
+  基金操场: '仰恩基金会体育场'
 }
 
 /** 把口语别名补进检索文本（追加而非替换，保留原话的其它线索）。 */
@@ -3838,8 +3847,12 @@ export function assistantKnowledgeLocalAnswer(
     && /(?:奖金|奖励|加多少分|加几分|加分|多少钱|多少元|多少|奖励标准|奖金标准|奖励金额)/u.test(query)
     && !/(?:奖学金|助学金|助学贷款|励志|国家奖学金)/u.test(query)
   const competitionIntentConfirmed = competitionAbbreviationQuery || intent?.intent === 'competition'
-  const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛|比赛|大赛|获奖加分|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|数模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖)|比赛.*(?:加分|获奖|加多少分)|竞赛.*(?:报名|参加|参赛|怎么参加|如何参加)|(?:数学建模|电子设计|挑战杯|互联网).*级别)/u.test(query)
-    || competitionIntentConfirmed
+  // 运动会/球类/田径是**体育**赛事，不是学科竞赛：「第三十五届运动会拔河比赛结果」
+  // 曾被下面这条裸「比赛」正则当成学科竞赛，答成《学科与技能竞赛管理办法》。
+  const sportsEventQuery = /(?:运动会|校运会|拔河|篮球|足球|排球|羽毛球|乒乓球|田径|接力|跳远|跳高|铅球|体测)/u.test(query)
+  const competitionQuery = (!sportsEventQuery
+    && /(?:学科竞赛|技能竞赛|竞赛|比赛|大赛|获奖加分|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|数模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖)|比赛.*(?:加分|获奖|加多少分)|竞赛.*(?:报名|参加|参赛|怎么参加|如何参加)|(?:数学建模|电子设计|挑战杯|互联网).*级别)/u.test(query))
+  || competitionIntentConfirmed
   if (competitionQuery) {
     // Query the 学科竞赛 category DIRECTLY (no LIKE-term gate): the term
     // splitter can collapse "竞赛A类一等奖加多少分" into one long phrase
@@ -5830,11 +5843,16 @@ function nearbyVenueLocalAnswer(client: DatabaseClient, query: string): ApiAssis
 
 /** 英文开学问法：检索对英文问句无效（会拉到无关英文新闻），直接按已核实校历回答。 */
 function englishOpeningDateLocalAnswer(query: string): ApiAssistantResponse | null {
-  if (!isEnglishOpeningDateQuery(query) || !hardcodedAssistantFactIsCurrent('openingSchedule2026')) return null
+  if (!isEnglishOpeningDateQuery(query)) return null
+  // 9 月已过之后「when does school start」问的是已经发生的事，答案仍成立，只是时态要换，
+  // 不能因为事实“过期”就退回“请打开原文核对”。
+  const isUpcoming = hardcodedAssistantFactIsCurrent('openingSchedule2026')
   return {
     query,
     mode: 'local',
-    answer: 'Yang-En University（仰恩大学）2026 freshmen register on September 5-6, orientation runs September 7-9, and fall classes begin September 10（2026级新生9月5-6日报到、9月7-9日入学教育、9月10日开课）。个人报到时段、地点和材料以录取通知书及学校最新通知为准。',
+    answer: isUpcoming
+      ? 'Yang-En University（仰恩大学）2026 freshmen register on September 5-6, orientation runs September 7-9, and fall classes begin September 10（2026级新生9月5-6日报到、9月7-9日入学教育、9月10日开课）。个人报到时段、地点和材料以录取通知书及学校最新通知为准。'
+      : 'Yang-En University（仰恩大学）2026 freshmen registered on September 5-6, 2026; orientation ran September 7-9 and fall classes began September 10, 2026（2026级已于9月5-6日报到、9月7-9日入学教育、9月10日开课）。下一届的时间以学校当年通知为准。',
     citations: [{
       title: '2026级新生报到',
       url: '/procedures/arrival',
@@ -5842,50 +5860,54 @@ function englishOpeningDateLocalAnswer(query: string): ApiAssistantResponse | nu
       source: 'site' as const
     }],
     usedWebSearch: false,
-    confidence: 0.98
+    confidence: isUpcoming ? 0.98 : 0.9
   }
 }
 
-/**
- * 裸地图地点名词（“创业园/图书馆/新区操场”）→ 直接给地图定位+简介，不抢答、不漂移。
- * 仅在查询去掉语气尾字后与已收录地点名完全一致时命中。
- */
-function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
-  const compactQuery = compactPlaceText(query)
-  if (compactQuery.length < 2) return null
-  const rows = client.db.select({
-    slug: places.slug,
-    name: places.name,
-    summary: places.summary,
-    body: places.body,
-    address: places.address,
-    campusArea: places.campusArea
-  }).from(places).where(and(eq(places.status, 'published'), eq(places.scope, 'campus'))).all()
-  // 「新区图书馆」这类带片区前缀的裸地点:库里只有「图书馆」,完全相等匹配落空,
-  // 于是落到知识条目被答成舒适型宿舍楼栋(2026-09-23 线上实测)。剥掉片区前缀
-  // 再比一次;只有剥完正好等于已收录地点名才接受,避免「新区有什么好吃的」误命中。
-  const strippedAreaQuery = compactQuery.replace(/^(?:新区|旧区|新校区|老校区|第三教学区|第一教学区)/u, '')
-  const row = rows.find(item => compactPlaceText(item.name ?? '') === compactQuery)
-    ?? (strippedAreaQuery !== compactQuery && strippedAreaQuery.length >= 2
-      ? rows.find(item => compactPlaceText(item.name ?? '') === strippedAreaQuery)
-      : undefined)
-  if (!row) return null
-  const location = [...new Set([row.campusArea, row.address].filter((item): item is string => Boolean(item?.trim())))]
-    .join(' · ')
+const CAMPUS_PLACE_AREA_PREFIX_RE = /^(?:新区|旧区|新校区|老校区|第三教学区|第一教学区|第二教学区)/u
+// 学生说「普照楼 / 吉龙楼 / 旧区报告厅」，地图收录的是「普照教学楼 / 吉龙教学楼 /
+// 多功能报告厅」：去掉场所类别后缀后比对主体名，才能接住这类简称。
+const CAMPUS_PLACE_KIND_SUFFIX_RE = /(?:教学楼|教学区|大礼堂|报告厅|体育场|公交车站|公交站|讲堂|广场|操场|球场|餐厅|食堂|大楼|中心|馆|楼|园|桥|场)$/u
+
+/** 地点名主体：剥片区前缀与场所后缀（「新区行政楼」→「行政」）。 */
+function campusPlaceSubjectKey(name: string): string {
+  const compact = compactPlaceText(name)
+  const withoutArea = compact.replace(CAMPUS_PLACE_AREA_PREFIX_RE, '')
+  const subject = withoutArea.replace(CAMPUS_PLACE_KIND_SUFFIX_RE, '')
+  return subject.length >= 2 ? subject : withoutArea
+}
+
+interface MapPlaceRow {
+  slug: string
+  name: string | null
+  summary: string | null
+  body: string | null
+  address: string | null
+  campusArea: string | null
+}
+
+function mapPlaceSingleAnswer(query: string, row: MapPlaceRow, aliasLabel?: string): ApiAssistantResponse {
+  const address = usablePlaceAddress(row)
   const rawSummary = safeText(row.summary, 300).replace(/[。\s]*$/u, '')
   // 部分地图点摘要含“后台草稿/待核验”等维护用语，不适合直接读给用户
   const isDraftPlaceholder = /已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布/u.test(rawSummary)
   const summary = isDraftPlaceholder ? '' : rawSummary
-  const lead = `${row.name}${location ? '位于' + location : '已收录在校园地图中'}`
+  const lead = address
+    ? `${row.name}已在校园地图中精确标注，位置在${address}`
+    : `${row.name}已在校园地图中精确标注`
+  // 学生口语名和地图点不是同一个词时点明对应关系（「普贤楼」→ 创业园、「新区广场」→ 碑林广场）。
+  const aliasNote = aliasLabel && aliasLabel !== row.name
+    ? `校内说的「${aliasLabel}」在地图上就是「${row.name}」。`
+    : ''
   const answer = summary
-    ? `${lead}。${summary}。点击下方入口可以查看地图定位和更多信息。`
-    : `${lead}。点击下方入口可以查看地图定位和更多信息。`
+    ? `${lead}。${aliasNote}${summary}。点击下方入口可以查看地图定位和更多信息。`
+    : `${lead}。${aliasNote}点击下方入口可以查看地图定位和更多信息。`
   return {
     query,
     mode: 'local',
     answer,
     citations: [{
-      title: row.name,
+      title: row.name ?? query,
       url: `/map?place=${encodeURIComponent(row.slug)}`,
       snippet: summary || `${row.name}已收录在校园地图中。`,
       source: 'site' as const
@@ -5896,10 +5918,646 @@ function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssi
 }
 
 /**
+ * 高德导入的 places.address 里混着 POI 店名和残缺街道（“马甲镇道”“太姥山正宗福鼎肉片仰恩大学”），
+ * 直接读成“位于…”会把门店当成地点。这里只保留像地址的部分，其余退回“地图里已收录”。
+ */
+const PLACE_ADDRESS_NOISE_RE = /(?:肉片|小吃|餐厅|饭店|超市|便利店|药店|快递|驿站|营业厅|酒店|宾馆|理发|打印)/u
+function usablePlaceAddress(row: MapPlaceRow): string {
+  const raw = row.address?.trim() ?? ''
+  if (!raw || PLACE_ADDRESS_NOISE_RE.test(raw)) return ''
+  const stripped = raw.replace(/^福建省?泉州市?(?:洛江区)?(?:马甲镇)?/u, '').trim()
+  return stripped.length >= 2 ? stripped : ''
+}
+
+/**
+ * 裸地图地点名词（“创业园/图书馆/新区操场”）→ 直接给地图定位+简介，不抢答、不漂移。
+ * 命中顺序：全名精确 → 别名 canonical → 去处所后缀后的主体名。
+ * 「行政楼 / 普照楼」这类同名多处的地点列候选，而不是退回“请打开原文核对”。
+ */
+function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const compactQuery = compactPlaceText(query)
+  if (compactQuery.length < 2) return null
+  const rows: MapPlaceRow[] = client.db.select({
+    slug: places.slug,
+    name: places.name,
+    summary: places.summary,
+    body: places.body,
+    address: places.address,
+    campusArea: places.campusArea
+  }).from(places).where(and(eq(places.status, 'published'), eq(places.scope, 'campus'))).all()
+  // 「新区图书馆」这类带片区前缀的裸地点:库里只有「图书馆」,完全相等匹配落空,
+  // 于是落到知识条目被答成舒适型宿舍楼栋(2026-09-23 线上实测)。剥掉片区前缀
+  // 再比一次;只有剥完正好等于已收录地点名才接受,避免「新区有什么好吃的」误命中。
+  const strippedAreaQuery = compactQuery.replace(CAMPUS_PLACE_AREA_PREFIX_RE, '')
+  // 「有几个操场 / 有哪些操场」问的是数量和名单，先把这一类地点列出来。
+  const listingAnswer = campusPlaceListingAnswer(query, compactQuery, rows)
+  if (listingAnswer) return listingAnswer
+  const exactRow = rows.find(item => compactPlaceText(item.name ?? '') === compactQuery)
+    ?? (strippedAreaQuery !== compactQuery && strippedAreaQuery.length >= 2
+      ? rows.find(item => compactPlaceText(item.name ?? '') === strippedAreaQuery)
+      : undefined)
+  if (exactRow) return mapPlaceSingleAnswer(query, exactRow)
+
+  // 别名表（「吉隆楼」→「吉龙教学楼」、「基金操场」→「仰恩基金会体育场」）
+  // 问「是什么/干什么/介绍」这类定义型问句时让给知识条目：地图点只有坐标，
+  // 说不清楼里有什么。
+  const asksDefinition = /是什么|干什么|做什么|干嘛|介绍|用途|有什么/u.test(compactQuery)
+  const aliasHit = asksDefinition ? null : campusPlaceAliasForQuery(query)
+  if (aliasHit) {
+    // 「和昌楼」在新旧区各有一栋（map 里是「和昌教学楼」和「新区和昌教学楼」），
+    // 不带片区前缀时就两栋一起列，别只给旧区那栋。
+    const canonicalName = compactPlaceText(aliasHit.canonical)
+    const sameNameRows = rows.filter((item) => {
+      const placeName = compactPlaceText(item.name ?? '')
+      return placeName === canonicalName || placeName.endsWith(canonicalName)
+    })
+    const aliasRow = rows.find(item => compactPlaceText(item.name ?? '') === canonicalName)
+    if (sameNameRows.length > 1 && !CAMPUS_PLACE_AREA_PREFIX_RE.test(compactQuery)) {
+      return mapPlaceCandidatesAnswer(
+        query,
+        aliasHit.alias,
+        sameNameRows,
+        sameNameRows.map(item => item.name ?? '未命名地点')
+      )
+    }
+    if (aliasRow) return mapPlaceSingleAnswer(query, aliasRow, aliasHit.alias)
+  }
+
+  // 「旧区报告厅」这类只报场所类别的问句：全库只有一处同类地点时给出它。
+  // 带片区前缀的问句不猜——places.campus_area 全是空值，「新区广场」不能当成「碑林广场」。
+  if (!CAMPUS_PLACE_AREA_PREFIX_RE.test(compactQuery)) {
+    const kindSuffix = CAMPUS_PLACE_KIND_SUFFIX_RE.exec(compactQuery)
+    if (kindSuffix) {
+      const kindRows = rows.filter(item => compactPlaceText(item.name ?? '').endsWith(kindSuffix[0]))
+      if (kindRows.length === 1) return mapPlaceSingleAnswer(query, kindRows[0]!)
+    }
+  }
+
+  // 「新区怎么去公交站」问的是上车点在哪：地图把公交点位拆成上车点/下车点/第三校区
+  // 公交站三条，逐条列出来比回“请打开原文”有用（线上 2026-11-24 有这条 NO_EVIDENCE）。
+  if (/公交/u.test(compactQuery)) {
+    const busRows = rows.filter(item => compactPlaceText(item.name ?? '').includes('公交'))
+    if (busRows.length > 0) return mapPlaceCandidatesAnswer(query, '公交站', busRows)
+  }
+
+  // 「普照教学楼2号门」：门/入口说的就是那栋楼，按主体回答，不要落回“请打开原文”。
+  const entryMatch = /^(.{2,10}?)(?:[0-9一二三四五六七八九十]+号)?(?:正门|侧门|后门|大门|门口|入口|门)$/u.exec(compactQuery)
+  if (entryMatch) {
+    const entrySubject = campusPlaceSubjectKey(entryMatch[1]!)
+    const entryRows = entrySubject.length >= 2
+      ? rows.filter(item => campusPlaceSubjectKey(item.name ?? '') === entrySubject)
+      : []
+    if (entryRows.length === 1) return mapPlaceSingleAnswer(query, entryRows[0]!)
+    if (entryRows.length > 1) return mapPlaceCandidatesAnswer(query, entryMatch[1]!, entryRows)
+  }
+
+  // 主体名匹配：只接「裸地点词」，带问法词的问句留给检索/意图链路。
+  if (/(?:几|哪些|哪里|哪儿|在哪|怎么|如何|为什么|什么|吗|呢|多少|推荐|介绍)/u.test(compactQuery)) return null
+  const querySubject = campusPlaceSubjectKey(compactQuery)
+  if (querySubject.length < 2) return null
+  const subjectRows = rows.filter(item => campusPlaceSubjectKey(item.name ?? '') === querySubject)
+  // 「普照楼教室分布」这类把地点名夹在句子中间的：精确主体匹配落空后，再按“问句里出现了
+  // 哪个已收录地点的主体名（≥2 字）”兜一次，命中就按该地点回答，不落回“请打开原文”。
+  if (subjectRows.length === 0) {
+    const contained = rows.filter((item) => {
+      const subject = campusPlaceSubjectKey(item.name ?? '')
+      return subject.length >= 2 && compactQuery.includes(subject)
+    })
+    if (contained.length > 0) {
+      const label = campusPlaceSubjectKey(contained[0]!.name ?? '') || compactQuery
+      return contained.length === 1
+        ? mapPlaceSingleAnswer(query, contained[0]!)
+        : mapPlaceCandidatesAnswer(query, label, contained)
+    }
+    return null
+  }
+  const areaPrefix = compactQuery.match(CAMPUS_PLACE_AREA_PREFIX_RE)?.[0]
+  const areaRows = areaPrefix
+    ? subjectRows.filter(item => compactPlaceText(item.name ?? '').startsWith(areaPrefix))
+    : []
+  const candidates = areaRows.length > 0 ? areaRows : subjectRows
+  if (candidates.length === 1) return mapPlaceSingleAnswer(query, candidates[0]!)
+
+  const names = candidates.map(item => item.name ?? '未命名地点')
+  return mapPlaceCandidatesAnswer(query, querySubject, candidates, names)
+}
+
+/** 同名/同类多个地点时一次列全，附地图链接，避免只看第一条就答。 */
+function mapPlaceCandidatesAnswer(
+  query: string,
+  label: string,
+  candidates: MapPlaceRow[],
+  preparedNames?: string[]
+): ApiAssistantResponse {
+  const names = preparedNames ?? candidates.map(item => item.name ?? '未命名地点')
+  const locations = candidates
+    .map(item => [item.campusArea, usablePlaceAddress(item)].filter((part): part is string => Boolean(part?.trim())).join(' · '))
+    .map((part, index) => part ? `${names[index]}（${part}）` : names[index]!)
+  return {
+    query,
+    mode: 'local',
+    answer: `校园地图里叫「${label}」的地点有 ${candidates.length} 处：${locations.join('、')}。点开下方链接可以核对具体位置，也可以在问句里带上新区/旧区再问一次。`,
+    citations: candidates.map(item => ({
+      title: item.name ?? '校园地点',
+      url: `/map?place=${encodeURIComponent(item.slug)}`,
+      snippet: `${item.name ?? ''}已收录在校园地图中。`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.8
+  }
+}
+
+/** 「有几个操场」：按类别清点校园地图里已收录的地点，数量与名单都来自数据库。 */
+function campusPlaceListingAnswer(
+  query: string,
+  compactQuery: string,
+  rows: MapPlaceRow[]
+): ApiAssistantResponse | null {
+  const match = /^(?:学校|校内|校园)?(?:一共|总共)?(?:有)?(?:几|多少|哪几|哪些)(?:个|处|座|间|栋)?(.{2,6}?)(?:[?？]|呢|啊|呀)?$/u.exec(compactQuery)
+  if (!match) return null
+  const category = match[1]!
+  if (category.length < 2) return null
+  const hits = rows.filter(item => compactPlaceText(item.name ?? '').includes(category))
+  if (hits.length === 0) return null
+  const names = hits.map(item => item.name ?? '未命名地点')
+  return {
+    query,
+    mode: 'local',
+    answer: `校园地图里与「${category}」有关的地点有 ${hits.length} 处：${names.join('、')}。点开下方链接可以看位置，开放时间和使用要求以现场标识为准。`,
+    citations: hits.map(item => ({
+      title: item.name ?? '校园地点',
+      url: `/map?place=${encodeURIComponent(item.slug)}`,
+      snippet: `${item.name ?? ''}已收录在校园地图中。`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.82
+  }
+}
+
+/**
  * 校内导航问句（「我在X门口，我要去Y」）：站内没有可核验的步行耗时,给诚实的
  * 路线引导而不是编造分钟数。修前这类问句曾被「2026新生手册｜报到时间、地点与
  * 专业分组」条目(关键词含 和昌教学楼/旧区)抢走,答成新生报到分组(线上实测)。
  */
+const LEXICON_QUERY_STOP_RE = /(?:怎么|如何|多少|几|哪|什么|为什么|谁|吗|呢|条件|流程|时间|材料|要求|标准|申请|区别|作用|好处|在哪|位置|是什么|要不要|需不需要|能不能)/u
+const LEXICON_TITLE_KIND_SUFFIX_RE = /(?:分会|协会|读书社|工作室|委员会|学院|学部|教研部|中心|办公室|社团|社|部|处|室)$/u
+const LEXICON_KIND_LABELS: Record<string, string> = {
+  club: '学生社团',
+  department: '教学单位',
+  guide: '校园指南',
+  notice: '通知公告'
+}
+
+/** 词条名压缩：去掉书名号/竖线副标题，再走地名同一套标点归一。 */
+function compactLexiconTitle(value: string): string {
+  return compactPlaceText(value.replace(/[《》]/gu, '').replace(/\|.*$/u, ''))
+}
+
+/**
+ * 词条标题命中强度：3=完全同名，2=以查询开头或主体同名，1=标题包含查询。
+ * 「红十字」→「红十字会」，「乒乓球」→「体育协会乒乓球分会」都要能命中。
+ */
+function lexiconTitleMatchScore(compactQuery: string, title: string): number | null {
+  const compactTitle = compactLexiconTitle(title)
+  if (!compactQuery || !compactTitle) return null
+  if (compactTitle === compactQuery) return 3
+  if (compactQuery.length >= 2 && compactTitle.startsWith(compactQuery)) return 2
+  const subject = compactTitle.replace(LEXICON_TITLE_KIND_SUFFIX_RE, '')
+  if (subject.length >= 2 && subject === compactQuery) return 2
+  // 「电气学院」→「电气工程与自动化学院」：口语把学院名缩写到只剩学科前缀。
+  const querySubject = compactQuery.replace(LEXICON_TITLE_KIND_SUFFIX_RE, '')
+  if (subject.length >= 2 && querySubject.length >= 2 && subject.startsWith(querySubject)) return 1
+  if (compactQuery.length >= 3 && compactTitle.includes(compactQuery)) return 1
+  return null
+}
+
+function lexiconEntryUrl(kind: string, slug: string): string {
+  if (kind === 'club') return `/clubs/${encodeURIComponent(slug)}`
+  if (kind === 'department') return `/departments/${encodeURIComponent(slug)}`
+  if (kind === 'guide') return `/guides/${encodeURIComponent(slug)}`
+  return `/notices/${encodeURIComponent(slug)}`
+}
+
+/** 词条直答的答案拼装：摘要优先，正文只补摘要没覆盖到的部分，避免同一句话出现两遍。 */
+function lexiconAnswerFor(
+  query: string,
+  row: { title: string, kind: string, slug: string, summary: string | null, body: string | null }
+): ApiAssistantResponse {
+  const summary = safeText(row.summary, 200).replace(/[。\s]*$/u, '')
+  const body = safeText(row.body, 900)
+  let bodyLead = ''
+  if (body) {
+    let rest = body
+    if (summary) {
+      const covered = rest.indexOf(summary)
+      if (covered >= 0) rest = rest.slice(covered + summary.length)
+    }
+    rest = rest.replace(/^[\s。；;，,、]+/u, '')
+    if (rest && !summary.includes(rest.slice(0, 12))) bodyLead = rest.slice(0, 150).replace(/[。\s]*$/u, '')
+  }
+  const kindLabel = LEXICON_KIND_LABELS[row.kind] ?? '校园词条'
+  const answer = [
+    `${row.title}是校内的${kindLabel}。`,
+    summary ? `${summary}。` : '',
+    bodyLead ? `${bodyLead}。` : '',
+    '点开下方入口可以看完整介绍和联系方式。'
+  ].join('')
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [{
+      title: row.title,
+      url: lexiconEntryUrl(row.kind, row.slug),
+      snippet: summary || `${row.title}已收录在校园词条中。`,
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.88
+  }
+}
+
+/**
+ * 词条直答（「国旗班 / 红十字会 / 管理学院 / 乒乓球」）：站内 contents 已经写好这些
+ * 词条的简介，但检索只把它当证据，最后退回“请打开原文核对”。用户只打一个名字时，
+ * 直接给简介 + 入口才是答案。
+ */
+function contentLexiconLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const compactQuery = compactPlaceText(query)
+  if (compactQuery.length < 2 || compactQuery.length > 12) return null
+  if (LEXICON_QUERY_STOP_RE.test(compactQuery)) return null
+  const rows = client.db.select({
+    title: contents.title,
+    kind: contents.kind,
+    slug: contents.slug,
+    summary: contents.summary,
+    body: contents.body
+  }).from(contents)
+    .where(eq(contents.status, 'published'))
+    .all()
+  const scored = rows
+    .map(row => ({ row, score: lexiconTitleMatchScore(compactQuery, row.title) }))
+    .filter((item): item is { row: typeof rows[number], score: number } => item.score !== null)
+  if (scored.length === 0) return null
+  const best = Math.max(...scored.map(item => item.score))
+  const candidates = scored.filter(item => item.score === best)
+  // 同分多命中时优先完全同名，其次取最短标题(最具体)：「体育协会」会同时命中各分会，不猜。
+  const exact = candidates.find(item => compactLexiconTitle(item.row.title) === compactQuery)
+  if (exact) return lexiconAnswerFor(query, exact.row)
+  candidates.sort((a, b) => a.row.title.length - b.row.title.length)
+  if (candidates.length > 1 && candidates[0]!.row.title.length === candidates[1]!.row.title.length) return null
+  return lexiconAnswerFor(query, candidates[0]!.row)
+}
+
+/** 两串的最长公共子串长度：中文短句的“同一主题”判定比词元包含更抗噪。 */
+function longestCommonSubstringLength(left: string, right: string): number {
+  if (!left || !right) return 0
+  let best = 0
+  let previous = new Array<number>(right.length + 1).fill(0)
+  for (let i = 1; i <= left.length; i += 1) {
+    const current = new Array<number>(right.length + 1).fill(0)
+    for (let j = 1; j <= right.length; j += 1) {
+      if (left[i - 1] !== right[j - 1]) continue
+      const run = previous[j - 1]! + 1
+      current[j] = run
+      if (run > best) best = run
+    }
+    previous = current
+  }
+  return best
+}
+
+const KNOWLEDGE_DIRECT_MIN_SCORE = 12
+
+/**
+ * 强命中条目的直答：站内问答库已经把答案写好了（「图书馆入馆规则」「叮叮车是什么」
+ * 「电气工程与自动化学院」），检索也把它排在第一，但旧链路仍退化成“请打开原文核对”。
+ * 只有词面重合 ≥3 字才认，避免「教务管理系统」被教师条目的“管理”二字抢答。
+ */
+function knowledgeDirectLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const compactQuery = compactPlaceText(query)
+  if (compactQuery.length < 2) return null
+  // 只接单一主题的短问句：复合长问句（「抢课怎么抢…抢宿舍有什么流程吗」）要由检索链路
+  // 分点回答，这里整段返回一条条目会把「选课：/宿舍：」的复合答案冲掉。
+  if (compactQuery.length > 12) return null
+  // 吃/喝/食堂这类问句交给美食排序链路：这里的条目直答会把「有什么喝的」答成
+  // 考试违规处理办法（2026-11-25 扫描实测）。
+  // 同一批闸门还挡住奖学金金额、综测加分、报到停车这些已有专用链路的问句——
+  // 条目直答会把「综测…数学建模一等奖」答成总分构成，把「一等奖学金多少钱」答成评审条件。
+  if (/(?:吃|喝|食堂|餐厅|小吃|奶茶|夜宵|早餐|午餐|晚餐|美食|好吃|口味|饮品|学生街|加分|扣分|一等奖|二等奖|三等奖|平均成绩|报到|接站|停车|车停|水费|电费|水电|热水|水卡|洗澡|洗衣机|桌帘|窗帘|电器|家具|快递|地图|选课)/u.test(query)) return null
+  // 主题词闸门：条目必须覆盖问句的主题，否则高分只说明共享了机构名——「普照教学楼2号门」
+  // 曾因“教学楼”三字被「失物招领」条目接走（2026-11-25 回放实测）。
+  const rawTopic = compactQuery
+    .replace(/^(?:请问|问下|想问下|我想问|我想知道|学校|校内|校园)/u, '')
+    .replace(/^(?:有什么|有哪些|有没有|哪个|哪家|哪里|哪儿|怎么|如何|多少|几)/u, '')
+    .replace(/^(?:去|到|在|从)/u, '')
+  const topicKey = rawTopic.slice(0, 3)
+  const aliasProbes = expandKnowledgeAliases(query).split(/\s+/)
+    .map(value => compactPlaceText(value))
+    .filter(value => value.length >= 2)
+    .map(value => value.slice(0, 2))
+  // 长问句（≥4 字）不接受“两字别名命中”：那些问句本身已能给出 3 字主题，
+  // 放宽到两字会让「普通宿舍洗澡要水卡吗」被「舒适型和普通型宿舍收费与人数」接走、
+  // 「舒适型宿舍超额水费…」被收费条目接走（2026-11-25 单测实测）。
+  const probeFloor = compactQuery.length <= 3 ? 2 : 3
+  // 只认条目标题/问题/关键词，不认正文：正文里顺带提到「普通宿舍」的收费条目
+  // 会把「普通宿舍洗澡要水卡吗」整条接走（2026-11-25 单测实测）。
+  const topicCovered = (surface: string) => surface.includes(topicKey)
+    || aliasProbes.some(probe => probe.length >= probeFloor && surface.includes(probe))
+  // 取 40 条候选：教师条目一个学院就能占满前几名，多取才能越过教职工候选找到业务条目。
+  const top = assistantKnowledgeMatchesForQuery(client, expandKnowledgeAliases(query), 40).find((candidate) => {
+    if (candidate.score < KNOWLEDGE_DIRECT_MIN_SCORE) return false
+    // 教职工师资条目统一交给 facultyKnowledgeLocalAnswer / identityLocalAnswer 处理
+    // （含同名教师合并与学院名单），此处一律跳过，避免只取首条截断同名教师或把系统问句错配给教师。
+    if (candidate.category === '教职工') return false
+    if (candidate.answer.trim().length < 12) return false
+    const surface = compactPlaceText(`${candidate.title}${candidate.question}${candidate.keywords.join('')}`)
+    // 两个字的裸主题（「综测」）与条目最多重合两字，阈值随问句长度收紧。
+    if (longestCommonSubstringLength(compactQuery, surface) < Math.min(3, compactQuery.length)) return false
+    return topicCovered(surface)
+  })
+  if (!top) return null
+  return {
+    query,
+    mode: 'local',
+    answer: top.answer,
+    citations: [{
+      title: top.title,
+      url: top.publicUrl ?? `/search?knowledge=${encodeURIComponent(top.id)}`,
+      snippet: top.question,
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: Math.min(0.95, 0.72 + top.score / 120)
+  }
+}
+
+/**
+ * 「最近有什么新通知」：不编造时间线，只把已同步进库的官网通知按更新时间列出来。
+ */
+function latestCampusUpdateLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  if (!/(?:最近|最新|近期|这几天|有什么新).{0,8}(?:通知|公告|消息|动态|更新)|有什么(?:新)?通知/u.test(query)) return null
+  const rows = client.db.select({
+    id: knowledgeDocuments.id,
+    title: knowledgeDocuments.title,
+    originalUrl: knowledgeDocuments.originalUrl,
+    updatedAt: knowledgeDocuments.updatedAt
+  }).from(knowledgeDocuments)
+    .where(and(
+      eq(knowledgeDocuments.status, 'ready'),
+      or(
+        like(knowledgeDocuments.title, '%通知%'),
+        like(knowledgeDocuments.title, '%公告%'),
+        like(knowledgeDocuments.title, '%提醒%')
+      )
+    ))
+    .orderBy(desc(knowledgeDocuments.updatedAt))
+    .limit(4)
+    .all()
+  if (rows.length === 0) return null
+  return {
+    query,
+    mode: 'local',
+    answer: `站内最近同步的官网通知有 ${rows.length} 条：${rows.map(row => `《${row.title}》`).join('、')}。站内按抓取时间保存原文，具体执行时间以学校官网和辅导员通知为准。`,
+    citations: rows.map(row => ({
+      title: row.title,
+      url: row.originalUrl ?? `/search?knowledge=${encodeURIComponent(row.id)}`,
+      snippet: `${row.title}（官网原文）`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.8
+  }
+}
+
+/** 繁简归一：线上真实问句里有「查學院的入口」，差一个字就会整句落空。 */
+const TRAD_TO_SIMP: Record<string, string> = {
+  學: '学', 樓: '楼', 館: '馆', 電: '电', 機: '机', 課: '课', 績: '绩', 綜: '综', 測: '测',
+  團: '团', 會: '会', 醫: '医', 藥: '药', 圖: '图', 書: '书', 點: '点', 選: '选', 評: '评',
+  獎: '奖', 補: '补', 費: '费', 廳: '厅', 場: '场', 區: '区', 園: '园', 間: '间', 開: '开',
+  關: '关', 門: '门', 車: '车', 郵: '邮', 遞: '递', 體: '体', 藝: '艺', 語: '语', 數: '数'
+}
+function normalizeTraditionalQuery(value: string): string {
+  return value.replace(/[\u4e00-\u9fff]/gu, char => TRAD_TO_SIMP[char] ?? char)
+}
+
+/** 「学院入口 / department 条目 / 院办」这类问“去哪儿看”的问句，给索引页而不是原文片段。 */
+const CAMPUS_INDEX_TARGETS: ReadonlyArray<{
+  test: RegExp
+  path: string
+  label: string
+  kind: 'department' | 'club' | 'guide' | 'notice'
+}> = [
+  { test: /学院|教学单位|系部|院办|department/i, path: '/departments', label: '学院与教学单位', kind: 'department' },
+  { test: /社团|协会|俱乐部|club/i, path: '/clubs', label: '学生社团', kind: 'club' },
+  // 不要用「新生」这种宽词：会把「新生报到系统入口」抢成 /guides 索引。
+  { test: /指南|攻略|guide/i, path: '/guides', label: '校园指南', kind: 'guide' },
+  { test: /通知|公告|notice/i, path: '/notices', label: '通知公告', kind: 'notice' }
+]
+
+function campusIndexLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const normalized = normalizeTraditionalQuery(query)
+  if (!/(?:入口|索引|列表|页面|怎么找|目录|条目)/u.test(normalized)
+    && !/^(?:院办|系办|教务处|教务部|学工处|学生处|办公室)$/u.test(normalized.trim())) return null
+  // 「音乐协会入口在哪」这类指名了具体词条的问句：让给词条直答
+  // （/clubs/music-association），别退化成 /clubs 列表页。
+  const namedEntries = client.db.select({ title: contents.title })
+    .from(contents)
+    .where(eq(contents.status, 'published'))
+    .all()
+  const compactNamedQuery = compactLexiconTitle(normalized)
+  if (namedEntries.some((row) => {
+    const name = compactLexiconTitle(row.title)
+    return name.length >= 3 && compactNamedQuery.includes(name)
+  })) return null
+  const target = CAMPUS_INDEX_TARGETS.find(item => item.test.test(normalized))
+  if (!target) return null
+  const rows = client.db.select({ title: contents.title })
+    .from(contents)
+    .where(and(eq(contents.status, 'published'), eq(contents.kind, target.kind)))
+    .all()
+  const names = rows.map(row => row.title)
+  const listing = names.length > 0 ? `已收录 ${names.length} 条：${names.slice(0, 10).join('、')}${names.length > 10 ? ' 等' : ''}。` : ''
+  return {
+    query,
+    mode: 'local',
+    answer: `${target.label}的入口在 ${target.path}。${listing}点开下方链接可以按分类浏览，也可以直接问具体名称（例如“管理学院”）。`,
+    citations: [{
+      title: target.label,
+      url: target.path,
+      snippet: `${target.label}索引页`,
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.86
+  }
+}
+
+/**
+ * 附近商家兜底：「附近有没有卖文具的店」「推荐个打印店」「小二朗鸡排」。
+ * 站内只收录带坐标的商家，没有点评数据；与其退回“请打开原文”，不如说清收录范围并给入口。
+ */
+function nearbyShopFallbackLocalAnswer(query: string): ApiAssistantResponse | null {
+  const asksNearbyShop = /(?:附近|旁边|周边|校内|学校).{0,12}(?:卖|买|店|超市|文具|打印|复印|理发|剪发|小吃|奶茶|水果|药)/u.test(query)
+    || /推荐.{0,6}(?:打印|理发|文具|吃饭|店)/u.test(query)
+  const namedShop = !/(?:推荐|哪家|哪里|什么|有没有|求)/u.test(query)
+    && /(?:鸡排|奶茶|椰奶|烧腊|面馆|汉堡|烧烤|咖啡|便利店|文具店|打印店|理发店)$/u.test(query.trim())
+  if (!asksNearbyShop && !namedShop) return null
+  const subject = query.trim()
+  const answer = namedShop
+    ? `站内没有收录「${subject}」这家店的资料，商家营业状态和位置变化快，站内不保留点评。可以在校园地图的“附近”栏目按分类看已收录的餐饮与生活服务，或用地图 App 搜店名确认当天是否营业。`
+    : '校园地图的“附近”栏目按餐饮、购物、快递、生活服务分类收录了校内外商家，附坐标但不做主观排行。点开链接按分类筛选；文具、打印、理发这类小店营业时间变动快，出发前用地图 App 确认更稳。'
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [{
+      title: '附近商家与生活服务',
+      url: '/nearby',
+      snippet: '按分类浏览校内外餐饮、购物、快递与生活服务。',
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.6
+  }
+}
+
+/**
+ * 文档标题直答（「专业介绍」）：站内抓了几十篇官网资料，标题就是用户打的词，但检索
+ * 只把它们当证据，最后退成“请打开原文核对”。这里按标题给出索引与原文链接。
+ */
+function documentTitleLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const compactQuery = compactPlaceText(query)
+  if (compactQuery.length < 3 || compactQuery.length > 24) return null
+  if (/(?:怎么|如何|多少|几|哪|什么|为什么|吗|呢|要不要|能不能|在哪|位置)/u.test(query)) return null
+  const rows = client.db.select({
+    id: knowledgeDocuments.id,
+    title: knowledgeDocuments.title,
+    originalUrl: knowledgeDocuments.originalUrl,
+    status: knowledgeDocuments.status
+  }).from(knowledgeDocuments)
+    .where(like(knowledgeDocuments.title, `%${compactQuery}%`))
+    .all()
+    .filter(row => row.status === 'ready' || row.status === 'archived')
+  if (rows.length === 0) return null
+  const exact = rows.filter(row => compactPlaceText(row.title) === compactQuery)
+  const picked = exact.length > 0 ? exact : rows
+  const label = exact.length > 0 ? query.trim() : picked[0]!.title
+  const hosts = [...new Set(picked
+    .map(row => row.originalUrl ?? '')
+    .map((url) => {
+      try {
+        return new URL(url).hostname.split('.')[0] ?? ''
+      } catch {
+        return ''
+      }
+    })
+    .filter(Boolean))]
+  const hostNote = hosts.length > 0 ? `（来源：${hosts.slice(0, 6).join('、')} 等学院站点）` : ''
+  return {
+    query,
+    mode: 'local',
+    answer: `站内收有 ${picked.length} 篇题为「${label}」的官网资料${hostNote}，按学院/专业分开收录。想查具体专业，直接问“某某学院有哪些专业”；也可以点开下面的原文逐篇看。`,
+    citations: picked.slice(0, 4).map(row => ({
+      title: row.title,
+      url: row.originalUrl ?? `/search?knowledge=${encodeURIComponent(row.id)}`,
+      snippet: `${row.title}（官网原文）`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.82
+  }
+}
+
+/**
+ * 主题路由：一批线上真实问句（「晚上10点后能回学校吗」「查寝」「成绩哪里搜索」）
+ * 与已审核条目的字面重合太少，检索打分永远选不中，最后退成“请打开原文核对”或
+ * “资料没找到”。这里按主题把它们接到已核验条目上，答案仍然只来自 entries 表。
+ */
+const KNOWLEDGE_TOPIC_ROUTES: ReadonlyArray<{ test: RegExp, titles: readonly string[], note?: string }> = [
+  {
+    test: /(?:晚上|夜里|半夜|凌晨|十点|10点|11点|太晚).{0,10}(?:回|进|到|赶).{0,4}(?:学校|校|宿舍)|门禁|几点(?:关|锁)门|锁门|晚归|夜不归宿/u,
+    titles: ['宿舍楼锁门', '迟归和夜不归宿的认定']
+  },
+  {
+    test: /查寝|宿舍检查|卫生检查|宿舍打分|查宿舍/u,
+    titles: ['宿舍楼锁门', '迟归和夜不归宿的认定'],
+    note: '站内没有单独的“查寝评分细则”，下面是与查寝直接相关的宿舍时间与晚归规定。'
+  },
+  {
+    test: /(?:成绩|分数|绩点|排名).{0,8}(?:查|在哪|哪里|怎么|入口|系统)|查成绩|成绩查询/u,
+    titles: ['综测成绩查询']
+  },
+  {
+    test: /看病|诊所|校医院|医务室|生病|发烧|买药|开药/u,
+    titles: ['仰恩大学校医务室情况', '校医院夜间与药房']
+  },
+  {
+    // 只接「教务管理系统/教务系统怎么用/喜鹊儿」：泛泛的「选课用什么系统」有专链，
+    // 抢过来会把带“选课：”分点的答案换成一句官网入口说明（2026-11-25 单测实测）。
+    test: /教务管理系统|教务系统(?:怎么|在哪|入口|密码)|喜鹊儿/u,
+    titles: ['喜鹊儿、教务系统与公共选修课']
+  },
+  {
+    test: /国家奖学金|国奖|国励|励志奖学金|助学金/u,
+    titles: ['仰恩大学国家奖学金/励志奖学金多少']
+  },
+  {
+    test: /床.{0,3}(?:多宽|多长|多大|尺寸)|宿舍尺寸|床垫|床帘|被褥/u,
+    titles: ['床垫和床上用品怎么准备']
+  },
+  {
+    // “纪检部除了检查，自己班升旗也要去吗”这类长句进不了词条直答（长度闸门），
+    // 由主题路由接住；升旗职责与纪检部工作细则在站内只有前者有据可查。
+    test: /纪检部|升旗|升国旗|国旗班|值勤/u,
+    titles: ['升旗仪式谁负责']
+  },
+  {
+    test: /^尺寸$|尺寸(?:是多少|怎么查|在哪查)|各种尺寸/u,
+    titles: ['尺寸规格怎么查']
+  }
+]
+
+function knowledgeTopicRouteAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const route = KNOWLEDGE_TOPIC_ROUTES.find(item => item.test.test(query))
+  if (!route) return null
+  const rows = client.db.select({
+    id: assistantKnowledgeEntries.id,
+    title: assistantKnowledgeEntries.title,
+    answer: assistantKnowledgeEntries.answer,
+    publicUrl: assistantKnowledgeEntries.publicUrl,
+    confidence: assistantKnowledgeEntries.confidence
+  }).from(assistantKnowledgeEntries)
+    .where(and(
+      eq(assistantKnowledgeEntries.isActive, true),
+      or(...route.titles.map(title => like(assistantKnowledgeEntries.title, `%${title}%`)))
+    ))
+    .all()
+  const ordered = route.titles
+    .map(title => rows.find(row => row.title.includes(title)))
+    .filter((row): row is typeof rows[number] => Boolean(row))
+  if (ordered.length === 0) return null
+  const primary = ordered[0]!
+  const secondary = ordered.slice(1, 2).map(row => row.answer.trim()).filter(text => text.length >= 12)
+  const body = [route.note ?? '', primary.answer.trim(), ...secondary].filter(Boolean).join(' ')
+  const closing = /以.+为准|不是(?:学校)?(?:正式)?通知/u.test(body) ? '' : ' 具体以辅导员、宿管或学校最新通知为准。'
+  return {
+    query,
+    mode: 'local',
+    answer: `${body}${closing}`,
+    citations: ordered.map(row => ({
+      title: row.title,
+      url: row.publicUrl ?? `/search?knowledge=${encodeURIComponent(row.id)}`,
+      snippet: row.answer.trim().slice(0, 120),
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.9
+  }
+}
+
 function campusNavigationGuideLocalAnswer(query: string): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).replace(/[。！？!?，,、；;\s]+$/u, '')
   // 问交通方式（「怎么去/坐什么车」）或去市区/车站的,交给 transitBusAnswer 与
@@ -6218,6 +6876,27 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): Assis
     evidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
     [0, ...relatedEvidence.map(({ index }) => index)]
   )
+  // 裸实体词（“闲楼/惟勤/普贤楼/汪明/特测”）在站内确实没有资料：与其让用户点开一篇
+  // 不相关的原文，不如直说没收录并给下一步。带问法的问句仍走原文核对文案。
+  const compactGapQuery = compactPlaceText(query)
+  const isBareEntity = compactGapQuery.length >= 2
+    && compactGapQuery.length <= 8
+    && !/(?:怎么|如何|多少|几|哪|什么|为什么|吗|呢|要不要|能不能|在哪|位置|是谁|介绍|流程|条件|时间|要求|通知|尺寸|费用|标准)/u.test(query)
+    // 证据标题已经覆盖了问句的首词（「宿舍尺寸」vs《宿舍楼层与电梯》）说明站内有这条线，
+    // 只是没答到点子上；这时说“没收录”会误导。
+    && !evidence.slice(0, 3).some(item => item.title.includes(compactGapQuery.slice(0, 2)))
+  if (isBareEntity) {
+    return {
+      query,
+      mode: 'local',
+      answer: `站内公开资料里还没有收录「${query.trim()}」。如果是校园地点，可以打开校园地图按新区/旧区找同类地点；如果是人或具体事项，换个说法（例如带上所属学院、部门全称）更容易命中，也可以从“联系我们”提交。`,
+      citations: resolved.citations,
+      citationStatus: resolved.citationStatus,
+      usedWebSearch: false,
+      confidence: 0.35,
+      evidenceGap: true
+    }
+  }
   return {
     query,
     mode: 'local',
@@ -6930,6 +7609,57 @@ export function blockedAssistantResponse(rawQuery: string): AssistantAnswerRespo
 }
 
 /**
+ * 乱码问句（客户端编码坏了，线上 assistant_runs 里确有「�����ʲô��֪֪」这种行）。
+ * 这种查询没法判断意图，检索只会返回“可能相关”的噪音，所以直接让用户重发。
+ */
+export function garbledQueryResponse(rawQuery: string): AssistantAnswerResponse {
+  return {
+    query: normalizeAssistantQuery(rawQuery),
+    mode: 'local',
+    answer: '这条问题传过来时编码坏了，没能读出完整文字。请把问题重新输入一次；如果是从别处复制的，先在输入框里粘一遍再发送。',
+    citations: [],
+    citationStatus: 'none',
+    usedWebSearch: false,
+    confidence: 0,
+    blocked: false
+  }
+}
+
+/**
+ * 早路（地图/词条/条目/主题路由/文档索引…）在检索之前就出答案，不经过
+ * buildLocalResponse 的 trace 装配，retrievalPath 会是空的。后台统计与前端进度
+ * 依赖这两个字段，所以统一补齐成一次「本地库命中」。
+ */
+function asEarlyLocalAnswer(raw: ApiAssistantResponse): ApiAssistantResponse {
+  // 答案提到迎新系统时补一条官方入口引用：早路不经过 cacheResponse 的那段补全，
+  // 少了这条引用，「迎新系统在哪」的回答就没有可点的官方链接。
+  const response = raw.answer.includes('迎新系统')
+    && !raw.citations.some(item => item.url === officialWelcomeSystemUrl)
+    ? {
+        ...raw,
+        citations: [...raw.citations, {
+          title: '学校官方迎新系统',
+          url: officialWelcomeSystemUrl,
+          snippet: '学校2026级官方新生问答公布的迎新系统登录入口。',
+          source: 'site' as const
+        }]
+      }
+    : raw
+  if (response.retrievalPath && response.trace?.length) return response
+  return {
+    ...response,
+    retrievalPath: response.retrievalPath ?? 'local_database',
+    trace: response.trace?.length
+      ? response.trace
+      : [
+          { stage: 'query_analysis', label: '识别问题', durationMs: 0, status: 'completed' },
+          { stage: 'local_database', label: '站内资料', durationMs: 0, status: 'completed' },
+          { stage: 'answer_generation', label: '整理回答', durationMs: 0, status: 'completed' }
+        ]
+  }
+}
+
+/**
  * Shared OpenAI-compatible chat transport for the assistant gateway.
  *
  * Keeps the SSRF gate, concurrency cap and circuit breaker in ONE place so
@@ -7491,10 +8221,18 @@ function dormBedEvidenceGapResponse(
 }
 
 function localEvidenceGapResponse(query: string): ApiAssistantResponse {
+  const compactQuery = compactPlaceText(query)
+  // 裸实体词（「闲楼/电机室/普贤楼」）问的是“站内有没有这条”，直说没收录比
+  // “换一个更具体的关键词”更有用。
+  const isBareEntity = compactQuery.length >= 2
+    && compactQuery.length <= 8
+    && !/(?:怎么|如何|多少|几|哪|什么|为什么|吗|呢|要不要|能不能|在哪|位置|是谁|介绍|流程|条件|时间|要求|通知)/u.test(query)
   return {
     query,
     mode: 'local',
-    answer: '内置资料暂时没有找到可以确认这个问题的内容。建议换一个更具体的关键词，或通过“联系我们”提交问题和可靠来源。',
+    answer: isBareEntity
+      ? `站内公开资料里还没有收录「${query.trim()}」。校园地图的收录范围是已核对坐标的地点，可以按新区/旧区分组浏览；如果它属于某个学院或部门，问全称更容易命中，也可以从“联系我们”补充线索。`
+      : '内置资料暂时没有找到可以确认这个问题的内容。建议换一个更具体的关键词，或通过“联系我们”提交问题和可靠来源。',
     citations: [{
       title: '联系整理者',
       url: '/contact',
@@ -7575,38 +8313,61 @@ async function answerCampusQuestionCore(
   hooks: AssistantRunHooks = {}
 ): Promise<ApiAssistantResponse> {
   if (containsPromptInjection(rawQuery) || containsCredentialSeeking(rawQuery)) return blockedAssistantResponse(rawQuery)
+  // 客户端编码坏掉的问句（U+FFFD 替换符）没有可判断的意图，先请用户重发。
+  if (rawQuery.includes('\uFFFD')) return garbledQueryResponse(rawQuery)
   // Built-in transit (K2/K6) answers must fire before any retrieval/web path:
   // "坐几路车到仰恩" was reaching web search (5.9s) and missing the answer.
   const earlyTransit = transitBusAnswer(rawQuery)
-  if (earlyTransit) return earlyTransit
+  if (earlyTransit) return asEarlyLocalAnswer(earlyTransit)
   // Single-shop food detail ("古茗怎么样/塔斯汀好吃吗") must be answered from
   // local ratings + seed cards, NOT routed to web search (which takes seconds
   // and returns nothing useful). Match the shop against place_amap_ratings.
   const earlyShopDetail = earlyShopDetailAnswer(client, rawQuery)
-  if (earlyShopDetail) return earlyShopDetail
+  if (earlyShopDetail) return asEarlyLocalAnswer(earlyShopDetail)
   // 快递取件问法（“中通在哪取/取快递去哪”）→ 品牌站/全量驿站列表 + 地图链接。
   // 放在周边 POI 之前：否则“取快递去哪”会被周边场所按“快递”两字片段随机命中单店。
   const earlyCourierStation = courierStationLocalAnswer(client, rawQuery)
-  if (earlyCourierStation) return earlyCourierStation
+  if (earlyCourierStation) return asEarlyLocalAnswer(earlyCourierStation)
   // 周边 POI 问句（"台球/附近台球/8洛克台球在哪"）：本地地图记录可直接作答，
   // 不必等检索/网页。
   const earlyNearbyVenue = nearbyVenueLocalAnswer(client, rawQuery)
-  if (earlyNearbyVenue) return earlyNearbyVenue
+  if (earlyNearbyVenue) return asEarlyLocalAnswer(earlyNearbyVenue)
   // 英文开学问法走早路（gap 分支不会进入 buildLocalResponse）
   const earlyEnglishOpening = englishOpeningDateLocalAnswer(rawQuery)
-  if (earlyEnglishOpening) return earlyEnglishOpening
+  if (earlyEnglishOpening) return asEarlyLocalAnswer(earlyEnglishOpening)
   // 裸地点名词（“创业园/新区操场”）精确命中地图收录 → 直接定位简介
   const earlyPlaceName = mapPlaceNameLocalAnswer(client, rawQuery)
-  if (earlyPlaceName) return earlyPlaceName
+  if (earlyPlaceName) return asEarlyLocalAnswer(earlyPlaceName)
+  // 裸词条（“国旗班/红十字会/管理学院/乒乓球”）→ contents 词条简介 + 入口
+  const earlyContentLexicon = contentLexiconLocalAnswer(client, rawQuery)
+  if (earlyContentLexicon) return asEarlyLocalAnswer(earlyContentLexicon)
+  // 问答库强命中（“去图书馆应该注意什么/叮叮车上车点/电气学院”）→ 直接用条目答案
+  const earlyKnowledgeDirect = knowledgeDirectLocalAnswer(client, rawQuery)
+  if (earlyKnowledgeDirect) return asEarlyLocalAnswer(earlyKnowledgeDirect)
+  // 主题路由（“晚上10点后能回学校吗/查寝/成绩哪里搜索”）→ 对接已核验条目
+  const earlyKnowledgeRoute = knowledgeTopicRouteAnswer(client, rawQuery)
+  if (earlyKnowledgeRoute) return asEarlyLocalAnswer(earlyKnowledgeRoute)
+  // 文档标题直答（“专业介绍”）→ 官网资料索引 + 原文链接
+  const earlyDocumentTitle = documentTitleLocalAnswer(client, rawQuery)
+  if (earlyDocumentTitle) return asEarlyLocalAnswer(earlyDocumentTitle)
+  // 索引入口（“查學院的入口 / department 条目 / 院办”）→ 对应列表页
+  const earlyCampusIndex = campusIndexLocalAnswer(client, rawQuery)
+  if (earlyCampusIndex) return asEarlyLocalAnswer(earlyCampusIndex)
+  // 附近商家兜底（“推荐个打印店 / 海南椰奶”）→ 说清收录范围 + 给入口
+  const earlyNearbyShop = nearbyShopFallbackLocalAnswer(rawQuery)
+  if (earlyNearbyShop) return asEarlyLocalAnswer(earlyNearbyShop)
+  // 「最近有什么新通知」→ 列出已同步的官网通知，不编时间线
+  const earlyLatestUpdate = latestCampusUpdateLocalAnswer(client, rawQuery)
+  if (earlyLatestUpdate) return asEarlyLocalAnswer(earlyLatestUpdate)
   // 「我在X门口，要去Y」校内导航问句:给地图路线引导,不编造步行耗时。
   const earlyNavigationGuide = campusNavigationGuideLocalAnswer(rawQuery)
-  if (earlyNavigationGuide) return earlyNavigationGuide
+  if (earlyNavigationGuide) return asEarlyLocalAnswer(earlyNavigationGuide)
   // 实时天气/时钟引导（不接实时数据但阻止美食榜单劫持与无意义兜底）
   const earlyWeatherClock = weatherAndClockLocalAnswer(rawQuery)
-  if (earlyWeatherClock) return earlyWeatherClock
+  if (earlyWeatherClock) return asEarlyLocalAnswer(earlyWeatherClock)
   // 裸主题词（"奖学金/社团"）优先给概览条目，而不是某个细节条目
   const earlyTopicOverview = earlyTopicOverviewAnswer(client, rawQuery)
-  if (earlyTopicOverview) return earlyTopicOverview
+  if (earlyTopicOverview) return asEarlyLocalAnswer(earlyTopicOverview)
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],

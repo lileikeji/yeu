@@ -1,5 +1,6 @@
 import './load-env'
 import { closeDatabase, getDatabase } from '../server/database/client'
+import { assistantAnswerCache } from '../server/database/schema'
 import { answerCampusQuestion } from '../server/modules/assistant/service'
 
 /**
@@ -231,7 +232,56 @@ const CASES: SweepCase[] = [
   { name: '清真的', group: '综合', q: '有清真食堂吗', require: ['清真'], forbid: ['根据校园内已收录商家的评分数据'] },
   { name: '食堂在哪吃', group: '综合', q: '校内餐厅有哪些', foodList: true, runs: 2 },
   { name: '贵的大餐', group: '综合', q: '想搓一顿大餐', foodList: true, runs: 2 },
-  { name: '生日请客', group: '综合', q: '生日请客去哪吃', foodList: true, noDrinkShops: true, runs: 2 }
+  { name: '生日请客', group: '综合', q: '生日请客去哪吃', foodList: true, noDrinkShops: true, runs: 2 },
+
+  // ── 线上 NO_EVIDENCE 真实问句回归（2026-11-24 从 assistant_runs 导出）────
+  // 这些问句在线上返回过 NO_EVIDENCE 或“请打开原文核对”，逐条固定住修复结果。
+  { name: '线上-普照楼', group: '线上回归', q: '普照楼', require: ['普照'] },
+  { name: '线上-普照教学楼2号门', group: '线上回归', q: '普照教学楼2号门', require: ['普照'] },
+  { name: '线上-吉隆楼错字', group: '线上回归', q: '吉隆楼', require: ['吉龙'] },
+  { name: '线上-仰恩楼', group: '线上回归', q: '仰恩楼', require: ['仰恩教学楼'] },
+  { name: '线上-行政楼多义', group: '线上回归', q: '行政楼', require: ['行政楼'] },
+  { name: '线上-旧区报告厅', group: '线上回归', q: '旧区报告厅', require: ['多功能报告厅'] },
+  { name: '线上-基金操场', group: '线上回归', q: '基金操场', require: ['仰恩基金会体育场'] },
+  { name: '线上-有几个操场', group: '线上回归', q: '有几个操场', require: ['湖边操场'] },
+  { name: '线上-叮叮车上车点', group: '线上回归', q: '叮叮车上车点', require: ['公交车上车点'] },
+  { name: '线上-小白车', group: '线上回归', q: '小白车', require: ['叮叮车'] },
+  { name: '线上-管理学院', group: '线上回归', q: '管理学院', require: ['管理学院'] },
+  { name: '线上-红十字', group: '线上回归', q: '红十字', require: ['红十字'] },
+  { name: '线上-国旗班', group: '线上回归', q: '国旗班', require: ['国旗班'] },
+  { name: '线上-乒乓球', group: '线上回归', q: '乒乓球', require: ['乒乓'] },
+  { name: '线上-电气学院', group: '线上回归', q: '电气学院', require: ['电气工程'] },
+  { name: '线上-教务管理系统', group: '线上回归', q: '教务管理系统', require: ['教务'] },
+  { name: '线上-综测裸词', group: '线上回归', q: '综测', require: ['综合测评|综测'] },
+  { name: '线上-查寝', group: '线上回归', q: '查寝', require: ['宿舍|晚归'] },
+  { name: '线上-夜间返校', group: '线上回归', q: '晚上10点后能回学校吗', require: ['门禁|23:00|锁门'] },
+  { name: '线上-成绩哪里搜', group: '线上回归', q: '成绩哪里搜索', require: ['成绩'] },
+  { name: '线上-附近诊所', group: '线上回归', q: '新区附近诊所，看病', require: ['医务|医院'] },
+  { name: '线上-专业介绍', group: '线上回归', q: '专业介绍', require: ['专业介绍'] },
+  { name: '线上-学院入口繁体', group: '线上回归', q: '查學院的入口', require: ['学院'] },
+  { name: '线上-院办', group: '线上回归', q: '院办', require: ['学院'] },
+  { name: '线上-department', group: '线上回归', q: 'department 条目', require: ['学院'] },
+  { name: '线上-最新通知', group: '线上回归', q: '最近有什么新通知', require: ['通知'] },
+  { name: '线上-打印店', group: '线上回归', q: '推荐个打印店', require: ['附近'] },
+  { name: '线上-未收录店铺', group: '线上回归', q: '小二朗鸡排', require: ['没有收录'] },
+  { name: '线上-无字碑广场', group: '线上回归', q: '无字碑', require: ['无字碑广场', '第三教学区'] },
+  { name: '线上-无字碑高德可搜', group: '线上回归', q: '无字碑在哪', require: ['高德'] },
+  { name: '线上-运动会不问学科竞赛', group: '线上回归', q: '第三十五届运动会拔河比赛结果', forbid: ['学科与技能竞赛管理办法'] },
+  { name: '线上-思齐讲堂', group: '线上回归', q: '思齐', require: ['思齐讲堂', '和昌'] },
+  { name: '线上-普贤楼即创业园', group: '线上回归', q: '普贤楼', require: ['创业园'] },
+  { name: '线上-普贤楼释义', group: '线上回归', q: '普贤楼是什么楼', require: ['创业园', '第一教学区'] },
+  { name: '线上-闲楼指祥贤楼', group: '线上回归', q: '闲楼', require: ['祥贤'] },
+  { name: '线上-惟勤讲堂', group: '线上回归', q: '惟勤', require: ['惟勤讲堂', '和昌'] },
+  { name: '线上-博雅讲堂', group: '线上回归', q: '博雅', require: ['博雅讲堂', '新区'] },
+  { name: '线上-新区广场即碑林广场', group: '线上回归', q: '新区广场', require: ['碑林广场'] },
+  { name: '线上-新区广场释义', group: '线上回归', q: '新区广场在哪', require: ['碑林广场'] },
+  { name: '线上-和昌楼新区优先', group: '线上回归', q: '新区和昌楼在哪', require: ['新区和昌教学楼'] },
+  { name: '线上-预约教室', group: '线上回归', q: '预约教室', require: ['教室借用', '审批'] },
+  { name: '线上-纪检部升旗', group: '线上回归', q: '那纪检部除了参加平常的检查，是不是自己班升旗也要去啊', require: ['国旗班'] },
+  { name: '线上-特测即体测', group: '线上回归', q: '特测', require: ['体测'] },
+  { name: '线上-公共电脑室', group: '线上回归', q: '公共电脑室', require: ['实验教学平台'] },
+  { name: '线上-汪明', group: '线上回归', q: '汪明', require: ['JY20170005'] },
+  { name: '线上-裸尺寸', group: '线上回归', q: '尺寸', require: ['床'] }
 ]
 
 const emptyAssistantConfig = {
@@ -262,6 +312,9 @@ const databasePath = databaseArg ? databaseArg.split('=')[1] : '.data/sweep/yeu-
 const onlyGroup = process.argv.find(arg => arg.startsWith('--group='))?.split('=')[1]
 
 const client = getDatabase(databasePath)
+// 快照库里留着上次扫描写下的答案缓存；不清掉的话，改了提示/闸门也只会读到旧答案
+// （2026-11-25 实测：闸门改动后的第二轮扫描全部命中上一轮的错答）。
+client.db.delete(assistantAnswerCache).run()
 const failures: Failure[] = []
 let checked = 0
 

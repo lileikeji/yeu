@@ -1373,6 +1373,170 @@ export const sportsElectiveKnowledge: AssistantKnowledgeSeed[] = [
   }
 ]
 
+// 线上 assistant_runs 里 NO_EVIDENCE 的 15 条问句逐个回放后，剩下的都是「站内有一手
+// 官网资料、但没有条目把它们接住」的地名与制度：无字碑广场、普贤楼、祥贤楼、惟勤 /
+// 博雅 / 思齐讲堂、教室借用、升旗值勤、体测、新区广场、公共电脑室与实验室机房。
+// 依据文档：xl（心理健康咨询中心）、fxy（法学院）、ai（工程技术学院）、glxy（管理学院）、
+// youth（校团委）、metc（现代教育技术中心）、tiyu（体育教研部）与建校史资料。
+export const campusPlaceAndRuleKnowledge: AssistantKnowledgeSeed[] = [
+  {
+    id: 'campus-place-wuzibei-square',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '无字碑广场在哪里',
+    question: '无字碑广场在哪？无字碑是什么地方？',
+    answer: '无字碑广场在仰恩大学第三教学区，是校内主要的露天活动场地：元宵文化艺术节的游园会和晚会、校团委的社团嘉年华外场、经济学院的荧光夜跑都在这里办。高德地图上能直接搜到「无字碑」这个地标；本站校园地图没有单独的无字碑点位，去现场按高德点位走即可。',
+    keywords: ['无字碑', '无字碑广场', '广场', '第三教学区', '新区', '活动场地', '元宵', '社团嘉年华', '荧光夜跑', '晚会', '高德'],
+    publicUrl: 'https://youth.yeu.edu.cn/2025/1029/c530a53000/page.htm',
+    confidence: 92,
+    sourceNote: '校团委第六届社团嘉年华、管理学院元宵花灯展、经济学院荧光夜跑等官网报道均写明活动在第三教学区无字碑广场举行；高德地图上的「无字碑」地标经校内人 2026-11-25 确认。'
+  },
+  {
+    id: 'campus-place-puxian-building',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '普贤楼在哪里',
+    question: '普贤楼在哪？普贤楼是哪个教学区的？',
+    answer: '普贤楼在第一教学区，是教学楼：一楼有面向全校的活动场地，楼内设实验室，比如普贤楼 301 实验室。这个位置在校园地图上标的是「创业园」，地图里搜「创业园」就能定位到普贤楼这一片。心理健康咨询中心的“心情向暖，拥抱自我”心理游园会同时在第三教学区普照楼一楼 3 号门和第一教学区普贤楼一楼举办，“学创杯”财务决策校内选拔赛在普贤楼 301 实验室进行。',
+    keywords: ['普贤楼', '普贤', '创业园', '第一教学区', '旧区', '教学楼', '301实验室', '心理游园会'],
+    publicUrl: 'https://xl.yeu.edu.cn/2026/0601/c562a56481/page.htm',
+    confidence: 92,
+    sourceNote: '心理健康咨询中心心理游园会报道写明“第一教学区普贤楼一楼”；学创杯校内选拔赛报道写明“普贤楼 301 实验室”。'
+  },
+  {
+    id: 'campus-place-xiangxian-building',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '祥贤楼是什么楼',
+    question: '祥贤楼在哪？闲楼是哪栋楼？',
+    answer: '祥贤楼是教学楼，和仰恩楼、吉龙楼一样承担普通教室和大型集中测评考场：2025 年全国学生心理健康监测就选了仰恩楼、吉龙楼、祥贤楼共 16 间教室作为测试场地。口语里说的“闲楼”一般指祥贤楼。',
+    keywords: ['祥贤楼', '闲楼', '教学楼', '考场', '心理健康监测'],
+    publicUrl: 'https://xl.yeu.edu.cn/2025/1030/c563a53045/page.htm',
+    confidence: 90,
+    sourceNote: '《2025 年全国学生心理健康监测仰恩大学组织实施方案》写明测试场地为仰恩楼、吉龙楼、祥贤楼共 16 间教室。'
+  },
+  {
+    id: 'campus-place-weiqin-hall',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '惟勤讲堂在哪里',
+    question: '惟勤讲堂在哪？惟勤讲堂是哪个楼的？',
+    answer: '惟勤讲堂在和昌教学楼内，是“仰恩大讲堂”系列讲座的常用场地，第 85 讲、经济学院创新创业大赛决赛路演都在这里办。法学院的通知写作“新区和昌楼惟勤讲堂 101”，说明讲堂在第三教学区那栋和昌楼的一层 101——和昌教学楼在新旧区各有一栋，校园地图分开标注，通知写“新区和昌楼”时指第三教学区这栋。具体讲座安排以主办学院通知为准。',
+    keywords: ['惟勤', '惟勤讲堂', '和昌教学楼', '和昌楼', '新区和昌楼', '讲堂', '仰恩大讲堂', '讲座'],
+    publicUrl: 'https://fxy.yeu.edu.cn/2024/0412/c46a43096/page.htm',
+    confidence: 90,
+    sourceNote: '法学院就业讲座通知写明“新区和昌楼惟勤讲堂 101”；学校学术空间列出“和昌教学楼惟勤讲堂”举办仰恩大讲堂第 85 讲。'
+  },
+  {
+    id: 'campus-place-boya-hall',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '博雅讲堂在哪里',
+    question: '博雅讲堂在哪？博雅讲堂是哪个楼的？',
+    answer: '博雅讲堂在第三教学区的和昌教学楼内。和昌教学楼在新旧区各有一栋，讲堂所在的这栋在新区（第三教学区），校园地图里搜“新区和昌教学楼”才是这一栋。工程技术学院团委换届暨表彰大会、法学院与宏船书院、致远书院合办的就业安全法律讲座都在博雅讲堂举行。',
+    keywords: ['博雅', '博雅讲堂', '和昌教学楼', '新区和昌楼', '第三教学区', '讲堂', '讲座'],
+    publicUrl: 'https://ai.yeu.edu.cn/2025/1210/c1446a57051/page.htm',
+    confidence: 90,
+    sourceNote: '工程技术学院团委换届报道写明“第三教学区博雅讲堂”；法学院就业安全讲座报道写明“第三教学区和昌教学楼博雅讲堂”。'
+  },
+  {
+    id: 'campus-place-siqi-hall',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '思齐讲堂在哪里',
+    question: '思齐讲堂在哪？思齐讲堂是哪个楼的？',
+    answer: '思齐讲堂在第三教学区和昌楼内，法学院 2025 级新生入学教育暨专业介绍讲座就在这里举办。和昌教学楼在新旧区各有一栋，讲堂所在的这栋在新区（第三教学区），校园地图里搜“新区和昌教学楼”。讲座安排以主办学院通知为准。',
+    keywords: ['思齐', '思齐讲堂', '和昌楼', '新区和昌楼', '第三教学区', '讲堂', '讲座'],
+    publicUrl: 'https://fxy.yeu.edu.cn/2025/0915/c42a51499/page.htm',
+    confidence: 88,
+    sourceNote: '法学院 2025 级新生入学教育讲座报道写明“第三教学区和昌楼思齐讲堂”。'
+  },
+  {
+    id: 'campus-place-xinqu-square',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '新区广场在哪里',
+    question: '新区广场在哪？学校有新区广场吗？',
+    answer: '校内说的“新区广场”就是地图上的“碑林广场”，在第三教学区（新区），露天活动多在这一带办；校园地图里搜“碑林广场”即可定位。另外第三教学区还有无字碑一带的露天场地，大型晚会和社团嘉年华常在那边。',
+    keywords: ['新区广场', '碑林广场', '新区', '第三教学区', '广场', '集合'],
+    publicUrl: 'https://youth.yeu.edu.cn/2025/1029/c530a53000/page.htm',
+    confidence: 86,
+    sourceNote: '校内人 2026-11-25 确认「新区广场」即校园地图中的「碑林广场」；第三教学区的露天活动场地在官网报道中另写作无字碑广场。'
+  },
+  {
+    id: 'campus-rule-classroom-booking',
+    kind: 'official_reference',
+    category: '教学管理',
+    title: '教室怎么借用',
+    question: '怎么借教室？预约教室要什么流程？',
+    answer: '校内教室和实验室对师生开放。按《仰恩大学教学楼日常管理工作规定》第十四条，正常教学之外的活动，比如班会、教学研讨、课外辅导、考试及学校批准的其他活动，按“谁使用、谁负责”由使用方按教学、学生和宣传制度完成审批，教学楼管理员凭审批信息提供教室。教室借用和教室资源调配归教务处，多媒体设备的使用细节见《仰恩大学公共教室使用管理细则》。',
+    keywords: ['教室借用', '借教室', '预约教室', '申请教室', '教室申请', '公共教室', '自习', '班会', '审批'],
+    publicUrl: 'https://metc.yeu.edu.cn/2025/0804/c1242a50864/page.htm',
+    confidence: 92,
+    sourceNote: '《仰恩大学教学楼日常管理工作规定》第六章第十四条；《仰恩大学公共教室使用管理细则》（仰大实〔2025〕5 号配套）。'
+  },
+  {
+    id: 'campus-rule-flag-raising',
+    kind: 'official_reference',
+    category: '学生工作',
+    title: '升旗仪式谁负责',
+    question: '升旗是谁负责的？纪检部要参加升旗吗？',
+    answer: '学校每天升国旗、唱国歌，升旗由校国旗班专门负责，这是创校时就定下的制度。站内没有纪检部的工作细则；学生会、自律会的日常检查与升旗值勤怎么分工，以学生事务部、校团委和辅导员当学期的通知为准。',
+    keywords: ['升旗', '升国旗', '国旗班', '纪检部', '纪检', '检查', '值勤'],
+    publicUrl: 'https://www.yeu.edu.cn/2025/0926/c1278a51766/page.htm',
+    confidence: 86,
+    sourceNote: '校史资料《吴庆星先生的人格魅力与仰恩大学前期的发展》写明学校每天升国旗并由国旗班专门负责。'
+  },
+  {
+    id: 'campus-rule-physical-test',
+    kind: 'official_reference',
+    category: '教学管理',
+    title: '体测是什么',
+    question: '体测怎么安排？特测是什么？',
+    answer: '体测指《国家学生体质健康标准》测试，学校归口体育教研部，制度文件是《仰恩大学体育教研部规章制度》，2025 年 10 月 23 日发布。具体测试时间、项目和免测、缓测办理以体育教研部和体育课任课教师通知为准；问句里的“特测”一般就是体测。',
+    keywords: ['体测', '特测', '体育测试', '体质健康', '免测', '缓测', '体育教研部'],
+    publicUrl: 'https://tiyu.yeu.edu.cn/2025/1023/c490a52447/page.htm',
+    confidence: 88,
+    sourceNote: '仰恩大学体育教研部规章制度（2025-10-23）；体测成绩在国奖榜样等官网报道中也作为学生评价指标出现。'
+  },
+  {
+    id: 'campus-place-computer-lab',
+    kind: 'official_reference',
+    category: '校园地点',
+    title: '机房和电脑室在哪',
+    question: '公共电脑室在哪？电机室是什么地方？',
+    answer: '学校按专业建设了 16 个实验教学平台，金融学等专业配有仿真实训机房，可以模拟股市交易、银行柜台等实操；校园网核心机房和数据中心机房由网络信息中心管理。公共电脑室、电机室这类叫法站内没有对应条目，具体归属和开放时间要问所在学院实验中心或网络信息中心。',
+    keywords: ['电脑室', '公共电脑室', '电机室', '机房', '实验室', '上机', '网络信息中心'],
+    publicUrl: 'https://www.yeu.edu.cn/_upload/article/files/de/24/20362adf4b26b03334f946997302/2324eb7f-43b0-4362-8569-94049a83143d.pdf',
+    confidence: 78,
+    sourceNote: '《仰恩大学本科教学质量报告（含 2024 年数据）》写明实验教学平台 16 个与网络核心机房、数据中心机房；金融学专业介绍提到仿真实训机房。'
+  },
+  {
+    id: 'campus-person-wangming',
+    kind: 'official_reference',
+    category: '科研项目',
+    title: '汪明参与的校级科研项目',
+    question: '汪明是谁？汪明是哪个学院的？',
+    answer: '站内公开资料里，汪明出现在 2017 年校级科研项目 JY20170005《转型期民办高校英语教师专业发展研究》的项目信息中，单位写的是外语，起止时间 2017.5—2018.5。站内没有个人简介、职称和现任课程，需要确认请以外语学院或科研处公开信息为准；如果你找的是同名其他人，请补充学院或部门。',
+    keywords: ['汪明', '外语', '科研项目', 'JY20170005', '英语教师专业发展'],
+    publicUrl: 'https://sofl.yeu.edu.cn/2018/0228/c208a3592/page.htm',
+    confidence: 72,
+    sourceNote: '依据外语学院公开的校级科研项目一览表（项目编号 JY20170005）；只复述项目表里公开的字段，不补充个人档案。'
+  },
+  {
+    id: 'campus-rule-dimension',
+    kind: 'official_reference',
+    category: '校园生活',
+    title: '尺寸规格怎么查',
+    question: '尺寸是多少？各种尺寸在哪查？',
+    answer: '“尺寸”要看你问哪一类：宿舍床铺按 0.9 米宽单人床准备床垫和床品，报到通知里也会写床帘、被褥规格；证件照和户口迁移照片按通知要求的像素与底色准备；公文和材料排版按《仰恩大学公文格式》的页边距与版心尺寸。直接把具体物品一起问，例如“宿舍床多宽”，答案会更准。',
+    keywords: ['尺寸', '规格', '床多宽', '床尺寸', '照片规格', '公文格式', '版心'],
+    publicUrl: '/student-rules',
+    confidence: 76,
+    sourceNote: '床品与照片规格取自新生报到与户口迁移条目，公文字段取自站内《仰恩大学公文格式》。'
+  }
+]
+
 export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
   ...facultyProfiles.map((profile): AssistantKnowledgeSeed => {
     const affiliation = [profile.college, profile.unit].filter(Boolean).join('·')
@@ -1405,5 +1569,6 @@ export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
   ...userVerifiedNewStudentExperienceKnowledge,
   ...campusExperienceKnowledge,
   ...sportsElectiveKnowledge,
+  ...campusPlaceAndRuleKnowledge,
   ...userSubmittedCampusNotes
 ]
