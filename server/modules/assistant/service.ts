@@ -494,7 +494,7 @@ const MAX_MCP_CONCURRENCY = 2
 // 一个会话的答案发给另一个会话）；②knowledge_revision 落库并在读路径真比对；
 // ③模型没给引用时不再拿「证据列表前 N 条」充当引用；④内容安全拦截不进两级缓存；
 // ⑤内存缓存 FIFO 改 LRU，并补上证据不足的短 TTL 负缓存。命中语义变了，必须 bump。
-const ASSISTANT_CACHE_VERSION = 'rag-v92-campus-place-faculty'
+const ASSISTANT_CACHE_VERSION = 'rag-v93-document-title-tone'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** 证据不足（confidence < 0.6）的负缓存只活 60 秒：重试往往能拿到新证据。 */
 const ASSISTANT_ANSWER_GAP_CACHE_TTL_MS = 60 * 1000
@@ -6456,10 +6456,16 @@ function documentTitleLocalAnswer(client: DatabaseClient, query: string): ApiAss
     })
     .filter(Boolean))]
   const hostNote = hosts.length > 0 ? `（来源：${hosts.slice(0, 6).join('、')} 等学院站点）` : ''
+  // 只有专业/培养方案这类按学院分册的标题才引导去问“某学院有哪些专业”，
+  // 否则「拔河比赛」这种活动报道会被答成“想查具体专业…”，问东答西。
+  const majorsLike = /专业|招生|培养方案|课程|学科|学院介绍/u.test(label)
+  const followUp = majorsLike
+    ? '，按学院/专业分开收录。想查具体专业，直接问“某某学院有哪些专业”；也可以点开下面的原文逐篇看。'
+    : '。点开下面的原文可以看完整内容。'
   return {
     query,
     mode: 'local',
-    answer: `站内收有 ${picked.length} 篇题为「${label}」的官网资料${hostNote}，按学院/专业分开收录。想查具体专业，直接问“某某学院有哪些专业”；也可以点开下面的原文逐篇看。`,
+    answer: `站内收有 ${picked.length} 篇题为「${label}」的官网资料${hostNote}${followUp}`,
     citations: picked.slice(0, 4).map(row => ({
       title: row.title,
       url: row.originalUrl ?? `/search?knowledge=${encodeURIComponent(row.id)}`,
