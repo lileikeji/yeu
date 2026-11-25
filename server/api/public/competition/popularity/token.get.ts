@@ -10,7 +10,8 @@ import { assertRateLimit } from '../../../../utils/rate-limit'
 import { getSecurityConfig, safeEqual } from '../../../../utils/security'
 import { issuePopularityToken } from '../../../../utils/competition-popularity'
 import { parseQuery } from '../../../../utils/validation'
-import { getRequestIP, getRequestURL, setHeader } from 'h3'
+import { getClientIpAddress } from '../../../../utils/client-ip'
+import { getRequestURL, setHeader } from 'h3'
 
 /**
  * 大屏取码：需要后台生成的大屏链接里的 key，避免任何人拿公开域名批量造码。
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
   const client = useAppDatabase(event)
   const query = parseQuery(event, competitionPopularityTokenQuerySchema)
-  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
+  const ip = getClientIpAddress(event)
   assertRateLimit(event, `popularity-token:${ip}`, 120, 60_000, client)
 
   const contentId = findMusicAssociationContent(client).id

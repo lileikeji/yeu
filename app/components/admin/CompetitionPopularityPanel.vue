@@ -394,12 +394,14 @@ async function copyDisplayUrl(): Promise<void> {
         </div>
 
         <div class="mt-5 rounded-md bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-          <p>当前共 {{ voteTotal }} 个浏览器投过票；同 IP 多设备标记 {{ props.state?.riskVotes ?? 0 }} 票。</p>
-          <p class="mt-1">
-            标记规则：同一 IP 10 分钟内出现 5 个不同浏览器时，新票只记风险标记，不拦截正常投票。
+          <p>
+            当前有效票 {{ voteTotal }} 票（已作废 {{ props.state?.voidedVotes ?? 0 }} 票）；规则高危 {{ props.state?.riskVotes ?? 0 }} 票。
           </p>
           <p class="mt-1">
-            说明：不签到、不绑微信时只能提高刷票成本；清站点数据或换浏览器仍可再投，现场请配合人工巡视。
+            前置拦截：非浏览器脚本 UA、伪造或缺失页面加载凭证、页面停留低于 400ms 的请求将被直接拦截并记录。
+          </p>
+          <p class="mt-1">
+            说明：对同一 IP / 硬件环境 / 码段的刷票风险与 AI 记忆巡检见下方防刷面板，支持一键作废或恢复异常选票。
           </p>
         </div>
       </div>
@@ -442,5 +444,11 @@ async function copyDisplayUrl(): Promise<void> {
         </div>
       </div>
     </div>
+
+    <AdminCompetitionPopularityGuardPanel
+      :updated-at="props.state?.updatedAt"
+      :candidates-count="candidateCount"
+      @refresh="emit('refresh')"
+    />
   </section>
 </template>

@@ -689,6 +689,8 @@ export interface CompetitionPopularityPublicState {
   canChange: boolean
   /** 本机签名设备令牌；存 localStorage，清 cookie 后仍能识别同一浏览器。 */
   deviceToken?: string
+  /** 服务端签发的页面加载凭证，用于校验页面真实渲染与最短停留时长。 */
+  pageTicket?: string
   /** 只有 showResults 为真时才有内容；否则一律 null。 */
   results: CompetitionPopularityResultRow[] | null
   now: number
@@ -701,8 +703,164 @@ export interface CompetitionPopularityAdminState {
   results: CompetitionPopularityResultRow[]
   /** 同 IP 多设备风险标记票数；仅提示，不拦截。 */
   riskVotes: number
+  /** 已被管理员风控作废的票数（不计入 totalVotes）。 */
+  voidedVotes?: number
   status: CompetitionPopularityStatus
   updatedAt: number
+}
+
+export type CompetitionPopularityRiskLevel = 'normal' | 'watch' | 'suspect'
+
+export interface CompetitionPopularitySingerEstimate {
+  singerId: string
+  number: number
+  name: string
+  /** 当前有效票（未作废）。 */
+  validVotes: number
+  /** 已作废票数。 */
+  voidedVotes: number
+  /** 高危可疑票数（score >= 60，未作废）。 */
+  suspectVotes: number
+  /** 观察级票数（30 <= score < 60，未作废）。 */
+  watchVotes: number
+  /** 模型按各票可疑度期望估算的刷票数量（含已作废，四舍五入）。 */
+  estimatedBrushVotes: number
+  /** 预估净票数 = max(0, validVotes - 未作废期望刷票)。 */
+  estimatedRealVotes: number
+  /** 预估净票占比（%）。 */
+  estimatedRealPercent: number
+  /** 当前选手刷票率（%）。 */
+  brushRatePercent: number
+  rawRank: number
+  estimatedRealRank: number
+  topReasons: string[]
+}
+
+export interface CompetitionPopularityTimelineBucket {
+  startAt: number
+  label: string
+  normalCount: number
+  suspectCount: number
+  blockedCount: number
+  totalCount: number
+}
+
+export interface CompetitionPopularityDistributionItem {
+  label: string
+  count: number
+  suspectCount: number
+}
+
+export interface CompetitionPopularityClusterItem {
+  kind: 'ip' | 'env' | 'qr'
+  keyLabel: string
+  ballotCount: number
+  validCount: number
+  voidedCount: number
+  maxSuspicionScore: number
+  topSingerName: string
+  topSingerVotes: number
+  ballotIds: string[]
+  latestAt: number
+}
+
+export interface CompetitionPopularityVoteLogItem {
+  id: string
+  seq: number
+  ballotId: string | null
+  singerId: string | null
+  singerName: string
+  prevSingerId: string | null
+  prevSingerName: string | null
+  action: 'cast' | 'change' | 'blocked'
+  blockCode: string | null
+  deviceTag: string
+  ipTag: string | null
+  envTag: string | null
+  qrNonceTag: string | null
+  uaSummary: string
+  cookiePresent: boolean
+  dwellMs: number | null
+  suspicionScore: number
+  effectiveScore: number
+  riskLevel: CompetitionPopularityRiskLevel
+  suspicionReasons: string[]
+  ballotVoided: boolean
+  ballotVoidedReason: string | null
+  createdAt: number
+}
+
+export interface CompetitionPopularityMemoryEntry {
+  id: string
+  mode: 'auto-batch' | 'manual-batch' | 'single-log' | 'singer-focus'
+  fromSeq: number
+  toSeq: number
+  verdict: 'clean' | 'watch' | 'suspect'
+  confidence: number
+  estimatedBrushInBatch: number
+  memoryNote: string
+  createdAt: number
+}
+
+export interface CompetitionPopularityInspectionItem {
+  id: string
+  mode: 'auto-batch' | 'manual-batch' | 'single-log' | 'singer-focus'
+  fromSeq: number
+  toSeq: number
+  targetLogId: string | null
+  targetSingerId: string | null
+  targetSingerName: string | null
+  logCount: number
+  verdict: 'clean' | 'watch' | 'suspect'
+  confidence: number
+  estimatedBrushInBatch: number
+  headline: string
+  findings: string[]
+  flaggedSeqs: number[]
+  flaggedBallotIds: string[]
+  memoryNote: string
+  model: string
+  triggerSource: 'auto' | 'manual'
+  createdAt: number
+}
+
+export interface CompetitionPopularityInspectionJobView {
+  key: string
+  state: 'running' | 'done' | 'failed'
+  mode: 'auto-batch' | 'manual-batch' | 'single-log' | 'singer-focus'
+  model: string
+  startedAt: number
+  finishedAt: number | null
+  error: string | null
+}
+
+export interface CompetitionPopularityAuditReport {
+  overview: {
+    validVotes: number
+    voidedVotes: number
+    blockedAttempts: number
+    totalLogCount: number
+    suspectValidVotes: number
+    watchValidVotes: number
+    estimatedBrushVotes: number
+    estimatedRealVotes: number
+    estimatedBrushRatePercent: number
+    latestSeq: number
+    lastAutoInspectedSeq: number
+    pendingAutoCount: number
+    autoBatchSize: number
+  }
+  singerEstimates: CompetitionPopularitySingerEstimate[]
+  timeline: CompetitionPopularityTimelineBucket[]
+  dwellDistribution: CompetitionPopularityDistributionItem[]
+  uaDistribution: CompetitionPopularityDistributionItem[]
+  clusters: CompetitionPopularityClusterItem[]
+  logs: CompetitionPopularityVoteLogItem[]
+  inspections: CompetitionPopularityInspectionItem[]
+  rollingMemory: CompetitionPopularityMemoryEntry[]
+  aiConfigured: boolean
+  inspectionJob: CompetitionPopularityInspectionJobView | null
+  generatedAt: number
 }
 
 export interface CompetitionRoundEntry {

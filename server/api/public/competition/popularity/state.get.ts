@@ -6,20 +6,23 @@ import {
 } from '../../../../modules/competition/service'
 import { useAppDatabase } from '../../../../utils/database'
 import {
+  issuePopularityPageTicket,
   resolvePopularityDevice,
   verifyPopularityToken
 } from '../../../../utils/competition-popularity'
 import { assertRateLimit } from '../../../../utils/rate-limit'
 import { getSecurityConfig, assertTrustedOrigin } from '../../../../utils/security'
 import { parseQuery } from '../../../../utils/validation'
-import { getRequestIP, setHeader } from 'h3'
+import { getClientIpAddress } from '../../../../utils/client-ip'
+import { setHeader } from 'h3'
 
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')
+  setHeader(event, 'CDN-Cache-Control', 'no-store')
   assertTrustedOrigin(event)
   const client = useAppDatabase(event)
-  const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
-  assertRateLimit(event, `popularity-state:${ip}`, 180, 60_000, client)
+  const ip = getClientIpAddress(event)
+  assertRateLimit(event, `popularity-state:${ip}`, 120, 60_000, client)
 
   const query = parseQuery(event, competitionPopularityStateQuerySchema)
   const security = getSecurityConfig(event)
@@ -50,6 +53,11 @@ export default defineEventHandler((event) => {
     query.d
   )
   const state = getPopularityPublicState(client, eventRow.id, identity.deviceHash)
-  setPublicCache(event, 5)
-  return { ...state, deviceToken: identity.token }
+  const pageTicket = issuePopularityPageTicket(
+    security.secret,
+    eventRow.id,
+    identity.deviceHash,
+    state.myBallot?.version ?? 0
+  )
+  return { ...state, deviceToken: identity.token, pageTicket }
 })

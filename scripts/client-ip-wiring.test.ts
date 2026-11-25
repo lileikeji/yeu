@@ -9,7 +9,10 @@ test('rate-limited public and auth IP resolution uses hardened client-ip helper'
     'server/utils/auth.ts',
     'server/api/public/search.get.ts',
     'server/api/public/feedback.post.ts',
-    'server/api/public/amap-owner-drafts.get.ts'
+    'server/api/public/amap-owner-drafts.get.ts',
+    'server/api/public/competition/popularity/token.get.ts',
+    'server/api/public/competition/popularity/state.get.ts',
+    'server/api/public/competition/popularity/vote.post.ts'
   ]
   for (const rel of files) {
     const source = readFileSync(join(root, rel), 'utf8')

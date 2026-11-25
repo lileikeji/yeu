@@ -1587,13 +1587,44 @@ export const competitionPopularityActionSchema = z.object({
   action: z.enum(['open', 'close', 'disable', 'reset-votes', 'rotate-display-key'])
 }).strict()
 
+export const competitionPopularityVoteEnvSchema = z.object({
+  tz: z.string().trim().max(64).optional(),
+  lang: z.string().trim().max(32).optional(),
+  screen: z.string().trim().max(32).optional(),
+  touch: z.number().int().min(0).max(32).optional()
+}).strict()
+
 /** 投票：token 来自大屏二维码；revision 必填，防止两个窗口互相覆盖。 */
 export const competitionPopularityVoteSchema = z.object({
   token: z.string().trim().min(20).max(2000),
   singerId: z.string().trim().min(1).max(64),
   revision: z.number().int().min(0).max(1_000_000),
   /** 本机签名设备令牌；cookie 被清后仍能识别同一浏览器。 */
-  d: z.string().trim().min(20).max(2000).optional()
+  d: z.string().trim().min(20).max(2000).optional(),
+  /** 页面加载时由 /state 签发的短时凭证，用于前置防脚本直调与服务端停留耗时核验。 */
+  pageTicket: z.string().trim().min(20).max(2000).optional(),
+  env: competitionPopularityVoteEnvSchema.optional()
+}).strict()
+
+export const competitionPopularityModerateSchema = z.object({
+  mode: z.enum(['void', 'restore']),
+  ballotIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),
+  reason: z.string().trim().max(120).optional()
+}).strict()
+
+export const competitionPopularityInspectSchema = z.object({
+  mode: z.enum(['manual-batch', 'single-log', 'singer-focus']),
+  fromSeq: z.number().int().min(1).max(10_000_000).optional(),
+  toSeq: z.number().int().min(1).max(10_000_000).optional(),
+  logId: z.string().trim().min(1).max(64).optional(),
+  singerId: z.string().trim().min(1).max(64).optional()
+}).strict()
+
+export const competitionPopularityAuditQuerySchema = z.object({
+  singerId: z.string().trim().max(64).optional(),
+  filter: z.enum(['all', 'suspect', 'watch', 'voided', 'blocked']).optional(),
+  q: z.string().trim().max(64).optional(),
+  limit: z.coerce.number().int().min(20).max(500).optional()
 }).strict()
 
 export const competitionPopularityTokenQuerySchema = z.object({

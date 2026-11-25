@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from 'node:crypto'
-import { getCookie, setCookie } from 'h3'
+import { getCookie, getHeader, setCookie } from 'h3'
 import type { H3Event } from 'h3'
 
 import { createOpaqueToken, hashOpaqueToken, safeEqual } from './security'
@@ -7,17 +7,41 @@ import { createOpaqueToken, hashOpaqueToken, safeEqual } from './security'
 const TOKEN_PURPOSE = 'competition-popularity-token'
 const DEVICE_PURPOSE = 'competition-popularity-device'
 const DEVICE_TOKEN_PURPOSE = 'competition-popularity-device-token'
+const PAGE_TICKET_PURPOSE = 'competition-popularity-page-ticket'
 const IP_PURPOSE = 'competition-popularity-ip'
+const ENV_PURPOSE = 'competition-popularity-env'
 const DEVICE_COOKIE = 'yeu_popularity_device'
+
+const PAGE_TICKET_TTL_MS = 30 * 60_000
+export const POPULARITY_MIN_DWELL_MS = 400
+
+const AUTOMATED_UA_PATTERN = /curl|wget|python-requests|python-urllib|aiohttp|httpx|go-http-client|okhttp|axios|node-fetch|undici|got\/|postmanruntime|insomnia|httpie|headlesschrome|phantomjs|playwright|puppeteer|selenium|webdriver/i
 
 export interface PopularityTokenPayload {
   eventId: string
   expiresAt: number
+  nonce: string
+  issuedAt: number | null
 }
 
 export interface PopularityDeviceTokenPayload {
   eventId: string
   deviceId: string
+}
+
+export interface PopularityPageTicketPayload {
+  eventId: string
+  deviceHash: string
+  expectedRevision: number
+  issuedAt: number
+  expiresAt: number
+}
+
+export interface PopularityVoteEnvInput {
+  tz?: string
+  lang?: string
+  screen?: string
+  touch?: number
 }
 
 /**
@@ -29,9 +53,10 @@ export function issuePopularityToken(
   eventId: string,
   ttlMs: number
 ): { token: string, expiresAt: number } {
-  const expiresAt = Date.now() + Math.max(30_000, Math.min(600_000, ttlMs))
+  const issuedAt = Date.now()
+  const expiresAt = issuedAt + Math.max(30_000, Math.min(600_000, ttlMs))
   const nonce = randomBytes(12).toString('base64url')
-  const payload = Buffer.from(`${eventId}.${expiresAt}.${nonce}`).toString('base64url')
+  const payload = Buffer.from(`${eventId}.${expiresAt}.${nonce}.${issuedAt}`).toString('base64url')
   const signature = createHmac('sha256', secret)
     .update(TOKEN_PURPOSE)
     .update('\0')
@@ -58,10 +83,93 @@ export function verifyPopularityToken(secret: string, token: string): Popularity
   } catch {
     return null
   }
-  const [eventId, expiresRaw] = decoded.split('.')
+  const [eventId, expiresRaw, nonceRaw = '', issuedRaw] = decoded.split('.')
   const expiresAt = Number(expiresRaw)
   if (!eventId || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null
-  return { eventId, expiresAt }
+  const issuedParsed = issuedRaw === undefined ? Number.NaN : Number(issuedRaw)
+  return {
+    eventId,
+    expiresAt,
+    nonce: nonceRaw.slice(0, 16),
+    issuedAt: Number.isFinite(issuedParsed) && issuedParsed > 0 ? issuedParsed : null
+  }
+}
+
+/**
+ * 页面加载凭证：由 GET /state 签发，绑定赛事、设备哈希与预期选票版本号，
+ * 投票时服务端用 Date.now() - issuedAt 反推出真实页面停留毫秒数并防止旧凭证重放。
+ */
+export function issuePopularityPageTicket(
+  secret: string,
+  eventId: string,
+  deviceHash: string,
+  expectedRevision = 0,
+  now = Date.now()
+): string {
+  const expiresAt = now + PAGE_TICKET_TTL_MS
+  const rev = Math.max(0, Math.trunc(expectedRevision))
+  const nonce = randomBytes(8).toString('base64url')
+  const payload = Buffer.from(`${eventId}.${deviceHash}.${rev}.${now}.${expiresAt}.${nonce}`).toString('base64url')
+  const signature = createHmac('sha256', secret)
+    .update(PAGE_TICKET_PURPOSE)
+    .update('\0')
+    .update(payload)
+    .digest('base64url')
+  return `${payload}.${signature}`
+}
+
+export function verifyPopularityPageTicket(
+  secret: string,
+  ticket: string | null | undefined,
+  eventId: string,
+  deviceHash: string,
+  expectedRevision?: number,
+  now = Date.now()
+): PopularityPageTicketPayload | null {
+  if (!ticket) return null
+  const separator = ticket.lastIndexOf('.')
+  if (separator <= 0) return null
+  const payload = ticket.slice(0, separator)
+  const signature = ticket.slice(separator + 1)
+  const expected = createHmac('sha256', secret)
+    .update(PAGE_TICKET_PURPOSE)
+    .update('\0')
+    .update(payload)
+    .digest('base64url')
+  if (!safeEqual(signature, expected)) return null
+
+  let decoded: string
+  try {
+    decoded = Buffer.from(payload, 'base64url').toString('utf8')
+  } catch {
+    return null
+  }
+  const [ticketEventId, ticketDeviceHash, revRaw, issuedRaw, expiresRaw] = decoded.split('.')
+  const ticketRevision = Number(revRaw)
+  const issuedAt = Number(issuedRaw)
+  const expiresAt = Number(expiresRaw)
+  if (
+    !ticketEventId
+    || ticketEventId !== eventId
+    || !ticketDeviceHash
+    || !safeEqual(ticketDeviceHash, deviceHash)
+    || !Number.isInteger(ticketRevision)
+    || ticketRevision < 0
+    || (expectedRevision !== undefined && ticketRevision !== expectedRevision)
+    || !Number.isFinite(issuedAt)
+    || !Number.isFinite(expiresAt)
+    || issuedAt > now + 5000
+    || expiresAt <= now
+  ) {
+    return null
+  }
+  return {
+    eventId: ticketEventId,
+    deviceHash: ticketDeviceHash,
+    expectedRevision: ticketRevision,
+    issuedAt,
+    expiresAt
+  }
 }
 
 /**
@@ -114,6 +222,84 @@ export function verifyPopularityDeviceToken(
 
 export function popularityIpHash(secret: string, ip: string): string {
   return hashOpaqueToken(secret, IP_PURPOSE, ip)
+}
+
+export function hasPopularityDeviceCookie(event: H3Event): boolean {
+  return validDeviceId(getCookie(event, DEVICE_COOKIE))
+}
+
+/**
+ * 校验投票请求回传的 yeu_popularity_device HttpOnly Cookie 是否存在且与当前设备哈希一致。
+ * 真实浏览器打开投票页访问 /state 时必已种下 Cookie，投票必定带回；
+ * 无状态脚本若丢弃 Cookie 企图每次调 /state 换新设备刷票，将被直接阻断。
+ */
+export function hasMatchingPopularityDeviceCookie(
+  event: H3Event,
+  secret: string,
+  deviceHash: string
+): boolean {
+  const cookieDevice = getCookie(event, DEVICE_COOKIE)
+  if (!validDeviceId(cookieDevice)) return false
+  const cookieHash = hashOpaqueToken(secret, DEVICE_PURPOSE, cookieDevice)
+  return safeEqual(cookieHash, deviceHash)
+}
+
+export function summarizePopularityUserAgent(userAgent: string | null | undefined): string {
+  const value = (userAgent || '').trim()
+  if (!value) return 'unknown'
+  if (AUTOMATED_UA_PATTERN.test(value) || value.length < 12) return 'Bot/Script'
+  const platform = /iPhone|iPad|iPod/i.test(value)
+    ? 'iOS'
+    : /Android/i.test(value)
+      ? 'Android'
+      : /Windows/i.test(value)
+        ? 'Windows'
+        : /Mac OS X/i.test(value)
+          ? 'macOS'
+          : /Linux/i.test(value)
+            ? 'Linux'
+            : 'Other'
+  const browser = /MicroMessenger/i.test(value)
+    ? 'WeChat'
+    : /MiniProgram/i.test(value)
+      ? 'MiniProgram'
+      : /Edg/i.test(value)
+        ? 'Edge'
+        : /Chrome|CriOS/i.test(value)
+          ? 'Chrome'
+          : /Safari/i.test(value)
+            ? 'Safari'
+            : /Firefox/i.test(value)
+              ? 'Firefox'
+              : 'Other'
+  return `${platform}/${browser}`
+}
+
+export function detectAutomatedPopularityAgent(userAgent: string | null | undefined): string | null {
+  const value = (userAgent || '').trim()
+  if (AUTOMATED_UA_PATTERN.test(value)) return 'BOT_USER_AGENT'
+  if (value.length < 12) return 'EMPTY_USER_AGENT'
+  return null
+}
+
+export function popularityEnvHash(
+  secret: string,
+  event: H3Event,
+  clientEnv?: PopularityVoteEnvInput | null
+): string {
+  const uaSummary = summarizePopularityUserAgent(getHeader(event, 'user-agent'))
+  const acceptLanguage = (getHeader(event, 'accept-language') || '').split(',')[0]?.trim().toLowerCase() || ''
+  const secPlatform = (getHeader(event, 'sec-ch-ua-platform') || '').replace(/"/g, '').trim().toLowerCase()
+  const parts = [
+    uaSummary,
+    acceptLanguage,
+    secPlatform,
+    (clientEnv?.tz || '').trim().toLowerCase(),
+    (clientEnv?.lang || '').trim().toLowerCase(),
+    (clientEnv?.screen || '').trim().toLowerCase(),
+    clientEnv?.touch !== undefined ? String(clientEnv.touch) : ''
+  ]
+  return hashOpaqueToken(secret, ENV_PURPOSE, parts.join('|'))
 }
 
 function validDeviceId(value: string | undefined | null): value is string {

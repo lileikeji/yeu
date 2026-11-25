@@ -6,7 +6,29 @@ definePageMeta({ layout: false })
 useSeoMeta({ title: '人气奖投票大屏', robots: 'noindex, nofollow' })
 
 const route = useRoute()
-const key = computed(() => String(route.query.key ?? '').trim())
+const DISPLAY_KEY_STORAGE = 'yeu:popularity-display-key:v1'
+const displayKey = ref('')
+
+function syncDisplayKeyFromLocation(): void {
+  const queryKey = String(route.query.key ?? '').trim()
+  if (queryKey) {
+    displayKey.value = queryKey
+    try {
+      sessionStorage.setItem(DISPLAY_KEY_STORAGE, queryKey)
+      if (window.location.search.includes('key=')) {
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+    } catch {
+      // 禁用 sessionStorage/history 时保留内存值即可。
+    }
+    return
+  }
+  try {
+    displayKey.value = sessionStorage.getItem(DISPLAY_KEY_STORAGE) ?? ''
+  } catch {
+    displayKey.value = ''
+  }
+}
 
 interface TokenState {
   token: string
@@ -32,13 +54,13 @@ function messageOf(caught: unknown): string {
 
 async function refreshToken(): Promise<void> {
   if (stopped) return
-  if (!key.value) {
+  if (!displayKey.value) {
     error.value = '缺少大屏密钥，请从后台重新复制链接。'
     return
   }
   try {
     const data = await plainFetch<TokenState>(
-      `/api/public/competition/popularity/token?key=${encodeURIComponent(key.value)}`
+      `/api/public/competition/popularity/token?key=${encodeURIComponent(displayKey.value)}`
     )
     tokenState.value = data
     error.value = ''
@@ -74,6 +96,7 @@ function remainingText(): string {
 }
 
 onMounted(() => {
+  syncDisplayKeyFromLocation()
   void refreshToken()
   tickTimer = setInterval(() => {
     now.value = Date.now()

@@ -248,6 +248,9 @@ erDiagram
 - `competition_pre_registrations`：赛前预报名（姓名必填，班级/学号/电话/邮箱/歌曲选填）；`registered_at` 非空表示已在现场确认为正式报名，对应选手见 `competition_singers.pre_registration_id`。
 - `competition_email_templates`：每轮结果邮件模板（`(event_id, round_key)` 唯一），未落库时返回内置默认模板。
 - `competition_email_sends`：邮件发送流水（每次尝试一条；`singer_id` 可空表示测试发送），用于已发送去重、失败重发与后台状态展示。
+- `competition_popularity_settings` 与 `competition_popularity_ballots`：人气奖动态二维码设置与设备选票（按 `(event_id, device_hash)` 唯一）；`0086` 迁移补充 `voided`（管理员作废/恢复，作废票不计入总票与公开排名）、`suspicion_score`/`suspicion_reasons_json`（多维刷票可疑度）、`ua_summary`/`env_hash`/`dwell_ms`。
+- `competition_popularity_vote_logs`：逐票流水日志表，按 `(event_id, seq)` 连续递增记录每次 `cast`（首投）、`change`（改票）及前置脚本拦截 `blocked` 事件（含二维码 `qr_nonce`、脱敏 `ip_hash`/`env_hash`、页面停留毫秒、Cookie 状态与规则依据）。
+- `competition_popularity_inspections`：记忆 AI 巡检记录，按微批（每 20 票自动触发）或后台手动批次/单票/选手专项触发，保留 `verdict`、`flagged_seqs_json` 与跨批次继承的 `memory_note` 摘要。
 
 计分规则：单评委总分 = `Σ(维度分 × 权重) / Σ权重 × 维度数`，等权五维时即五项累加（满分 100），四舍五入保留两位。轮次得分 = 该轮所有已提交评委总分的平均分。排名按平均分降序，同分按该轮出场顺序靠前者优先；轮次结束后没有任何评分的选手标记弃权，排在最后且不参与晋级。晋级取有分选手排序后的前 `advance_count` 名，因此同分卡在边界时由出场顺序决定。赛事一旦产生任意评分，维度、权重和数量即锁定，避免不同快照的总分不可比；标题与登记开关仍可修改。
 

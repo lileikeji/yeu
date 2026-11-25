@@ -139,7 +139,7 @@ test('public read APIs only enable short caching after successful data preparati
       assert.match(source, /CDN-Cache-Control.*no-store/)
       continue
     }
-    if (normalizedPath === 'wechat-share.get.ts') {
+    if (normalizedPath === 'wechat-share.get.ts' || normalizedPath === 'competition/popularity/state.get.ts') {
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
       assert.match(source, /CDN-Cache-Control', 'no-store'/)
       assert.doesNotMatch(source, /setPublicCache/)

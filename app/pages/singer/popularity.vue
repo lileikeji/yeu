@@ -63,6 +63,25 @@ async function load(): Promise<void> {
   }
 }
 
+function collectClientEnv() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone?.slice(0, 64) || ''
+    const lang = (navigator.language || '').slice(0, 32)
+    const width = Math.round((window.screen?.width ?? 0) / 10) * 10
+    const height = Math.round((window.screen?.height ?? 0) / 10) * 10
+    const screen = width > 0 && height > 0 ? `${width}x${height}` : ''
+    const touch = Math.min(32, Math.max(0, Number(navigator.maxTouchPoints ?? 0) || 0))
+    return {
+      ...(tz ? { tz } : {}),
+      ...(lang ? { lang } : {}),
+      ...(screen ? { screen } : {}),
+      touch
+    }
+  } catch {
+    return undefined
+  }
+}
+
 async function vote(singerId: string): Promise<void> {
   if (!state.value || savingId.value) return
   if (state.value.status !== 'open') {
@@ -80,6 +99,7 @@ async function vote(singerId: string): Promise<void> {
   savingId.value = singerId
   try {
     const device = readDeviceToken()
+    const env = collectClientEnv()
     const next = await plainFetch<CompetitionPopularityPublicState>(
       '/api/public/competition/popularity/vote',
       {
@@ -88,7 +108,9 @@ async function vote(singerId: string): Promise<void> {
           token: token.value,
           singerId,
           revision: state.value.myBallot?.version ?? 0,
-          ...(device ? { d: device } : {})
+          ...(device ? { d: device } : {}),
+          ...(state.value.pageTicket ? { pageTicket: state.value.pageTicket } : {}),
+          ...(env ? { env } : {})
         }
       }
     )
@@ -97,8 +119,11 @@ async function vote(singerId: string): Promise<void> {
     persistDeviceToken(next.deviceToken)
     toast.add({ title: changed ? '改票成功' : '投票成功', color: 'success' })
   } catch (caught) {
+    const err = caught as { statusCode?: number, data?: { data?: { blockCode?: string } } }
     toast.add({ title: messageOf(caught), color: 'error' })
-    if ((caught as { statusCode?: number }).statusCode === 409) void load()
+    if (err.statusCode === 409 || err.data?.data?.blockCode === 'MISSING_OR_INVALID_PAGE_TICKET') {
+      void load()
+    }
   } finally {
     savingId.value = ''
   }

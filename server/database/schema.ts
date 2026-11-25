@@ -1438,6 +1438,18 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   ipHash: text('ip_hash'),
   /** 同 IP 多设备风险标记；1 = 仅标记，不拦截。 */
   risk: integer('risk').notNull().default(0),
+  /** 是否被管理员作废（0=有效，1=已作废）；作废后不计入公开与大屏票数，可恢复。 */
+  voided: integer('voided').notNull().default(0),
+  voidedReason: text('voided_reason'),
+  voidedAt: integer('voided_at'),
+  voidedBy: text('voided_by'),
+  /** 实时规则风控分 0-100 与命中的原因列表。 */
+  suspicionScore: integer('suspicion_score').notNull().default(0),
+  suspicionReasonsJson: text('suspicion_reasons_json').notNull().default('[]'),
+  /** 脱敏浏览器摘要（如 iOS/WeChat）与软特征哈希、页面停留毫秒。 */
+  uaSummary: text('ua_summary'),
+  envHash: text('env_hash'),
+  dwellMs: integer('dwell_ms'),
   changeCount: integer('change_count').notNull().default(0),
   /** 客户端回传 revision 做乐观锁；每次改票 +1。 */
   version: integer('version').notNull().default(1),
@@ -1446,7 +1458,65 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
 }, table => [
   uniqueIndex('competition_popularity_ballots_event_device_unique').on(table.eventId, table.deviceHash),
   index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
-  index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt)
+  index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt),
+  index('competition_popularity_ballots_event_voided_idx').on(table.eventId, table.voided, table.createdAt)
+])
+
+/** 人气奖逐票流水日志：记录每一次投票、改票与前置脚本拦截事件，支撑刷票预估与记忆 AI 巡检。 */
+export const competitionPopularityVoteLogs = sqliteTable('competition_popularity_vote_logs', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  /** 赛事内连续递增序号，便于分批划窗与 AI 巡检引用。 */
+  seq: integer('seq').notNull(),
+  ballotId: text('ballot_id').references(() => competitionPopularityBallots.id, { onDelete: 'set null' }),
+  singerId: text('singer_id').references(() => competitionSingers.id, { onDelete: 'set null' }),
+  prevSingerId: text('prev_singer_id'),
+  action: text('action', { enum: ['cast', 'change', 'blocked'] }).notNull(),
+  blockCode: text('block_code'),
+  deviceHash: text('device_hash').notNull(),
+  ipHash: text('ip_hash'),
+  envHash: text('env_hash'),
+  qrNonce: text('qr_nonce'),
+  uaSummary: text('ua_summary').notNull().default('unknown'),
+  cookiePresent: integer('cookie_present').notNull().default(0),
+  dwellMs: integer('dwell_ms'),
+  suspicionScore: integer('suspicion_score').notNull().default(0),
+  suspicionReasonsJson: text('suspicion_reasons_json').notNull().default('[]'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`)
+}, table => [
+  uniqueIndex('competition_popularity_vote_logs_event_seq_unique').on(table.eventId, table.seq),
+  index('competition_popularity_vote_logs_event_created_idx').on(table.eventId, table.createdAt),
+  index('competition_popularity_vote_logs_event_singer_idx').on(table.eventId, table.singerId, table.createdAt),
+  index('competition_popularity_vote_logs_ballot_idx').on(table.ballotId),
+  check('competition_popularity_vote_logs_action_check', sql`${table.action} in ('cast', 'change', 'blocked')`)
+])
+
+/** 记忆 AI 巡检记录：按微批或单票对投票日志巡检，并将精炼记忆传递给后续批次。 */
+export const competitionPopularityInspections = sqliteTable('competition_popularity_inspections', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  mode: text('mode', { enum: ['auto-batch', 'manual-batch', 'single-log', 'singer-focus'] }).notNull(),
+  fromSeq: integer('from_seq').notNull(),
+  toSeq: integer('to_seq').notNull(),
+  targetLogId: text('target_log_id'),
+  targetSingerId: text('target_singer_id'),
+  logCount: integer('log_count').notNull(),
+  verdict: text('verdict', { enum: ['clean', 'watch', 'suspect'] }).notNull(),
+  confidence: integer('confidence').notNull().default(0),
+  estimatedBrushInBatch: integer('estimated_brush_in_batch').notNull().default(0),
+  headline: text('headline').notNull(),
+  findingsJson: text('findings_json').notNull().default('[]'),
+  flaggedSeqsJson: text('flagged_seqs_json').notNull().default('[]'),
+  memoryNote: text('memory_note').notNull().default(''),
+  model: text('model').notNull().default(''),
+  triggerSource: text('trigger_source', { enum: ['auto', 'manual'] }).notNull().default('manual'),
+  createdByAdminId: text('created_by_admin_id'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`)
+}, table => [
+  index('competition_popularity_inspections_event_created_idx').on(table.eventId, table.createdAt),
+  check('competition_popularity_inspections_mode_check', sql`${table.mode} in ('auto-batch', 'manual-batch', 'single-log', 'singer-focus')`),
+  check('competition_popularity_inspections_verdict_check', sql`${table.verdict} in ('clean', 'watch', 'suspect')`),
+  check('competition_popularity_inspections_trigger_check', sql`${table.triggerSource} in ('auto', 'manual')`)
 ])
 
 /**

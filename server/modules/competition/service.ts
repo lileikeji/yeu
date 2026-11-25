@@ -12,7 +12,9 @@ import {
   competitionFinalSongs,
   competitionJudges,
   competitionPopularityBallots,
+  competitionPopularityInspections,
   competitionPopularitySettings,
+  competitionPopularityVoteLogs,
   competitionPreRegistrations,
   competitionRoundEntries,
   competitionRounds,
@@ -2436,16 +2438,18 @@ export function getPopularityAdminState(
 ): CompetitionPopularityAdminState {
   const settings = ensurePopularitySettings(client, eventId)
   const candidates = listPopularityCandidates(client, eventId)
-  const ballots = client.db.select().from(competitionPopularityBallots)
+  const allBallots = client.db.select().from(competitionPopularityBallots)
     .where(eq(competitionPopularityBallots.eventId, eventId))
     .all()
-  const totalVotes = ballots.length
+  const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0)
+  const totalVotes = activeBallots.length
   return {
     settings: popularitySettingsView(settings),
     candidates,
     totalVotes,
-    results: popularityResultRows(candidates, ballots, totalVotes),
-    riskVotes: ballots.filter(ballot => Number(ballot.risk) === 1).length,
+    results: popularityResultRows(candidates, activeBallots, totalVotes),
+    riskVotes: activeBallots.filter(ballot => Number(ballot.risk) === 1 || Number(ballot.suspicionScore) >= 60).length,
+    voidedVotes: allBallots.length - activeBallots.length,
     status: popularityStatusOf(settings),
     updatedAt: Number(settings.updatedAt ?? 0)
   }
@@ -2458,14 +2462,16 @@ export function getPopularityPublicState(
 ): CompetitionPopularityPublicState {
   const settings = ensurePopularitySettings(client, eventId)
   const candidates = listPopularityCandidates(client, eventId)
-  const ballots = client.db.select().from(competitionPopularityBallots)
+  const allBallots = client.db.select().from(competitionPopularityBallots)
     .where(eq(competitionPopularityBallots.eventId, eventId))
     .all()
-  const mine = ballots.find(ballot => ballot.deviceHash === deviceHash) ?? null
+  const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0)
+  const mine = allBallots.find(ballot => ballot.deviceHash === deviceHash) ?? null
+  const mineActive = mine && Number(mine.voided) === 0 ? mine : null
   const status = popularityStatusOf(settings)
-  const results = popularityResultRows(candidates, ballots, ballots.length)
+  const results = popularityResultRows(candidates, activeBallots, activeBallots.length)
   const countBySinger = new Map<string, number>()
-  for (const ballot of ballots) {
+  for (const ballot of activeBallots) {
     countBySinger.set(ballot.singerId, (countBySinger.get(ballot.singerId) ?? 0) + 1)
   }
   // 投票页按当前人气从高到低排；同票按出场号，保证顺序稳定。
@@ -2475,7 +2481,7 @@ export function getPopularityPublicState(
   ))
   const canChange = status === 'open'
     && candidates.length > 0
-    && (mine == null || (settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
+    && (!mine || (Number(mine.voided) === 0 && settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
 
   return {
     title: settings.title,
@@ -2488,40 +2494,154 @@ export function getPopularityPublicState(
     qrRotateSeconds: Number(settings.qrRotateSeconds),
     showResults: settings.showResults,
     candidates: rankedCandidates,
-    totalVotes: ballots.length,
-    myBallot: mine ? popularityBallotView(mine) : null,
+    totalVotes: activeBallots.length,
+    myBallot: mineActive ? popularityBallotView(mineActive) : null,
     canChange,
     results: settings.showResults ? results : null,
     now: Date.now()
   }
 }
 
+export interface PopularityVoteTelemetry {
+  uaSummary?: string | null
+  envHash?: string | null
+  dwellMs?: number | null
+  cookiePresent?: boolean
+  qrNonce?: string | null
+  qrAgeMs?: number | null
+  qrRotateSeconds?: number | null
+}
+
 /**
- * 同 IP 多设备只做轻量标记：10 分钟内同一 IP 出现 5 个不同 device 时，
- * 新票记 risk=1，交给后台人工判断；任何情况下都不拦截正常投票。
+ * 同 IP 多设备只做轻量标记，并在此基础上叠加多维实时可疑度评分（0–100）：
+ * 涵盖同 IP 多设备、同硬件环境反复开无痕换身份、极短页面停留、无 Cookie 回传、
+ * 1 分钟同候选聚集爆发以及旧二维码窗口期滞后复投。
  */
 const POPULARITY_IP_WINDOW_MS = 10 * 60 * 1000
 const POPULARITY_IP_DEVICE_THRESHOLD = 5
 
-function popularityRiskOf(
+function nextPopularityLogSeq(client: DatabaseClient, eventId: string): number {
+  const row = client.sqlite.prepare(
+    'SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM competition_popularity_vote_logs WHERE event_id = ?'
+  ).get(eventId) as { maxSeq: number } | undefined
+  return Number(row?.maxSeq ?? 0) + 1
+}
+
+function evaluateRealtimeBallotSuspicion(
   client: DatabaseClient,
   eventId: string,
-  ipHash: string | null | undefined,
-  deviceHash: string
-): number {
-  if (!ipHash) return 0
-  const since = Date.now() - POPULARITY_IP_WINDOW_MS
-  const rows = client.db.select({ deviceHash: competitionPopularityBallots.deviceHash })
-    .from(competitionPopularityBallots)
-    .where(and(
-      eq(competitionPopularityBallots.eventId, eventId),
-      eq(competitionPopularityBallots.ipHash, ipHash),
-      gt(competitionPopularityBallots.createdAt, since)
-    ))
-    .all()
-  const devices = new Set(rows.map(row => row.deviceHash))
-  devices.add(deviceHash)
-  return devices.size >= POPULARITY_IP_DEVICE_THRESHOLD ? 1 : 0
+  input: {
+    singerId: string
+    deviceHash: string
+    ipHash: string | null
+    action: 'cast' | 'change'
+    telemetry?: PopularityVoteTelemetry
+  }
+): { risk: number, suspicionScore: number, suspicionReasons: string[] } {
+  const now = Date.now()
+  const since = now - POPULARITY_IP_WINDOW_MS
+  const reasons: string[] = []
+  let score = 0
+  let risk = 0
+
+  if (input.ipHash) {
+    const ipRows = client.db.select({
+      deviceHash: competitionPopularityBallots.deviceHash,
+      singerId: competitionPopularityBallots.singerId
+    })
+      .from(competitionPopularityBallots)
+      .where(and(
+        eq(competitionPopularityBallots.eventId, eventId),
+        eq(competitionPopularityBallots.ipHash, input.ipHash),
+        gt(competitionPopularityBallots.createdAt, since)
+      ))
+      .all()
+    const devices = new Set(ipRows.map(row => row.deviceHash))
+    devices.add(input.deviceHash)
+    if (devices.size >= POPULARITY_IP_DEVICE_THRESHOLD) {
+      risk = 1
+      score += 35
+      reasons.push(`同IP10分钟第${devices.size}台设备`)
+    } else if (devices.size >= 3) {
+      score += 15
+      reasons.push(`同IP10分钟${devices.size}台设备`)
+    }
+
+    const sameSingerDevices = new Set(
+      ipRows.filter(row => row.singerId === input.singerId).map(row => row.deviceHash)
+    )
+    sameSingerDevices.add(input.deviceHash)
+    if (sameSingerDevices.size >= 4) {
+      score += 20
+      reasons.push(`同IP集中投该选手(${sameSingerDevices.size}票)`)
+    }
+  }
+
+  const envHash = input.telemetry?.envHash ?? null
+  if (envHash) {
+    const envRows = client.db.select({ deviceHash: competitionPopularityBallots.deviceHash })
+      .from(competitionPopularityBallots)
+      .where(and(
+        eq(competitionPopularityBallots.eventId, eventId),
+        eq(competitionPopularityBallots.envHash, envHash)
+      ))
+      .all()
+    const envDevices = new Set(envRows.map(row => row.deviceHash))
+    envDevices.add(input.deviceHash)
+    if (envDevices.size >= 3) {
+      score += 40
+      reasons.push(`同设备环境第${envDevices.size}次切换身份`)
+    } else if (envDevices.size === 2) {
+      score += 20
+      reasons.push('同设备环境重复投票')
+    }
+  }
+
+  const dwellMs = input.telemetry?.dwellMs
+  if (typeof dwellMs === 'number' && Number.isFinite(dwellMs)) {
+    if (dwellMs < 1200) {
+      score += 25
+      reasons.push(`极快投票(${Math.round(dwellMs)}ms)`)
+    } else if (dwellMs < 2500) {
+      score += 12
+      reasons.push(`快速投票(${Math.round(dwellMs)}ms)`)
+    }
+  }
+
+  if (input.telemetry?.cookiePresent === false) {
+    score += 15
+    reasons.push('无历史Cookie回传')
+  }
+
+  const qrAgeMs = input.telemetry?.qrAgeMs
+  const rotateSeconds = input.telemetry?.qrRotateSeconds
+  if (typeof qrAgeMs === 'number' && typeof rotateSeconds === 'number' && rotateSeconds > 0) {
+    if (qrAgeMs > rotateSeconds * 1000 * 1.8) {
+      score += 15
+      reasons.push('旧二维码窗口尾端滞后提交')
+    }
+  }
+
+  const burstSince = now - 60_000
+  const burstRow = client.sqlite.prepare(
+    `SELECT count(*) AS cnt FROM competition_popularity_vote_logs
+     WHERE event_id = ? AND singer_id = ? AND action IN ('cast', 'change') AND created_at > ?`
+  ).get(eventId, input.singerId, burstSince) as { cnt: number } | undefined
+  if (Number(burstRow?.cnt ?? 0) >= 8) {
+    score += 20
+    reasons.push(`1分钟同选手爆发(${Number(burstRow?.cnt ?? 0) + 1}票)`)
+  }
+
+  if (input.action === 'change') {
+    score += 5
+    reasons.push('改票操作')
+  }
+
+  return {
+    risk,
+    suspicionScore: Math.min(100, score),
+    suspicionReasons: reasons
+  }
 }
 
 /** 投票/改票：窗口、候选、改票次数与 revision 全部在服务端判定。 */
@@ -2531,7 +2651,8 @@ export function recordPopularityBallot(
   deviceHash: string,
   singerId: string,
   revision?: number,
-  ipHash?: string | null
+  ipHash?: string | null,
+  telemetry?: PopularityVoteTelemetry
 ): CompetitionPopularityPublicState {
   const settings = ensurePopularitySettings(client, eventId)
   const status = popularityStatusOf(settings)
@@ -2548,29 +2669,82 @@ export function recordPopularityBallot(
     ))
     .get()
 
-  const risk = popularityRiskOf(client, eventId, ipHash, deviceHash)
+  if (existing && Number(existing.voided) === 1) {
+    conflictError('POPULARITY_BALLOT_VOIDED', '当前设备选票已被风控锁定，无法更改')
+  }
 
   if (existing && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, deviceHash)
   }
 
+  const normalizedIpHash = ipHash ?? null
+  const uaSummary = (telemetry?.uaSummary || 'unknown').slice(0, 64)
+  const envHash = telemetry?.envHash ?? null
+  const dwellMs = typeof telemetry?.dwellMs === 'number' && Number.isFinite(telemetry.dwellMs)
+    ? Math.max(0, Math.round(telemetry.dwellMs))
+    : null
+  const cookiePresent = telemetry?.cookiePresent ? 1 : 0
+  const qrNonce = telemetry?.qrNonce ? telemetry.qrNonce.slice(0, 24) : null
+
   if (!existing) {
     if (revision != null && revision !== 0) {
       conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
     }
-    const inserted = client.db.insert(competitionPopularityBallots).values({
-      id: randomUUID(),
-      eventId,
+    const evalResult = evaluateRealtimeBallotSuspicion(client, eventId, {
       singerId,
       deviceHash,
-      ipHash: ipHash ?? null,
-      risk,
-      changeCount: 0,
-      version: 1,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }).onConflictDoNothing().run()
-    if (inserted.changes === 0) {
+      ipHash: normalizedIpHash,
+      action: 'cast',
+      telemetry
+    })
+    const reasonsJson = JSON.stringify(evalResult.suspicionReasons)
+    const now = Date.now()
+    const ballotId = randomUUID()
+    const inserted = client.sqlite.transaction(() => {
+      const result = client.db.insert(competitionPopularityBallots).values({
+        id: ballotId,
+        eventId,
+        singerId,
+        deviceHash,
+        ipHash: normalizedIpHash,
+        risk: evalResult.risk,
+        voided: 0,
+        suspicionScore: evalResult.suspicionScore,
+        suspicionReasonsJson: reasonsJson,
+        uaSummary,
+        envHash,
+        dwellMs,
+        changeCount: 0,
+        version: 1,
+        createdAt: now,
+        updatedAt: now
+      }).onConflictDoNothing().run()
+      if (result.changes === 0) return false
+      const seq = nextPopularityLogSeq(client, eventId)
+      client.db.insert(competitionPopularityVoteLogs).values({
+        id: randomUUID(),
+        eventId,
+        seq,
+        ballotId,
+        singerId,
+        prevSingerId: null,
+        action: 'cast',
+        blockCode: null,
+        deviceHash,
+        ipHash: normalizedIpHash,
+        envHash,
+        qrNonce,
+        uaSummary,
+        cookiePresent,
+        dwellMs,
+        suspicionScore: evalResult.suspicionScore,
+        suspicionReasonsJson: reasonsJson,
+        createdAt: now
+      }).run()
+      return true
+    })()
+
+    if (!inserted) {
       // 两台设备同时首投的极小概率竞态：让后到的那次退回冲突，由页面刷新后重投。
       const raced = client.db.select().from(competitionPopularityBallots)
         .where(and(
@@ -2591,18 +2765,69 @@ export function recordPopularityBallot(
     conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
   }
 
-  const updated = client.db.update(competitionPopularityBallots).set({
+  const evalResult = evaluateRealtimeBallotSuspicion(client, eventId, {
     singerId,
-    ipHash: ipHash ?? existing.ipHash,
-    risk: Math.max(Number(existing.risk), risk),
-    changeCount: Number(existing.changeCount) + 1,
-    version: Number(existing.version) + 1,
-    updatedAt: Date.now()
-  }).where(and(
-    eq(competitionPopularityBallots.id, existing.id),
-    eq(competitionPopularityBallots.version, existing.version)
-  )).run()
-  if (updated.changes === 0) {
+    deviceHash,
+    ipHash: normalizedIpHash ?? existing.ipHash,
+    action: 'change',
+    telemetry
+  })
+  const mergedScore = Math.max(Number(existing.suspicionScore ?? 0), evalResult.suspicionScore)
+  const mergedReasons = (() => {
+    try {
+      const prev = JSON.parse(existing.suspicionReasonsJson || '[]') as string[]
+      return Array.from(new Set([...(Array.isArray(prev) ? prev : []), ...evalResult.suspicionReasons])).slice(0, 8)
+    } catch {
+      return evalResult.suspicionReasons
+    }
+  })()
+  const reasonsJson = JSON.stringify(mergedReasons)
+  const now = Date.now()
+
+  const updated = client.sqlite.transaction(() => {
+    const result = client.db.update(competitionPopularityBallots).set({
+      singerId,
+      ipHash: normalizedIpHash ?? existing.ipHash,
+      risk: Math.max(Number(existing.risk), evalResult.risk),
+      suspicionScore: mergedScore,
+      suspicionReasonsJson: reasonsJson,
+      uaSummary,
+      envHash: envHash ?? existing.envHash,
+      dwellMs: dwellMs ?? existing.dwellMs,
+      changeCount: Number(existing.changeCount) + 1,
+      version: Number(existing.version) + 1,
+      updatedAt: now
+    }).where(and(
+      eq(competitionPopularityBallots.id, existing.id),
+      eq(competitionPopularityBallots.version, existing.version)
+    )).run()
+    if (result.changes === 0) return false
+
+    const seq = nextPopularityLogSeq(client, eventId)
+    client.db.insert(competitionPopularityVoteLogs).values({
+      id: randomUUID(),
+      eventId,
+      seq,
+      ballotId: existing.id,
+      singerId,
+      prevSingerId: existing.singerId,
+      action: 'change',
+      blockCode: null,
+      deviceHash,
+      ipHash: normalizedIpHash ?? existing.ipHash,
+      envHash: envHash ?? existing.envHash,
+      qrNonce,
+      uaSummary,
+      cookiePresent,
+      dwellMs,
+      suspicionScore: evalResult.suspicionScore,
+      suspicionReasonsJson: JSON.stringify(evalResult.suspicionReasons),
+      createdAt: now
+    }).run()
+    return true
+  })()
+
+  if (!updated) {
     conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
   }
 
@@ -2659,9 +2884,17 @@ export function applyPopularityAction(
       updatedAt: now
     }).where(eq(competitionPopularitySettings.id, settings.id)).run()
   } else if (action === 'reset-votes') {
-    client.db.delete(competitionPopularityBallots)
-      .where(eq(competitionPopularityBallots.eventId, eventId))
-      .run()
+    client.sqlite.transaction(() => {
+      client.db.delete(competitionPopularityInspections)
+        .where(eq(competitionPopularityInspections.eventId, eventId))
+        .run()
+      client.db.delete(competitionPopularityVoteLogs)
+        .where(eq(competitionPopularityVoteLogs.eventId, eventId))
+        .run()
+      client.db.delete(competitionPopularityBallots)
+        .where(eq(competitionPopularityBallots.eventId, eventId))
+        .run()
+    })()
   } else {
     client.db.update(competitionPopularitySettings).set({
       displayKey: randomBytes(18).toString('base64url'),
