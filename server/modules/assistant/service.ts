@@ -494,7 +494,7 @@ const MAX_MCP_CONCURRENCY = 2
 // 一个会话的答案发给另一个会话）；②knowledge_revision 落库并在读路径真比对；
 // ③模型没给引用时不再拿「证据列表前 N 条」充当引用；④内容安全拦截不进两级缓存；
 // ⑤内存缓存 FIFO 改 LRU，并补上证据不足的短 TTL 负缓存。命中语义变了，必须 bump。
-const ASSISTANT_CACHE_VERSION = 'rag-v95-sports-event-first'
+const ASSISTANT_CACHE_VERSION = 'rag-v96-dispatch-guards'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** 证据不足（confidence < 0.6）的负缓存只活 60 秒：重试往往能拿到新证据。 */
 const ASSISTANT_ANSWER_GAP_CACHE_TTL_MS = 60 * 1000
@@ -3280,7 +3280,7 @@ function assistantFoodRecommendationAnswer(
   // A bare "推荐/哪家" would match the food intent, but explicit non-food
   // topics (理发/拍照/玩/药店/打印/快递…) must NOT be answered with
   // restaurant rankings — let those fall through to their own handlers.
-  const NON_FOOD_INTENT = /(?:理发|美发|剪发|烫发|染发|造型|美甲|拍照|摄影|景点|好玩|玩的地方|KTV|网吧|健身|运动|药店|诊所|买药|打印|复印|图文|快递|取件|寄件|银行|取钱|自习|图书馆|上课|考试|补课|修手机|维修|买衣服|服装|鞋子|超市|购物|文具|眼镜|综测|综合测评|德育|智育|体育分|献血|奖学金|助学金|学分|绩点|gpa|加分|评优|三好|荣誉称号|学生干部|志愿时长|社团|协会|学生会|团委|部门|转专业|换专业)/u
+  const NON_FOOD_INTENT = /(?:理发|美发|剪发|烫发|染发|造型|美甲|拍照|摄影|景点|好玩|玩的地方|KTV|网吧|健身|运动|药店|诊所|买药|打印|复印|图文|快递|取件|寄件|银行|取钱|自习|图书馆|上课|考试|补课|修手机|维修|买衣服|服装|鞋子|超市|购物|文具|眼镜|综测|综合测评|德育|智育|体育分|献血|奖学金|助学金|学分|绩点|gpa|加分|评优|三好|荣誉称号|学生干部|志愿时长|社团|协会|学生会|团委|部门|转专业|换专业|专业|学院|课程|学科|培养方案|学籍|导师|论文|考研|就业|招生)/u
   if (NON_FOOD_INTENT.test(normalized)) return null
   // Canteen opening-hours questions ("食堂几点开门/餐厅营业时间") are answered
   // by the 食堂开放时间 knowledge entry — never by the recommendation list,
@@ -6019,10 +6019,17 @@ function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssi
   // 「普照楼教室分布」这类把地点名夹在句子中间的：精确主体匹配落空后，再按“问句里出现了
   // 哪个已收录地点的主体名（≥2 字）”兜一次，命中就按该地点回答，不落回“请打开原文”。
   if (subjectRows.length === 0) {
-    const contained = rows.filter((item) => {
-      const subject = campusPlaceSubjectKey(item.name ?? '')
-      return subject.length >= 2 && compactQuery.includes(subject)
-    })
+    // 「仰恩大学有没有飞行课程」「海南椰奶」曾被这里按两字主体（仰恩/海南）答成
+    // 仰恩教学楼、海南楼（2026-11-25 线上回放实测）。只接句子里带地标词、
+    // 且去掉校名后仍含主体名的问句，闲聊和校名开头的问句交回检索链路。
+    const placeSignal = /(?:楼|堂|馆|场|厅|园|门|桥|操场|餐厅|食堂|广场|教室|宿舍)/u.test(compactQuery)
+    const queryWithoutSchool = compactQuery.replace(/仰恩大学/gu, '')
+    const contained = !placeSignal
+      ? []
+      : rows.filter((item) => {
+          const subject = campusPlaceSubjectKey(item.name ?? '')
+          return subject.length >= 2 && queryWithoutSchool.includes(subject)
+        })
     if (contained.length > 0) {
       const label = campusPlaceSubjectKey(contained[0]!.name ?? '') || compactQuery
       return contained.length === 1
@@ -6246,13 +6253,14 @@ function knowledgeDirectLocalAnswer(client: DatabaseClient, query: string): ApiA
   // 考试违规处理办法（2026-11-25 扫描实测）。
   // 同一批闸门还挡住奖学金金额、综测加分、报到停车这些已有专用链路的问句——
   // 条目直答会把「综测…数学建模一等奖」答成总分构成，把「一等奖学金多少钱」答成评审条件。
-  if (/(?:吃|喝|食堂|餐厅|小吃|奶茶|夜宵|早餐|午餐|晚餐|美食|好吃|口味|饮品|学生街|加分|扣分|一等奖|二等奖|三等奖|平均成绩|报到|接站|停车|车停|水费|电费|水电|热水|水卡|洗澡|洗衣机|桌帘|窗帘|电器|家具|快递|地图|选课)/u.test(query)) return null
+  if (/(?:吃|喝|食堂|餐厅|小吃|奶茶|夜宵|早餐|午餐|晚餐|美食|好吃|口味|饮品|学生街|加分|扣分|一等奖|二等奖|三等奖|平均成绩|报到|接站|停车|车停|水费|电费|水电|热水|水卡|洗澡|洗衣机|桌帘|窗帘|电器|家具|快递|地图|选课|尺寸|多宽|多长|多大|多高|桌子|衣柜|床垫|床帘|被褥)/u.test(query)) return null
   // 主题词闸门：条目必须覆盖问句的主题，否则高分只说明共享了机构名——「普照教学楼2号门」
   // 曾因“教学楼”三字被「失物招领」条目接走（2026-11-25 回放实测）。
   const rawTopic = compactQuery
-    .replace(/^(?:请问|问下|想问下|我想问|我想知道|学校|校内|校园)/u, '')
+    .replace(/^(?:请问|问下|想问下|我想问|我想知道|仰恩大学|仰恩|学校|校内|校园)/u, '')
     .replace(/^(?:有什么|有哪些|有没有|哪个|哪家|哪里|哪儿|怎么|如何|多少|几)/u, '')
     .replace(/^(?:去|到|在|从)/u, '')
+    .replace(/^(?:有|是否|是不是|能|可以)/u, '')
   const topicKey = rawTopic.slice(0, 3)
   const aliasProbes = expandKnowledgeAliases(query).split(/\s+/)
     .map(value => compactPlaceText(value))
@@ -6401,7 +6409,12 @@ function campusIndexLocalAnswer(client: DatabaseClient, query: string): ApiAssis
  */
 function nearbyShopFallbackLocalAnswer(query: string): ApiAssistantResponse | null {
   const asksNearbyShop = /(?:附近|旁边|周边|校内|学校).{0,12}(?:卖|买|店|超市|文具|打印|复印|理发|剪发|小吃|奶茶|水果|药)/u.test(query)
-    || /推荐.{0,6}(?:打印|理发|文具|吃饭|店)/u.test(query)
+    // 「附近吃的」没有品类词但仍是在问商家范围；而「附近有什么好吃的」是餐饮榜单
+    // 请求，必须让给美食推荐链路（sweep 会校验返回商家列表）。
+    || (/(?:附近|旁边|周边).{0,6}(?:吃的|好吃的|喝的|美食)/u.test(query)
+      && !/(?:有什么|哪家|推荐|好吃吗|怎么样|吃什么|啥好吃|哪些)/u.test(query))
+    || /(?:推荐|介绍).{0,6}(?:打印|理发|文具|吃饭|吃的|店)/u.test(query)
+    || /(?:打印|理发|文具|吃饭|店).{0,4}(?:推荐|介绍)/u.test(query)
   const namedShop = !/(?:推荐|哪家|哪里|什么|有没有|求)/u.test(query)
     && /(?:鸡排|奶茶|椰奶|烧腊|面馆|汉堡|烧烤|咖啡|便利店|文具店|打印店|理发店)$/u.test(query.trim())
   if (!asksNearbyShop && !namedShop) return null
@@ -6421,6 +6434,74 @@ function nearbyShopFallbackLocalAnswer(query: string): ApiAssistantResponse | nu
     }],
     usedWebSearch: false,
     confidence: 0.6
+  }
+}
+
+/**
+ * 后台管理入口：站内编辑与审核用的管理端，只对授权账号开放。
+ * 线上有人问「怎么打开后台管理页面」，旧链路会拿检索到的任意公文（科技厅文件）糊答案。
+ */
+function adminPanelLocalAnswer(query: string): ApiAssistantResponse | null {
+  const compact = compactPlaceText(query)
+  if (compact.length > 24) return null
+  if (!/(?:后台|管理端|管理页面|管理系统|admin)/iu.test(query)) return null
+  if (!/(?:怎么|如何|在哪|哪里|入口|打开|进入|登录|地址|网址|url)/iu.test(query)) return null
+  return {
+    query,
+    mode: 'local',
+    answer: '站里的管理后台是编辑和审核校园资料用的，只对授权账号开放，没有公开的注册或登录入口，普通访客也不需要进入。想补充或纠正某条校园信息（地点、宿舍、奖助学金、办事流程），用「联系我们」提交，后台核对后再录入。',
+    citations: [],
+    usedWebSearch: false,
+    confidence: 0.72
+  }
+}
+
+/**
+ * 闲聊与情绪短句兜底：「啊？」「牛逼」「这么吊」「哈哈哈哈…」走到检索会退成
+ * “站内公开资料里还没有收录「牛逼」”，既答非所问又像程序故障（2026-11-25 回放实测）。
+ */
+function smallTalkLocalAnswer(query: string): ApiAssistantResponse | null {
+  const trimmed = query.trim()
+  // 除了「牛逼」「啊？」这种短句，群里转来的「哈哈哈哈…我上次也是」也属于情绪续聊，
+  // 长度放到 40 且只认反应词开头，避免把正经长问句吞掉。
+  if (trimmed.length === 0 || trimmed.length > 40) return null
+  const reaction = /^(?:牛逼|牛啊|牛|绝了|离谱|这么吊|这么强|厉害了|666|卧槽|哈哈|呵呵|嘿嘿)/u.test(trimmed)
+  const sigh = /^(?:啊+|哦+|嗯+|诶+|哎+|唉+)[?？!.。！~～]*$/u.test(trimmed)
+  const hello = /^(?:在吗|你好|您好|hi|hello|有人吗)[?？!.。！~～]*$/iu.test(trimmed)
+  if (!reaction && !sigh && !hello) return null
+  const answer = hello
+    ? '我在。想问学校的事直接说具体一点就行：报到流程、宿舍配置、选课、食堂、校园地图、奖助学金都能查。'
+    : reaction
+      ? '这句话我接不住——我只按站内官方资料回答校园问题。有具体想问的可以直接问，比如报到、宿舍、选课、奖助学金。'
+      : '没太听清。把问题说具体一点我就能查，比如「宿舍床多宽」「图书馆几点开门」。'
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [],
+    usedWebSearch: false,
+    confidence: 0.4
+  }
+}
+
+/**
+ * 越界闲聊：性向调侃、涉私密内容、开盒/人肉这类问句走检索只会回“内置资料暂时没有
+ * 找到可以确认这个问题的内容”，像是答非所问。这里统一给一句边界说明（线上实测
+ * 「你是gay吗」「要不我把wxy给核了吧」都落在这一档）。
+ */
+function offTopicLocalAnswer(query: string): ApiAssistantResponse | null {
+  const compact = compactPlaceText(query)
+  if (compact.length === 0 || compact.length > 24) return null
+  const privateJab = /(?:gay|同性恋|基佬|约炮|裸照|裸聊|拍视频|屁眼|做爱|性行为|你是男|你是女)/iu.test(query)
+  const doxxing = /(?:开盒|人肉|社工库|查开房|定位到人|扒出来|(?:把|给).{0,4}核了)/u.test(query)
+  if (!privateJab && !doxxing) return null
+  return {
+    query,
+    mode: 'local',
+    answer: '这类涉及私人关系或他人信息的内容我不参与。我只按站内公开资料回答校园事务，比如报到、宿舍、选课、食堂、奖助学金和办事流程。',
+    citations: [],
+    usedWebSearch: false,
+    confidence: 0.4
   }
 }
 
@@ -6567,6 +6648,65 @@ const KNOWLEDGE_TOPIC_ROUTES: ReadonlyArray<{ test: RegExp, titles: readonly str
   {
     test: /^尺寸$|尺寸(?:是多少|怎么查|在哪查)|各种尺寸/u,
     titles: ['尺寸规格怎么查']
+  },
+  {
+    // 「休学或者复学要准备什么材料」：站内有《本科生学籍管理规定》，但按条文检索
+    // 只会退成“请打开原文核对”（2026-11-25 线上回放实测）。
+    test: /学籍|休学|复学|退学|保留入学资格/u,
+    titles: ['学籍管理与休学复学']
+  },
+  {
+    test: /违纪处分|处分办法|(?:哪些|什么)行为.{0,8}处分|会受到.{0,6}处分|被处分/u,
+    titles: ['学生违纪处分情形']
+  },
+  {
+    // 只接“有几种/有哪些/多少个”这类概览问法；问具体金额（“仰恩一等奖学金多少钱”）
+    // 要给校内奖项的数额，抢过来只会答成国家奖助学金政策（sweep 实测丢 /2000/）。
+    test: /奖学金.{0,6}(?:几种|几个|多少个|多少种|有哪些|种类)|(?:几种|哪些|多少个|多少种).{0,4}奖学金/u,
+    titles: ['仰恩大学有哪些奖学金', '仰恩大学国家奖学金/励志奖学金多少']
+  },
+  {
+    test: /学分.{0,4}(?:怎么查|在哪查|查询)|查学分|绩点.{0,4}(?:怎么|在哪|查)|gpa.{0,4}查/u,
+    titles: ['喜鹊儿、教务系统与公共选修课']
+  },
+  {
+    test: /往年.{0,2}(?:考试|试卷|真题)|历年.{0,2}(?:试卷|真题)|期末.{0,2}真题/u,
+    titles: ['往年考试与真题怎么找']
+  },
+  {
+    test: /财务(?:处|部|科)|交学费.{0,4}(?:在哪|窗口)/u,
+    titles: ['财务处（财务部）在哪']
+  },
+  {
+    test: /(?:乒乓球|篮球|羽毛球|排球|网球).{0,6}(?:桌|台|场地|场)|体育(?:馆|场).{0,4}在哪|有.{0,4}乒乓球/u,
+    titles: ['体育场地和球类设施']
+  },
+  {
+    test: /(?:桌子|书桌|衣柜|柜子).{0,4}(?:尺寸|多大|多宽|多长)|(?:尺寸|多大).{0,4}(?:桌子|衣柜)/u,
+    titles: ['宿舍床和桌椅尺寸']
+  },
+  {
+    // 「到校前需要准备什么」「新生入学要带哪些东西，给个清单」：2026 新生手册的
+    // 「报到流程与携带材料」条目本身就是清单，但问句与标题没有公共子串，
+    // 词条直答的 LCS 闸门过不去（2026-11-25 线上回放实测）。
+    test: /(?:到校|报到|入学|开学|来校).{0,6}(?:前)?(?:要|需要|得|该).{0,4}(?:准备|带|拿|备)|(?:准备|携带).{0,4}(?:什么|哪些|东西|材料|清单)|(?:什么|哪些).{0,4}(?:清单|要带|要准备)/u,
+    titles: ['开学前基础准备清单', '报到流程与携带材料', '报到要带录取通知书和准考证吗']
+  },
+  {
+    // 「论文导师」「毕业论文找谁」：站内只有学业导师条目，按标题检索接不住。
+    test: /(?:论文|毕业|学业|指导).{0,4}导师|导师.{0,6}(?:是谁|找谁|怎么找|分配|安排)/u,
+    titles: ['学业导师']
+  },
+  {
+    // 「校园网密码怎么改／统一认证登录不上」：站内有三条校园网条目，但没有一条
+    // 讲清账号与重置流程，检索会退成“请打开《校园网与统一认证排查》核对”。
+    test: /(?:校园网|wifi|无线网|统一认证).{0,8}(?:密码|改密码|忘了|连不上|怎么连|登录|认证)|改.{0,6}(?:校园网|统一认证)密码/u,
+    titles: ['校园网和统一认证账号', '校园网连接方式']
+  },
+  {
+    // 「我要吃拼好饭」：外卖平台的拼单功能，站内只收外卖送达规则。
+    test: /拼好饭|拼单|点外卖|叫外卖|外卖.{0,4}(?:送|到|能进)/u,
+    titles: ['外卖送达边界', '校内吃饭贵不贵']
   }
 ]
 
@@ -8364,7 +8504,12 @@ async function answerCampusQuestionCore(
 ): Promise<ApiAssistantResponse> {
   if (containsPromptInjection(rawQuery) || containsCredentialSeeking(rawQuery)) return blockedAssistantResponse(rawQuery)
   // 客户端编码坏掉的问句（U+FFFD 替换符）没有可判断的意图，先请用户重发。
-  if (rawQuery.includes('\uFFFD')) return garbledQueryResponse(rawQuery)
+  // 有些旧记录在写入时就已被折成 ASCII 问号串（「??????」），同样没有可用意图。
+  if (rawQuery.includes('\uFFFD')
+    || (rawQuery.trim().length >= 3 && /^[\s?？]+$/u.test(rawQuery))) return garbledQueryResponse(rawQuery)
+  // 越界闲聊（性向调侃、开盒）→ 一句话说清边界，别再走检索回“没有找到”
+  const earlyOffTopic = offTopicLocalAnswer(rawQuery)
+  if (earlyOffTopic) return asEarlyLocalAnswer(earlyOffTopic)
   // Built-in transit (K2/K6) answers must fire before any retrieval/web path:
   // "坐几路车到仰恩" was reaching web search (5.9s) and missing the answer.
   const earlyTransit = transitBusAnswer(rawQuery)
@@ -8393,15 +8538,20 @@ async function answerCampusQuestionCore(
   // 答成“学校每年举办校运动会（含篮球赛）”这类空话（2026-11-25 线上实测）。
   const earlySportsEvent = sportsEventReportLocalAnswer(client, rawQuery)
   if (earlySportsEvent) return asEarlyLocalAnswer(earlySportsEvent)
+  // 「怎么打开后台管理页面」→ 说明管理端不对外，别让检索拿任意公文糊答案
+  const earlyAdminPanel = adminPanelLocalAnswer(rawQuery)
+  if (earlyAdminPanel) return asEarlyLocalAnswer(earlyAdminPanel)
   // 裸词条（“国旗班/红十字会/管理学院/乒乓球”）→ contents 词条简介 + 入口
   const earlyContentLexicon = contentLexiconLocalAnswer(client, rawQuery)
   if (earlyContentLexicon) return asEarlyLocalAnswer(earlyContentLexicon)
+  // 主题路由（“晚上10点后能回学校吗/查寝/成绩哪里搜索/奖学金有多少钱”）→ 对接已核验条目。
+  // 必须排在条目直答之前：「女生宿舍床的尺寸」会被「舒适型和普通型宿舍收费与人数」
+  // 按“宿舍”二字接走，答成住宿费（2026-11-25 线上回放实测）。
+  const earlyKnowledgeRoute = knowledgeTopicRouteAnswer(client, rawQuery)
+  if (earlyKnowledgeRoute) return asEarlyLocalAnswer(earlyKnowledgeRoute)
   // 问答库强命中（“去图书馆应该注意什么/叮叮车上车点/电气学院”）→ 直接用条目答案
   const earlyKnowledgeDirect = knowledgeDirectLocalAnswer(client, rawQuery)
   if (earlyKnowledgeDirect) return asEarlyLocalAnswer(earlyKnowledgeDirect)
-  // 主题路由（“晚上10点后能回学校吗/查寝/成绩哪里搜索”）→ 对接已核验条目
-  const earlyKnowledgeRoute = knowledgeTopicRouteAnswer(client, rawQuery)
-  if (earlyKnowledgeRoute) return asEarlyLocalAnswer(earlyKnowledgeRoute)
   // 文档标题直答（“专业介绍”）→ 官网资料索引 + 原文链接
   const earlyDocumentTitle = documentTitleLocalAnswer(client, rawQuery)
   if (earlyDocumentTitle) return asEarlyLocalAnswer(earlyDocumentTitle)
@@ -8423,6 +8573,9 @@ async function answerCampusQuestionCore(
   // 裸主题词（"奖学金/社团"）优先给概览条目，而不是某个细节条目
   const earlyTopicOverview = earlyTopicOverviewAnswer(client, rawQuery)
   if (earlyTopicOverview) return asEarlyLocalAnswer(earlyTopicOverview)
+  // 闲聊/情绪短句（“啊？”“牛逼”“哈哈哈哈…”）→ 友好接住，不退回“资料没收录”
+  const earlySmallTalk = smallTalkLocalAnswer(rawQuery)
+  if (earlySmallTalk) return asEarlyLocalAnswer(earlySmallTalk)
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],

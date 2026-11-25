@@ -45,6 +45,12 @@ const CAMPUS_SEARCH_ALIAS_GROUPS: readonly CampusSearchAliasGroup[] = [
     kind: 'place'
   },
   {
+    // 「宏大船楼」是线上真实错写（2026-11-25 回放），多打一个字就落空。
+    canonical: '宏船楼',
+    aliases: ['宏船楼', '宏船', '宏大船楼'],
+    kind: 'place'
+  },
+  {
     // 「新区和昌楼」必须排在「和昌教学楼」之前：两栋楼在新旧区各有一栋，
     // includes 匹配下宽组会先把「新区和昌楼」吃掉，答成旧区那栋。
     canonical: '新区和昌教学楼',
