@@ -494,7 +494,7 @@ const MAX_MCP_CONCURRENCY = 2
 // 一个会话的答案发给另一个会话）；②knowledge_revision 落库并在读路径真比对；
 // ③模型没给引用时不再拿「证据列表前 N 条」充当引用；④内容安全拦截不进两级缓存；
 // ⑤内存缓存 FIFO 改 LRU，并补上证据不足的短 TTL 负缓存。命中语义变了，必须 bump。
-const ASSISTANT_CACHE_VERSION = 'rag-v94-sports-event-report'
+const ASSISTANT_CACHE_VERSION = 'rag-v95-sports-event-first'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** 证据不足（confidence < 0.6）的负缓存只活 60 秒：重试往往能拿到新证据。 */
 const ASSISTANT_ANSWER_GAP_CACHE_TTL_MS = 60 * 1000
@@ -8388,6 +8388,11 @@ async function answerCampusQuestionCore(
   // 裸地点名词（“创业园/新区操场”）精确命中地图收录 → 直接定位简介
   const earlyPlaceName = mapPlaceNameLocalAnswer(client, rawQuery)
   if (earlyPlaceName) return asEarlyLocalAnswer(earlyPlaceName)
+  // 体育赛事（“第三十五届运动会拔河比赛结果”“运动会篮球比赛结果”）→ 按运动会+项目聚合站内报道。
+  // 必须排在条目直答之前：「运动会篮球比赛结果」会先被「篮球」相关的社团/选课条目接走，
+  // 答成“学校每年举办校运动会（含篮球赛）”这类空话（2026-11-25 线上实测）。
+  const earlySportsEvent = sportsEventReportLocalAnswer(client, rawQuery)
+  if (earlySportsEvent) return asEarlyLocalAnswer(earlySportsEvent)
   // 裸词条（“国旗班/红十字会/管理学院/乒乓球”）→ contents 词条简介 + 入口
   const earlyContentLexicon = contentLexiconLocalAnswer(client, rawQuery)
   if (earlyContentLexicon) return asEarlyLocalAnswer(earlyContentLexicon)
@@ -8397,9 +8402,6 @@ async function answerCampusQuestionCore(
   // 主题路由（“晚上10点后能回学校吗/查寝/成绩哪里搜索”）→ 对接已核验条目
   const earlyKnowledgeRoute = knowledgeTopicRouteAnswer(client, rawQuery)
   if (earlyKnowledgeRoute) return asEarlyLocalAnswer(earlyKnowledgeRoute)
-  // 体育赛事（“第三十五届运动会拔河比赛结果”）→ 按运动会+项目聚合站内报道
-  const earlySportsEvent = sportsEventReportLocalAnswer(client, rawQuery)
-  if (earlySportsEvent) return asEarlyLocalAnswer(earlySportsEvent)
   // 文档标题直答（“专业介绍”）→ 官网资料索引 + 原文链接
   const earlyDocumentTitle = documentTitleLocalAnswer(client, rawQuery)
   if (earlyDocumentTitle) return asEarlyLocalAnswer(earlyDocumentTitle)
