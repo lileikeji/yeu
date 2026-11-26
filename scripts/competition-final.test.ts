@@ -20,7 +20,7 @@ import {
   ensureCompetitionEvent,
   getAdminCompetitionPayload,
   getFinalSongEditor,
-  getFinalSongVideoUploadTarget,
+  getFinalSongMediaUploadTarget,
   getRankBoard,
   getRoundByKey,
   listRoundEntryRows,
@@ -242,13 +242,21 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   }
   assert.equal(client.db.select().from(competitionFinalSongs).all().length, 24)
 
-  // 视频只收 MP4；歌曲没提交之前不能先传视频。
+  // 第一首收伴奏音频、第二首只收 MP4；歌曲没提交之前不能先传文件。
   assert.throws(
-    () => getFinalSongVideoUploadTarget(client, contentId, {
+    () => getFinalSongMediaUploadTarget(client, contentId, {
       name: singers[0]!.name,
       studentNo: singers[0]!.studentNo ?? '',
       contact: singers[0]!.qq ?? ''
-    }, 1, '背景.mp3'),
+    }, 2, '背景.mp3'),
+    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+  )
+  assert.throws(
+    () => getFinalSongMediaUploadTarget(client, contentId, {
+      name: singers[0]!.name,
+      studentNo: singers[0]!.studentNo ?? '',
+      contact: singers[0]!.qq ?? ''
+    }, 1, '伴奏.mp4'),
     (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
   )
 
@@ -493,10 +501,10 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   assert.equal(secondOnly.rows.length, 6)
   assert.equal(secondOnly.round.key, 'final2')
 
-  // 两首歌各自保留自己的视频，编辑器按 slot 回读。
+  // 第一首伴奏存决赛第一轮出场记录，第二首视频留在两首歌表，编辑器分别回读。
   client.sqlite.prepare(
-    'UPDATE competition_final_songs SET video_url = ?, video_name = ?, video_size = ?, video_updated_at = ? WHERE singer_id = ? AND slot = 1'
-  ).run('cos:final/video-one.mp4', '选手1-决赛一曲1.mp4', 1234, Date.now(), singers[0]!.id)
+    'UPDATE competition_round_entries SET accompaniment_url = ?, accompaniment_name = ?, accompaniment_size = ?, accompaniment_updated_at = ? WHERE round_id = ? AND singer_id = ?'
+  ).run('cos:final/acc-one.mp3', '选手1-决赛一曲1.mp3', 1234, Date.now(), getRoundByKey(client, event.id, 'final').id, singers[0]!.id)
   client.sqlite.prepare(
     'UPDATE competition_final_songs SET video_url = ?, video_name = ?, video_size = ?, video_updated_at = ? WHERE singer_id = ? AND slot = 2'
   ).run('cos:final/video-two.mp4', '选手1-决赛二曲1.mp4', 2345, Date.now(), singers[0]!.id)
@@ -505,8 +513,8 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
     studentNo: singers[0]!.studentNo ?? '',
     contact: singers[0]!.qq ?? ''
   })
-  assert.equal(withVideos.firstVideo?.name, '选手1-决赛一曲1.mp4')
-  assert.equal(withVideos.firstVideo?.size, 1234)
+  assert.equal(withVideos.firstAccompaniment?.name, '选手1-决赛一曲1.mp3')
+  assert.equal(withVideos.firstAccompaniment?.size, 1234)
   assert.equal(withVideos.secondVideo?.name, '选手1-决赛二曲1.mp4')
   assert.equal(withVideos.secondVideo?.size, 2345)
 

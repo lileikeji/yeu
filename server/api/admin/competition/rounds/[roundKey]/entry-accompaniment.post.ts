@@ -29,6 +29,18 @@ export default defineEventHandler(async (event) => {
     input = await parseBody(event, setCompetitionEntryAccompanimentSchema, { maxBytes: MAX_UPLOAD_JSON_BODY_BYTES })
     const competition = ensureCompetitionEvent(client, contentId)
     const round = getRoundByKey(client, competition.id, roundKey)
+    if (input.key && roundKey !== 'final2') {
+      throw createError({
+        statusCode: 422,
+        statusMessage: 'Validation failed',
+        data: {
+          code: 'ACCOMPANIMENT_BYTES_REQUIRED',
+          message: roundKey === 'final'
+            ? '决赛第一首是音频伴奏，请直接选音频文件上传'
+            : '这一轮伴奏请直接选音频文件上传'
+        }
+      })
+    }
     if (input.key) {
       if (!input.size || input.size <= 0) {
         throw createError({
@@ -60,11 +72,11 @@ export default defineEventHandler(async (event) => {
           data: { code: 'OBJECT_MISSING', message: '没在存储里找到这个文件，重传一次' }
         })
       }
-      if (head.size <= 0 || head.size > 500 * 1024 * 1024) {
+      if (head.size <= 0 || head.size > 1024 * 1024 * 1024) {
         throw createError({
           statusCode: 413,
           statusMessage: 'Video is too large',
-          data: { code: 'PAYLOAD_TOO_LARGE', message: '决赛背景视频不能超过 500MB' }
+          data: { code: 'PAYLOAD_TOO_LARGE', message: '决赛背景视频不能超过 1GB' }
         })
       }
       const videoTypeOk = !head.contentType

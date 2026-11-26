@@ -1514,7 +1514,7 @@ export const setCompetitionEntryAccompanimentSchema = z.object({
   filename: z.string().trim().max(120).optional(),
   data: z.string().min(1).max(560 * 1024 * 1024).optional(),
   key: z.string().trim().min(4).max(300).optional(),
-  size: z.number().int().positive().max(500 * 1024 * 1024).optional()
+  size: z.number().int().positive().max(1024 * 1024 * 1024).optional()
 }).strict()
 
 export const competitionSongAccompanimentSchema = z.object({
@@ -1559,7 +1559,7 @@ export const competitionFinalSongVideoCommitSchema = z.object({
   contact: z.string().trim().min(4).max(120),
   slot: z.union([z.literal(1), z.literal(2)]),
   key: z.string().trim().min(4).max(512),
-  size: z.number().int().positive().max(500 * 1024 * 1024)
+  size: z.number().int().positive().max(1024 * 1024 * 1024)
 }).strict()
 
 export const competitionAdminFinalSongsSchema = z.object({

@@ -34,40 +34,21 @@ export default defineEventHandler(async (event) => {
   if (!head) {
     throw createError({ statusCode: 409, statusMessage: 'Object missing', data: { code: 'OBJECT_MISSING', message: '没在存储里找到这个文件，重传一次' } })
   }
-  const videoRound = target.round.key === 'final' || target.round.key === 'final2'
-  const maxSize = videoRound ? 500 * 1024 * 1024 : MAX_UPLOADED_AUDIO_BYTES
+  const maxSize = MAX_UPLOADED_AUDIO_BYTES
   if (head.size <= 0 || head.size > maxSize) {
     throw createError({
       statusCode: 413,
-      statusMessage: videoRound ? 'Video is too large' : 'Audio is too large',
-      data: videoRound
-        ? { code: 'PAYLOAD_TOO_LARGE', message: '决赛背景视频不能超过 500MB' }
-        : { code: 'PAYLOAD_TOO_LARGE', message: '伴奏超过 400MB' }
+      statusMessage: 'Audio is too large',
+      data: { code: 'PAYLOAD_TOO_LARGE', message: '伴奏超过 400MB' }
     })
   }
-  if (videoRound) {
-    const extension = input.key.split('.').at(-1)?.toLowerCase() ?? ''
-    if (extension !== 'mp4') {
-      throw createError({ statusCode: 422, statusMessage: 'Final video required', data: { code: 'FINAL_VIDEO_REQUIRED', message: '决赛只收 MP4 视频背景' } })
-    }
-    const videoHeadOk = !head.contentType
-      || head.contentType.startsWith('video/mp4')
-      || head.contentType === 'application/octet-stream'
-    if (!videoHeadOk) {
-      throw createError({ statusCode: 422, statusMessage: 'Unsupported video type', data: { code: 'UNSUPPORTED_VIDEO', message: '决赛背景只收 MP4 视频' } })
-    }
-    if (head.size > 500 * 1024 * 1024) {
-      throw createError({ statusCode: 413, statusMessage: 'Video is too large', data: { code: 'PAYLOAD_TOO_LARGE', message: '决赛背景视频不能超过 500MB' } })
-    }
-  } else {
-    // m4a 常被存成 video/mp4 容器，按音频放行
-    const contentTypeOk = !head.contentType
-      || head.contentType.startsWith('audio/')
-      || head.contentType === 'application/octet-stream'
-      || /^video\/(mp4|quicktime)$/.test(head.contentType)
-    if (!contentTypeOk) {
-      throw createError({ statusCode: 422, statusMessage: 'Unsupported audio type', data: { code: 'UNSUPPORTED_AUDIO', message: '只收音频文件' } })
-    }
+  // m4a 常被存成 video/mp4 容器，按音频放行
+  const contentTypeOk = !head.contentType
+    || head.contentType.startsWith('audio/')
+    || head.contentType === 'application/octet-stream'
+    || /^video\/(mp4|quicktime)$/.test(head.contentType)
+  if (!contentTypeOk) {
+    throw createError({ statusCode: 422, statusMessage: 'Unsupported audio type', data: { code: 'UNSUPPORTED_AUDIO', message: '只收音频文件' } })
   }
   const name = (input.filename || '').trim().slice(0, 120) || input.key.split('/').at(-1) || '伴奏'
   const saved = await commitAccompanimentKey(

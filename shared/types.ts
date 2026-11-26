@@ -571,8 +571,8 @@ export interface CompetitionFinalSongsState {
   stageTitle: string
   firstSong: string
   secondSong: string
-  /** 第一首歌的背景视频；都走对象存储，播放链接是临时签名地址。 */
-  firstVideo: CompetitionEntryAccompaniment | null
+  /** 第一首歌的伴奏（音频，跟初赛/复赛同一套格式）；都走对象存储，播放链接是临时签名地址。 */
+  firstAccompaniment: CompetitionEntryAccompaniment | null
   /** 第二首歌的背景视频；没进前六不会用到，但提前一起准备。 */
   secondVideo: CompetitionEntryAccompaniment | null
   revision: number

@@ -518,13 +518,13 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     file: File
   ): Promise<void> {
     if (round.status === 'closed' || accompanimentBusyId.value) return
-    const videoRound = round.key === 'final' || round.key === 'final2'
-    if (file.size > (videoRound ? 500 : 400) * 1024 * 1024) {
-      toast.add({ title: videoRound ? '决赛背景视频不能超过 500MB' : '伴奏不能超过 400MB', color: 'warning' })
+    const videoRound = round.key === 'final2'
+    if (file.size > (videoRound ? 1024 : 400) * 1024 * 1024) {
+      toast.add({ title: videoRound ? '背景视频不能超过 1GB' : '伴奏不能超过 400MB', color: 'warning' })
       return
     }
     if (videoRound && !file.name.toLowerCase().endsWith('.mp4')) {
-      toast.add({ title: '决赛背景只收 MP4 视频', color: 'warning' })
+      toast.add({ title: '背景视频只收 MP4', color: 'warning' })
       return
     }
     accompanimentBusyId.value = entry.id
@@ -549,7 +549,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
           }
         )
         payload.value = result.payload
-        toast.add({ title: `${entry.singer.name} 的决赛背景视频已上传`, description: file.name, color: 'success' })
+        toast.add({ title: `${entry.singer.name} 的背景视频已上传`, description: file.name, color: 'success' })
         return
       }
       const data = await readFileAsBase64(file)

@@ -2121,7 +2121,7 @@ onBeforeUnmount(stopLiveRefresh)
                     <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                       <template v-if="activeRound?.key !== 'prelim'">
                         <label
-                          v-if="activeRound?.key !== 'final' && activeRound?.key !== 'final2'"
+                          v-if="activeRound?.key !== 'final2'"
                           class="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-xs hover:border-emerald-500 dark:border-zinc-700"
                           :class="accompanimentBusyId === entry.id ? 'opacity-60' : ''"
                         >
@@ -2134,12 +2134,12 @@ onBeforeUnmount(stopLiveRefresh)
                           >
                           {{ entry.accompaniment
                             ? (entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '换背景视频' : '换伴奏')
-                            : '传伴奏' }}
+                            : (activeRound?.key === 'final' ? '传第一首伴奏' : '传伴奏') }}
                         </label>
                         <span
                           v-else
                           class="text-[11px] text-zinc-400"
-                        >决赛两段视频由选手在「决赛两首歌」页分别上传</span>
+                        >决赛第二首背景视频由选手在「决赛两首歌」页上传</span>
                         <template v-if="entry.accompaniment">
                           <button
                             type="button"

@@ -17,7 +17,7 @@ const error = ref('')
 const conflict = ref(false)
 const videoBusy = ref<1 | 2 | null>(null)
 const videoPercent = ref<number | null>(null)
-const firstVideoInput = ref<HTMLInputElement | null>(null)
+const firstAudioInput = ref<HTMLInputElement | null>(null)
 const secondVideoInput = ref<HTMLInputElement | null>(null)
 
 useSeoMeta({ title: '决赛两首歌提交', robots: 'noindex, nofollow' })
@@ -51,22 +51,36 @@ function formatSize(size: number | null): string {
   return `${Math.max(1, Math.round(size / 1024))} KB`
 }
 
-function pickVideo(slot: 1 | 2): void {
+const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'aac', 'ogg', 'flac'] as const
+const AUDIO_MIME: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  wav: 'audio/wav',
+  aac: 'audio/aac',
+  ogg: 'audio/ogg',
+  flac: 'audio/flac'
+}
+
+function extensionOf(filename: string): string {
+  return (filename.split('.').at(-1) || '').toLowerCase()
+}
+
+function pickMedia(slot: 1 | 2): void {
   if (videoBusy.value !== null) return
   if (!state.value || state.value.revision < 1) {
-    toast.add({ title: '先提交两首歌，再传视频', color: 'warning' })
+    toast.add({ title: '先提交两首歌，再传伴奏或视频', color: 'warning' })
     return
   }
   if (!state.value.editable) return
-  const input = slot === 1 ? firstVideoInput.value : secondVideoInput.value
+  const input = slot === 1 ? firstAudioInput.value : secondVideoInput.value
   input?.click()
 }
 
-function putVideoWithProgress(url: string, file: File): Promise<void> {
+function putMediaWithProgress(url: string, file: File, contentType: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
     request.open('PUT', url, true)
-    request.setRequestHeader('Content-Type', 'video/mp4')
+    request.setRequestHeader('Content-Type', contentType)
     request.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0) {
         videoPercent.value = Math.min(99, Math.round((event.loaded / event.total) * 100))
@@ -78,27 +92,41 @@ function putVideoWithProgress(url: string, file: File): Promise<void> {
         resolve()
         return
       }
-      reject(new Error(`视频直传失败（${request.status}）`))
+      reject(new Error(`直传失败（${request.status}）`))
     }
-    request.onerror = () => reject(new Error('视频直传失败，检查网络后重试一次'))
-    request.ontimeout = () => reject(new Error('视频直传超时，重试一次'))
+    request.onerror = () => reject(new Error('直传失败，检查网络后重试一次'))
+    request.ontimeout = () => reject(new Error('直传超时，重试一次'))
     request.timeout = 30 * 60 * 1000
     request.send(file)
   })
 }
 
-async function uploadVideo(slot: 1 | 2, event: Event): Promise<void> {
+async function uploadMedia(slot: 1 | 2, event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
   if (!file || !state.value) return
-  if (!file.name.toLowerCase().endsWith('.mp4')) {
-    toast.add({ title: '背景视频只收 MP4', color: 'warning' })
-    return
-  }
-  if (file.size > 500 * 1024 * 1024) {
-    toast.add({ title: '背景视频不能超过 500MB', color: 'warning' })
-    return
+  const extension = extensionOf(file.name)
+  let contentType = 'video/mp4'
+  if (slot === 1) {
+    if (!(AUDIO_EXTENSIONS as readonly string[]).includes(extension)) {
+      toast.add({ title: '第一首伴奏只收 mp3 / m4a / wav / aac / ogg / flac', color: 'warning' })
+      return
+    }
+    if (file.size > 400 * 1024 * 1024) {
+      toast.add({ title: '伴奏不能超过 400MB', color: 'warning' })
+      return
+    }
+    contentType = AUDIO_MIME[extension] ?? 'audio/mpeg'
+  } else {
+    if (extension !== 'mp4') {
+      toast.add({ title: '第二首背景视频只收 MP4', color: 'warning' })
+      return
+    }
+    if (file.size > 1024 * 1024 * 1024) {
+      toast.add({ title: '背景视频不能超过 1GB', color: 'warning' })
+      return
+    }
   }
   videoBusy.value = slot
   videoPercent.value = 0
@@ -116,7 +144,7 @@ async function uploadVideo(slot: 1 | 2, event: Event): Promise<void> {
         }
       }
     )
-    await putVideoWithProgress(ticket.uploadUrl, file)
+    await putMediaWithProgress(ticket.uploadUrl, file, contentType)
     const data = await plainFetch<CompetitionFinalSongsState>(
       '/api/public/competition/final-songs/video-commit',
       {
@@ -132,7 +160,7 @@ async function uploadVideo(slot: 1 | 2, event: Event): Promise<void> {
       }
     )
     fillFrom(data)
-    toast.add({ title: slot === 1 ? '第一首视频收到了' : '第二首视频收到了', color: 'success' })
+    toast.add({ title: slot === 1 ? '第一首伴奏收到了' : '第二首背景视频收到了', color: 'success' })
   } catch (caught) {
     toast.add({ title: messageOf(caught), color: 'error' })
   } finally {
@@ -370,23 +398,23 @@ async function submit(): Promise<void> {
 
         <div class="mt-5 border-t border-[var(--line)] pt-5">
           <h2 class="text-base font-bold">
-            两首歌的背景视频
+            第一首伴奏 / 第二首背景视频
           </h2>
           <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-            MP4 格式，500MB 以内；先提交歌名再上传视频。
+            第一首交伴奏音频（mp3 / m4a / wav / aac / ogg / flac，400MB 以内）；第二首交 MP4 背景视频（1GB 以内）。先提交歌名再上传。
           </p>
 
           <div class="mt-3 rounded-xl border border-[var(--line)] p-3">
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium">
-                  第一首{{ state.firstSong ? `《${state.firstSong}》` : '（未填）' }}
+                  第一首伴奏{{ state.firstSong ? `《${state.firstSong}》` : '（未填）' }}
                 </p>
                 <p
-                  v-if="state.firstVideo"
+                  v-if="state.firstAccompaniment"
                   class="truncate text-xs text-[var(--muted-ink)]"
                 >
-                  {{ state.firstVideo.name }}<span v-if="state.firstVideo.size"> · {{ formatSize(state.firstVideo.size) }}</span>
+                  {{ state.firstAccompaniment.name }}<span v-if="state.firstAccompaniment.size"> · {{ formatSize(state.firstAccompaniment.size) }}</span>
                 </p>
                 <p
                   v-else
@@ -400,24 +428,23 @@ async function submit(): Promise<void> {
                 type="button"
                 :disabled="videoBusy !== null || state.revision < 1"
                 class="shrink-0 rounded-lg border border-[var(--color-green-600)] px-3 py-2 text-xs font-medium text-[var(--color-green-700)] disabled:cursor-not-allowed disabled:opacity-50"
-                @click="pickVideo(1)"
+                @click="pickMedia(1)"
               >
-                {{ videoBusy === 1 ? `上传中 ${videoPercent ?? 0}%` : (state.firstVideo ? '更换第一首视频' : '上传第一首视频') }}
+                {{ videoBusy === 1 ? `上传中 ${videoPercent ?? 0}%` : (state.firstAccompaniment ? '更换第一首伴奏' : '上传第一首伴奏') }}
               </button>
             </div>
-            <video
-              v-if="state.firstVideo"
-              :src="state.firstVideo.url"
+            <audio
+              v-if="state.firstAccompaniment"
+              :src="state.firstAccompaniment.url"
               controls
-              playsinline
-              class="mt-3 max-h-56 w-full rounded-lg bg-black"
+              class="mt-3 w-full"
             />
             <input
-              ref="firstVideoInput"
+              ref="firstAudioInput"
               type="file"
-              accept="video/mp4,.mp4"
+              accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac"
               class="hidden"
-              @change="uploadVideo(1, $event)"
+              @change="uploadMedia(1, $event)"
             >
           </div>
 
@@ -425,7 +452,7 @@ async function submit(): Promise<void> {
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium">
-                  第二首{{ state.secondSong ? `《${state.secondSong}》` : '（未填）' }}
+                  第二首背景视频{{ state.secondSong ? `《${state.secondSong}》` : '（未填）' }}
                 </p>
                 <p
                   v-if="state.secondVideo"
@@ -445,7 +472,7 @@ async function submit(): Promise<void> {
                 type="button"
                 :disabled="videoBusy !== null || state.revision < 1"
                 class="shrink-0 rounded-lg border border-[var(--color-green-600)] px-3 py-2 text-xs font-medium text-[var(--color-green-700)] disabled:cursor-not-allowed disabled:opacity-50"
-                @click="pickVideo(2)"
+                @click="pickMedia(2)"
               >
                 {{ videoBusy === 2 ? `上传中 ${videoPercent ?? 0}%` : (state.secondVideo ? '更换第二首视频' : '上传第二首视频') }}
               </button>
@@ -462,7 +489,7 @@ async function submit(): Promise<void> {
               type="file"
               accept="video/mp4,.mp4"
               class="hidden"
-              @change="uploadVideo(2, $event)"
+              @change="uploadMedia(2, $event)"
             >
           </div>
 
@@ -470,7 +497,7 @@ async function submit(): Promise<void> {
             v-if="state.editable && state.revision < 1"
             class="mt-2 text-xs text-amber-700"
           >
-            先提交上面两首歌，视频按钮才会启用。
+            先提交上面两首歌，伴奏和视频按钮才会启用。
           </p>
         </div>
       </div>

@@ -269,7 +269,7 @@ test('抽签 1v1 平分且评委多数相同：不静默晋级，提示加赛', 
   rmSync(join(path, '..'), { recursive: true, force: true })
 })
 
-test('决赛单视频入口关闭，统一走两首歌页分别上传', async () => {
+test('决赛第一首收伴奏、第二首背景视频统一走两首歌页', async () => {
   const { client, path } = temporaryDatabase()
   runMigrations(client)
   const contentId = createContent(client, 'duel-video')
@@ -296,16 +296,19 @@ test('决赛单视频入口关闭，统一走两首歌页分别上传', async ()
 
   const finalRound = updateRound(client, getRoundByKey(client, event.id, 'final'), { status: 'open' })
   const entry = listRoundEntryRows(client, finalRound.id)[0]!
+  // 第一首伴奏：决赛轮允许后台代传，落决赛第一轮的出场记录（跟初赛/复赛同一套字段）。
+  const mp3 = new Uint8Array([...new TextEncoder().encode('ID3'), 3, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  const saved = await setEntryAccompaniment(client, finalRound, entry.id, { filename: '决赛曲.mp3', data: mp3 })
+  assert.ok(saved.name.endsWith('.mp3'))
+  assert.ok((listRoundEntryRows(client, finalRound.id)[0]!.accompanimentUrl ?? '').length > 0)
+  // 第二首背景视频只走「决赛两首歌」页面，决赛第二轮的名单入口不接受伴奏。
+  const final2Round = getRoundByKey(client, event.id, 'final2')
   await assert.rejects(
-    () => setEntryAccompaniment(client, finalRound, entry.id, { filename: '背景.mp3', data: new Uint8Array([1, 2, 3]) }),
+    () => setEntryAccompaniment(client, final2Round, entry.id, { filename: '背景.mp4', data: mp3 }),
     (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
   await assert.rejects(
-    () => commitAccompanimentKey(client, finalRound, entry.id, { key: 'uploads/背景.mp3', name: '背景.mp3', size: 3 }),
-    (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
-  )
-  await assert.rejects(
-    () => setEntryAccompaniment(client, finalRound, entry.id, { filename: '背景.mp4', data: new Uint8Array([1, 2, 3]) }),
+    () => commitAccompanimentKey(client, final2Round, entry.id, { key: 'uploads/背景.mp4', name: '背景.mp4', size: 3 }),
     (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
 

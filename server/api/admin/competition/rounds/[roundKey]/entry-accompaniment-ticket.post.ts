@@ -17,25 +17,30 @@ const schema = z.object({
   filename: z.string().trim().min(1).max(120)
 }).strict()
 
-/** 后台代传决赛背景视频：先拿直传地址，字节不经过应用服务器。 */
+/** 后台代传决赛第二首背景视频：先拿直传地址，字节不经过应用服务器。 */
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event)
   const contentId = resolveCompetitionContentId(client, session)
   const roundKey = requireCompetitionRoundKey(event)
   const input = await parseBody(event, schema)
 
-  if (roundKey !== 'final' && roundKey !== 'final2') {
+  if (roundKey !== 'final2') {
     throw createError({
       statusCode: 422,
       statusMessage: 'Final round only',
-      data: { code: 'FINAL_VIDEO_REQUIRED', message: '只有决赛可以上传背景视频' }
+      data: {
+        code: 'FINAL_VIDEO_REQUIRED',
+        message: roundKey === 'final'
+          ? '决赛第一首是音频伴奏，直接选音频文件上传就行'
+          : '只有决赛第二首背景视频走直传'
+      }
     })
   }
   if (!input.filename.toLowerCase().endsWith('.mp4')) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Final video required',
-      data: { code: 'FINAL_VIDEO_REQUIRED', message: '决赛只收 MP4 视频背景' }
+      data: { code: 'FINAL_VIDEO_REQUIRED', message: '背景视频只收 MP4' }
     })
   }
   const competition = ensureCompetitionEvent(client, contentId)
