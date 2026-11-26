@@ -74,6 +74,8 @@ interface MapActivityHotspot {
   title: string
   startsAt: string
   endsAt: string | null
+  /** 该地点的在期活动总数：接口每个地点只给前 6 条，界面上的场次必须用这个真值。 */
+  placeTotal: number
 }
 
 const { data: activityPlaceResponse } = await useFetch<{
@@ -333,6 +335,9 @@ const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobi
 // 半屏固定 326：手机活动视图与普通半屏共用同一个类串，抽成常量避免两条分支各写一份
 // （守门会数这个字面量出现次数，必须为 1）。
 const SHEET_HALF_326 = 'max-md:!h-[326px]'
+// 活动视图的半屏也要跟着展开上限收：横屏这类矮容器里 326 会压过锚点算出的 half/expanded，
+// 拖到半屏反而判成展开。上限与 resolveActivitySheetAnchors 的 80px 让位同源。
+const SHEET_ACTIVITY_HALF = 'max-md:!h-[min(326px,calc(100%_-_5.75rem))]'
 /** 动效原点写进 .map-workspace 的自定义属性，面板与底栏共用同一套坐标。 */
 const sheetOriginCss = computed(() => (sheetOriginX.value === null ? '50%' : `${sheetOriginX.value}px`))
 const sheetOriginYCss = computed(() => (sheetOriginY.value === null ? '100%' : `${sheetOriginY.value}px`))
@@ -2094,13 +2099,21 @@ const hotspotsByPlaceId = computed(() => {
   }
   return grouped
 })
+// 每个地点只列 6 条预览，场次标签用服务端给的地点真值，不能数列表行数。
 const hotspotTotalByPlaceId = computed(() => {
   const totals = new Map<string, number>()
   for (const hotspot of activityHotspots.value) {
-    totals.set(hotspot.placeId, (totals.get(hotspot.placeId) ?? 0) + 1)
+    totals.set(hotspot.placeId, hotspot.placeTotal || 1)
   }
   return totals
 })
+/** 在期活动总数（按地点去重累加）：列表可能被 6 条/地点的预览截断，这是真值。 */
+const activityTotalCount = computed(() => {
+  let total = 0
+  for (const placeTotal of hotspotTotalByPlaceId.value.values()) total += placeTotal
+  return total
+})
+const activityListTruncated = computed(() => activityHotspots.value.length < activityTotalCount.value)
 const HOTSPOT_SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 const HOTSPOT_DAY_MS = 24 * 60 * 60 * 1000
 // 跨上海午夜后「今天 / 明天」得自己翻页：computed 读不到时间就不会失效，所以给它一个响应式的 now。
@@ -2281,7 +2294,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                 ? ''
                 : mobileSheetState === 'expanded'
                   ? 'max-md:!h-[min(548px,calc(100%_-_5.75rem))]'
-                  : SHEET_HALF_326)
+                  : SHEET_ACTIVITY_HALF)
               : mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
@@ -2817,7 +2830,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           />
           <p class="flex min-w-0 flex-1 items-baseline gap-1.5">
             <span class="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">近期活动</span>
-            <span class="shrink-0 text-[12px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ activityHotspots.length }} 个</span>
+            <span class="shrink-0 text-[12px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ activityHotspots.length }}<template v-if="activityListTruncated"> / {{ activityTotalCount }}</template> 个</span>
           </p>
           <button
             type="button"
@@ -2878,12 +2891,18 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-zinc-400" />
             </button>
           </template>
+          <p
+            v-if="activityListTruncated"
+            class="px-1 py-2 text-center text-[11px] text-zinc-400 dark:text-zinc-500"
+          >
+            每个地点最多列出 6 场，共 {{ activityTotalCount }} 场在期活动
+          </p>
         </div>
         <p
           v-if="mobileSheetState === 'expanded'"
           class="shrink-0 border-t border-[var(--sheet-hairline)] px-3 py-2 text-center text-[11px] text-zinc-500 dark:text-zinc-400"
         >
-          共 {{ activityHotspots.length }} 个活动 · 点任意一条在地图上定位
+          共 {{ activityTotalCount }} 个活动 · 点任意一条在地图上定位
         </p>
       </div>
       <div

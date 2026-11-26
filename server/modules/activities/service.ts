@@ -541,6 +541,8 @@ export interface ActivityHotspot {
   title: string
   startsAt: string
   endsAt: string | null
+  /** 该地点在期活动总数；列表只给前 previewPerPlace 条，界面上的「N 场活动」要用这个真值。 */
+  placeTotal: number
 }
 
 /**
@@ -556,9 +558,10 @@ export function listActivityHotspots(
   // 别的地点就变成「图钉有红点、热点列表却没有行」；分桶放到 SQL 里做，
   // 单个地点有几百条时也不用把整批行搬进内存再丢掉。
   const rows = client.sqlite.prepare(`
-    select place_id as placeId, title, starts_at as startsAt, ends_at as endsAt
+    select place_id as placeId, title, starts_at as startsAt, ends_at as endsAt, placeTotal
     from (
       select place_id, title, starts_at, ends_at,
+        count(*) over (partition by place_id) as placeTotal,
         row_number() over (partition by place_id order by starts_at asc) as rn
       from activities
       where status = 'published'
@@ -574,13 +577,14 @@ export function listActivityHotspots(
     now,
     graceFrom: now - ACTIVITY_PUBLIC_GRACE_MS,
     perPlace: Math.max(1, previewPerPlace)
-  }) as Array<{ placeId: string, title: string, startsAt: number, endsAt: number | null }>
+  }) as Array<{ placeId: string, title: string, startsAt: number, endsAt: number | null, placeTotal: number }>
 
   return rows.map(row => ({
     placeId: row.placeId,
     title: row.title,
     startsAt: new Date(row.startsAt).toISOString(),
-    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
+    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString(),
+    placeTotal: row.placeTotal
   }))
 }
 

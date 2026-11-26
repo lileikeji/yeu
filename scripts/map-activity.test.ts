@@ -29,6 +29,8 @@ test('T-040 阶段1：接口返回 placeIds + hotspots，热点查询复用同�
   const body = service.slice(fnStart, fnStart + 1600)
   assert.match(body, /ACTIVITY_PUBLIC_GRACE_MS/, '热点查询必须复用 listActivityPlaceIds 的时间边界')
   assert.match(body, /row_number\(\) over \(partition by place_id order by starts_at asc\)/)
+  assert.match(body, /count\(\*\) over \(partition by place_id\) as placeTotal/, '每地点在期真数必须由 SQL 给出，界面不能数预览行数')
+  assert.match(body, /placeTotal: row\.placeTotal/)
 })
 
 test('T-040 阶段2：两家图钉都是纯红点，高德不留文字角标', () => {
@@ -82,9 +84,10 @@ test('T-041 阶段4：活动面板锚点 326/548，不存在 84 残条', () => {
   assert.match(anchors, /collapsed: 0/)
   assert.match(anchors, /const half = Math\.min\(326, limit\)/)
   assert.match(anchors, /const limit = Math\.max\(0, Math\.min\(548, fallback\.expanded - 80\)\)/)
-  // 326 已抽成 SHEET_HALF_326 常量，活动分支引用常量而不是内联字面量。
-  assert.match(index, /const SHEET_HALF_326 = 'max-md:!h-\[326px\]'/, '半屏 326 抽成常量，活动分支复用它')
-  assert.match(index, /mapSheetView === 'activity'[\s\S]{0,420}SHEET_HALF_326/)
+  // 326 已抽成 SHEET_HALF_326 常量；活动分支再收一道容器上限，矮容器里不能压过锚点。
+  assert.match(index, /const SHEET_HALF_326 = 'max-md:!h-\[326px\]'/, '半屏 326 抽成常量')
+  assert.match(index, /const SHEET_ACTIVITY_HALF = 'max-md:!h-\[min\(326px,calc\(100%_-_5\.75rem\)\)\]'/, '活动半屏必须与展开同口径收容器上限')
+  assert.match(index, /mapSheetView === 'activity'[\s\S]{0,420}SHEET_ACTIVITY_HALF/)
   assert.match(index, /mapSheetView === 'activity'[\s\S]{0,420}max-md:!h-\[min\(548px,calc\(100%_-_5\.75rem\)\)\]/)
 })
 
@@ -98,6 +101,17 @@ test('T-041 阶段4：旧热点带与旧展开列表已从模板退场', () => {
   assert.doesNotMatch(index, /id="map-sheet-hotspot"/)
   assert.doesNotMatch(index, /id="map-sheet-hotspot-list"/)
   assert.doesNotMatch(index, /openHotspotSection|expandHotspotList/)
+})
+
+test('T-041 阶段4：场次与总数用 placeTotal 真值，预览截断另有说明', () => {
+  assert.match(index, /interface MapActivityHotspot \{[\s\S]{0,240}placeTotal: number/)
+  assert.match(index, /totals\.set\(hotspot\.placeId, hotspot\.placeTotal \|\| 1\)/, '场次标签不能数预览行数')
+  const total = sliceBetween(index, 'const activityTotalCount = computed(', 'const HOTSPOT_SHANGHAI_OFFSET_MS')
+  assert.match(total, /for \(const placeTotal of hotspotTotalByPlaceId\.value\.values\(\)\) total \+= placeTotal/)
+  const truncation = sliceBetween(index, 'const activityListTruncated = computed(', 'const HOTSPOT_SHANGHAI_OFFSET_MS')
+  assert.match(truncation, /activityHotspots\.value\.length < activityTotalCount\.value/)
+  assert.match(index, /每个地点最多列出 6 场，共 \{\{ activityTotalCount \}\} 场在期活动/)
+  assert.match(index, /共 \{\{ activityTotalCount \}\} 个活动 · 点任意一条在地图上定位/)
 })
 
 test('T-041 阶段4：时间筛选按 hotspotDayDiff 分档，四组顺序固定', () => {
