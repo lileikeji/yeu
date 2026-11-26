@@ -447,7 +447,7 @@ function openCommandPalette() {
             class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0"
           >
             <img
-              src="/images/brand/system-logo-mark.png?v=20261126b"
+              src="/images/brand/system-logo-mark.png?v=20261126r2"
               alt=""
               aria-hidden="true"
               class="size-8 object-contain"
@@ -669,14 +669,14 @@ function openCommandPalette() {
                 class="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0"
               >
                 <img
-                  src="/images/brand/system-logo-mark-light.png?v=20261126b"
+                  src="/images/brand/system-logo-mark-light.png?v=20261126r2"
                   alt=""
                   aria-hidden="true"
                   class="size-full object-contain dark:hidden"
                   decoding="async"
                 >
                 <img
-                  src="/images/brand/system-logo-mark.png?v=20261126b"
+                  src="/images/brand/system-logo-mark.png?v=20261126r2"
                   alt=""
                   aria-hidden="true"
                   class="hidden size-full object-contain dark:block"
