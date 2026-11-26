@@ -1,12 +1,54 @@
 <script setup lang="ts">
 /**
- * 第三方投票（金数据）后台手动补录。
+ * 第三方投票（金数据）后台工作台。
  *
- * 表单限制只有微信内能填写，现场投不了时由这里代录；
- * 代录票与平台同步回来的票落在同一张表、同一个 form_token 下，一起进榜单。
+ * 覆盖这条链路的全部接口能力：
+ * 1. 读远端表单结构（选项 / 链接 / 字段名）
+ * 2. 增删选项（写回金数据表单）
+ * 3. 手动触发条目同步（增量 / 全量）
+ * 4. 手动补录票
+ * 5. 改单条状态、删除单条
  */
 
 type VoteStatus = 'valid' | 'watch' | 'void'
+
+interface Choice {
+  name: string
+  value: string
+  hidden: boolean
+}
+
+interface Candidate {
+  singerId: string
+  name: string
+  number: number
+  className: string | null
+  song: string | null
+}
+
+interface FormState {
+  configured: boolean
+  formToken: string
+  optionField: string | null
+  form: {
+    token: string
+    name: string
+    description: string
+    url: string
+    fields: Array<{ apiCode: string, label: string, type: string, choices: Choice[] }>
+  } | null
+  remoteError: string | null
+  candidates: Candidate[]
+  optionCounts: Record<string, number>
+  summary: { total: number, valid: number, watch: number, voided: number }
+  syncState: {
+    cursor: string | null
+    lastSyncedAt: number | null
+    lastEntryAt: number | null
+    totalSynced: number
+    lastError: string | null
+  } | null
+}
 
 interface VoteRecord {
   id: string
@@ -20,24 +62,9 @@ interface VoteRecord {
   fillSeconds: number | null
 }
 
-interface VoteSummary {
-  total: number
-  valid: number
-  watch: number
-  voided: number
-}
-
-interface Candidate {
-  singerId: string
-  name: string
-  number: number
-  className: string | null
-  song: string | null
-}
-
-interface VotePayload {
+interface VoteListPayload {
   formToken: string
-  summary: VoteSummary
+  summary: { total: number, valid: number, watch: number, voided: number }
   candidates: Candidate[]
   records: VoteRecord[]
 }
@@ -45,9 +72,9 @@ interface VotePayload {
 const toast = useToast()
 
 const loading = ref(false)
-const saving = ref(false)
-const deletingId = ref('')
-const payload = ref<VotePayload | null>(null)
+const busy = ref('')
+const formState = ref<FormState | null>(null)
+const votes = ref<VoteListPayload | null>(null)
 
 const draft = reactive({
   optionId: '',
@@ -57,29 +84,40 @@ const draft = reactive({
   status: 'valid' as VoteStatus
 })
 
-const candidates = computed(() => payload.value?.candidates ?? [])
-const records = computed(() => payload.value?.records ?? [])
-const summary = computed<VoteSummary>(() => payload.value?.summary ?? { total: 0, valid: 0, watch: 0, voided: 0 })
+const newChoice = ref('')
+const syncFull = ref(false)
 
-const statusOptions: Array<{ value: VoteStatus; label: string }> = [
+const candidates = computed(() => formState.value?.candidates ?? votes.value?.candidates ?? [])
+const records = computed(() => votes.value?.records ?? [])
+const summary = computed(() => votes.value?.summary ?? formState.value?.summary ?? { total: 0, valid: 0, watch: 0, voided: 0 })
+const choices = computed<Choice[]>(() => formState.value?.form?.fields[0]?.choices ?? [])
+const syncState = computed(() => formState.value?.syncState ?? null)
+
+const statusOptions: Array<{ value: VoteStatus, label: string }> = [
   { value: 'valid', label: '有效票' },
   { value: 'watch', label: '待审' },
   { value: 'void', label: '作废' }
 ]
 
 onMounted(() => {
-  if (!draft.optionId && candidates.value.length > 0) draft.optionId = candidates.value[0]!.name
   void load()
 })
 
 async function load(): Promise<void> {
   loading.value = true
   try {
-    payload.value = await adminFetch<VotePayload>('/api/admin/competition/popularity/third-party-votes')
-    if (!draft.optionId && candidates.value.length > 0) draft.optionId = candidates.value[0]!.name
+    const [state, list] = await Promise.all([
+      adminFetch<FormState>('/api/admin/competition/popularity/third-party-form'),
+      adminFetch<VoteListPayload>('/api/admin/competition/popularity/third-party-votes')
+    ])
+    formState.value = state
+    votes.value = list
+    if (!draft.optionId) {
+      draft.optionId = state.candidates[0]?.name ?? list.candidates[0]?.name ?? ''
+    }
   } catch (error) {
     toast.add({
-      title: '读取投票记录失败',
+      title: '读取投票数据失败',
       description: apiErrorMessage(error, '请检查网络后重试。'),
       color: 'warning'
     })
@@ -94,15 +132,15 @@ function votedAtValue(): number | undefined {
   return Number.isFinite(ms) ? ms : undefined
 }
 
-async function submit(): Promise<void> {
-  if (saving.value) return
+async function submitVote(): Promise<void> {
+  if (busy.value) return
   const optionId = draft.optionId.trim()
   if (!optionId) {
     toast.add({ title: '请选择或填写选手', color: 'warning' })
     return
   }
 
-  saving.value = true
+  busy.value = 'vote'
   try {
     const result = await adminFetch<{ inserted: number }>('/api/admin/competition/popularity/third-party-votes', {
       method: 'POST',
@@ -125,13 +163,34 @@ async function submit(): Promise<void> {
       color: 'warning'
     })
   } finally {
-    saving.value = false
+    busy.value = ''
   }
 }
 
-async function remove(row: VoteRecord): Promise<void> {
-  if (deletingId.value) return
-  deletingId.value = row.id
+async function changeStatus(row: VoteRecord, status: VoteStatus): Promise<void> {
+  if (busy.value) return
+  busy.value = `status:${row.id}`
+  try {
+    await adminFetch('/api/admin/competition/popularity/third-party-votes', {
+      method: 'PATCH',
+      body: { id: row.id, status }
+    })
+    toast.add({ title: '状态已更新', color: 'success' })
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '状态更新失败',
+      description: apiErrorMessage(error, '请检查网络后重试。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function removeVote(row: VoteRecord): Promise<void> {
+  if (busy.value) return
+  busy.value = `delete:${row.id}`
   try {
     await adminFetch('/api/admin/competition/popularity/third-party-votes', {
       method: 'DELETE',
@@ -146,11 +205,85 @@ async function remove(row: VoteRecord): Promise<void> {
       color: 'warning'
     })
   } finally {
-    deletingId.value = ''
+    busy.value = ''
   }
 }
 
-function formatTime(ms: number): string {
+async function addChoices(): Promise<void> {
+  if (busy.value) return
+  const names = newChoice.value.split(/[,，\n]/).map(item => item.trim()).filter(Boolean)
+  if (names.length === 0) {
+    toast.add({ title: '请填写要新增的选手名', color: 'warning' })
+    return
+  }
+
+  busy.value = 'choices'
+  try {
+    await adminFetch('/api/admin/competition/popularity/third-party-form', {
+      method: 'PATCH',
+      body: { add: names }
+    })
+    toast.add({ title: `已新增 ${names.length} 个选项`, color: 'success' })
+    newChoice.value = ''
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '新增选项失败',
+      description: apiErrorMessage(error, '请检查网络后重试。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function removeChoice(choice: Choice): Promise<void> {
+  if (busy.value) return
+  busy.value = `choice:${choice.value}`
+  try {
+    await adminFetch('/api/admin/competition/popularity/third-party-form', {
+      method: 'PATCH',
+      body: { remove: [choice.value] }
+    })
+    toast.add({ title: `已删除选项「${choice.name}」`, color: 'success' })
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '删除选项失败',
+      description: apiErrorMessage(error, '请检查网络后重试。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function runSync(): Promise<void> {
+  if (busy.value) return
+  busy.value = 'sync'
+  try {
+    const result = await adminFetch<{ inserted: number, received: number, pages: number }>(
+      '/api/admin/competition/popularity/third-party-sync',
+      { method: 'POST', body: { full: syncFull.value } }
+    )
+    toast.add({
+      title: `同步完成：拉到 ${result.received} 条，新入库 ${result.inserted} 条`,
+      color: 'success'
+    })
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '同步失败',
+      description: apiErrorMessage(error, '可能是金数据限流或令牌失效。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+function formatTime(ms: number | null): string {
+  if (!ms) return '—'
   const date = new Date(ms)
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getMonth() + 1}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
@@ -167,136 +300,288 @@ function statusClass(status: VoteStatus): string {
   if (status === 'void') return 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300'
   return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
 }
+
+function votesOf(choice: Choice): number {
+  return formState.value?.optionCounts[choice.name] ?? 0
+}
 </script>
 
 <template>
-  <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          第三方投票补录
-        </h3>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          金数据侧限制微信内填写，现场投不了时在这里代录。补录票与平台同步的票一起进榜单。
-        </p>
+  <div class="space-y-4">
+    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            第三方投票（金数据）
+          </h3>
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            表单 <code v-if="formState?.form">{{ formState.form.name }}</code>
+            <span v-else>未读取到远端表单</span>
+            · 字段 <code>{{ formState?.optionField ?? '—' }}</code>
+            · 表单 ID <code>{{ formState?.formToken ?? '—' }}</code>
+          </p>
+          <a
+            v-if="formState?.form?.url"
+            :href="formState.form.url"
+            target="_blank"
+            rel="noreferrer"
+            class="mt-1 inline-block text-xs text-emerald-600 hover:underline"
+          >{{ formState.form.url }}</a>
+        </div>
+        <button
+          type="button"
+          class="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          :disabled="loading"
+          @click="load"
+        >
+          {{ loading ? '刷新中…' : '刷新' }}
+        </button>
       </div>
+
+      <p
+        v-if="formState && !formState.configured"
+        class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+      >
+        未配置金数据令牌，当前只能做手动补录（数据落在 manual 表单口径下）。
+      </p>
+      <p
+        v-else-if="formState?.remoteError"
+        class="mt-3 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+      >
+        读取远端表单失败：{{ formState.remoteError }}
+      </p>
+
+      <div class="mt-3 flex flex-wrap gap-2 text-xs">
+        <span class="rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">合计 {{ summary.total }}</span>
+        <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">有效 {{ summary.valid }}</span>
+        <span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">待审 {{ summary.watch }}</span>
+        <span class="rounded-full bg-rose-100 px-2.5 py-1 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">作废 {{ summary.voided }}</span>
+      </div>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          表单选项（{{ choices.length }}）
+        </h4>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          这里的改动会直接写回金数据表单。删除选项不会删掉已产生的票，但那部分会沉到榜单尾部。
+        </p>
+
+        <div
+          v-if="choices.length === 0"
+          class="mt-3 rounded-md border border-dashed border-zinc-300 p-3 text-center text-xs text-zinc-500 dark:border-zinc-700"
+        >
+          没有读取到选项
+        </div>
+
+        <ul
+          v-else
+          class="mt-3 max-h-56 space-y-1 overflow-y-auto pr-1"
+        >
+          <li
+            v-for="choice in choices"
+            :key="choice.value"
+            class="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          >
+            <span class="truncate">
+              {{ choice.name }}
+              <span class="text-zinc-400">（本站 {{ votesOf(choice) }} 票）</span>
+            </span>
+            <button
+              type="button"
+              class="shrink-0 text-rose-600 hover:underline disabled:opacity-50"
+              :disabled="Boolean(busy)"
+              @click="removeChoice(choice)"
+            >
+              删除
+            </button>
+          </li>
+        </ul>
+
+        <div class="mt-3 flex gap-2">
+          <input
+            v-model="newChoice"
+            placeholder="新增选手名，多个用逗号分隔"
+            class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+          <button
+            type="button"
+            class="shrink-0 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+            :disabled="Boolean(busy)"
+            @click="addChoices"
+          >
+            添加
+          </button>
+        </div>
+      </div>
+
+      <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          同步
+        </h4>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          从金数据拉取提交记录入库。站内定时任务每 5 分钟自动跑一次增量，这里是手动触发的同一套逻辑。
+        </p>
+
+        <dl class="mt-3 space-y-1 text-xs">
+          <div class="flex justify-between">
+            <dt class="text-zinc-500">
+              上次同步
+            </dt>
+            <dd>{{ formatTime(syncState?.lastSyncedAt ?? null) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-zinc-500">
+              最新票时间
+            </dt>
+            <dd>{{ formatTime(syncState?.lastEntryAt ?? null) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-zinc-500">
+              累计入库
+            </dt>
+            <dd>{{ syncState?.totalSynced ?? 0 }}</dd>
+          </div>
+        </dl>
+
+        <p
+          v-if="syncState?.lastError"
+          class="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+        >
+          上次失败：{{ syncState.lastError }}
+        </p>
+
+        <label class="mt-3 flex items-center gap-2 text-xs">
+          <input
+            v-model="syncFull"
+            type="checkbox"
+            class="size-4 rounded border-zinc-300"
+            :disabled="!formState?.configured"
+          >
+          全量重拉（忽略水位，首次可用）
+        </label>
+
+        <button
+          type="button"
+          class="mt-3 w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+          :disabled="Boolean(busy) || !formState?.configured"
+          @click="runSync"
+        >
+          {{ busy === 'sync' ? '同步中…' : '立即同步' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        手动补录
+      </h4>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        有人投不了票时在这里代录。补录票与平台同步的票一起进榜单。
+      </p>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label
+            class="block text-sm font-medium"
+            for="tpv-option"
+          >选手</label>
+          <input
+            id="tpv-option"
+            v-model="draft.optionId"
+            list="tpv-candidates"
+            placeholder="选择选手，或直接填写选项名"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+          <datalist id="tpv-candidates">
+            <option
+              v-for="item in candidates"
+              :key="item.singerId"
+              :value="item.name"
+            >
+              {{ item.number }}号 {{ item.className ?? '' }} {{ item.song ?? '' }}
+            </option>
+          </datalist>
+        </div>
+
+        <div>
+          <label
+            class="block text-sm font-medium"
+            for="tpv-count"
+          >票数</label>
+          <input
+            id="tpv-count"
+            v-model.number="draft.count"
+            type="number"
+            min="1"
+            max="50"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+        </div>
+
+        <div>
+          <label
+            class="block text-sm font-medium"
+            for="tpv-status"
+          >状态</label>
+          <select
+            id="tpv-status"
+            v-model="draft.status"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <option
+              v-for="item in statusOptions"
+              :key="item.value"
+              :value="item.value"
+            >
+              {{ item.label }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            class="block text-sm font-medium"
+            for="tpv-time"
+          >投票时间</label>
+          <input
+            id="tpv-time"
+            v-model="draft.votedAtLocal"
+            type="datetime-local"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+          <p class="mt-1 text-xs text-zinc-500">
+            留空 = 当前时间
+          </p>
+        </div>
+
+        <div>
+          <label
+            class="block text-sm font-medium"
+            for="tpv-voter"
+          >投票人备注</label>
+          <input
+            id="tpv-voter"
+            v-model="draft.voterRef"
+            maxlength="80"
+            placeholder="可留空，例如「现场代录 · 张同学」"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+        </div>
+      </div>
+
       <button
         type="button"
-        class="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        :disabled="loading"
-        @click="load"
+        class="mt-4 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+        :disabled="Boolean(busy)"
+        @click="submitVote"
       >
-        {{ loading ? '刷新中…' : '刷新' }}
+        {{ busy === 'vote' ? '提交中…' : '补录投票' }}
       </button>
     </div>
 
-    <div class="mt-3 flex flex-wrap gap-2 text-xs">
-      <span class="rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-800">合计 {{ summary.total }}</span>
-      <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">有效 {{ summary.valid }}</span>
-      <span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">待审 {{ summary.watch }}</span>
-      <span class="rounded-full bg-rose-100 px-2.5 py-1 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">作废 {{ summary.voided }}</span>
-    </div>
-
-    <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      <div class="sm:col-span-2">
-        <label
-          class="block text-sm font-medium"
-          for="tpv-option"
-        >选手</label>
-        <input
-          id="tpv-option"
-          v-model="draft.optionId"
-          list="tpv-candidates"
-          placeholder="选择选手，或直接填写选项名"
-          class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-        <datalist id="tpv-candidates">
-          <option
-            v-for="item in candidates"
-            :key="item.singerId"
-            :value="item.name"
-          >
-            {{ item.number }}号 {{ item.className ?? '' }} {{ item.song ?? '' }}
-          </option>
-        </datalist>
-      </div>
-
-      <div>
-        <label
-          class="block text-sm font-medium"
-          for="tpv-count"
-        >票数</label>
-        <input
-          id="tpv-count"
-          v-model.number="draft.count"
-          type="number"
-          min="1"
-          max="50"
-          class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-      </div>
-
-      <div>
-        <label
-          class="block text-sm font-medium"
-          for="tpv-status"
-        >状态</label>
-        <select
-          id="tpv-status"
-          v-model="draft.status"
-          class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          <option
-            v-for="item in statusOptions"
-            :key="item.value"
-            :value="item.value"
-          >
-            {{ item.label }}
-          </option>
-        </select>
-      </div>
-
-      <div>
-        <label
-          class="block text-sm font-medium"
-          for="tpv-time"
-        >投票时间</label>
-        <input
-          id="tpv-time"
-          v-model="draft.votedAtLocal"
-          type="datetime-local"
-          class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-        <p class="mt-1 text-xs text-zinc-500">
-          留空 = 当前时间
-        </p>
-      </div>
-
-      <div>
-        <label
-          class="block text-sm font-medium"
-          for="tpv-voter"
-        >投票人备注</label>
-        <input
-          id="tpv-voter"
-          v-model="draft.voterRef"
-          maxlength="80"
-          placeholder="可留空，例如「现场代录 · 张同学」"
-          class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-      </div>
-    </div>
-
-    <button
-      type="button"
-      class="mt-4 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-      :disabled="saving"
-      @click="submit"
-    >
-      {{ saving ? '提交中…' : '补录投票' }}
-    </button>
-
-    <div class="mt-5">
+    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
       <div class="flex items-center justify-between">
         <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           最近记录
@@ -351,8 +636,22 @@ function statusClass(status: VoteStatus): string {
                 {{ row.optionId }}
               </td>
               <td class="py-1.5 pr-3">
+                <select
+                  :value="row.status"
+                  class="rounded-md border border-zinc-300 bg-[var(--surface)] px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                  :disabled="Boolean(busy)"
+                  @change="changeStatus(row, ($event.target as HTMLSelectElement).value as VoteStatus)"
+                >
+                  <option
+                    v-for="item in statusOptions"
+                    :key="item.value"
+                    :value="item.value"
+                  >
+                    {{ item.label }}
+                  </option>
+                </select>
                 <span
-                  class="rounded-full px-2 py-0.5"
+                  class="ml-1 rounded-full px-1.5 py-0.5"
                   :class="statusClass(row.status)"
                 >{{ statusLabel(row.status) }}</span>
               </td>
@@ -366,10 +665,10 @@ function statusClass(status: VoteStatus): string {
                 <button
                   type="button"
                   class="text-rose-600 hover:underline disabled:opacity-50"
-                  :disabled="deletingId === row.id"
-                  @click="remove(row)"
+                  :disabled="Boolean(busy)"
+                  @click="removeVote(row)"
                 >
-                  {{ deletingId === row.id ? '删除中…' : '删除' }}
+                  删除
                 </button>
               </td>
             </tr>

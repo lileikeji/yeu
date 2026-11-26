@@ -143,6 +143,21 @@ export function summarizeThirdPartyVotes(
   return summary
 }
 
+export function updateThirdPartyVoteStatus(
+  client: ReturnType<typeof useAppDatabase>,
+  formToken: string,
+  id: string,
+  status: ThirdPartyVoteStatus
+): { updated: number } {
+  const result = client.db
+    .update(thirdPartyVoteRecords)
+    .set({ status, updatedAt: Date.now() })
+    .where(and(eq(thirdPartyVoteRecords.formToken, formToken), eq(thirdPartyVoteRecords.id, id)))
+    .run()
+
+  return { updated: result.changes }
+}
+
 export function deleteThirdPartyVote(
   client: ReturnType<typeof useAppDatabase>,
   formToken: string,

@@ -1668,6 +1668,24 @@ export const thirdPartyVoteManualQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional()
 }).strict()
 
+/** 改单条投票记录的状态（人工复核后放行或作废）。 */
+export const thirdPartyVoteStatusSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  status: z.enum(['valid', 'watch', 'void'])
+}).strict()
+
+/** 同步金数据表单结构：新增或删除选项，remove 传选项的 value。 */
+export const thirdPartyFormChoicesSchema = z.object({
+  add: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
+  remove: z.array(z.string().trim().min(1).max(40)).max(50).optional()
+}).strict()
+
+/** 手动触发一次条目同步。 */
+export const thirdPartySyncRunSchema = z.object({
+  full: z.boolean().optional(),
+  maxPages: z.coerce.number().int().min(1).max(50).optional()
+}).strict()
+
 export const competitionResultLookupSchema = z.object({
   name: z.string().trim().min(1).max(40),
   studentNo: z.string().trim().min(1).max(20),
