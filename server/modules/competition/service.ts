@@ -2872,11 +2872,15 @@ export function recordPopularityBallot(
     requiresWechatTicket: authMode === 'wechat_mp' && !wechatVerified
   }
 
-  if (!multiVote && existing && Number(existing.voided) === 1) {
+  const voterCancelled = Boolean(
+    existing && Number(existing.voided) === 1 && existing.voidedReason === 'voter_cancel'
+  )
+
+  if (!multiVote && existing && Number(existing.voided) === 1 && !voterCancelled) {
     conflictError('POPULARITY_BALLOT_VOIDED', '当前选票已被风控作废，无法更改')
   }
 
-  if (!multiVote && existing && existing.singerId === singerId) {
+  if (!multiVote && existing && !voterCancelled && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
   }
 
@@ -2891,7 +2895,7 @@ export function recordPopularityBallot(
   const autoQuarantine = telemetry?.autoQuarantineOverride ?? Boolean(settings.autoQuarantine ?? true)
   const quarantineThreshold = normalizedOpenIdHash ? 80 : 60
 
-  if (!existing || multiVote) {
+  if (!existing || voterCancelled || multiVote) {
     const nextVoteIndex = multiVote
       ? myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1) + 1
       : 0

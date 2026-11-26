@@ -1485,10 +1485,12 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  uniqueIndex('competition_popularity_ballots_event_device_slot_unique').on(table.eventId, table.deviceHash, table.voteIndex),
+  uniqueIndex('competition_popularity_ballots_event_device_slot_unique')
+    .on(table.eventId, table.deviceHash, table.voteIndex)
+    .where(sql`${table.voided} = 0`),
   uniqueIndex('competition_popularity_ballots_event_openid_slot_unique')
     .on(table.eventId, table.voterOpenidHash, table.voteIndex)
-    .where(sql`${table.voterOpenidHash} is not null`),
+    .where(sql`${table.voterOpenidHash} is not null and ${table.voided} = 0`),
   index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
   index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt),
   index('competition_popularity_ballots_event_voided_idx').on(table.eventId, table.voided, table.createdAt),
