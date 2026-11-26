@@ -3,9 +3,9 @@ import {
   createWechatTextReplyXml,
   decryptWechatPayload,
   parseWechatMpTextMessage,
-  readWechatXmlField,
-  verifyWechatCallbackSignature
+  readWechatXmlField
 } from '../../modules/wechat/callback'
+import { readWechatMpAccounts, resolveWechatMpAccount } from '../../modules/wechat/accounts'
 import { botAssistantConfig, botRateLimited } from '../../modules/bots/runtime'
 import {
   answerAndSendBotQuestion,
@@ -34,10 +34,8 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'X-Robots-Tag', 'noindex, nofollow')
 
   const runtime = useRuntimeConfig(event)
-  const token = String(runtime.wechatMpToken || '').trim()
-  const encodingAesKey = String(runtime.wechatMpEncodingAesKey || '').trim()
-  const appId = String(runtime.wechatMpAppId || '').trim()
-  if (!token || !encodingAesKey || !appId) {
+  const accounts = readWechatMpAccounts(runtime as unknown as Record<string, unknown>)
+  if (!accounts.length) {
     throw createError({ statusCode: 503, statusMessage: '微信公众号回调尚未完成配置' })
   }
 
@@ -51,30 +49,33 @@ export default defineEventHandler(async (event) => {
   const nonce = queryText(query.nonce)
   const encrypted = readWechatXmlField(rawBody, 'Encrypt')
   const encryptedMode = Boolean(encrypted)
+  // 换号过渡期：主号与副号并行，按签名自动识别来源。
+  const account = resolveWechatMpAccount(accounts, {
+    timestamp,
+    nonce,
+    signature: encryptedMode ? queryText(query.msg_signature) : queryText(query.signature),
+    encrypted: encrypted ?? undefined
+  })
+  if (!account) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
+  }
+
   let messageXml = rawBody
   if (encrypted) {
-    if (!verifyWechatCallbackSignature({
-      token,
-      timestamp,
-      nonce,
-      signature: queryText(query.msg_signature),
-      encrypted
-    })) {
-      throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
-    }
     try {
-      messageXml = decryptWechatPayload({ encrypted, encodingAesKey, appId })
+      messageXml = decryptWechatPayload({
+        encrypted,
+        encodingAesKey: account.encodingAesKey,
+        appId: account.appId
+      })
     } catch {
       throw createError({ statusCode: 401, statusMessage: 'Invalid encrypted callback' })
     }
-  } else if (!verifyWechatCallbackSignature({
-    token,
-    timestamp,
-    nonce,
-    signature: queryText(query.signature)
-  })) {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
   }
+
+  const token = account.token
+  const encodingAesKey = account.encodingAesKey
+  const appId = account.appId
 
   const incoming = parseWechatMpTextMessage(messageXml)
   if (!incoming) return 'success'
