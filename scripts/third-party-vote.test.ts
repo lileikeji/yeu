@@ -322,3 +322,51 @@ test('占比按有效票总数计算', () => {
   assert.equal(payload.entries[1]?.share, 0.25)
   assert.equal(payload.entries[2]?.share, 0)
 })
+
+test('选项名带《歌名》后缀时归并到同一位选手', () => {
+  const payload = buildThirdPartyRanking({
+    formToken: 'aSREsV',
+    candidates: rankingCandidates,
+    generatedAt: 0,
+    rows: [
+      { optionId: '林敬凯《神探》', status: 'valid', count: 4 },
+      { optionId: '陈静涵《句号。》', status: 'valid', count: 6 }
+    ]
+  })
+  assert.deepEqual(payload.entries.map(entry => entry.name), ['陈静涵', '林敬凯', '林艳阳'])
+  assert.deepEqual(payload.entries.map(entry => entry.valid), [6, 4, 0])
+  assert.deepEqual(payload.entries.map(entry => entry.rank), [1, 2, 0])
+  assert.equal(payload.entries[0]?.optionId, '陈静涵')
+  assert.deepEqual(payload.totals, { received: 10, valid: 10, watch: 0, voided: 0 })
+})
+
+test('纯姓名与带歌名两种选项名混存时合并计票', () => {
+  const payload = buildThirdPartyRanking({
+    formToken: 'aSREsV',
+    candidates: rankingCandidates,
+    generatedAt: 0,
+    rows: [
+      { optionId: '林敬凯', status: 'valid', count: 2 },
+      { optionId: '林敬凯《神探》', status: 'valid', count: 3 },
+      { optionId: '林敬凯《神探》', status: 'void', count: 1 }
+    ]
+  })
+  const entry = payload.entries.find(item => item.name === '林敬凯')
+  assert.equal(entry?.valid, 5)
+  assert.equal(entry?.voided, 1)
+  assert.deepEqual(payload.totals, { received: 6, valid: 5, watch: 0, voided: 1 })
+})
+
+test('姓名互为前缀时取最长匹配，短名不会抢走长名的票', () => {
+  const payload = buildThirdPartyRanking({
+    formToken: 'aSREsV',
+    candidates: [
+      { singerId: 'a', number: 1, name: '林敬', className: null, photoUrl: null, song: '' },
+      { singerId: 'b', number: 2, name: '林敬凯', className: null, photoUrl: null, song: '神探' }
+    ],
+    generatedAt: 0,
+    rows: [{ optionId: '林敬凯《神探》', status: 'valid', count: 7 }]
+  })
+  assert.equal(payload.entries.find(item => item.name === '林敬凯')?.valid, 7)
+  assert.equal(payload.entries.find(item => item.name === '林敬')?.valid, 0)
+})

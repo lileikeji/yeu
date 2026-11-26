@@ -169,6 +169,20 @@ curl -X POST ".../sync?full=1&maxPages=50" -H "Authorization: Bearer $NUXT_JINSH
 
 窗口外的票不继承簇统计：1 小时后的新票会重新按干净上下文打分。
 
+## 图片选项与歌名
+
+金数据的图片单选（`ImageRadioButton`）能让选项带上头像，但版式是固定的：约 70×55 的缩略图配右侧文字，尺寸改不了，所以做不出本站投票页那种大卡片。可行的做法是「方形头像 + 把歌名并进选项名」。
+
+- choice 必须带 `image_url` / `image_base64` / `attachment_id` 之一；`image_url` 只收 jpg/jpeg/gif/png，SVG 会被拒。
+- 金数据会把 `image_url` 抓下来转存到自己的 CDN（读回变 `https://gd-pub.jinshujufiles.com/ic/<hash>.jpg`），所以 6 小时有效期的 COS 预签名 URL 也能直接用。
+- 选项 `name` 建好后**不能改**：`update_choices.update` 不接受 `name`，改名只能删掉重建。
+- `description_text` 当前套餐不生效，传了读回也丢。
+- 只允许微信填写（`weixin_limited:true`）与按微信限投一次（`fill_frequency.condition='by_weixin'`）可以叠加；关掉 `weixin_limited` 时必须同时把 `fill_frequency` 改回 `unlimited`，否则报冲突。
+
+选项名带后缀（`林敬凯《神探》`）时，榜单用「精确姓名 → 姓名前缀取最长」归并回候选，换一版选项名不会丢历史票，见 `server/modules/vote-sync/ranking.ts`。
+
+`scripts/jinshuju-singer-cards.py` 生成卡片：读 `[{name,song,photo}]`，输出 640×640 方形图（淡色底 + 白描边圆 + 首字，或有照片时贴照片）与 `manifest.json`。参赛选手目前 `photo_key` 全空，脚本留了 `photo` 参数，后台补传真实照片后重跑即可。
+
 ## 可用字段
 
 金数据条目里对风控有用的字段：`info_remote_ip`（真实 IP）、`info_platform` / `info_os` / `info_browser`、`info_filling_duration`（秒）、`info_region`、`token`、`created_at`（UTC ISO）。
@@ -194,5 +208,6 @@ curl -X POST ".../sync?full=1&maxPages=50" -H "Authorization: Bearer $NUXT_JINSH
 - `server/modules/vote-sync/form-config.ts`：生效表单配置文件读写（`third-party-form.json`）
 - `server/utils/jinshuju.ts`：API 客户端（条目、表单结构、建表 / 删表 / 改填写规则）
 - `server/database/migrations/0088_third_party_vote_sync.sql`：两表与索引
-- `scripts/third-party-vote.test.ts`：25 个用例（评分、归一化、窗口、榜单）
+- `scripts/third-party-vote.test.ts`：28 个用例（评分、归一化、窗口、榜单、选项名归并）
 - `scripts/third-party-vote-manual.test.ts`：7 个用例（补录、改状态、删除、汇总）
+- `scripts/jinshuju-singer-cards.py`：生成选项头像卡（640×640）

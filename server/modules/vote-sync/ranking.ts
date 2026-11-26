@@ -63,8 +63,28 @@ export function buildThirdPartyRanking(input: RankingInput): ThirdPartyRankingPa
   }
 
   const candidateOrder = new Map(input.candidates.map((candidate, index) => [candidate.name, index]))
+  // 选项名可能带后缀（现行表单是「姓名《歌名》」），历史数据又是纯姓名。
+  // 先按「精确姓名 → 姓名前缀（取最长）」归并，避免改一版选项名就丢历史票。
+  const namesByLength = input.candidates.map(candidate => candidate.name).sort((left, right) => right.length - left.length)
+  const resolveCache = new Map<string, string>()
+  const merged = new Map<string, Tally>()
+  for (const [optionId, bucket] of tally) {
+    let resolved = resolveCache.get(optionId)
+    if (resolved === undefined) {
+      resolved = candidateOrder.has(optionId)
+        ? optionId
+        : namesByLength.find(name => optionId.startsWith(name)) ?? optionId
+      resolveCache.set(optionId, resolved)
+    }
+    const target = merged.get(resolved) ?? emptyTally()
+    target.valid += bucket.valid
+    target.watch += bucket.watch
+    target.voided += bucket.voided
+    merged.set(resolved, target)
+  }
+
   const entries: ThirdPartyRankingEntry[] = input.candidates.map((candidate) => {
-    const bucket = tally.get(candidate.name) ?? emptyTally()
+    const bucket = merged.get(candidate.name) ?? emptyTally()
     return {
       optionId: candidate.name,
       singerId: candidate.singerId,
@@ -82,7 +102,7 @@ export function buildThirdPartyRanking(input: RankingInput): ThirdPartyRankingPa
   })
 
   // 不在候选名单里的选项也保留，避免票数凭空消失。
-  for (const [optionId, bucket] of tally) {
+  for (const [optionId, bucket] of merged) {
     if (candidateOrder.has(optionId)) continue
     entries.push({
       optionId,
