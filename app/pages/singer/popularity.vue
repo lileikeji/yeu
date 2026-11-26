@@ -657,7 +657,7 @@ onBeforeUnmount(() => {
 
         <p class="pt-1 text-center text-xs leading-relaxed text-[var(--muted-ink)]">
           {{ multiVote
-            ? `每人最多 ${votesPerVoter} 票，${allowRepeatVote ? '可投给不同或同一位选手' : '同一选手最多 1 票'}；投出后不能改票。`
+            ? `每人最多 ${votesPerVoter} 票，${allowRepeatVote ? '可投给不同或同一位选手' : '同一选手最多 1 票'}；${state.allowWithdraw ? '投错了可点「取消投票」重投。' : '投出后不能改票。'}`
             : (state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。') }}
         </p>
 

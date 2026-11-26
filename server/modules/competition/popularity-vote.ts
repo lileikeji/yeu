@@ -316,5 +316,12 @@ export async function handlePopularityWithdraw(
     voterOpenidHash,
     now
   })
-  return { ...state, deviceToken: deviceTokenToReturn }
+  // 取消后版本号会变，旧 pageTicket 立即失效；这里直接补一张新的，页面才能接着重投。
+  const nextTicket = issuePopularityPageTicket(
+    security.secret,
+    eventRow.id,
+    voterHash,
+    state.revision
+  )
+  return { ...state, deviceToken: deviceTokenToReturn, pageTicket: nextTicket }
 }
