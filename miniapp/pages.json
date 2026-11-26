@@ -16,7 +16,8 @@
     { "path": "pages/procedures/index", "style": { "navigationBarTitleText": "流程清单" } },
     { "path": "pages/procedures/detail", "style": { "navigationBarTitleText": "流程详情" } },
     { "path": "pages/notices/index", "style": { "navigationBarTitleText": "通知公告" } },
-    { "path": "pages/about/index", "style": { "navigationBarTitleText": "关于与反馈" } }
+    { "path": "pages/about/index", "style": { "navigationBarTitleText": "关于与反馈" } },
+    { "path": "pages/popularity/index", "style": { "navigationBarTitleText": "人气奖投票" } }
   ],
   "tabBar": {
     "color": "#6b7263",

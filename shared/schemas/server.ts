@@ -1616,6 +1616,11 @@ export const competitionPopularityVoteSchema = z.object({
   env: competitionPopularityVoteEnvSchema.optional()
 }).strict()
 
+/** 小程序登录：用 wx.login 的一次性 code 换取 openid 后再签发票据。 */
+export const competitionPopularityMiniappLoginSchema = z.object({
+  code: z.string().trim().min(8).max(256)
+}).strict()
+
 export const competitionPopularityModerateSchema = z.object({
   mode: z.enum(['void', 'restore', 'release']),
   ballotIds: z.array(z.string().trim().min(1).max(64)).min(1).max(500),

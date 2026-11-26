@@ -2,8 +2,8 @@ export default {
   name: '迎新指南',
   appid: 'wx7733e11ab884b5f9',
   description: 'YEU freshman guide mini-program',
-  versionName: '0.2.0',
-  versionCode: '200',
+  versionName: '0.3.0',
+  versionCode: '300',
   transformPx: false,
   plus: {
     statusbar: {

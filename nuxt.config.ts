@@ -149,6 +149,8 @@ export default defineNuxtConfig({
     wechatMpAppSecret: '',
     wechatMpToken: '',
     wechatMpEncodingAesKey: '',
+    wechatMiniappAppId: '',
+    wechatMiniappAppSecret: '',
     wechatShareAllowedHosts: 'yx.huiliyill.cn',
     public: {
       siteUrl: 'http://localhost:3000',

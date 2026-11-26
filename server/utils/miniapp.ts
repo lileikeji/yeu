@@ -10,13 +10,16 @@ const MINIAPP_READ_ROUTES = [
   /^\/api\/miniapp\/v1\/clubs(?:\/[^/]+)?$/,
   /^\/api\/miniapp\/v1\/search$/,
   /^\/api\/miniapp\/v1\/nearby$/,
-  /^\/api\/miniapp\/v1\/directions\/walking$/
+  /^\/api\/miniapp\/v1\/directions\/walking$/,
+  /^\/api\/miniapp\/v1\/popularity\/state$/
 ]
 
-/** 小程序唯一允许的写入型路径：只读的埋点上报与 AI 问答查询。 */
+/** 小程序唯一允许的写入型路径：只读的埋点上报、AI 问答查询与投票登录/投票。 */
 const MINIAPP_POST_ROUTES = new Set([
   '/api/miniapp/v1/track',
-  '/api/miniapp/v1/assistant'
+  '/api/miniapp/v1/assistant',
+  '/api/miniapp/v1/popularity/login',
+  '/api/miniapp/v1/popularity/vote'
 ])
 
 function normalizeMiniAppPath(pathname: string): string {
