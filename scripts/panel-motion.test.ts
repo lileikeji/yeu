@@ -55,10 +55,16 @@ test('显示设置面板：两个齿轮都传事件，Transition 在 before-ente
 })
 
 test('面板 bloom 用液体弹簧曲线，高度仍走 --ease-sheet', () => {
+  // 弹簧版包在 @supports 里（linear() 旧内核不认），opacity 走 --ease-soft-fade token。
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,320}?transform 560ms var\(--ease-spring-sheet\),[\s\S]{0,200}?opacity 200ms cubic-bezier\(0\.16, 1, 0\.3, 1\),[\s\S]{0,240}?height 320ms var\(--ease-sheet\);/
+    /@supports \(transition-timing-function: linear\(0, 1\)\) \{\s*\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{\s*transition:\s*transform 560ms var\(--ease-spring-sheet\),\s*opacity 200ms var\(--ease-soft-fade\),\s*border-radius 560ms var\(--ease-spring-sheet\),\s*height 320ms var\(--ease-sheet\);/
   )
+  // 兜底档必须写在 @supports 之前：linear() 替换失败时（IACVT）只有这条过渡还活着。
+  const fallbackAt = mapPage.indexOf('transform 300ms var(--ease-sheet),')
+  const supportsAt = mapPage.indexOf('@supports (transition-timing-function: linear(0, 1))')
+  assert.ok(fallbackAt !== -1, 'bloom 必须留一档 cubic-bezier 兜底 transition')
+  assert.ok(supportsAt !== -1 && fallbackAt < supportsAt, '兜底档必须写在 @supports 之前')
 })
 
 test('点位浮窗从 pin 一侧长出：origin 变量与 scale 入场都要在', () => {

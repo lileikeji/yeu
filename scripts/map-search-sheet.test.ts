@@ -46,9 +46,15 @@ test('T-036 搜索框聚焦不再抬面板，清空搜索收回折叠', () => {
 
 test('2026-11-24 输入期间不抬面板，只有回车/搜索键提交才抬', () => {
   const searchTag = tagAround(dock, 'aria-label="搜索地点"')
-  assert.match(searchTag, /@keyup\.enter="submitSearch"/, '回车要能提交搜索')
+  assert.match(searchTag, /@keyup\.enter="onSearchEnter"/, '回车要能提交搜索')
   assert.doesNotMatch(searchTag, /@input="[^"]*raiseSheet/, '输入事件又去抬面板了')
   assert.match(dock, /function submitSearch\(\): void \{[\s\S]{0,140}?kind: 'search-submit'/)
+  // 输入法选词的回车不算提交：组词中的 keyup 也是 Enter（isComposing / keyCode 229）。
+  assert.match(
+    dock,
+    /function onSearchEnter\(event: KeyboardEvent\): void \{[\s\S]{0,120}?if \(event\.isComposing \|\| event\.keyCode === 229\) return/,
+    '拼音选词的回车必须被拦掉，否则选完词面板就自己弹起来'
+  )
   // 打字期页面的 rise 分支必须空转；抬升只发生在显式提交命令里。
   assert.match(mapPage, /if \(action === 'rise'\) return/)
   assert.match(mapPage, /if \(kind === 'search-submit'\) \{[\s\S]{0,140}?raiseMobileSheetForSearch\(\)/)

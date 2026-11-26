@@ -103,6 +103,9 @@
   --z-popover: 50;
   --z-toast: 60;
   --ease-sheet: cubic-bezier(0.24, 1, 0.32, 1);
+  /* 地图面板淡入淡出用的柔和曲线：旧内核不认 linear()，弹簧版失效后由它兜住 opacity。
+     原先在地图页里裸写三次，收进 token 才能被 map-layering-tokens 门禁盯住。 */
+  --ease-soft-fade: cubic-bezier(0.16, 1, 0.3, 1);
   /* 2026-11-23：面板「从按钮长出来」的动效 token。曲线与时长取 Material 3 expressive
      motion 的公开规范（easing-emphasized-decelerate / -accelerate，duration-medium1 与 short4 档）：
      进入起手快、落点稳；退出慢起快收，收回去指向触发按钮。 */

@@ -222,8 +222,13 @@ test('F-40 面板从按钮原点放大：origin 取 --sheet-origin-x、首帧 sc
   )
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: translate3d\(0, 0, 0\) scale\(1, 1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,320}?transform 560ms var\(--ease-spring-sheet\),[\s\S]{0,200}?opacity 200ms cubic-bezier\(0\.16, 1, 0\.3, 1\),[\s\S]{0,240}?height 320ms var\(--ease-sheet\);/,
-    '放大相缺 340ms transform / 240ms opacity，或把面板自己的 320ms 高度过渡冲掉了'
+    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: translate3d\(0, 0, 0\) scale\(1, 1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,600}?transform 300ms var\(--ease-sheet\),/,
+    '放大相缺兜底档：linear() 不可用时还得有一条 cubic-bezier 过渡，否则面板直接弹到位'
+  )
+  assert.match(
+    mapPage,
+    /@supports \(transition-timing-function: linear\(0, 1\)\) \{\s*\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{\s*transition:\s*transform 560ms var\(--ease-spring-sheet\),\s*opacity 200ms var\(--ease-soft-fade\),[\s\S]{0,120}?height 320ms var\(--ease-sheet\);/,
+    '放大相缺 560ms transform / 200ms opacity soft-fade，或把面板自己的 320ms 高度过渡冲掉了'
   )
   assert.match(mapPage, /const sheetBlooming = ref\(false\)/)
   assert.match(mapPage, /:data-sheet-bloom="sheetBlooming \? 'on' : 'off'"/)
@@ -285,9 +290,13 @@ test('F-43 收起＝一相 CSS 过渡：缩向右下角那枚箭头（m06190）'
   assert.match(rule, /scale\(var\(--sheet-exit-scale, 0\.12\), var\(--sheet-exit-scale-y, 0\.12\)\)/)
   assert.match(rule, /opacity: 0;/)
   assert.match(rule, /border-radius: 18px;/)
-  assert.match(rule, /transform 460ms var\(--ease-liquid-out\),/)
-  // 淡出只留末尾 150ms（m06662：全程淡＝生硬，液体感靠形变而不是透明度）
-  assert.match(rule, /opacity 140ms linear 330ms,/)
+  // 弹簧相写在 @supports 里（linear() 只有新内核认）；兜底档留在原规则里，旧机不至于硬切。
+  assert.match(
+    mapPage,
+    /@supports \(transition-timing-function: linear\(0, 1\)\) \{\s*\.map-workspace\[data-sheet-collapse='on'\] \.map-glass-sheet \{\s*transition:\s*transform 460ms var\(--ease-liquid-out\),\s*opacity 140ms linear 330ms,\s*border-radius 460ms var\(--ease-liquid-out\);/,
+    '收起相缺果冻曲线，或淡出没延到末尾'
+  )
+  assert.match(rule, /transform 260ms var\(--ease-sheet\),/, '收起相缺旧内核兜底档')
   // 曲线本身必须是 linear() 弹簧（m06662），且只定义一处
   assert.equal((mapPage.match(/--ease-spring-sheet:/g) ?? []).length, 1)
   assert.match(mapPage, /--ease-spring-sheet: linear\(0, 0\.1281 3%, /)

@@ -846,7 +846,6 @@ function finishMobileSheetDrag(pointerId?: number): void {
     return
   }
   mobileSheetState.value = nextState
-  mobileSheetState.value = nextState
 }
 
 /**
@@ -3993,11 +3992,24 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       transform: translate3d(0, 0, 0) scale(1, 1);
       opacity: 1;
       border-radius: 26px;
+      /* 旧内核（微信 X5 / Chromium < 113）不认 linear()：var() 替换失败按「计算值非法」处理，
+         整条 transition 会退成 none，面板直接弹到位、没有「长出来」。所以兜底档先写成
+         cubic-bezier，再用 @supports 把弹簧版覆盖上去，新老内核都拿得到一条能跑的过渡。 */
       transition:
-        transform 560ms var(--ease-spring-sheet),
-        opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
-        border-radius 560ms var(--ease-spring-sheet),
+        transform 300ms var(--ease-sheet),
+        opacity 220ms var(--ease-sheet),
+        border-radius 300ms var(--ease-sheet),
         height 320ms var(--ease-sheet);
+    }
+
+    @supports (transition-timing-function: linear(0, 1)) {
+      .map-workspace[data-sheet-bloom='off'] .map-glass-sheet {
+        transition:
+          transform 560ms var(--ease-spring-sheet),
+          opacity 200ms var(--ease-soft-fade),
+          border-radius 560ms var(--ease-spring-sheet),
+          height 320ms var(--ease-sheet);
+      }
     }
 
 @media (max-width: 767.98px) {
@@ -4008,10 +4020,20 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     transform: translate3d(2px, 4px, 0) scale(var(--sheet-exit-scale, 0.12), var(--sheet-exit-scale-y, 0.12));
     opacity: 0;
     border-radius: 18px;
+    /* 与 bloom 同理：linear() 失败不能让收起变成硬切。 */
     transition:
-      transform 460ms var(--ease-liquid-out),
-      opacity 140ms linear 330ms,
-      border-radius 460ms var(--ease-liquid-out);
+      transform 260ms var(--ease-sheet),
+      opacity 140ms linear 200ms,
+      border-radius 260ms var(--ease-sheet);
+  }
+
+  @supports (transition-timing-function: linear(0, 1)) {
+    .map-workspace[data-sheet-collapse='on'] .map-glass-sheet {
+      transition:
+        transform 460ms var(--ease-liquid-out),
+        opacity 140ms linear 330ms,
+        border-radius 460ms var(--ease-liquid-out);
+    }
   }
 }
 
@@ -4045,8 +4067,18 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 .map-workspace[data-sheet-bloom='off'][data-sheet-collapse='off'] > aside.map-glass-sheet {
   transition:
     bottom 220ms var(--ease-sheet),
-    transform 560ms var(--ease-spring-sheet), /* 这条权重最高、也是 bloom 实际生效的一条：弹簧曲线写这里 */
-    opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 300ms var(--ease-sheet),
+    opacity 220ms var(--ease-sheet),
     height 320ms var(--ease-sheet);
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+  .map-workspace[data-sheet-bloom='off'][data-sheet-collapse='off'] > aside.map-glass-sheet {
+    transition:
+      bottom 220ms var(--ease-sheet),
+      transform 560ms var(--ease-spring-sheet), /* 弹簧曲线写这里：展开↔半屏是这条真正在动 */
+      opacity 200ms var(--ease-soft-fade),
+      height 320ms var(--ease-sheet);
+  }
 }
 </style>

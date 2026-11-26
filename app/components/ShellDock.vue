@@ -103,6 +103,12 @@ function submitSearch(): void {
   dockCommand.value = { kind: 'search-submit', seq: dockCommand.value.seq + 1 }
 }
 
+/** 输入法选词那一下回车不能当提交：组词中的 keyup 同样是 Enter（isComposing，旧 WebView 用 keyCode 229）。 */
+function onSearchEnter(event: KeyboardEvent): void {
+  if (event.isComposing || event.keyCode === 229) return
+  submitSearch()
+}
+
 /** T-033 R2：搜索行定位钮只发命令；真正的 locateUser / toggleTracking 由 /map 页面执行。 */
 function requestLocate(): void {
   dockCommand.value = { kind: 'locate', seq: dockCommand.value.seq + 1 }
@@ -185,7 +191,7 @@ onMounted(() => {
             @input="onSearchInput"
             @compositionstart="onSearchCompositionStart"
             @compositionend="onSearchCompositionEnd"
-            @keyup.enter="submitSearch"
+            @keyup.enter="onSearchEnter"
           >
           <button
             v-show="searchQuery"
@@ -342,7 +348,6 @@ html.dark .shell-dock-root.shell-dock--sheet-half {
   transform: none;
   opacity: 1;
   pointer-events: auto;
-  background: transparent;
   backdrop-filter: blur(2px) saturate(1.05);
   transition:
     height 220ms var(--ease-sheet),
