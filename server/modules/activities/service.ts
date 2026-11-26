@@ -513,8 +513,10 @@ export function listHomepageActivities(
  * 地图建筑图标上的活动红点：只返回“已发布且尚未结束”的活动关联地点。
  * 与活动列表使用同一条时间边界，避免列表已经结束、红点还挂着。
  */
-export function listActivityPlaceIds(client: DatabaseClient): string[] {
-  const now = Date.now()
+export function listActivityPlaceIds(
+  client: DatabaseClient,
+  now: number = Date.now()
+): string[] {
   const rows = client.db
     .select({ placeId: activities.placeId })
     .from(activities)
@@ -539,6 +541,8 @@ export interface ActivityHotspot {
   title: string
   startsAt: string
   endsAt: string | null
+  /** 该地点在期活动总数；列表只给前 previewPerPlace 条，界面上的「N 场活动」要用这个真值。 */
+  placeTotal: number
 }
 
 /**
@@ -547,34 +551,40 @@ export interface ActivityHotspot {
  */
 export function listActivityHotspots(
   client: DatabaseClient,
-  limit = 60
+  previewPerPlace = 6,
+  now: number = Date.now()
 ): ActivityHotspot[] {
-  const now = Date.now()
-  const rows = client.db
-    .select({
-      placeId: activities.placeId,
-      title: activities.title,
-      startsAt: activities.startsAt,
-      endsAt: activities.endsAt
-    })
-    .from(activities)
-    .where(and(
-      eq(activities.status, 'published'),
-      isNotNull(activities.placeId),
-      or(
-        and(isNotNull(activities.endsAt), gte(activities.endsAt, now)),
-        and(isNull(activities.endsAt), gte(activities.startsAt, now - ACTIVITY_PUBLIC_GRACE_MS))
-      )
-    ))
-    .orderBy(asc(activities.startsAt))
-    .limit(limit)
-    .all()
+  // 每个地点只留前 previewPerPlace 条预览。原来的全局 limit 会让一个地点占满分页，
+  // 别的地点就变成「图钉有红点、热点列表却没有行」；分桶放到 SQL 里做，
+  // 单个地点有几百条时也不用把整批行搬进内存再丢掉。
+  const rows = client.sqlite.prepare(`
+    select place_id as placeId, title, starts_at as startsAt, ends_at as endsAt, placeTotal
+    from (
+      select place_id, title, starts_at, ends_at,
+        count(*) over (partition by place_id) as placeTotal,
+        row_number() over (partition by place_id order by starts_at asc) as rn
+      from activities
+      where status = 'published'
+        and place_id is not null
+        and (
+          (ends_at is not null and ends_at >= @now)
+          or (ends_at is null and starts_at >= @graceFrom)
+        )
+    )
+    where rn <= @perPlace
+    order by starts_at asc
+  `).all({
+    now,
+    graceFrom: now - ACTIVITY_PUBLIC_GRACE_MS,
+    perPlace: Math.max(1, previewPerPlace)
+  }) as Array<{ placeId: string, title: string, startsAt: number, endsAt: number | null, placeTotal: number }>
 
   return rows.map(row => ({
-    placeId: row.placeId as string,
+    placeId: row.placeId,
     title: row.title,
     startsAt: new Date(row.startsAt).toISOString(),
-    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
+    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString(),
+    placeTotal: row.placeTotal
   }))
 }
 
