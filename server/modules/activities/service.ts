@@ -534,6 +534,50 @@ export function listActivityPlaceIds(client: DatabaseClient): string[] {
     .filter((placeId): placeId is string => Boolean(placeId))
 }
 
+export interface ActivityHotspot {
+  placeId: string
+  title: string
+  startsAt: string
+  endsAt: string | null
+}
+
+/**
+ * 地图热点：已发布、尚未结束的活动，按开始时间升序。
+ * 时间边界与 listActivityPlaceIds 完全一致，避免出现「图钉有红点、热点列表却是空」。
+ */
+export function listActivityHotspots(
+  client: DatabaseClient,
+  limit = 60
+): ActivityHotspot[] {
+  const now = Date.now()
+  const rows = client.db
+    .select({
+      placeId: activities.placeId,
+      title: activities.title,
+      startsAt: activities.startsAt,
+      endsAt: activities.endsAt
+    })
+    .from(activities)
+    .where(and(
+      eq(activities.status, 'published'),
+      isNotNull(activities.placeId),
+      or(
+        and(isNotNull(activities.endsAt), gte(activities.endsAt, now)),
+        and(isNull(activities.endsAt), gte(activities.startsAt, now - ACTIVITY_PUBLIC_GRACE_MS))
+      )
+    ))
+    .orderBy(asc(activities.startsAt))
+    .limit(limit)
+    .all()
+
+  return rows.map(row => ({
+    placeId: row.placeId as string,
+    title: row.title,
+    startsAt: new Date(row.startsAt).toISOString(),
+    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
+  }))
+}
+
 export function getPublicActivity(client: DatabaseClient, slug: string): ApiPublicActivity {
   const row = activityQuery(client)
     .where(and(eq(activities.slug, slug), eq(activities.status, 'published')))
@@ -551,13 +595,14 @@ export function activityReviewRecipients(env: NodeJS.ProcessEnv = process.env): 
     .filter(Boolean)
 }
 
+/* eslint-disable no-console -- 邮件/配置缺失只降级为日志，不阻断活动提交流程 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
+    .replaceAll('\'', '&#39;')
 }
 
 /**
