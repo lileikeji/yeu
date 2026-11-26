@@ -81,6 +81,51 @@ export default defineEventHandler(async (event) => {
   if (!reserveBotMessage('wechat', incoming.messageId)) return 'success'
 
   const client = useAppDatabase(event)
+  const senderId = incoming.fromUserName
+  const receiverId = incoming.toUserName
+
+  function respond(content: string) {
+    setHeader(event, 'Content-Type', 'application/xml; charset=utf-8')
+    if (encryptedMode) {
+      return createWechatEncryptedTextReply({
+        token,
+        encodingAesKey,
+        appId,
+        toUserName: senderId,
+        fromUserName: receiverId,
+        content
+      })
+    }
+    return createWechatTextReplyXml({
+      toUserName: senderId,
+      fromUserName: receiverId,
+      content
+    })
+  }
+
+  const config = botAssistantConfig(runtime as unknown as Record<string, unknown>)
+  config.maxReplyChars = Math.min(config.maxReplyChars, 600)
+  const siteOrigin = String(runtime.public?.siteUrl || config.siteUrl || '').replace(/\/+$/, '') || getRequestURL(event).origin
+  const security = getSecurityConfig(event)
+
+  // 现场口令/投票消息优先直出：几百条/分时不能被 AI 问答的 120 条/分限流吞掉。
+  const popularityReply = handleWechatMpPopularityMessage(client, {
+    fromUserName: incoming.fromUserName,
+    content: incoming.content,
+    siteOrigin,
+    secret: security.secret
+  })
+  if (popularityReply != null) {
+    try {
+      assertRateLimit(event, `bot:wechat-mp:vote:user:${incoming.fromUserName}`, 30, 60_000, client)
+      assertRateLimit(event, 'bot:wechat-mp:vote:global', 1200, 60_000, client)
+    } catch (error) {
+      if (botRateLimited(error)) return 'success'
+      throw error
+    }
+    return respond(popularityReply)
+  }
+
   try {
     assertRateLimit(event, `bot:wechat-mp:user:${incoming.fromUserName}`, 12, 60_000, client)
     assertRateLimit(event, 'bot:wechat-mp:global', 120, 60_000, client)
@@ -90,62 +135,34 @@ export default defineEventHandler(async (event) => {
     throw error
   }
 
-  const config = botAssistantConfig(runtime as unknown as Record<string, unknown>)
-  config.maxReplyChars = Math.min(config.maxReplyChars, 600)
-  const siteOrigin = String(runtime.public?.siteUrl || config.siteUrl || '').replace(/\/+$/, '') || getRequestURL(event).origin
-  const security = getSecurityConfig(event)
-  const popularityReply = handleWechatMpPopularityMessage(client, {
-    fromUserName: incoming.fromUserName,
-    content: incoming.content,
-    siteOrigin,
-    secret: security.secret
+  let replyMessage = ''
+  const question = {
+    platform: 'wechat' as const,
+    messageId: incoming.messageId,
+    conversationId: incoming.fromUserName,
+    senderId: incoming.fromUserName,
+    question: incoming.content
+  }
+  const assistantTask = answerAndSendBotQuestion({
+    client,
+    question,
+    config,
+    send: async (message) => {
+      replyMessage = message
+    }
   })
-
-  let replyMessage = popularityReply ?? ''
-  if (popularityReply == null) {
-    const question = {
-      platform: 'wechat' as const,
-      messageId: incoming.messageId,
-      conversationId: incoming.fromUserName,
-      senderId: incoming.fromUserName,
-      question: incoming.content
-    }
-    const assistantTask = answerAndSendBotQuestion({
-      client,
-      question,
-      config,
-      send: async (message) => {
-        replyMessage = message
-      }
-    })
-    const completedWithinBudget = await Promise.race([
-      assistantTask.then(() => true).catch(() => false),
-      new Promise<false>(resolve => setTimeout(() => resolve(false), PASSIVE_REPLY_BUDGET_MS))
-    ])
-    if (!completedWithinBudget || !replyMessage) {
-      void assistantTask.catch(() => releaseBotMessage('wechat', incoming.messageId))
-      replyMessage = formatBotReply(
-        '这个问题需要多查一会儿，请稍后再发送一次。我会优先使用刚整理好的资料。',
-        config.siteUrl,
-        config.maxReplyChars
-      )
-    }
+  const completedWithinBudget = await Promise.race([
+    assistantTask.then(() => true).catch(() => false),
+    new Promise<false>(resolve => setTimeout(() => resolve(false), PASSIVE_REPLY_BUDGET_MS))
+  ])
+  if (!completedWithinBudget || !replyMessage) {
+    void assistantTask.catch(() => releaseBotMessage('wechat', incoming.messageId))
+    replyMessage = formatBotReply(
+      '这个问题需要多查一会儿，请稍后再发送一次。我会优先使用刚整理好的资料。',
+      config.siteUrl,
+      config.maxReplyChars
+    )
   }
 
-  setHeader(event, 'Content-Type', 'application/xml; charset=utf-8')
-  if (encryptedMode) {
-    return createWechatEncryptedTextReply({
-      token,
-      encodingAesKey,
-      appId,
-      toUserName: incoming.fromUserName,
-      fromUserName: incoming.toUserName,
-      content: replyMessage
-    })
-  }
-  return createWechatTextReplyXml({
-    toUserName: incoming.fromUserName,
-    fromUserName: incoming.toUserName,
-    content: replyMessage
-  })
+  return respond(replyMessage)
 })
