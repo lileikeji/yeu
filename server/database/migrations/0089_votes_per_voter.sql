@@ -1,3 +1,5 @@
+-- yeu:replace-unique competition_popularity_ballots(event_id,device_hash)
+-- yeu:replace-unique competition_popularity_ballots(event_id,voter_openid_hash)
 ALTER TABLE `competition_popularity_settings` ADD COLUMN `votes_per_voter` integer DEFAULT 1 NOT NULL;
 --> statement-breakpoint
 ALTER TABLE `competition_popularity_ballots` ADD COLUMN `vote_index` integer DEFAULT 0 NOT NULL;

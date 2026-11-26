@@ -220,6 +220,21 @@ function pendingSchemaChanges(pending) {
   return { columns, unique }
 }
 
+function pendingReplacedUnique(pending) {
+  const replaced = new Set()
+  for (const entry of pending) {
+    for (const match of entry.sql.matchAll(/^--\s*yeu:replace-unique\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s*$/gim)) {
+      const cols = match[2]
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .join(',')
+      if (cols) replaced.add(`${match[1]}(${cols})`)
+    }
+  }
+  return replaced
+}
+
 function applySql(db, entries, validate = () => {}) {
   db.exec('CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (id SERIAL PRIMARY KEY, hash text NOT NULL, created_at numeric)')
   db.exec('BEGIN IMMEDIATE')
@@ -258,9 +273,10 @@ export async function migrateDatabase(path, directory, mode = 'migrate') {
       pending.flatMap(entry => [...entry.sql.matchAll(/\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?([A-Za-z_][A-Za-z0-9_]*)["`]?/gi)].map(match => match[1]))
     )
     const pendingChanges = pendingSchemaChanges(pending)
+    const replacedUnique = pendingReplacedUnique(pending)
     if (mode === 'check') {
       // 待执行迁移里新建的表/列/唯一索引此刻还不存在；先放行，迁移结束后仍按完整契约校验。
-      assertSchema(contract, schema(db), pendingCreatedTables, pendingChanges.columns, pendingChanges.unique)
+      assertSchema(contract, schema(db), pendingCreatedTables, pendingChanges.columns, new Set([...pendingChanges.unique, ...replacedUnique]))
       if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
       return { applied: 0, pendingLedger: pending.length }
     }
@@ -284,7 +300,8 @@ export async function migrateDatabase(path, directory, mode = 'migrate') {
       }
       applySql(db, pending, () => {
         assertSchema(contract, schema(db))
-        assertSchema(before, schema(db))
+        // 唯一约束的“替换”必须在迁移头部逐条声明，默认仍拒绝静默丢失。
+        assertSchema(before, schema(db), new Set(), new Map(), replacedUnique)
         if (db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('数据库外键检查失败')
       })
     }

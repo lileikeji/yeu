@@ -71,6 +71,33 @@ test('表重建迁移默认被拒，只有显式放行标记才执行并保留�
   } finally { rmSync(f.root, { recursive: true, force: true }) }
 })
 
+test('替换唯一约束必须显式声明 yeu:replace-unique', async () => {
+  const f = fixture('CREATE TABLE ballots(id integer PRIMARY KEY, event_id text NOT NULL, device_hash text NOT NULL, slot integer NOT NULL DEFAULT 0);--> statement-breakpoint\nCREATE UNIQUE INDEX ballots_event_device_unique ON ballots(event_id, device_hash);')
+  try {
+    await tools.migrateDatabase(f.database, f.migrations)
+    writeFileSync(
+      join(f.migrations, 'meta/_journal.json'),
+      JSON.stringify({ entries: [{ tag: '0000_test', when: 1 }, { tag: '0001_replace', when: 2 }] })
+    )
+    const replace = [
+      'DROP INDEX `ballots_event_device_unique`;--> statement-breakpoint',
+      'CREATE UNIQUE INDEX `ballots_event_device_slot_unique` ON `ballots` (`event_id`, `device_hash`, `slot`);'
+    ].join('\n')
+    writeFileSync(join(f.migrations, '0001_replace.sql'), replace)
+    await assert.rejects(tools.migrateDatabase(f.database, f.migrations), /缺少唯一约束：ballots\(event_id,device_hash\)/)
+    writeFileSync(
+      join(f.migrations, '0001_replace.sql'),
+      `-- yeu:replace-unique ballots(event_id,device_hash)\n${replace}`
+    )
+    assert.deepEqual(await tools.migrateDatabase(f.database, f.migrations), { applied: 1 })
+    const db = new DatabaseSync(f.database)
+    const indexes = db.prepare('PRAGMA index_list(ballots)').all().map(index => index.name)
+    assert.ok(indexes.includes('ballots_event_device_slot_unique'))
+    assert.ok(!indexes.includes('ballots_event_device_unique'))
+    db.close()
+  } finally { rmSync(f.root, { recursive: true, force: true }) }
+})
+
 test('只读闸门拒绝缺列；不能通过 baseline 隐藏结构缺失', async () => {
   const f = fixture('CREATE TABLE items(id integer PRIMARY KEY, required text NOT NULL);')
   try {
