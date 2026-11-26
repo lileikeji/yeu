@@ -11,6 +11,7 @@ import { officialSources } from '~~/data/seeds/public-content'
 import { haversineMeters } from '~~/shared/utils/bus-route-progress'
 import { gcj02ToWgs84 } from '~~/shared/utils/coordinate-convert'
 import { safeExternalHref } from '~/utils/safe-external-href'
+import { markPanelOriginFromPoint, readTriggerPoint } from '~/utils/panel-origin'
 import { parsePublicPhoneContacts } from '~/utils/public-phone-contact'
 import type { GlassTarget } from '~/composables/useMapGlassRefraction'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
@@ -31,6 +32,7 @@ import {
   resolveMapViewModeSwitchDecision,
   resolveAutoSelectSearchDecision,
   resolveAutoSelectSearchApply,
+  resolveActivitySheetAnchors,
   resolveBusSheetAnchors,
   resolveBusSheetHeightClass,
   resolveSheetBackAction,
@@ -67,7 +69,17 @@ const OFFICIAL_PLAN_ENTRY_VISIBLE = false
 const initialPlace = mapQueryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
 const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
-const { data: activityPlaceResponse } = await useFetch<{ placeIds: string[] }>(
+interface MapActivityHotspot {
+  placeId: string
+  title: string
+  startsAt: string
+  endsAt: string | null
+}
+
+const { data: activityPlaceResponse } = await useFetch<{
+  placeIds: string[]
+  hotspots: MapActivityHotspot[]
+}>(
   '/api/public/activity-place-markers',
   { key: 'public-activity-place-markers' }
 )
@@ -126,6 +138,9 @@ const mobileSheetDragStartHeight = ref(0)
 const mobileSheetDragging = ref(false)
 /** T-031 B1：本次按下后是否真的移动过（>6px）。没移动就是轻点，折叠条轻点等于抬到半屏。 */
 const mobileSheetDragMoved = ref(false)
+// 2026-11-23：指针是从手柄（那条 8px 横杠）按下的 —— 轻点它 = 半屏↔展开。
+// 只能在这里判，因为 pointerdown 里的 preventDefault 会把随后的 click 吃掉。
+const mobileSheetDragFromHandle = ref(false)
 /**
  * T-033 R4（F-32）：面板从搜索栏长出来。
  * 离散切换（collapsed → half/expanded）先把面板高度无过渡地钉在 dock 区高度（100 + inset 10 = 110px，
@@ -135,10 +150,80 @@ const mobileSheetDragMoved = ref(false)
 const sheetBlooming = ref(false)
 let sheetBloomFrame: number | null = null
 let sheetDragEndedAt = 0
+/**
+ * 2026-11-23（用户 m04135）：面板要「从被点的那个按钮长出来、再缩回那个按钮里」，
+ * 所以动效原点必须是真实指针位置 —— 原来固定写 50% calc(100% - 84px) + scale(0.86)，
+ * 只有 14% 的缩放差异，读起来是「往底下沉」。只记最后一次可信按下的坐标；
+ * 键盘触发 / 程序化点击读不到指针，就回落到面板底边中点。
+ */
+const sheetMotionAnchor = shallowRef<{ x: number, y: number } | null>(null)
+function rememberSheetMotionAnchor(event: PointerEvent): void {
+  if (!event.isTrusted) return
+  // 2026-11-26（用户 m06364）：锚点不是「最后一次点击的任意位置」，而是那个真正的触发控件。
+  // 只认按钮 / 链接这类可点击目标，取它的中心；点空白地图不该改锚点。
+  const target = event.target as HTMLElement | null
+  const trigger = target?.closest?.('button, [role="button"], a, [data-sheet-anchor]') as HTMLElement | null
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
+  if (!rect.width && !rect.height) return
+  sheetMotionAnchor.value = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+}
+/** 入场时那一刻的锚点：收起必须回到同一个锚点，而不是最后点的那个按钮。 */
+const sheetBloomAnchor = shallowRef<{ x: number, y: number } | null>(null)
+/** 入场那一刻算出的原点（px）；收起直接复用同一组数值，两相才是同一个点。 */
+const sheetBloomOrigin = shallowRef<{ x: number | null, y: number | null, tx: number } | null>(null)
+/** 动效原点在面板内的坐标（px）；null = 没有指针信息，CSS 回落到 50% / 100%。 */
+const sheetOriginX = ref<number | null>(null)
+const sheetOriginY = ref<number | null>(null)
+const sheetTranslateX = ref(0)
+/** 收起那一刻的高度：收起期间把它钉住，height 不再向 0 过渡（否则 bottom 锚定会让顶边下滑 = 「往下沉」）。 */
+const sheetCollapseHeight = ref<number | null>(null)
+/** 入场缩到 0.62：旧值 0.86 肉眼几乎看不出。CSS 里的 scale(...) 必须与它同值。 */
+const SHEET_MOTION_SCALE = 0.74
+/** 收起缩到 0.22：入场 0.62 是为了「看着长出来」，回收必须小到像被按钮吸走，否则读成淡出。 */
+const SHEET_EXIT_SCALE = 0.12
+/** 起点整体往底边压 16px，配合底边 origin，面板才像从底栏那条里钻出来。 */
+const SHEET_MOTION_DRIFT_Y = 24
+const SHEET_MOTION_SCALE_Y = 0.68
+const SHEET_EXIT_SCALE_Y = 0.12
+function syncSheetMotionOrigin(anchor?: { x: number, y: number } | null): void {
+  const element = mobileSheetElement.value
+  if (!element || typeof window === 'undefined') return
+  // 布局盒而不是 getBoundingClientRect：收起/入场那一刻面板可能正带着 transform，
+  // rect 已经是缩放后的（半屏量出 133px 宽），算出来的原点会偏到面板外面去。
+  const parent = element.offsetParent as HTMLElement | null
+  const parentRect = parent?.getBoundingClientRect()
+  const boxLeft = (parentRect?.left ?? 0) + element.offsetLeft
+  const boxTop = (parentRect?.top ?? 0) + element.offsetTop
+  const width = element.offsetWidth || Math.max(0, window.innerWidth - 20)
+  const point = anchor ?? sheetMotionAnchor.value
+  if (!point || !width) {
+    sheetOriginX.value = null
+    sheetOriginY.value = null
+    sheetTranslateX.value = 0
+    return
+  }
+  sheetOriginX.value = Math.round(Math.min(Math.max(point.x - boxLeft, 24), width - 24))
+  // 纵向同样跟锚点：从底栏箭头长出来，就缩回底边那一带（高度 0 时交给 CSS 的 100%）。
+  const height = element.offsetHeight || 0
+  // 折叠态里点胶囊开始 bloom 时高度还是 0，早先退成 100% → 纵向永远落底边，收起就成了「往下沉」。
+  // 改用目标高度反推面板落地后的上边缘，原点仍是那个按钮的纵向位置。
+  const anchors = mobileSheetAnchors()
+  const targetHeight = height > 0
+    ? height
+    : (mobileSheetState.value === 'expanded' ? anchors.expanded : anchors.half)
+  const restingTop = boxTop + height - targetHeight
+  sheetOriginY.value = Math.round(Math.min(Math.max(point.y - restingTop, 24), Math.max(24, targetHeight - 24)))
+  const offset = point.x - (boxLeft + width / 2)
+  sheetTranslateX.value = Math.round(Math.max(-22, Math.min(22, offset * 0.18)))
+}
 
 function bloomSheetFromDock(): void {
   if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  sheetBloomAnchor.value = sheetMotionAnchor.value
+  syncSheetMotionOrigin()
+  sheetBloomOrigin.value = { x: sheetOriginX.value, y: sheetOriginY.value, tx: sheetTranslateX.value }
   if (sheetBloomFrame !== null) window.cancelAnimationFrame(sheetBloomFrame)
   sheetBlooming.value = true
   sheetBloomFrame = window.requestAnimationFrame(() => {
@@ -160,58 +245,41 @@ watch(mobileSheetState, (state, previous) => {
 })
 
 /**
- * T-033 R7（F-43）：收起是展开的逆动作 —— 面板先缩回搜索条（scale 1 → 0.86、opacity 1 → 0.72，
- * 与 bloom 同一 transform-origin），缩完才把高度落到 0；不再「整块往下滑到底」。
- * 三态：off（无规则）/ pin（首帧钉住 scale 1、无过渡）/ shrink（缩回 260ms，高度 0s 延迟 260ms 落 0）。
+ * 2026-11-26（用户 m06190）：收起要「缩进右下角那枚箭头」，动效全部交给 CSS ——
+ * 单相 transition（transform + opacity + height 同时跑），不再用 rAF 三相位定高。
  */
-type SheetCollapsePhase = 'off' | 'pin' | 'shrink' | 'drop'
+type SheetCollapsePhase = 'off' | 'on'
 const sheetCollapsePhase = ref<SheetCollapsePhase>('off')
-/** 收起起点的像素高度：pin/shrink 两相靠它把高度钉住，缩完才落 0（否则面板立刻 h-0，缩放看不见）。 */
-const sheetCollapseHeight = ref(0)
-let sheetCollapseFrame: number | null = null
-let sheetCollapseTimer: number | null = null
-
-function teardownSheetCollapse(): void {
-  if (sheetCollapseFrame !== null) {
-    window.cancelAnimationFrame(sheetCollapseFrame)
-    sheetCollapseFrame = null
-  }
-  if (sheetCollapseTimer !== null) {
-    window.clearTimeout(sheetCollapseTimer)
-    sheetCollapseTimer = null
-  }
-}
+/** 2026-11-26：进页面时把初始 half 直接落成 collapsed 不是用户操作，不能播收起动效 ——
+ *  否则首帧面板先被钉成 326 再缩没，看起来就是「一进来面板张开又收回去」。 */
+const skipInitialSheetCollapse = ref(false)
 
 function collapseSheetToDock(): void {
-  if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return
+  if (typeof window === 'undefined') return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-  teardownSheetCollapse()
   // R9（F-52）：收起相位只服务手机底栏上的面板；桌面侧栏没有 dock 可收，跑相位会让侧栏闪缩一下。
   if (window.matchMedia?.(PANEL_DESKTOP_MEDIA_QUERY).matches) return
-  sheetCollapseHeight.value = Math.round(mobileSheetElement.value?.getBoundingClientRect().height ?? 0)
-  sheetCollapsePhase.value = 'pin'
-  sheetCollapseFrame = window.requestAnimationFrame(() => {
-    // 先把「当前高度 + scale 1」画出去，下一帧才放开缩回过渡，否则第一帧就是从 0.86 起跳。
-    void mobileSheetElement.value?.offsetHeight
-    sheetCollapseFrame = window.requestAnimationFrame(() => {
-      sheetCollapseFrame = null
-      sheetCollapsePhase.value = 'shrink'
-      sheetCollapseTimer = window.setTimeout(() => {
-        sheetCollapseTimer = null
-        // 高度落 0 用单独一相：这一相不钉高、且没有过渡，画完再回 off，面板不会顺着 320ms 高度曲线往下滑。
-        sheetCollapsePhase.value = 'drop'
-        sheetCollapseFrame = window.requestAnimationFrame(() => {
-          sheetCollapseFrame = null
-          sheetCollapsePhase.value = 'off'
-        })
-      }, 300)
-    })
-  })
+  if (sheetCollapsePhase.value === 'on') return
+  // 回到「长出来」的那个锚点：从箭头长出来就缩回箭头，从详情按钮长出来就缩回详情按钮。
+  const bloomed = sheetBloomOrigin.value
+  if (bloomed) {
+    sheetOriginX.value = bloomed.x
+    sheetOriginY.value = bloomed.y
+    sheetTranslateX.value = bloomed.tx
+  } else {
+    syncSheetMotionOrigin(sheetBloomAnchor.value ?? sheetMotionAnchor.value)
+  }
+  sheetCollapseHeight.value = mobileSheetElement.value?.offsetHeight || null
+  sheetCollapsePhase.value = 'on'
 }
 
 // 收起方向同样只在离散切换里播：拖拽松手、bus 视图、水合未完成、reduce 都跳过。
 watch(mobileSheetState, (state, previous) => {
   if (!sheetHydrated.value) return
+  if (skipInitialSheetCollapse.value) {
+    skipInitialSheetCollapse.value = false
+    return
+  }
   if (state === 'collapsed' && previous !== 'collapsed') {
     if (Date.now() - sheetDragEndedAt < 240) return
     if (mapSheetView.value === 'bus') return
@@ -219,7 +287,6 @@ watch(mobileSheetState, (state, previous) => {
     return
   }
   if (state !== 'collapsed' && sheetCollapsePhase.value !== 'off') {
-    teardownSheetCollapse()
     sheetCollapsePhase.value = 'off'
   }
 })
@@ -230,14 +297,31 @@ const sheetTransitioning = ref(false)
 const busEtaLayerElement = ref<HTMLElement | null>(null)
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
+// 2026-11-23：面板「从按钮长出来」需要按钮现场几何，所以在打开那一刻把 currentTarget 记下来。
+const displaySettingsTriggerPoint = shallowRef<{ x: number, y: number } | null>(null)
 
-function toggleDisplaySettings(): void {
-  displaySettingsOpen.value = !displaySettingsOpen.value
-  if (displaySettingsOpen.value) mobileSheetState.value = 'collapsed'
+function toggleDisplaySettings(event?: MouseEvent): void {
+  const nextOpen = !displaySettingsOpen.value
+  // 齿轮按钮在面板标题行，面板一开面板就会收起，按钮跟着消失 —— 所以位移原点的坐标必须在这一刻量。
+  if (nextOpen && event) displaySettingsTriggerPoint.value = readTriggerPoint(event.currentTarget as Element)
+  displaySettingsOpen.value = nextOpen
+  if (nextOpen) mobileSheetState.value = 'collapsed'
+}
+
+/** 显示设置面板的入场原点 = 刚才那个齿轮按钮。 */
+function applyDisplaySettingsOrigin(element: Element): void {
+  markPanelOriginFromPoint(element, displaySettingsTriggerPoint.value, { horizontal: true })
 }
 const mapBaseStyle = ref<MapBaseStyle>('standard')
 const mapDisplayOptions = ref<MapDisplayOptions>({ ...defaultMapDisplayOptions })
 const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobileSheetState.value))
+// 半屏固定 326：手机活动视图与普通半屏共用同一个类串，抽成常量避免两条分支各写一份
+// （守门会数这个字面量出现次数，必须为 1）。
+const SHEET_HALF_326 = 'max-md:!h-[326px]'
+/** 动效原点写进 .map-workspace 的自定义属性，面板与底栏共用同一套坐标。 */
+const sheetOriginCss = computed(() => (sheetOriginX.value === null ? '50%' : `${sheetOriginX.value}px`))
+const sheetOriginYCss = computed(() => (sheetOriginY.value === null ? '100%' : `${sheetOriginY.value}px`))
+const sheetTranslateXCss = computed(() => `${sheetTranslateX.value}px`)
 const mobileSheetStyle = computed(() => mobileSheetDragHeight.value === null
   ? undefined
   : {
@@ -251,7 +335,9 @@ const mobileSheetStyle = computed(() => mobileSheetDragHeight.value === null
  * 查表只拿得到终值，胶囊会在动画期间穿进面板里。
  */
 const mobileSheetLiveHeightPx = ref(152)
-const mobileDockBottom = computed(() => Math.max(0, Math.round(mobileSheetLiveHeightPx.value + 12)))
+// 2026-11-23：面板改悬浮卡片（离屏底 10px）后，面板上沿同步 +10，浮动带才不会被压住。
+const MOBILE_FLOAT_GAP = 10
+const mobileDockBottom = computed(() => Math.max(0, Math.round(mobileSheetLiveHeightPx.value + MOBILE_FLOAT_GAP + 12)))
 let mobileSheetResizeObserver: ResizeObserver | null = null
 
 const mapElement = ref<HTMLElement | null>(null)
@@ -288,14 +374,17 @@ let glassLowFpsSamples = 0
 function resolveGlassTargets(): GlassTarget[] {
   if (!glassEnabled.value || glassStrengthScale.value <= 0) return []
   const targets: GlassTarget[] = []
-  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' | 'top' = 'all', radiusPx?: number): void => {
-    if (element) targets.push({ element, radius, radiusPx, strengthMul: strengthMul * glassStrengthScale.value, frost, rim, bandEdges })
+  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' | 'top' = 'all', radiusPx?: number, band = 0): void => {
+    if (element) targets.push({ element, radius, radiusPx, strengthMul: strengthMul * glassStrengthScale.value, frost, rim, bandEdges, band })
   }
   push(glassChipsElement.value, 0.5, 2, 0.25)
   // T-030：面板左右那两条乳白竖带来自边缘 band（0.043 原先是圆角半径，被 band 一起吃了）。
   // radius 收到 0.008，band 交给 bandEdges='top' 只由上边驱动：左右是屏幕边，没有水切面语义。
   // 圆角的裁切在外壳 CSS，rim 仍为 0；顶边高光与折射保留。
-  push(mobileSheetElement.value, 0.008, 2.2, 0.18, 0, 'top')
+  // 2026-11-23 用户「左上角右上角还有白色的亮条」：quad 只按 0.008 比例算圆角（≈2.6px），
+  // 比 CSS 的 26px 圆角小一圈，方角就从面板圆弧外露出来变成白色小亮条。按 CSS 圆角实传 26px。
+  // frost 归 0：96% 白纱下这层雾化本来也看不见，但它会在面板圆角外缘叠出一圈白亮边。
+  push(mobileSheetElement.value, 0.008, 3, 1, 0, 'top', 26, 16)
   // 点位浮窗：圆角 14 CSS px 按短边换算（T-035）。比例 0.055 是按 262 宽度猜的，卡片变高后
   // 折算出的圆角只有 8px，与 CSS 的 14px 不同心，四角露出白月牙。四边都有水切面 → bandEdges='all' + rim 1。
   push(pinPopoverElement.value?.rootElement ?? null, 0.055, 2.2, 0.16, 1, 'all', 14)
@@ -387,7 +476,6 @@ async function syncMapGlass(): Promise<void> {
   if (!import.meta.client) return
   if (!glassEnabled.value || window.innerWidth >= 768) {
     stopMapGlass()
-    teardownSheetCollapse()
     sheetCollapsePhase.value = 'off'
     return
   }
@@ -596,9 +684,12 @@ function syncPanelVariant(event?: MediaQueryListEvent): void {
 }
 onMounted(() => {
   panelMediaQuery?.addEventListener('change', syncPanelVariant)
+  // 面板动效原点要真实坐标：capture 阶段被动记录，不拦事件。
+  window.addEventListener('pointerdown', rememberSheetMotionAnchor, { capture: true, passive: true })
 })
 onBeforeUnmount(() => {
   panelMediaQuery?.removeEventListener('change', syncPanelVariant)
+  window.removeEventListener('pointerdown', rememberSheetMotionAnchor, { capture: true })
 })
 
 function toggleDisplayOption(option: MapDisplayToggleKey): void {
@@ -698,12 +789,19 @@ function openBusSheet(): void {
   mobileSheetState.value = 'half'
 }
 
+/** 收起叮叮车＝彻底收掉：回到地点列表折叠态，不留 84px 残条。 */
+function hideBusSheet(): void {
+  mapSheetView.value = 'sections'
+  mobileSheetState.value = 'collapsed'
+}
+
 function mobileSheetAnchors() {
   const sheet = mobileSheetElement.value
   const containerHeight = sheet?.parentElement?.getBoundingClientRect().height ?? 0
   const viewportHeight = typeof window === 'undefined' ? containerHeight : window.innerHeight
   const anchors = resolveMobileSheetAnchors(containerHeight, viewportHeight)
   if (mapSheetView.value === 'bus') return resolveBusSheetAnchors(anchors)
+  if (mapSheetView.value === 'activity') return resolveActivitySheetAnchors(anchors)
   if (mapSheetView.value === 'transit') return resolveTransitSheetAnchors(anchors)
   return anchors
 }
@@ -718,6 +816,19 @@ function finishMobileSheetDrag(pointerId?: number): void {
   const anchors = mobileSheetAnchors()
   // 折叠条按下没移动 = 轻点：直接抬到半屏，不依赖随后的 click，避免 pointer capture 把 click 吃掉。
   const tappedCollapsedBar = !mobileSheetDragMoved.value && mobileSheetDragStartHeight.value <= 120
+  // 手柄轻点（半屏/展开态）：在两种高度之间来回，替代已隐藏的搜索行箭头。
+  const tappedHandle = !mobileSheetDragMoved.value
+    && mobileSheetDragFromHandle.value
+    && mobileSheetDragStartHeight.value > 120
+  if (tappedHandle) {
+    sheetDragEndedAt = Date.now()
+    mobileSheetDragging.value = false
+    mobileSheetDragPointerId.value = null
+    mobileSheetDragHeight.value = null
+    mobileSheetDragFromHandle.value = false
+    toggleMobileSheetHeight()
+    return
+  }
   const nextState = tappedCollapsedBar
     ? 'half'
     : resolveMobileSheetStateFromHeight(mobileSheetDragHeight.value ?? mobileSheetDragStartHeight.value, anchors)
@@ -725,7 +836,27 @@ function finishMobileSheetDrag(pointerId?: number): void {
   mobileSheetDragging.value = false
   mobileSheetDragPointerId.value = null
   mobileSheetDragHeight.value = null
+  if (mapSheetView.value === 'bus' && nextState === 'collapsed') {
+    hideBusSheet()
+    return
+  }
+  // 活动视图没有折叠残条：拖到底同样是彻底收起。
+  if (mapSheetView.value === 'activity' && nextState === 'collapsed') {
+    hideActivitySheet()
+    return
+  }
   mobileSheetState.value = nextState
+  mobileSheetState.value = nextState
+}
+
+/**
+ * 2026-11-23：半屏起底栏搜索行整条隐藏（用户「就算在半屏的时候搜索框也应该隐藏」），
+ * 原来搜索框旁那条上下箭头也就没了入口 —— 改由面板手柄承担：点一下半屏↔展开。
+ * 拖拽刚结束时 240ms 内不响应，避免松手瞬间被当成点击。
+ */
+function toggleMobileSheetHeight(): void {
+  if (!sheetHydrated.value) return
+  mobileSheetState.value = mobileSheetState.value === 'half' ? 'expanded' : 'half'
 }
 
 function handleMobileSheetPointerDown(event: PointerEvent): void {
@@ -744,6 +875,7 @@ function handleMobileSheetPointerDown(event: PointerEvent): void {
   const sheet = mobileSheetElement.value
   if (!sheet) return
 
+  mobileSheetDragFromHandle.value = Boolean(explicitDragHandle)
   mobileSheetDragPointerId.value = event.pointerId
   mobileSheetDragStartY.value = event.clientY
   mobileSheetDragStartHeight.value = sheet.getBoundingClientRect().height
@@ -1114,7 +1246,7 @@ const pinCard = computed<PinCardModel | null>(() => {
         point ? '' : poiStatusText(detail)
       ].filter(Boolean).join(' · '),
       chips: pinPoiChecklist(detail).slice(0, 3).map(label => ({ label })),
-      rows: pinPhoneRows(place?.phone),
+      rows: place ? pinHotspotRows(place.id, place.name, place.phone) : pinPhoneRows(undefined),
       actions: [
         { key: 'route', label: '导航', icon: 'i-lucide-navigation', variant: 'primary' },
         { key: 'favorite', label: '', icon: 'i-lucide-star', variant: 'icon' }
@@ -1531,11 +1663,20 @@ onBeforeUnmount(() => stopPinFollow())
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
-  sheetHydrated.value = true
   // R8：水合完成前用户点过 dock 的抬起钮时，watcher 已把手机面板抬到半屏（属性要等水合后才反映）。
   // 这里的产品默认收起不能覆盖掉这次抬起：只有本次访问还没收到任何 dock 命令时才按默认收起。
   // R9（F-51）：比较的是 mount 时记下的快照，不是字面量 0（seq 跨访问累加）。
-  if (window.innerWidth < 768 && shellDockCommand.value.seq === dockCommandSeqOnMount) mobileSheetState.value = 'collapsed'
+  // 顺序很关键：先把状态落成 collapsed 再打开 sheetHydrated。反过来的话，hydrated=true 那一帧面板会按
+  // half 渲染出 326px，下一帧状态才变 collapsed，用户看到的就是「一进页面面板张开又收回去」。
+  if (window.innerWidth < 768 && shellDockCommand.value.seq === dockCommandSeqOnMount) {
+    skipInitialSheetCollapse.value = true
+    mobileSheetState.value = 'collapsed'
+    // watcher 是 pre-flush：这一轮 flush 结束后就该把开关清掉，别让它吞掉用户后面的第一次收起。
+    void nextTick(() => {
+      skipInitialSheetCollapse.value = false
+    })
+  }
+  sheetHydrated.value = true
   if (transitLinesOpen.value) startTransitLive()
   startLocateDisplay()
   // 手机上公交列表默认收起，免得和校车浮层叠在一起
@@ -1576,7 +1717,7 @@ onBeforeUnmount(() => {
 })
 
 // ── P-002/impl/04：抽屉首屏 = 收藏 / 最近去过 / 分类；98 个地点列表降级为「全部地点」二级视图 ──
-type MapSheetView = 'sections' | 'all' | 'bus' | 'transit'
+type MapSheetView = 'sections' | 'all' | 'activity' | 'bus' | 'transit'
 const mapSheetView = ref<MapSheetView>('sections')
 // 校外公交面板一收成折叠就退回地点视图：它在折叠态高度为 0，第 8 格入口也跟着消失，
 // 视图若留在 transit，用户只能刷新页面才回得来（选地点、按返回、把面板拖到底都会走到这里）。
@@ -1632,10 +1773,10 @@ watch(searchQuery, (query) => {
   lastDockSearchQuery = query
   if (panelIsDesktop.value) return
   const action = resolveDockClearSheetAction(previous, query)
-  if (action === 'rise') {
-    mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
-    return
-  }
+  // 2026-11-24 用户：「在搜索框敲下任何字符都会呼出面板」。半屏/展开态已经把搜索行藏起来了，
+  // 打字就抬面板等于把正在输入的框当场收走，所以输入期一律不动面板 —— 抬升只认显式提交
+  // （回车 / 输入法搜索键），见 raiseMobileSheetForSearch()。
+  if (action === 'rise') return
   if (action === 'collapse') mobileSheetState.value = 'collapsed'
 })
 
@@ -1643,21 +1784,34 @@ function onMobileDockSearchInput(value: string): void {
   onSearchQueryInput(value)
 }
 
+/**
+ * 2026-11-24：手机 dock 的搜索只在用户显式提交时才把面板抬起来（回车 / 输入法搜索键）。
+ * 打字期不抬 —— 半屏与展开态都隐藏了搜索行，跟着 input 抬会把输入框一起藏掉。
+ */
+function raiseMobileSheetForSearch(): void {
+  if (panelIsDesktop.value || !searchQuery.value.trim()) return
+  mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
+}
+
 // ── T-033：底部 dock 的共享状态 ──
 // ShellDock 挂在 layout 里，够不到本页的 ref，只能走 useState。方向固定：本页写 sheet/glass，
 // dock 写 search/command，谁都不回写对方，避免环形更新。
-const shellDockSheet = useState<'collapsed' | 'half' | 'expanded'>('shell-dock-sheet', () => 'collapsed')
+// 'detached' 是第四态：面板是独立浮卡（叮叮车 / 附近活动），不贴 dock —— 底栏回不透明、只收搜索行，
+// 卡片自己浮在底栏上方（用户 2026-11-24）。
+const shellDockSheet = useState<'collapsed' | 'half' | 'expanded' | 'detached'>('shell-dock-sheet', () => 'collapsed')
 const shellDockSearch = useState<string>('shell-dock-search', () => deepLinkSearchQuery)
 // T-033 R2：定位钮的只读态回流给 dock（dock 只渲染）。
 const shellDockTracking = useState<boolean>('shell-dock-tracking', () => false)
 const shellDockLocating = useState<boolean>('shell-dock-locating', () => false)
-const shellDockCommand = useState<{ kind: 'idle' | 'raise-sheet' | 'locate', seq: number }>(
+const shellDockCommand = useState<{ kind: 'idle' | 'raise-sheet' | 'search-submit' | 'locate', seq: number }>(
   'shell-dock-command',
   () => ({ kind: 'idle', seq: 0 })
 )
 
-watch(mobileSheetState, (state) => {
-  shellDockSheet.value = state
+watch([mobileSheetState, mapSheetView], ([state, view]) => {
+  // 叮叮车与附近活动都是独立浮卡：dock 不跟面板合体（透明底会把地图透上来），
+  // 只收搜索行、保持不透明（用户 2026-11-24「跟叮叮车面板一样的形式」）。
+  shellDockSheet.value = view === 'bus' || view === 'activity' ? 'detached' : state
 }, { immediate: true })
 
 // 合成块搜索行是本页搜索的唯一输入口：dock 写共享 state，这里落到真正的 searchQuery。
@@ -1693,9 +1847,16 @@ watch(() => shellDockCommand.value.seq, () => {
     else locateUser()
     return
   }
+  // 2026-11-24：搜索框回车/搜索键才算提交，输入期不抬面板（见上面 watch(searchQuery)）。
+  if (kind === 'search-submit') {
+    raiseMobileSheetForSearch()
+    return
+  }
   if (kind !== 'raise-sheet') return
   if (panelIsDesktop.value) return
-  mobileSheetState.value = 'half'
+  // 用户 2026-11-23：箭头不是「永远抬到半屏」——折叠时抬到半屏，半屏时再点直接展开，
+  // 展开态搜索行整行收起（没有这个按钮），所以不会来回弹。
+  mobileSheetState.value = mobileSheetState.value === 'half' ? 'expanded' : 'half'
 })
 
 onBeforeUnmount(() => {
@@ -1870,9 +2031,10 @@ function focusMapSheetSection(section: 'favorites' | 'recent' | 'category'): voi
   })
 }
 
-// 分类 2×3：五个主分类 + 全部地点（图标取自 map-presentation 的分类真值）
+// 分类 4×2：六个主分类 + 全部地点 + 校外公交（图标取自 map-presentation 的分类真值）
 const mapSheetCategoryEntries = [
   { id: 'all', label: '全部地点', icon: 'i-lucide-layout-list' },
+  { id: 'hotspot', label: '热点', icon: 'i-lucide-flame' },
   { id: 'campus-building', label: '教学', icon: 'i-lucide-school' },
   { id: 'dorm', label: '宿舍', icon: 'i-lucide-bed-single' },
   { id: 'food', label: '食堂', icon: 'i-lucide-utensils' },
@@ -1882,9 +2044,158 @@ const mapSheetCategoryEntries = [
 
 type MapSheetCategoryId = (typeof mapSheetCategoryEntries)[number]['id']
 
+// ── 近期活动（T-040）──
+// 图钉红点仍只认 placeIds；hotspots 只是同一批活动的可展示条目，用来填热点带、展开列表与浮窗。
+const activityHotspots = computed(() => [...(activityPlaceResponse.value?.hotspots ?? [])].sort((a, b) => a.startsAt.localeCompare(b.startsAt)))
+const hotspotsByPlaceId = computed(() => {
+  const grouped = new Map<string, MapActivityHotspot[]>()
+  for (const hotspot of activityHotspots.value) {
+    const list = grouped.get(hotspot.placeId)
+    if (!list) {
+      grouped.set(hotspot.placeId, [hotspot])
+      continue
+    }
+    // 单地点最多 3 条：卡片与浮窗都放得下，首条永远最早开始（服务端已按 startsAt 升序）。
+    if (list.length < 3) list.push(hotspot)
+  }
+  return grouped
+})
+const hotspotTotalByPlaceId = computed(() => {
+  const totals = new Map<string, number>()
+  for (const hotspot of activityHotspots.value) {
+    totals.set(hotspot.placeId, (totals.get(hotspot.placeId) ?? 0) + 1)
+  }
+  return totals
+})
+const HOTSPOT_SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
+const HOTSPOT_DAY_MS = 24 * 60 * 60 * 1000
+// 活动时间是服务端 UTC ISO；徽标与分组一律按 Asia/Shanghai 算，换浏览器时区不该换天。
+function hotspotShanghai(startsAt: string) {
+  const shifted = new Date(Date.parse(startsAt) + HOTSPOT_SHANGHAI_OFFSET_MS)
+  return {
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hours: shifted.getUTCHours(),
+    minutes: shifted.getUTCMinutes(),
+    dayIndex: Math.floor((Date.parse(startsAt) + HOTSPOT_SHANGHAI_OFFSET_MS) / HOTSPOT_DAY_MS)
+  }
+}
+function hotspotDayDiff(startsAt: string): number {
+  const todayIndex = Math.floor((Date.now() + HOTSPOT_SHANGHAI_OFFSET_MS) / HOTSPOT_DAY_MS)
+  return hotspotShanghai(startsAt).dayIndex - todayIndex
+}
+function hotspotDayLabel(startsAt: string): string {
+  const diff = hotspotDayDiff(startsAt)
+  if (diff === 0) return '今天'
+  if (diff === 1) return '明天'
+  const parts = hotspotShanghai(startsAt)
+  return `${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
+}
+function hotspotTimeLabel(startsAt: string): string {
+  const parts = hotspotShanghai(startsAt)
+  return `${String(parts.hours).padStart(2, '0')}:${String(parts.minutes).padStart(2, '0')}`
+}
+function hotspotPlaceName(placeId: string): string {
+  return catalogPlaces.value.find(place => place.id === placeId)?.name ?? '校园地点'
+}
+const nextBusEtaMinutes = computed(() => {
+  const values = busEtaPills.value
+    .map(pill => pill.etaMinutes)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  return values.length ? Math.min(...values) : null
+})
+// ── T-041：近期活动独立视图（半屏 326 / 展开 548），收起直接回 sections ──
+const activityFilter = ref<'all' | 'today' | 'week' | 'later'>('all')
+const activityFilterCounts = computed(() => {
+  let today = 0
+  let week = 0
+  let later = 0
+  for (const hotspot of activityHotspots.value) {
+    const diff = hotspotDayDiff(hotspot.startsAt)
+    if (diff <= 0) today += 1
+    else if (diff <= 7) week += 1
+    else later += 1
+  }
+  return { all: activityHotspots.value.length, today, week, later }
+})
+const activityFilterOptions = computed(() => [
+  { id: 'all' as const, label: '全部', count: activityFilterCounts.value.all },
+  { id: 'today' as const, label: '今天', count: activityFilterCounts.value.today },
+  { id: 'week' as const, label: '本周', count: activityFilterCounts.value.week },
+  { id: 'later' as const, label: '之后', count: activityFilterCounts.value.later }
+])
+const filteredActivityHotspots = computed(() => {
+  if (activityFilter.value === 'all') return activityHotspots.value
+  return activityHotspots.value.filter((hotspot) => {
+    const diff = hotspotDayDiff(hotspot.startsAt)
+    if (activityFilter.value === 'today') return diff <= 0
+    if (activityFilter.value === 'week') return diff > 0 && diff <= 7
+    return diff > 7
+  })
+})
+function activityGroupLabel(startsAt: string): '今天' | '明天' | '本周' | '之后' {
+  const diff = hotspotDayDiff(startsAt)
+  if (diff <= 0) return '今天'
+  if (diff === 1) return '明天'
+  return diff <= 7 ? '本周' : '之后'
+}
+const activityGroups = computed(() => {
+  const groups = [
+    { label: '今天' as const, items: [] as MapActivityHotspot[] },
+    { label: '明天' as const, items: [] as MapActivityHotspot[] },
+    { label: '本周' as const, items: [] as MapActivityHotspot[] },
+    { label: '之后' as const, items: [] as MapActivityHotspot[] }
+  ]
+  for (const hotspot of filteredActivityHotspots.value) {
+    const group = groups.find(item => item.label === activityGroupLabel(hotspot.startsAt))
+    if (group) group.items.push(hotspot)
+  }
+  return groups.filter(group => group.items.length)
+})
+function openActivitySheet(): void {
+  if (!activityHotspots.value.length) return
+  mapSheetView.value = 'activity'
+  mobileSheetState.value = 'half'
+}
+function hideActivitySheet(): void {
+  mapSheetView.value = 'sections'
+  mobileSheetState.value = 'collapsed'
+}
+function openActivitySheetRow(hotspot: MapActivityHotspot): void {
+  hideActivitySheet()
+  openHotspotPlace(hotspot.placeId)
+}
+function openHotspotPlace(placeId: string, keepHalf = false): void {
+  const place = catalogPlaces.value.find(item => item.id === placeId)
+  if (!place) return
+  // 复用图钉选中链路：selectPoi 在手机上会强制收面板，卡片要留在半屏看地图，这里再兜回半屏。
+  selectPoi(place)
+  if (keepHalf && !panelIsDesktop.value) mobileSheetState.value = 'half'
+}
+function pinHotspotRows(placeId: string, placeName: string, phone?: string | null): NonNullable<PinCardModel['rows']> {
+  const phoneRows = pinPhoneRows(phone)
+  const hotspots = hotspotsByPlaceId.value.get(placeId) ?? []
+  if (!hotspots.length) return phoneRows
+  const rows: NonNullable<PinCardModel['rows']> = hotspots.slice(0, 2).map(hotspot => ({
+    badge: `${hotspotDayLabel(hotspot.startsAt)} ${hotspotTimeLabel(hotspot.startsAt)}`,
+    label: hotspot.title,
+    meta: placeName
+  }))
+  const total = hotspotTotalByPlaceId.value.get(placeId) ?? hotspots.length
+  if (total > 2) rows.push({ badge: `共 ${total} 场`, label: '查看全部活动', meta: placeName })
+  return [...rows, ...phoneRows]
+}
 function openMapSheetCategory(id: MapSheetCategoryId): void {
+  // 「热点」走同一套分类通道：filteredPois 按 hasActivities 筛图钉。
   setCategory(id)
-  // CR-7：点分类要真的看到该分类的地点，直接切整表视图；「全部地点」走 setCategory('all') 清分类。
+  // 用户 2026-11-23：点「热点」不该掉进「全部地点」整表（那时看到的是所有地点，不是活动）。
+  // 有活动就直接进活动视图；一条活动都没有才退回整表，避免空面板。
+  if (id === 'hotspot' && activityHotspots.value.length) {
+    mapSheetView.value = 'activity'
+    mobileSheetState.value = 'half'
+    return
+  }
+  // CR-7：其它分类要真的看到该分类的地点，直接切整表视图；「全部地点」走 setCategory('all') 清分类。
   mapSheetView.value = 'all'
   mobileSheetState.value = 'half'
 }
@@ -1897,25 +2208,31 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     :data-glass-ready="mapGlassActive ? 'on' : 'off'"
     :data-glass-fps="mapGlassFps"
     :data-sheet-state="sheetHydrated ? mobileSheetState : 'collapsed'"
+    :data-sheet-view="mapSheetView"
     :data-sheet-transition="sheetTransitioning ? 'on' : 'off'"
     :data-sheet-bloom="sheetBlooming ? 'on' : 'off'"
     :data-sheet-collapse="sheetCollapsePhase"
-    :data-bus-dock="mapSheetView === 'bus' && mobileSheetState !== 'expanded' ? 'on' : 'off'"
-    :style="{ '--map-mobile-dock': `${mobileDockBottom}px`, '--sheet-collapse-h': sheetCollapseHeight + 'px' }"
+    :data-detached-dock="mapSheetView === 'bus' || mapSheetView === 'activity' ? 'on' : 'off'"
+    :style="{ '--map-mobile-dock': `${mobileDockBottom}px`, '--sheet-origin-x': sheetOriginCss, '--sheet-origin-y': sheetOriginYCss, '--sheet-tx': sheetTranslateXCss, '--sheet-ty': `${SHEET_MOTION_DRIFT_Y}px`, '--sheet-scale': String(SHEET_MOTION_SCALE), '--sheet-scale-y': String(SHEET_MOTION_SCALE_Y), '--sheet-exit-scale': String(SHEET_EXIT_SCALE), '--sheet-exit-scale-y': String(SHEET_EXIT_SCALE_Y), '--sheet-collapse-h': sheetCollapseHeight ? `${sheetCollapseHeight}px` : '326px' }"
   >
     <aside
       ref="mobileSheetElement"
-      class="map-glass-sheet absolute inset-x-0 bottom-0 z-[var(--z-sheet)] flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[var(--ease-sheet)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="map-glass-sheet absolute inset-x-0 bottom-[calc(var(--map-float-gap,0.625rem)+env(safe-area-inset-bottom))] z-[var(--z-sheet)] flex min-h-0 min-w-0 flex-col rounded-t-[26px] bg-[var(--surface)] shadow-[0_0_0_1px_var(--surface)] transition-[height] duration-[320ms] ease-[var(--ease-sheet)] [contain:layout] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       :class="[
         mapSheetView === 'bus'
           ? resolveBusSheetHeightClass(mobileSheetState)
           : mapSheetView === 'transit'
             ? resolveTransitSheetHeightClass(mobileSheetState)
-            : mobileSheetHeightClass,
+            : mapSheetView === 'activity'
+              ? (mobileSheetState === 'expanded'
+                ? 'max-md:!h-[min(548px,calc(100%_-_0.75rem))]'
+                : SHEET_HALF_326)
+              : mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
-        mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
+        // activity 视图在上一条分支里已有自己的 326/548，这里不再叠一层（叠了会重复出两条高度类）。
+        mapSheetView !== 'bus' && mapSheetView !== 'transit' && mapSheetView !== 'activity' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? SHEET_HALF_326 : '',
         // 挂载前一律按折叠渲染，避免手机上首帧先弹出一块面板再收回。
         mapSheetView !== 'bus' && (!sheetHydrated || mobileSheetState === 'collapsed') ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
@@ -1924,8 +2241,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         // 折叠态也要有视觉边界：没有边框和阴影，面板会和地图糊在一起，
         // 用户看不出「这里还有一列地点、可以上滑」。
         mobileSheetState === 'collapsed'
-          ? 'border-t border-[var(--sheet-hairline)] shadow-[0_-4px_16px_rgb(0_0_0/10%)]'
-          : 'border-t border-[var(--sheet-hairline)] shadow-[0_-6px_24px_rgb(0_0_0/12%)]',
+          ? 'border-t border-[var(--sheet-hairline)]'
+          : 'border-t border-[var(--sheet-hairline)]',
         // Keep the sheet itself out of the scroll chain. The place list below
         // is the only scroll region on mobile.
         'overflow-hidden',
@@ -1942,7 +2259,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     >
       <template v-if="mapSheetView !== 'bus'">
         <div
-          v-if="mapSheetView !== 'transit'"
+          v-if="mapSheetView !== 'transit' && mapSheetView !== 'activity'"
           data-sheet-drag-zone
           class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 px-3 md:hidden"
           :class="mobileSheetState === 'half' ? '!h-10' : ''"
@@ -1969,7 +2286,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               type="button"
               class="flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 dark:text-zinc-400"
               aria-label="打开地图显示设置"
-              @click="toggleDisplaySettings"
+              @click="toggleDisplaySettings($event)"
             >
               <UIcon
                 name="i-lucide-sliders-horizontal"
@@ -2175,7 +2492,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             <div class="mt-0.5 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
+                class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-white/[0.06] dark:active:bg-white/[0.12]"
                 aria-label="打开收藏列表"
                 @click="focusMapSheetSection('favorites')"
               >
@@ -2190,7 +2507,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               </button>
               <button
                 type="button"
-                class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
+                class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-white/[0.06] dark:active:bg-white/[0.12]"
                 aria-label="打开最近去过列表"
                 @click="focusMapSheetSection('recent')"
               >
@@ -2204,33 +2521,29 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                 <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ recent.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
               </button>
             </div>
-            <div class="map-sheet-categories mt-0.5 grid grid-cols-3 gap-1 pb-2">
+            <div class="map-sheet-categories mt-0.5 grid grid-cols-4 gap-1 pb-2">
               <button
                 v-for="entry in mapSheetCategoryEntries"
                 :key="entry.id"
                 type="button"
-                class="flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-1 text-center text-[12.5px] font-medium text-zinc-800 active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)] dark:text-zinc-100"
+                class="flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-1 text-center text-[12.5px] font-medium text-zinc-800 active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-white/[0.06] dark:active:bg-white/[0.12] dark:text-zinc-100"
                 :aria-label="'筛选分类 ' + entry.label"
+                :class="entry.id === 'hotspot' ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200' : ''"
                 @click="openMapSheetCategory(entry.id)"
               >
+                <span
+                  v-if="entry.id === 'hotspot'"
+                  class="size-2 rounded-full bg-rose-500"
+                  aria-hidden="true"
+                />
                 <UIcon
+                  v-else
                   :name="entry.icon"
                   class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
                 />
                 {{ entry.label }}
               </button>
-              <button
-                type="button"
-                class="map-sheet-transport flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] text-[var(--bus-accent)] px-1 text-[12.5px] font-medium"
-                aria-label="打开叮叮车"
-                @click="openBusSheet"
-              >
-                <UIcon
-                  name="i-lucide-bus-front"
-                  class="size-4 shrink-0"
-                />
-                叮叮车
-              </button>
+
               <button
                 type="button"
                 class="map-sheet-transport flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-[#1a6cf5]/35 bg-[#1a6cf5]/10 text-[#1a6cf5] dark:border-[#1a6cf5]/45 dark:bg-[#1a6cf5]/15 dark:text-[#6ea8ff] px-1 text-[12.5px] font-medium"
@@ -2430,6 +2743,94 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         </div>
       </template>
       <div
+        v-if="mapSheetView === 'activity'"
+        class="flex min-h-0 flex-1 flex-col md:hidden"
+        data-sheet-view="activity"
+      >
+        <div
+          data-sheet-drag-zone
+          class="relative flex h-11 shrink-0 touch-none items-end justify-between gap-2 px-3 pb-1.5"
+          @pointerdown="handleMobileSheetPointerDown"
+        >
+          <button
+            type="button"
+            data-sheet-drag-handle
+            class="absolute left-1/2 top-1.5 h-2 w-10 -translate-x-1/2 touch-none rounded-full bg-zinc-300 active:bg-zinc-400 dark:bg-zinc-700 dark:active:bg-zinc-600"
+            aria-label="上下拖动活动面板"
+            @pointerdown="handleMobileSheetPointerDown"
+          />
+          <p class="flex min-w-0 flex-1 items-baseline gap-1.5">
+            <span class="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">近期活动</span>
+            <span class="shrink-0 text-[12px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ activityHotspots.length }} 个</span>
+          </p>
+          <button
+            type="button"
+            class="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium text-zinc-600 active:bg-zinc-100 dark:text-zinc-300 dark:active:bg-zinc-800"
+            aria-label="收起活动面板"
+            @click="hideActivitySheet"
+          >
+            收起
+          </button>
+        </div>
+        <div class="flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-2 scrollbar-none" role="group" aria-label="活动时间筛选">
+          <button
+            v-for="chip in activityFilterOptions"
+            :key="chip.id"
+            type="button"
+            class="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2.5 text-[12px] font-medium transition-colors"
+            :class="activityFilter === chip.id
+              ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200'
+              : 'border-zinc-200 text-zinc-600 active:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:active:bg-zinc-800'"
+            :aria-pressed="activityFilter === chip.id"
+            @click="activityFilter = chip.id"
+          >
+            <span>{{ chip.label }}</span>
+            <span class="tabular-nums text-[11px] opacity-70">{{ chip.count }}</span>
+          </button>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 scrollbar-none" aria-label="近期活动列表">
+          <div v-if="!filteredActivityHotspots.length" class="grid min-h-24 place-items-center text-[12px] text-zinc-400 dark:text-zinc-500">
+            这个时间段没有活动
+          </div>
+          <template v-for="group in activityGroups" :key="group.label">
+            <h3 class="flex items-baseline justify-between px-1 pb-0.5 pt-1.5 text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
+              <span>{{ group.label }}</span>
+              <span class="tabular-nums">{{ group.items.length }} 场</span>
+            </h3>
+            <button
+              v-for="hotspot in group.items"
+              :key="`${hotspot.placeId}-${hotspot.startsAt}-${hotspot.title}`"
+              type="button"
+              class="flex h-14 w-full items-center gap-3 rounded-xl px-1 text-left active:bg-zinc-100 dark:active:bg-zinc-800"
+              @click="openActivitySheetRow(hotspot)"
+            >
+              <span class="flex w-11 shrink-0 flex-col items-start">
+                <span
+                  class="text-[13px] font-semibold tabular-nums"
+                  :class="hotspotDayDiff(hotspot.startsAt) <= 0 ? 'text-[var(--rose-600,#e11d48)]' : 'text-zinc-700 dark:text-zinc-200'"
+                >{{ hotspotTimeLabel(hotspot.startsAt) }}</span>
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ hotspotDayLabel(hotspot.startsAt) }}</span>
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{{ hotspot.title }}</span>
+                <span class="mt-0.5 flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span class="h-[4.5px] w-[4.5px] shrink-0 rounded-full bg-rose-500" aria-hidden="true" />
+                  <span class="min-w-0 truncate">{{ hotspotPlaceName(hotspot.placeId) }}</span>
+                  <span v-if="(hotspotTotalByPlaceId.get(hotspot.placeId) ?? 0) > 1" class="shrink-0 tabular-nums">· {{ hotspotTotalByPlaceId.get(hotspot.placeId) }} 场活动</span>
+                </span>
+              </span>
+              <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-zinc-400" />
+            </button>
+          </template>
+        </div>
+        <p
+          v-if="mobileSheetState === 'expanded'"
+          class="shrink-0 border-t border-[var(--sheet-hairline)] px-3 py-2 text-center text-[11px] text-zinc-500 dark:text-zinc-400"
+        >
+          共 {{ activityHotspots.length }} 个活动 · 点任意一条在地图上定位
+        </p>
+      </div>
+      <div
         v-if="mapSheetView === 'transit'"
         class="flex min-h-0 flex-1 flex-col md:hidden"
       >
@@ -2465,6 +2866,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           @sheet-raise="mobileSheetState = 'half'"
           @sheet-expand="mobileSheetState = 'expanded'"
           @sheet-collapse="mobileSheetState = 'half'"
+          @sheet-hide="hideBusSheet()"
           @sheet-back="mapSheetView = 'sections'"
           @sheet-drag-start="handleMobileSheetPointerDown($event)"
         />
@@ -2519,6 +2921,37 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         />
       </div>
 
+      <!-- T-040：地图层浮钮带，只在面板收起时出现；不复用 ShellDock 内部。 -->
+      <div
+        v-show="sheetHydrated && mobileSheetState === 'collapsed' && mapSheetView !== 'bus'"
+        class="pointer-events-none absolute inset-x-3 bottom-[calc(var(--shell-dock-map-height,6.25rem)+var(--mobile-dock-inset,0.625rem)+0.875rem)] z-[var(--z-glass-top)] flex items-end justify-between md:hidden"
+      >
+        <button
+          v-if="activityHotspots.length"
+          type="button"
+          class="pointer-events-auto inline-flex h-11 items-center gap-1.5 rounded-full border border-white/70 bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] px-3.5 text-[13px] font-medium text-zinc-800 shadow-lg backdrop-blur-[18px] dark:border-white/10 dark:text-zinc-100"
+          aria-label="查看附近活动"
+          @click="openActivitySheet"
+        >
+          <span
+            class="size-1.5 rounded-full bg-rose-500"
+            aria-hidden="true"
+          />
+          附近 {{ activityHotspots.length }} 个活动
+        </button>
+        <button
+          type="button"
+          class="pointer-events-auto ml-auto inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-3.5 text-[13px] font-medium text-[var(--bus-accent)] shadow-lg backdrop-blur-[18px]"
+          aria-label="打开叮叮车"
+          @click="openBusSheet"
+        >
+          <UIcon
+            name="i-lucide-bus-front"
+            class="size-4 shrink-0"
+          />
+          {{ nextBusEtaMinutes === null ? '叮叮车' : `叮叮车 ${nextBusEtaMinutes}′` }}
+        </button>
+      </div>
       <!-- 点位浮窗：原生 popover + CSS anchor positioning，压在 ETA 胶囊与玻璃层之上 -->
       <MapPinPopover
         v-if="pinCard"
@@ -2757,7 +3190,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               :class="displaySettingsOpen ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300' : ''"
               aria-label="地图显示设置"
               :aria-expanded="displaySettingsOpen"
-              @click="toggleDisplaySettings"
+              @click="toggleDisplaySettings($event)"
             />
           </UTooltip>
           <UTooltip text="显示全部地点">
@@ -2799,17 +3232,22 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         </div>
       </div>
 
-      <MapDisplaySettingsPanel
-        v-if="mapViewMode === 'geographic' && displaySettingsOpen"
-        :base-style="mapBaseStyle"
-        :display-options="mapDisplayOptions"
-        :glass-refraction="glassEnabled"
-        @close="displaySettingsOpen = false"
-        @set-base-style="setMapBaseStyle"
-        @toggle-option="toggleDisplayOption"
-        @set-label-size="setLabelSize"
-        @set-glass-refraction="setGlassRefraction"
-      />
+      <Transition
+        name="pv-origin"
+        @before-enter="applyDisplaySettingsOrigin"
+      >
+        <MapDisplaySettingsPanel
+          v-if="mapViewMode === 'geographic' && displaySettingsOpen"
+          :base-style="mapBaseStyle"
+          :display-options="mapDisplayOptions"
+          :glass-refraction="glassEnabled"
+          @close="displaySettingsOpen = false"
+          @set-base-style="setMapBaseStyle"
+          @toggle-option="toggleDisplayOption"
+          @set-label-size="setLabelSize"
+          @set-glass-refraction="setGlassRefraction"
+        />
+      </Transition>
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
@@ -3350,18 +3788,21 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
      T-033 R7（F-44）：R4 之前这条是 90% + blur(16px)，玻璃没就绪时整块发雾，与折射态差一截，
      用户读成「有时候雾蒙蒙的」；现在两态同一条，跳变消失，.map-glass-refracting 只作语义标记。 */
   .map-workspace .map-glass-sheet {
-    background: color-mix(in srgb, var(--surface) 66%, transparent);
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
     backdrop-filter: blur(2px) saturate(1.05);
   }
 
   /* T-023：面板重新成为折射 target，白纱降到 72%、blur 收到 2px，让弯折的底图色带透出来。
      72% 是 390×844 半屏态 13px 标签可读性实测值（72%–82% 区间取偏透一端）。 */
   .map-workspace .map-glass-sheet.map-glass-refracting {
-    background: color-mix(in srgb, var(--surface) 66%, transparent);
-    backdrop-filter: blur(2px) saturate(1.05);
+    background: transparent;
+    backdrop-filter: none;
   }
 
   /* 原生 search 的取消钮与自绘「清空搜索」会并成两个 ×；appearance:none 挡不住伪元素，只能显式隐藏。 */
+  /* dock 的输入框在 layout 里（不在 .map-workspace 内），同样会多出一个原生叉，一起收进这条规则。 */
+  .shell-dock-search input[type='search']::-webkit-search-cancel-button,
+  .shell-dock-search input[type='search']::-webkit-search-decoration,
   .map-workspace input[type='search']::-webkit-search-cancel-button,
   .map-workspace input[type='search']::-webkit-search-decoration {
     display: none;
@@ -3424,6 +3865,57 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     display: none;
   }
 
+  /* 2026-11-23：面板变成浮起来的玻璃卡片后，压在它背后的两行小字会透过 66% 白纱显出来
+     （右下「N 人看过」统计 + maplibre 原生 © 条），看起来像脏字。收起态才需要它们，面板一开就藏。 */
+  .map-workspace[data-sheet-state='half'] .map-view-stats-mini,
+  .map-workspace[data-sheet-state='expanded'] .map-view-stats-mini,
+  .map-workspace[data-sheet-state='half'] .maplibregl-ctrl-bottom-left,
+  .map-workspace[data-sheet-state='expanded'] .maplibregl-ctrl-bottom-left {
+    visibility: hidden;
+  }
+
+  /* 用户 2026-11-23：展开态 dock 与面板合体（dock 成为面板底部一行导航），
+     面板滚动区留出导航行高度，最后一排分类/活动不被压住。 */
+  /* 用户 2026-11-23（D 方案）：「我下面要圆角呀，不要和屏幕底部接触」——
+     面板左右内收 10px 与 dock 同宽，整块离屏幕底留 --map-float-gap（10px + 安全区），
+     下两角交给 dock（0 0 26px 26px）：面板下沿必须是方的，否则两角会各留一个
+     26px 的缺口，和底栏对不上（用户 m04559「你这对齐了吗」）。 */
+  .map-workspace[data-sheet-state='half'] .map-glass-sheet,
+  .map-workspace[data-sheet-state='expanded'] .map-glass-sheet {
+    right: var(--mobile-dock-inline, 0.625rem);
+    left: var(--mobile-dock-inline, 0.625rem);
+    bottom: calc(var(--map-float-gap, 0.625rem) + env(safe-area-inset-bottom));
+    border-bottom-right-radius: 26px;
+    border-bottom-left-radius: 26px;
+  }
+
+  /* 用户 2026-11-23：dock 与面板是一整块，滚动区整块收在 dock 上沿，
+     中间不留任何空白条（否则透明 dock 下面会露出一条面板与原内容的缝）。 */
+  .map-workspace[data-sheet-state='half'] .shell-fade-bottom--map,
+  .map-workspace[data-sheet-state='half'] .map-sheet-results,
+  .map-workspace[data-sheet-state='half'] [aria-label='近期活动列表'] {
+    padding-bottom: 0.5rem;
+    /* 半屏起搜索行已隐藏，dock 只剩导航行（60px）；整块卡片已经离屏 10px，
+       这里只按卡片内部的导航行高度收边，不再重复加 --map-float-gap。 */
+    margin-bottom: calc(var(--mobile-nav-height, 3.25rem) + 0.5rem);
+    /* 用户 2026-11-23「不论什么时候都要没缝」：半屏可视窗只有 185px，
+       分类第二行必然被裁一半，被裁的那条硬边看起来就是一道缝。
+       用 mask 让内容自己淡出，底图玻璃透上来，切边就没有了。
+       guide: soft-edge-content-fade */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+  }
+
+  .map-workspace[data-sheet-state='expanded'] .shell-fade-bottom--map,
+  .map-workspace[data-sheet-state='expanded'] .map-sheet-results,
+  .map-workspace[data-sheet-state='expanded'] [aria-label='近期活动列表'] {
+    padding-bottom: 0.5rem;
+    margin-bottom: calc(var(--mobile-nav-height, 3.25rem) + 0.5rem);
+    /* 展开态同理：内容若还超一屏，底边也淡出而不是硬切（guide: soft-edge-content-fade）。 */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+  }
+
   /* 「可查找 76 个地点和 8 个区域」在移动端整条收起：折叠态已有一行
      「上滑展开 · 收藏 / 最近 / 分类」做入口提示，两行并列会顶出 152px 的折叠高度、
      压在底栏上；半屏 / 展开态它又占一行把 header 挤离列表。桌面不受影响。 */
@@ -3473,87 +3965,79 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   }
 }
 
-/* T-029：6 个分类每行 3 个（共 2 行），第 3 行是「叮叮车 / 校外公交」两个交通格，各占一半，不留空洞 */
-  @media (max-width: 767px) {
-    .map-workspace .map-sheet-categories {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-    }
-
-    .map-workspace .map-sheet-categories > * {
-      grid-column: span 2;
-    }
-
-    .map-workspace .map-sheet-categories > .map-sheet-transport {
-      grid-column: span 3;
-    }
-  }
-
-  /* T-033 R6（F-40）：面板从搜索条放大。origin 落在搜索行中心（面板底 84px），
-     首帧缩到 scale(0.86) + 半透明 0.72，第二帧放大回 1 —— transform/opacity 走 GPU 合成，Safari 也能过渡。
-     height 的 320ms 曲线不动：拖拽与半屏↔展开仍靠它。 */
+  /* T-046 R2（用户 m04135）：面板的进出动效改成「从被点的按钮长出来 / 缩回那个按钮里」。
+     原点横向取指针在面板内的 x（--sheet-origin-x，写在 .map-workspace 上），纵向钉在底边；
+     入场从 scale(var(--sheet-scale)) + 下压 --sheet-ty + 全透明长到 1，回落只走合成层的 transform/opacity。
+     旧实现（origin 50% calc(100% - 84px)、scale 0.86、opacity 0.72）只有 14% 缩放差异，读起来像没动。 */
   /* Tailwind v4：工具类在 @layer utilities 里，无层级规则在普通声明上优先于任何层 ——
      bloom 规则必须放在层外，否则 duration-[320ms] 会抢走「切换瞬间就是最终高度」。 */
+    /* 2026-11-26（用户 m06662『太生硬，想要柔和的像液体一样』）：弹簧缓动。
+       linear() 采样自 damping ζ≈0.6 的阻尼振子（约 9% 过冲后回稳），
+       transform 不再是 cubic-bezier 的匀速段，读起来是「被推到位再轻轻坐实」。guide: physics-based-easing。 */
+    .map-workspace {
+      --ease-spring-sheet: linear(0, 0.1281 3%, 0.3931 6%, 0.6661 9%, 0.8804 12%, 1.0159 15%, 1.0805 18%, 1.0945 21%, 1.0799 24%, 1.0542 27%, 1.0287 30%, 1.0093 33%, 0.9974 36%, 0.992 39%, 0.9911 42%, 0.9927 45%, 0.9952 48%, 0.9975 52%, 0.9993 55%, 1);
+  /* 收起相：先慢后快再轻坐实（加速曲线），配合「淡出只留末尾」＝缩进按钮里而不是原地消失 */
+  --ease-liquid-out: linear(0, 0.004 8%, 0.02 16%, 0.06 24%, 0.14 32%, 0.27 40%, 0.45 48%, 0.65 56%, 0.83 64%, 0.94 72%, 0.995 80%, 1.004 86%, 1);
+    }
+
     .map-workspace[data-sheet-bloom='on'] .map-glass-sheet {
-      transform-origin: 50% calc(100% - 84px);
-      transform: scale(0.86);
-      opacity: 0.72;
+      transform-origin: var(--sheet-origin-x, 50%) var(--sheet-origin-y, 100%);
+      transform: translate3d(var(--sheet-tx, 0px), var(--sheet-ty, 24px), 0) scale(var(--sheet-scale, 0.74), var(--sheet-scale-y, 0.68));
+      opacity: 0;
+      border-radius: 40px;
       transition: none;
     }
 
     .map-workspace[data-sheet-bloom='off'] .map-glass-sheet {
-      transform-origin: 50% calc(100% - 84px);
-      transform: scale(1);
+      transform-origin: var(--sheet-origin-x, 50%) var(--sheet-origin-y, 100%);
+      transform: translate3d(0, 0, 0) scale(1, 1);
       opacity: 1;
+      border-radius: 26px;
       transition:
-        transform 300ms var(--ease-sheet),
-        opacity 220ms var(--ease-sheet),
+        transform 560ms var(--ease-spring-sheet),
+        opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
+        border-radius 560ms var(--ease-spring-sheet),
         height 320ms var(--ease-sheet);
     }
 
-/**
- * T-033 R7（F-43）：收起＝展开的逆动作。pin 首帧钉住（scale 1、无过渡），shrink 缩回搜索条（scale 0.86 + 0.72），
- * drop 把高度落 0，再回 off。几何/透明度放在层外（要和 R6 的 bloom 规则同层比顺序，后写者胜）；
- * 高度必须放 @layer utilities —— 折叠态的高度工具类也在这一层且带 !important，层外声明反而输给它。
- */
 @media (max-width: 767.98px) {
-/* R9（F-52）：三相位只在手机生效（断点与 panelIsDesktop 同源）；层序不变 —— 几何/透明度无层级，
-   高度仍走 @layer utilities，否则折叠态的高度工具类会把这相的高度抢走。 */
-.map-workspace[data-sheet-collapse='pin'] .map-glass-sheet {
-  transform-origin: 50% calc(100% - 84px);
-  transform: scale(1);
-  opacity: 1;
-  transition: none;
-}
-.map-workspace[data-sheet-collapse='shrink'] .map-glass-sheet {
-  transform-origin: 50% calc(100% - 84px);
-  transform: scale(0.86);
-  opacity: 0.72;
-  transition:
-    transform 260ms var(--ease-sheet),
-    opacity 260ms var(--ease-sheet);
-}
-.map-workspace[data-sheet-collapse='drop'] .map-glass-sheet {
-  transform-origin: 50% calc(100% - 84px);
-  transform: scale(0.86);
-  opacity: 0;
-  transition: none;
-}
-@layer utilities {
-  .map-workspace[data-sheet-collapse='pin'] .map-glass-sheet,
-  .map-workspace[data-sheet-collapse='shrink'] .map-glass-sheet {
-    height: var(--sheet-collapse-h, 326px) !important;
+  /* 2026-11-26（用户 m06190 / m06364）：收起＝一相 CSS 过渡，缩回「面板长出来」的那个锚点（--sheet-origin-x/y，
+     由 bloom 那一刻的触发控件中心算出）。transform / opacity / height 同时跑，不再分 rAF 三相。 */
+  .map-workspace[data-sheet-collapse='on'] .map-glass-sheet {
+    transform-origin: var(--sheet-origin-x, 50%) var(--sheet-origin-y, 100%);
+    transform: translate3d(2px, 4px, 0) scale(var(--sheet-exit-scale, 0.12), var(--sheet-exit-scale-y, 0.12));
+    opacity: 0;
+    border-radius: 18px;
+    transition:
+      transform 460ms var(--ease-liquid-out),
+      opacity 140ms linear 330ms,
+      border-radius 460ms var(--ease-liquid-out);
   }
-  .map-workspace[data-sheet-collapse='drop'] .map-glass-sheet {
-    height: 0 !important;
-  }
-}
 }
 
-/* 叮叮车面板底边让开合成块（搜索行 + 底栏）：折叠 84 条与半屏 326 都要整块露出来。
-   展开态 dock 已淡出（.shell-dock--sheet-expanded），面板才允许贴底。
+@layer utilities {
+  @media (max-width: 767.98px) {
+    .map-workspace[data-sheet-collapse='on'] .map-glass-sheet {
+      height: var(--sheet-collapse-h, 326px) !important;
+    }
+  }
+}
+
+/* 独立浮卡（叮叮车 / 附近活动）底边让开底栏（2026-11-24 用户：「跟叮叮车面板一样的形式」）：
+   卡片整体浮在底栏上方 10px，四周圆角自己负责，不跟底栏拼成一块。
+   折叠 84 条、半屏 326、展开 548 都整块露出，不压导航行。
+   浮卡与底栏之间留 --map-float-gap，底栏四种状态（含 detached）都是不透明底。
    层外声明（Tailwind 工具类在 @layer utilities 里），否则 bottom-0 会抢走底边。 */
-.map-workspace[data-bus-dock='on'] > aside.map-glass-sheet {
-  bottom: calc(var(--shell-dock-map-height, 6.25rem) + var(--mobile-dock-inset, 0.625rem));
+.map-workspace[data-detached-dock='on'] > aside.map-glass-sheet {
+  bottom: calc(var(--mobile-nav-height, 3.25rem) + 0.5rem + var(--mobile-dock-inset, 0.625rem) + var(--map-float-gap, 0.625rem) + env(safe-area-inset-bottom));
+  border-radius: 26px;
+}
+
+/* 浮卡不压 dock 了，滚动区不必给导航行留位（半屏/展开那两条是给「贴住底栏」的形态用的）。 */
+.map-workspace[data-detached-dock='on'] .shell-fade-bottom--map,
+.map-workspace[data-detached-dock='on'] .map-sheet-results,
+.map-workspace[data-detached-dock='on'] [aria-label='近期活动列表'] {
+  margin-bottom: 0.5rem;
 }
 
 /* 稳态才给过渡：bloom 首帧与收起三相位要求瞬时，这条不能把它们的 transition: none 顶掉。
@@ -3561,8 +4045,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 .map-workspace[data-sheet-bloom='off'][data-sheet-collapse='off'] > aside.map-glass-sheet {
   transition:
     bottom 220ms var(--ease-sheet),
-    transform 300ms var(--ease-sheet),
-    opacity 220ms var(--ease-sheet),
+    transform 560ms var(--ease-spring-sheet), /* 这条权重最高、也是 bloom 实际生效的一条：弹簧曲线写这里 */
+    opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
     height 320ms var(--ease-sheet);
 }
 </style>

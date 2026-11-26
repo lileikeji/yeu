@@ -103,10 +103,60 @@
   --z-popover: 50;
   --z-toast: 60;
   --ease-sheet: cubic-bezier(0.24, 1, 0.32, 1);
+  /* 2026-11-23：面板「从按钮长出来」的动效 token。曲线与时长取 Material 3 expressive
+     motion 的公开规范（easing-emphasized-decelerate / -accelerate，duration-medium1 与 short4 档）：
+     进入起手快、落点稳；退出慢起快收，收回去指向触发按钮。 */
+  --ease-panel-in: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-panel-out: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --dur-panel-in: 280ms;
+  --dur-panel-out: 180ms;
 
   /* 表面下沉档：卡片内的凹槽、表头、分段控件的槽底。四套 palette 各自覆盖。 */
   --surface-sunken: #f4f4f4;
 }
+
+/* ===== 面板呼出 / 收回：从触发按钮长出来（纯 CSS 动效）=====
+   Vue 只负责挂类名与写坐标，逐帧全在 CSS：
+   --pv-ox / --pv-oy = transform-origin（百分比，指向触发按钮在面板里的相对位置）
+   --pv-tx / --pv-ty = 起始位移（从按钮指向面板中心的少量补偿，让「长出来」有方向感）
+   坐标由 app/utils/panel-origin.ts 在打开前写入；缺省回落到「底边中点」。 */
+.pv-origin-enter-active,
+.pv-origin-leave-active {
+  transform-origin: var(--pv-ox, 50%) var(--pv-oy, 100%);
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pv-origin-enter-active { animation: pv-origin-in var(--dur-panel-in) var(--ease-panel-in) both; }
+  .pv-origin-leave-active { animation: pv-origin-out var(--dur-panel-out) var(--ease-panel-out) both; }
+}
+
+@keyframes pv-origin-in {
+  from {
+    opacity: 0;
+    scale: 0.88;
+    translate: var(--pv-tx, 0px) var(--pv-ty, 0px);
+  }
+}
+
+@keyframes pv-origin-out {
+  to {
+    opacity: 0;
+    scale: 0.92;
+    translate: var(--pv-tx, 0px) var(--pv-ty, 0px);
+  }
+}
+
+/* 减弱动效：只留 120ms 淡入淡出，不做缩放位移。 */
+@media (prefers-reduced-motion: reduce) {
+  .pv-origin-enter-active { animation: pv-origin-fade-in 120ms linear both; }
+  .pv-origin-leave-active { animation: pv-origin-fade-out 120ms linear both; }
+  .pv-origin-enter-active,
+  .pv-origin-leave-active { transform-origin: 50% 50%; }
+}
+
+@keyframes pv-origin-fade-in { from { opacity: 0; } }
+@keyframes pv-origin-fade-out { to { opacity: 0; } }
 
 /* 评委端手机版五维紧凑行。页面会同时加载两份 entry CSS，后加载那份里的
    .grid 会盖掉 sm:hidden，导致手机版与桌面版两套评分控件一起显示，

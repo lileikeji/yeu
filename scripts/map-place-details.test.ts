@@ -118,7 +118,7 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
 test('mobile sheet half height is pinned by the max-md breakpoint', () => {
   assert.match(
     pageSource,
-    /mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*'max-md:!h-\[326px\]'\s*:\s*''/,
+    /mapSheetView !== 'bus' && mapSheetView !== 'transit' && mapSheetView !== 'activity' && sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half'\s*\?\s*SHEET_HALF_326\s*:\s*''/,
     '半屏高度必须挂在水合完成 + half 的守卫上，无条件挂 max-md 会把 expanded 也压成 326'
   )
   assert.equal((pageSource.match(/max-md:!h-\[326px\]/g) || []).length, 1, '半屏高度类只应出现一次')
@@ -180,35 +180,39 @@ test('mobile sheet is registered as a glass refraction target', () => {
   assert.match(pageSource, /push\(mobileSheetElement\.value,/)
 })
 
-test('sheet fallback uses the same 66% veil as the refracting state when WebGL is unavailable', () => {
+test('sheet fallback keeps the 96% veil when WebGL2 is unavailable', () => {
   const rule = pageSource.match(/\.map-workspace \.map-glass-sheet \{([^}]*)\}/)
   assert.ok(rule, '应存在 .map-glass-sheet 基础规则')
   const body = rule[1] ?? ''
-  assert.match(body, /var\(--surface\) 66%/, '回落态应与折射态同一条 66% 白纱（T-033 R7 F-44）')
+  assert.match(body, /var\(--surface\) 96%/, '回落态（无 WebGL2 / 关开关）仍要靠 96% 白纱撑住可读性')
   assert.match(body, /blur\(2px\) saturate\(1\.05\)/, '回落态 blur 应与折射态一致，不再发雾')
 })
 
-test('sheet refracting state drops the veil to <=82% and blur to <=2px', () => {
+test('sheet refracting state is painted by WebGL2 alone: no CSS veil, no CSS backdrop blur', () => {
   const rule = pageSource.match(/\.map-workspace \.map-glass-sheet\.map-glass-refracting \{([^}]*)\}/)
   assert.ok(rule, '应存在 .map-glass-sheet.map-glass-refracting 规则')
   const body = rule[1] ?? ''
-  const veil = Number(body.match(/var\(--surface\) (\d+(?:\.\d+)?)%/)?.[1])
-  assert.ok(Number.isFinite(veil) && veil <= 82, '折射态白纱应 ≤82%，实际 ' + veil + '%')
-  const blur = Number(body.match(/blur\((\d+(?:\.\d+)?)px\)/)?.[1])
-  assert.ok(Number.isFinite(blur) && blur <= 2, '折射态 blur 应 ≤2px，实际 ' + blur + 'px')
+  // 2026-11-26 用户「我要把折射都改为 webgl2」：白纱与模糊搬进着色器（frost 0.9 + 步长随 frost 加粗），
+  // CSS 再叠 backdrop-filter 会把弯折后的底图糊回平色，折射等于白做。
+  assert.match(body, /background: transparent;/, '折射态背景必须透明，玻璃外观全部由 WebGL2 着色器画')
+  assert.match(body, /backdrop-filter: none;/, '折射态不能再叠 CSS blur')
+  assert.doesNotMatch(body, /color-mix/, '折射态不再保留 CSS 白纱')
 })
 
 test('sheet height transition animates height only and keeps a 320ms soft ease', () => {
   // T-024：只过渡 height。transition-all 会把圆角、阴影、边框一起插值，展开时抖动明显。
   assert.match(pageSource, /transition-\[height\] duration-\[320ms\] ease-\[var\(--ease-sheet\)\]/)
   assert.equal(pageSource.match(/transition-all/g), null, '页面里不应出现 transition-all')
-  // 面板内容隔离 layout/paint：高度变化不再触发整块重排。
-  assert.match(pageSource, /\[contain:layout_paint\]/)
+  // 面板内容隔离 layout：高度变化不再触发整块重排。
+  // 不能用 paint containment —— 它把元素背景/内容裁到 padding box 矩形、无视 border-radius，
+  // 26px 圆角会退化成直角（用户 2026-11-23「这四角根本就不是圆角，有异常」）。
+  assert.match(pageSource, /\[contain:layout\]/)
+  assert.doesNotMatch(pageSource, /\[contain:layout_paint\]/, '面板用了 paint containment，圆角会被裁成直角')
 })
 
 test('sheet transition keeps glass refracting and only freezes the texture upload', () => {
   // 面板在动、底图没动：过渡期照常画折射，只冻结底图纹理上传。
-  // 停画会让面板退回 90% 白纱、落定瞬间再切回 66% 玻璃，收起时看得见闪一下。
+  // 停画会让面板当场换一层白纱、落定瞬间再切回来，收起时看得见闪一下。
   assert.match(pageSource, /@transitionstart="handleSheetTransitionStart"/)
   assert.match(pageSource, /@transitionend="handleSheetTransitionEnd"/)
   assert.doesNotMatch(pageSource, /setMapGlassPaused/, '过渡期不应暂停玻璃绘制')
@@ -236,7 +240,7 @@ test('sheet stays collapsed before hydration so mobile first paint never flashes
   // 用户手机反馈：地图还在转圈时面板已经展开，hydration 完才收起。
   assert.match(pageSource, /const sheetHydrated = ref\(false\)/)
   assert.match(pageSource, /sheetHydrated\.value = true/)
-  assert.ok(pageSource.includes('mapSheetView !== \'bus\' && mapSheetView !== \'transit\' && sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? \'max-md:!h-[326px]\' : \'\''))
+  assert.ok(pageSource.includes('mapSheetView !== \'bus\' && mapSheetView !== \'transit\' && mapSheetView !== \'activity\' && sheetHydrated && !mobileSheetDragging && mobileSheetState === \'half\' ? SHEET_HALF_326 : \'\''))
   assert.ok(pageSource.includes('mapSheetView !== \'bus\' && (!sheetHydrated || mobileSheetState === \'collapsed\') ? \'max-md:!h-0 max-md:border-t-0 max-md:shadow-none\' : \'\''))
 })
 
@@ -272,7 +276,8 @@ test('glass stop clears run intent, ready flag and canvas', () => {
 
 test('sheet category tap lands on the filtered place list', () => {
   // CR-7：分类点进去要看到地点（整表视图），且分类入口含「全部地点」，与注释一致。
-  assert.match(pageSource, /function openMapSheetCategory\(id: MapSheetCategoryId\): void \{[\s\S]{0,220}?mapSheetView\.value = 'all'/)
+  // 2026-11-23：热点分支插在整表之前，允许更长的函数体；整表仍是最终兜底
+  assert.match(pageSource, /function openMapSheetCategory\(id: MapSheetCategoryId\): void \{[\s\S]{0,600}?mapSheetView\.value = 'all'/)
   assert.match(pageSource, /\{ id: 'all', label: '全部地点'/)
 })
 
@@ -287,7 +292,9 @@ test('mobile dock search expands the sheet from the committed query and renders 
   // CR-14：抬面板只能跟提交后的 searchQuery，不能跟原始 input —— 输入法组词期间 searchQuery 不变，
   // 若按原始 input 抬成半屏，dock 里的输入框会被 v-show 隐藏、组词直接断掉。
   assert.match(pageSource, /function onMobileDockSearchInput\(value: string\): void \{\s*onSearchQueryInput\(value\)\s*\}/)
-  assert.match(pageSource, /watch\(searchQuery, \(query\) => \{[\s\S]{0,260}?resolveDockSearchMobileSheetState/)
+  // 2026-11-24 用户：「在搜索框敲下任何字符都会呼出面板」——打字不再抬面板，抬升只走显式提交那条。
+  assert.match(pageSource, /watch\(searchQuery, \(query\) => \{[\s\S]{0,1400}?if \(action === 'rise'\) return/)
+  assert.match(pageSource, /function raiseMobileSheetForSearch\(\): void \{[\s\S]{0,160}?resolveDockSearchMobileSheetState/)
   assert.match(shellDockSource, /@input="onSearchInput"/)
   // T-033：输入口搬进 ShellDock，页面靠共享 state 收口到同一个 onMobileDockSearchInput。
   assert.match(pageSource, /watch\(shellDockSearch,/)
@@ -300,7 +307,7 @@ test('mobile sheet exposes the display settings entry', () => {
   // CR-12：手机要有「地图显示设置」入口，开的是同一个面板。
   // 手机入口用独立名字：桌面工具条的那个按钮同时存在于 DOM（只是 md 以下隐藏），
   // 同名会让读屏与 Playwright 的 getByRole 都解析到两个控件。
-  assert.match(pageSource, /aria-label="打开地图显示设置"[\s\S]{0,120}?@click="toggleDisplaySettings"/)
+  assert.match(pageSource, /aria-label="打开地图显示设置"[\s\S]{0,120}?@click="toggleDisplaySettings\(\$event\)"/)
   assert.doesNotMatch(
     pageSource,
     /aria-label="地图显示设置"[\s\S]{0,120}?toggleDisplaySettings[\s\S]{0,200}?打开地图显示设置/,
@@ -387,8 +394,10 @@ test('mobile bus pill is gone: no dock offset rules left to collide with the sea
 
 test('大面板关掉 rim 亮边：28px 圆角处不再出现一道白线', () => {
   // 着色器那段 2px 亮边在小胶囊上是水切面，铺到 390×326 的面板上就只剩一条白线。
-  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 2\.2, 0\.18, 0, 'top'\)/)
-  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all', radiusPx\?: number\): void => \{/)
+  // 2026-11-23（用户「左上角右上角还有白色的亮条」）：面板 quad 的圆角要跟 CSS 的 26px 对齐，
+  // 否则方角从圆弧外露出来；frost 归 0，雾化在 96% 白纱下看不见，只会在圆角外缘叠白边。
+  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 3, 1, 0, 'top', 26, 16\)/)
+  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all', radiusPx\?: number, band = 0\): void => \{/)
   assert.match(glassSource, /float rim = \(1\.0 - smoothstep\(0\.0, 2\.0 \* uDpr, -d\)\) \* clamp\(vParams\.w, 0\.0, 2\.0\)/)
   assert.match(glassSource, /rim: clamp\(target\.rim \?\? 1, 0, 2\)/)
   assert.match(glassSource, /mount\.params\[base \+ 3\] = quad\.rim/)
@@ -396,9 +405,20 @@ test('大面板关掉 rim 亮边：28px 圆角处不再出现一道白线', () =
 
 test('F-39 深色面板上沿用浅色 hairline：那 1px 不再用 --line 画（T-033 R5）', () => {
   const hairlineSites = pageSource.match(/border-t border-\[var\(--sheet-hairline\)\]/g) ?? []
-  assert.equal(hairlineSites.length, 2, '面板上沿应在折叠/展开两处都用 --sheet-hairline')
+  // 2026-11-23：活动视图页脚也加了一条同类 hairline（原来是 --line，深色下是黑边）
+  assert.equal(hairlineSites.length, 3, '面板上沿（折叠/展开/活动页脚）都该用 --sheet-hairline')
   assert.doesNotMatch(pageSource, /border-t border-\[var\(--line\)\]/, '还有地方用 --line 画面板上沿，深色下就是黑边')
   const mainCss = readFileSync(resolve('app/assets/css/main.css'), 'utf8')
   assert.match(mainCss, /--sheet-hairline: rgb\(0 0 0 \/ 8%\);/)
   assert.match(mainCss, /html\.dark \{[\s\S]{0,600}?--sheet-hairline: rgb\(255 255 255 \/ 14%\);/)
+})
+
+test('手机面板手柄轻点在半屏与展开之间切换（搜索行隐藏后唯一入口）', () => {
+  // 半屏起底栏搜索行整条隐藏，原来搜索框旁的上下箭头消失，改由拖拽手柄承担轻点切换。
+  assert.match(pageSource, /const mobileSheetDragFromHandle = ref\(false\)/)
+  assert.match(pageSource, /mobileSheetDragFromHandle\.value = Boolean\(explicitDragHandle\)/)
+  assert.match(pageSource, /const tappedHandle = !mobileSheetDragMoved\.value[\s\S]{0,120}?mobileSheetDragFromHandle\.value/)
+  assert.match(pageSource, /function toggleMobileSheetHeight\(\)[\s\S]{0,220}?mobileSheetState\.value === 'half' \? 'expanded' : 'half'/)
+  // 拖拽过就不该当成点击：判据是这一个指针周期有没有移动，而不是「松手后 N ms」。
+  assert.doesNotMatch(pageSource, /function toggleMobileSheetHeight\(\)[\s\S]{0,200}?sheetDragEndedAt \+ 240/)
 })

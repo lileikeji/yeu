@@ -15,7 +15,7 @@ const cssSource = readFileSync(resolve('app/assets/css/main.css'), 'utf8')
 const sheetSource = componentSource.slice(0, componentSource.indexOf('v-if="!isSheet && !open"'))
 
 test('叮叮车是面板第三视图：枚举含 bus、初值 sections、地图胶囊一键进入', () => {
-  assert.match(pageSource, /type MapSheetView = 'sections' \| 'all' \| 'bus'/)
+  assert.match(pageSource, /type MapSheetView = 'sections' \| 'all' \| 'activity' \| 'bus' \| 'transit'/)
   assert.match(pageSource, /ref<MapSheetView>\('sections'\)/)
   assert.match(pageSource, /function openBusSheet\(\): void \{/)
   assert.match(pageSource, /mapSheetView\.value = 'bus'/)
@@ -29,7 +29,7 @@ test('折叠态 84px 是叮叮车专属，和地点列表的 h-0 互斥', () => 
   assert.match(presentationSource, /collapsed: 'max-md:!h-\[84px\]'/)
   assert.match(pageSource, /mapSheetView === 'bus'\s*\? resolveBusSheetHeightClass\(mobileSheetState\)\s*: mapSheetView === 'transit'/)
   assert.match(pageSource, /mapSheetView !== 'bus' && \(!sheetHydrated \|\| mobileSheetState === 'collapsed'\) \? 'max-md:!h-0/)
-  assert.match(pageSource, /mapSheetView !== 'bus' && mapSheetView !== 'transit' && sheetHydrated && !mobileSheetDragging/)
+  assert.match(pageSource, /mapSheetView !== 'bus' && mapSheetView !== 'transit' && mapSheetView !== 'activity' && sheetHydrated && !mobileSheetDragging/)
   assert.match(componentSource, /data-bus-collapsed-bar/)
   assert.match(componentSource, /aria-label="展开叮叮车"/)
   assert.match(componentSource, /emit\('sheet-raise'\)/)
@@ -103,14 +103,17 @@ test('视图切换只藏地点内容，桌面浮层原样保留', () => {
   assert.match(pageSource, /v-model:open="busPanelOpen"/)
 })
 
-test('分类格有第九格叮叮车入口，一次点击进第三视图', () => {
+test('T-040 入口：叮叮车移到折叠态浮钮带，一次点击进第三视图', () => {
   const grid = pageSource.indexOf('map-sheet-categories')
+  const gridBlock = pageSource.slice(grid, pageSource.indexOf('</section>', grid))
+  assert.ok(grid > 0, '分类格仍在')
+  assert.doesNotMatch(gridBlock, /打开叮叮车/, '分类格里不再有叮叮车 chip')
   const at = pageSource.indexOf('aria-label="打开叮叮车"')
-  assert.ok(grid > 0 && at > grid, '入口排在手机端分类格内')
-  assert.ok(at - grid < 2600, '入口紧跟在分类按钮之后')
-  const block = pageSource.slice(at - 500, at + 300)
+  assert.ok(at > 0, '叮叮车入口仍在页面上')
+  const block = pageSource.slice(at - 1200, at + 400)
   assert.match(block, /@click="openBusSheet"/)
   assert.match(block, /var\(--bus-accent-soft\)/)
+  assert.match(block, /mapSheetView !== 'bus'/)
 })
 
 test('手机浮标退场：dock 机制清零，顶部分类行仍是五格横向滑动', () => {
@@ -147,4 +150,26 @@ test('站列底部渐隐按需：只有真溢出才给 12px（T-034 D2）', () =
   const at = componentSource.indexOf('data-bus-stops-fade')
   assert.equal(componentSource.slice(at, at + 700).includes('grid min-h-full auto-rows-[minmax(32px,1fr)]'), true)
   assert.doesNotMatch(componentSource, /data-bus-stops-fade[\s\S]{0,300}?linear-gradient\(to top/)
+})
+
+// 用户反馈：点「收起」就应当彻底收掉，不能留一条 84px 残条（2026-11-22）。
+// 这里锁两条：标题行「收起」走 sheet-hide → hideBusSheet（回地点列表折叠态）；
+// 拖到最底同样直接退视图，不再停在 84。
+test('收起＝彻底收掉：sheet-hide 回地点列表，标题区可拖，不留残条', () => {
+  assert.match(componentSource, /'sheet-hide': \[\]/)
+  assert.match(componentSource, /aria-label="收起叮叮车面板"/)
+  assert.match(componentSource, /@click="emit\('sheet-hide'\)"/)
+  // 标题区包一层 drag handle，避免只认 64×20 的把手；按钮自身不带 handle，点击不被拖拽吞掉。
+  const handleAt = componentSource.indexOf('data-sheet-drag-handle\n          class="min-w-0 flex-1 touch-none"')
+  assert.notEqual(handleAt, -1)
+  assert.equal(componentSource.slice(handleAt, handleAt + 260).includes('@pointerdown="emit(\'sheet-drag-start\', $event)"'), true)
+  assert.match(pageSource, /function hideBusSheet\(\): void \{/)
+  assert.match(pageSource, /mapSheetView\.value = 'sections'/)
+  assert.match(pageSource, /@sheet-hide="hideBusSheet\(\)"/)
+  // 拖到底＝退出，不停在折叠条
+  assert.match(pageSource, /if \(mapSheetView\.value === 'bus' && nextState === 'collapsed'\) \{/)
+  // 不再给折叠条加叉号：折叠条块里没有「切回地点列表」（底栏的「地点」按钮不算）
+  const barAt = componentSource.indexOf('data-bus-collapsed-bar')
+  const barBlock = componentSource.slice(barAt, componentSource.indexOf('<template v-else>', barAt))
+  assert.equal(barBlock.includes('切回地点列表'), false)
 })

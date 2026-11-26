@@ -30,13 +30,13 @@ const route = useRoute()
 const isMapDock = computed(() => route.path === '/map' || route.path.startsWith('/map/'))
 
 /** 面板三态：collapsed / half / expanded，由 /map 页面写。 */
-const sheetState = useState<'collapsed' | 'half' | 'expanded'>('shell-dock-sheet', () => 'collapsed')
+const sheetState = useState<'collapsed' | 'half' | 'expanded' | 'detached'>('shell-dock-sheet', () => 'collapsed')
 /**
  * T-033 R3：水合门。SSR 与客户端首帧必须同态 —— 页面在 setup 里写入的 sheetState（half/expanded）
  * 只在水合完成后才反映到 class 上，否则 Vue 报 Hydration class mismatch。
  */
 const dockHydrated = ref(false)
-const dockSheetState = computed<'collapsed' | 'half' | 'expanded'>(() =>
+const dockSheetState = computed<'collapsed' | 'half' | 'expanded' | 'detached'>(() =>
   dockHydrated.value ? sheetState.value : 'collapsed'
 )
 
@@ -46,7 +46,7 @@ const searchQuery = useState<string>('shell-dock-search', () => '')
 const dockTracking = useState<boolean>('shell-dock-tracking', () => false)
 const dockLocating = useState<boolean>('shell-dock-locating', () => false)
 /** 派给页面的命令（点搜索条抬面板）：seq 递增即触发一次。 */
-const dockCommand = useState<{ kind: 'idle' | 'raise-sheet' | 'locate', seq: number }>(
+const dockCommand = useState<{ kind: 'idle' | 'raise-sheet' | 'search-submit' | 'locate', seq: number }>(
   'shell-dock-command',
   () => ({ kind: 'idle', seq: 0 })
 )
@@ -90,8 +90,17 @@ watch(dockInert, (inert) => {
   if (el instanceof HTMLElement && el.closest('.shell-dock-root')) el.blur()
 })
 
-function raiseSheet(): void {
+function raiseSheet(ev?: Event): void {
+  if (ev && !ev.isTrusted) return
+  // 只认真实手势：dev 的画布工具与自动化脚本会合成 click（isTrusted=false），
+  // 进页面时它点到这个箭头，面板就自己弹开（用户 2026-11-26「切换或者打开这个页面的时候面板不能呈现展开态」）。
   dockCommand.value = { kind: 'raise-sheet', seq: dockCommand.value.seq + 1 }
+}
+
+/** 2026-11-24：回车/输入法搜索键＝提交，只有这时才把面板抬起来（打字不再呼出面板）。 */
+function submitSearch(): void {
+  if (!searchQuery.value.trim()) return
+  dockCommand.value = { kind: 'search-submit', seq: dockCommand.value.seq + 1 }
 }
 
 /** T-033 R2：搜索行定位钮只发命令；真正的 locateUser / toggleTracking 由 /map 页面执行。 */
@@ -176,6 +185,7 @@ onMounted(() => {
             @input="onSearchInput"
             @compositionstart="onSearchCompositionStart"
             @compositionend="onSearchCompositionEnd"
+            @keyup.enter="submitSearch"
           >
           <button
             v-show="searchQuery"
@@ -259,7 +269,7 @@ onMounted(() => {
   box-shadow:
     0 10px 26px rgb(0 0 0 / 14%),
     inset 0 0 0 0.5px color-mix(in srgb, var(--surface) 80%, transparent);
-  contain: layout paint;
+  contain: layout;
   transition:
     height 240ms cubic-bezier(0.22, 1, 0.36, 1),
     border-radius 240ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -296,29 +306,105 @@ html.dark .shell-dock-root.shell-dock--map {
     opacity 200ms linear;
 }
 
-/* C1：面板半屏，块下沉 6px、淡到 0.9。 */
+/* C5（用户 2026-11-23 定稿口径）：dock 与面板同宽、贴屏幕底、上两角 24px，
+   用户口径（m02188 / m02192 两次）：「跟 dock 栏合为一体」「还是没有缝呀」——
+   所以这一节**不留缝**：底栏不再自己压一层底色、不再画发丝线、也不自带圆角，
+   直接融在面板的玻璃里（面板的 28px 圆角就是整块的上沿，底栏只是它最后一节里的图标行）。 */
 .shell-dock-root.shell-dock--sheet-half {
-  transform: translateY(6px);
-  /* T-033 R2：半屏时 dock 压在面板之上，半透明会把面板里的橙/蓝块透出来，所以只下沉不淡化。 */
+  /* 用户 2026-11-23 19:56：「就算在半屏的时候搜索框也应该隐藏」——
+     半屏时搜索行整条隐去，dock 只留导航行（60px），和展开态同高。 */
+  height: calc(var(--mobile-nav-height, 3.25rem) + 0.5rem);
+  bottom: calc(var(--map-float-gap, 0.625rem) + env(safe-area-inset-bottom));
+  border-radius: 0 0 26px 26px;
+  /* 用户 2026-11-23：「我下面要圆角呀，不要和屏幕底部接触」——
+     整块是浮起来的卡片，底栏用与面板完全相同的 66% 玻璃底（同色 = 看不出接缝），
+     只有下两角 26px 收圆；不再画顶边线，也不再自压第二层底色。 */
+  background: transparent;
+  backdrop-filter: blur(2px) saturate(1.05);
+  box-shadow: none;
+  border: 0;
+  transform: none;
   opacity: 1;
-  transition:
-    transform 200ms var(--ease-sheet),
-    opacity 200ms linear;
 }
 
-/* C2：面板展开，块下沉 12px 并淡出，彻底让位。 */
+html.dark .shell-dock-root.shell-dock--sheet-half {
+  background: transparent;
+}
+
+/* C5 展开态：同一节，只收起搜索行（高度 100 → 60），继续透明融进面板。 */
 .shell-dock-root.shell-dock--sheet-expanded {
-  transform: translateY(12px);
-  opacity: 0;
-  pointer-events: none;
+  height: calc(var(--mobile-nav-height, 3.25rem) + 0.5rem);
+  bottom: calc(var(--map-float-gap, 0.625rem) + env(safe-area-inset-bottom));
+  border-radius: 0 0 26px 26px;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+  background: transparent;
+  backdrop-filter: blur(2px) saturate(1.05);
   transition:
+    height 220ms var(--ease-sheet),
     transform 220ms var(--ease-sheet),
     opacity 220ms linear;
 }
 
-/* C3：收回，延迟 80ms、260ms 复位。 */
+html.dark .shell-dock-root.shell-dock--sheet-expanded {
+  background: transparent;
+}
+
+/* 用户 2026-11-26：「搜索框在别的面板弹出时的动效」——
+ 不再 display:none 硬切：面板弹起时搜索行跟 dock 一起缩进去（高度 36 -> 0、
+ 下边距 4 -> 0、下沉 8px 并压薄），时长与 dock 的 height 过渡对齐，
+ 看见的是整块变矮，而不是一行凭空消失。visibility 延迟到缩完再关：
+ 动画期间照常绘制，收完退出 tab 序（不收的话零高输入框仍可被 Tab 聚焦）。 */
+.shell-dock-root.shell-dock--sheet-expanded .shell-dock-search,
+.shell-dock-root.shell-dock--sheet-detached .shell-dock-search,
+.shell-dock-root.shell-dock--sheet-half .shell-dock-search {
+  height: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  transform: translateY(8px) scaleY(0.92);
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    height 220ms var(--ease-sheet),
+    margin-bottom 220ms var(--ease-sheet),
+    opacity 140ms linear 20ms,
+    transform 220ms var(--ease-sheet),
+    visibility 0s linear 220ms;
+}
+
+/* 独立浮卡视图（叮叮车 / 附近活动，用户 2026-11-24「跟叮叮车面板一样的形式」）：
+   面板不贴 dock 上沿，所以 dock 不能跟着透明 —— 回到不透明底、只把搜索行收起
+   （高度 100 → 60），四周留 normal 的圆角与内缩，像是底栏自己还在。 */
+.shell-dock-root.shell-dock--sheet-detached {
+  height: calc(var(--mobile-nav-height, 3.25rem) + 0.5rem);
+  bottom: calc(var(--mobile-dock-inset, 0.625rem) + env(safe-area-inset-bottom));
+  border-radius: 24px;
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  border: 0;
+  transform: none;
+  opacity: 1;
+}
+
+html.dark .shell-dock-root.shell-dock--sheet-detached {
+  background: var(--surface);
+}
+
+/* C3：收回，延迟 80ms、260ms 复位。
+ 注意：这条规则会把 base 的 transition 表整段替换掉，所以 height / border-radius
+ 必须在这里重写一遍 —— 否则回 collapsed 时 dock 从 60 瞬跳到 100，而搜索行
+ 还在慢慢长高，中间露出一块空白（2026-11-26 实测：收起瞬间高度 60 -> 100 无过渡）。 */
 .shell-dock-root.shell-dock--sheet-collapsed {
   transition:
+    height 220ms var(--ease-sheet),
+    border-radius 220ms var(--ease-sheet),
     transform 260ms var(--ease-sheet) 80ms,
     opacity 260ms var(--ease-sheet) 80ms;
 }
@@ -346,11 +432,17 @@ html.dark .shell-dock-root.shell-dock--map {
 }
 
 .shell-dock--map .shell-dock-search {
+  height: 2.25rem;
+  margin-bottom: 0.25rem;
   opacity: 1;
   transform: none;
+  visibility: visible;
   transition:
-    opacity 200ms linear 60ms,
-    transform 200ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+    height 220ms var(--ease-sheet),
+    margin-bottom 220ms var(--ease-sheet),
+    opacity 160ms linear 100ms,
+    transform 220ms var(--ease-sheet),
+    visibility 0s linear 0s;
 }
 
 .shell-search {

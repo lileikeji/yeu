@@ -33,8 +33,27 @@ test('T-036 搜索框聚焦不再抬面板，清空搜索收回折叠', () => {
   assert.doesNotMatch(searchTag, /@focus/, '输入框又把聚焦当成输入了')
   const raiseTag = tagAround(dock, 'aria-label="拉起点位面板"')
   assert.match(raiseTag, /@click="raiseSheet"/)
+  // 2026-11-23 用户：「点搜索框旁边的箭头展不开面板」——箭头必须两级抬升，
+  // 折叠→半屏、半屏→展开，而不是永远停在半屏。
+  assert.match(
+    mapPage,
+    /kind !== 'raise-sheet'[\s\S]{0,320}?mobileSheetState\.value === 'half' \? 'expanded' : 'half'/,
+    '箭头又变成只会抬到半屏了'
+  )
   // 组词期间不改面板（CR-14）。
   assert.match(dock, /if \(searchIsComposing\.value\) return/)
+})
+
+test('2026-11-24 输入期间不抬面板，只有回车/搜索键提交才抬', () => {
+  const searchTag = tagAround(dock, 'aria-label="搜索地点"')
+  assert.match(searchTag, /@keyup\.enter="submitSearch"/, '回车要能提交搜索')
+  assert.doesNotMatch(searchTag, /@input="[^"]*raiseSheet/, '输入事件又去抬面板了')
+  assert.match(dock, /function submitSearch\(\): void \{[\s\S]{0,140}?kind: 'search-submit'/)
+  // 打字期页面的 rise 分支必须空转；抬升只发生在显式提交命令里。
+  assert.match(mapPage, /if \(action === 'rise'\) return/)
+  assert.match(mapPage, /if \(kind === 'search-submit'\) \{[\s\S]{0,140}?raiseMobileSheetForSearch\(\)/)
+  // dock 在 layout 里，够不到 .map-workspace 那条规则，原生搜索叉要和它并进同一处隐藏。
+  assert.match(mapPage, /\.shell-dock-search input\[type='search'\]::-webkit-search-cancel-button,/)
 })
 
 test('T-037 CR-10 清空搜索判定是纯函数，桌面也不再漏掉 previous', () => {
