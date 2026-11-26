@@ -219,6 +219,24 @@ onBeforeUnmount(() => {
     <div class="mx-auto flex min-h-dvh w-full max-w-[1680px] flex-col justify-between gap-4 px-5 py-4 lg:px-8 lg:py-5">
       <header class="flex flex-wrap items-center justify-between gap-4">
         <div class="min-w-0">
+          <div class="mb-2 flex items-center gap-3">
+            <img
+              src="/brand/music-association.png"
+              alt="仰恩大学音乐协会"
+              class="size-11 lg:size-12"
+            >
+            <span class="h-8 w-px bg-[var(--line)]" />
+            <img
+              src="/brand/yougong.png"
+              alt="优公教育"
+              class="h-6 w-auto lg:h-7"
+            >
+            <img
+              src="/brand/yougong-cow.png"
+              alt=""
+              class="h-12 w-auto lg:h-14"
+            >
+          </div>
           <p class="text-xs font-bold tracking-[0.28em] text-[var(--color-orange-700)]">
             仰恩大学音乐协会 · 新声歌手大赛
           </p>
@@ -359,12 +377,6 @@ onBeforeUnmount(() => {
                 </p>
               </div>
             </template>
-
-            <img
-              src="/brand/yougong-cow.png"
-              alt=""
-              class="pointer-events-none mt-3 h-20 w-auto self-end lg:h-24"
-            >
           </div>
 
           <p
@@ -526,18 +538,6 @@ onBeforeUnmount(() => {
       <footer class="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-[var(--muted-ink)]">
         <div class="flex flex-wrap items-center gap-3">
           <span>{{ ruleSummary }}</span>
-          <span class="flex items-center gap-2.5">
-            <img
-              src="/brand/music-association.png"
-              alt="仰恩大学音乐协会"
-              class="size-8 opacity-90"
-            >
-            <img
-              src="/brand/yougong.png"
-              alt="优公教育"
-              class="h-5 w-auto opacity-90"
-            >
-          </span>
         </div>
         <span>数据每 {{ Math.min(10, Math.max(5, tokenState?.rotateSeconds ?? 10)) }} 秒自动刷新 · 按决赛出场顺序排列</span>
       </footer>

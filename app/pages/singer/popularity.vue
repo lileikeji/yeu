@@ -325,6 +325,24 @@ onBeforeUnmount(() => {
   <div class="singer-canvas min-h-dvh px-3 py-5 text-[var(--ink)] sm:px-4 sm:py-7">
     <div class="mx-auto w-full max-w-3xl space-y-4">
       <header class="text-center">
+        <div class="mb-2.5 flex items-center justify-center gap-3.5">
+          <img
+            src="/brand/music-association.png"
+            alt="仰恩大学音乐协会"
+            class="size-10 drop-shadow-sm"
+          >
+          <span class="h-7 w-px bg-[var(--line)]" />
+          <img
+            src="/brand/yougong.png"
+            alt="优公教育"
+            class="h-6 w-auto"
+          >
+          <img
+            src="/brand/yougong-cow.png"
+            alt=""
+            class="h-11 w-auto -translate-y-0.5"
+          >
+        </div>
         <p class="text-xs font-semibold tracking-[0.24em] text-[var(--color-orange-700)]">
           仰恩大学音乐协会 · 新声歌手大赛
         </p>
@@ -672,23 +690,6 @@ onBeforeUnmount(() => {
           </UButton>
         </div>
 
-        <div class="flex items-center justify-center gap-5 pb-1 opacity-90">
-          <img
-            src="/brand/music-association.png"
-            alt="仰恩大学音乐协会"
-            class="size-9"
-          >
-          <img
-            src="/brand/yougong.png"
-            alt="优公教育"
-            class="h-6 w-auto"
-          >
-          <img
-            src="/brand/yougong-cow.png"
-            alt=""
-            class="h-12 w-auto"
-          >
-        </div>
       </template>
     </div>
   </div>
