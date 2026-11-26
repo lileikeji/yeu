@@ -5411,7 +5411,9 @@ export function listAdvanceRows(client: DatabaseClient, round: RoundRow): Compet
       average: row.average,
       scoreCount: row.scoreCount,
       rank: row.rank,
-      advanced: row.advanced === null ? defaultChecked : row.advanced === 1,
+      // 抽签赛制不允许手动勾选，晋级集合恒等于「胜者 + 复活者」；
+      // 历史落库的 advanced=0 不能把「确认胜者」按钮显示成 0 人。
+      advanced: duelMode ? defaultChecked : (row.advanced === null ? defaultChecked : row.advanced === 1),
       revived: revivedIds.has(row.id)
     }
   })

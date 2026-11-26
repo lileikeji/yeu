@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { eq } from 'drizzle-orm'
 import { DEFAULT_COMPETITION_DIMENSIONS } from '../shared/utils/competition'
 import { computeCompetitionAnalytics } from '../shared/utils/competition-analytics'
 import {
@@ -12,7 +13,7 @@ import {
   type DatabaseClient
 } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { contents } from '../server/database/schema'
+import { competitionRoundEntries, contents } from '../server/database/schema'
 import {
   confirmAdvanceRoster,
   createJudgeAccounts,
@@ -66,16 +67,16 @@ function eventInput(patch: Record<string, unknown> = {}) {
 }
 
 /**
- * 一路推进到决赛 1v1 都打完：8 人 → 初赛/复赛全进 → 决赛 4 组。
- * 每组胜者都拿 10 分，败者按组号递减（9/8/7/6），这样败者排序是确定的。
+ * 一路推进到决赛 1v1 都打完：count 人 → 初赛/复赛全进 → 决赛 count/2 组。
+ * 每组胜者都拿 10 分，败者按组号递减（9/8/7/6…），这样败者排序是确定的。
  */
-async function reachFinalDuels(client: TestClient, contentId: string) {
+async function reachFinalDuels(client: TestClient, contentId: string, count = 8) {
   const event = ensureCompetitionEvent(client, contentId)
   if (event.edition !== TEST_EDITION) {
     updateCompetitionEvent(client, event, eventInput())
   }
 
-  const singers = Array.from({ length: 8 }, (_, index) => createSinger(client, event.id, {
+  const singers = Array.from({ length: count }, (_, index) => createSinger(client, event.id, {
     name: `选手${index + 1}`,
     song: `曲目${index + 1}`,
     className: '26音乐学1班',
@@ -85,14 +86,14 @@ async function reachFinalDuels(client: TestClient, contentId: string) {
 
   for (const key of ['prelim', 'semi'] as const) {
     let round = getRoundByKey(client, event.id, key)
-    round = updateRound(client, round, { status: 'open', advanceCount: 8 })
+    round = updateRound(client, round, { status: 'open', advanceCount: count })
     checkInRound(client, contentId, key)
     const judges = await createJudgeAccounts(client, round, 1)
     const judge = { ...judges[0]!, eventId: event.id, roundId: round.id }
     for (const singer of singers) submitJudgeScore(client, judge, singer.id, { scores: scoresForAll(10) })
     round = getRoundByKey(client, event.id, key)
     round = updateRound(client, round, { status: 'closed' })
-    assert.equal(confirmAdvanceRoster(client, round).advanced, 8)
+    assert.equal(confirmAdvanceRoster(client, round).advanced, count)
   }
 
   let finalRound = getRoundByKey(client, event.id, 'final')
@@ -102,7 +103,7 @@ async function reachFinalDuels(client: TestClient, contentId: string) {
   finalRound = getRoundByKey(client, event.id, 'final')
 
   const pairs = roundView(getAdminCompetitionPayload(client, contentId), 'final').duelPairs
-  assert.equal(pairs.length, 4)
+  assert.equal(pairs.length, count / 2)
   const judges = await createJudgeAccounts(client, finalRound, 1)
   const judge = { ...judges[0]!, eventId: event.id, roundId: finalRound.id }
   const loserNames: string[] = []
@@ -168,6 +169,45 @@ test('复活赛：败者按本轮均分排队，前 N 名跟胜者一起进第�
     // 复活标记只落在第二轮名单上，第一轮的败者本身不算「复活进来」。
     assert.equal(roundView(payload, 'final').entries.filter(entry => entry.revived).length, 0)
     assert.equal(computeCompetitionAnalytics(payload).overview.revivedCount, 2)
+  } finally {
+    closeDatabase(path)
+    rmSync(join(path, '..'), { recursive: true, force: true })
+  }
+})
+
+test('复活赛：12 人决赛 1v1 → 6 胜者 + 2 复活 = 8 人进第二轮（决赛条目 advanced 已落 0）', async () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  try {
+    const contentId = randomUUID()
+    client.db.insert(contents).values({
+      id: contentId,
+      kind: 'club',
+      slug: 'music-association',
+      title: '音乐协会',
+      summary: 'test',
+      status: 'published'
+    }).run()
+
+    const { finalRound } = await reachFinalDuels(client, contentId, 12)
+    const current = ensureCompetitionEvent(client, contentId)
+    updateCompetitionEvent(client, current, eventInput({ revivalEnabled: true, revivalSlots: 2 }))
+
+    // 生产库现状：决赛 12 条的 advanced 已显式落成 0（不是 null）。
+    // 抽签赛制不允许手动勾选，这些 0 不该影响「确认胜者」的可用性。
+    client.db.update(competitionRoundEntries).set({ advanced: 0 })
+      .where(eq(competitionRoundEntries.roundId, finalRound.id)).run()
+
+    const payload = getAdminCompetitionPayload(client, contentId)
+    const advanceRows = payload.advance.final ?? []
+    assert.equal(advanceRows.length, 12)
+    assert.equal(advanceRows.filter(row => row.advanced).length, 8)
+    assert.equal(advanceRows.filter(row => row.revived).length, 2)
+
+    assert.equal(confirmAdvanceRoster(client, getRoundByKey(client, current.id, 'final')).advanced, 8)
+    const final2 = roundView(getAdminCompetitionPayload(client, contentId), 'final2')
+    assert.equal(final2.entries.length, 8)
+    assert.equal(final2.entries.filter(entry => entry.revived).length, 2)
   } finally {
     closeDatabase(path)
     rmSync(join(path, '..'), { recursive: true, force: true })
