@@ -51,7 +51,8 @@ export function handleWechatMpPopularityMessage(
   }
 
   const code = (match[1] || '').trim()
-  if (!code || !verifyPopularityWechatPasscode(input.secret, eventRow.id, code, now)) {
+  const fixedPasscode = settings.passcodeRotate ? null : settings.fixedPasscode
+  if (!code || !verifyPopularityWechatPasscode(input.secret, eventRow.id, code, now, fixedPasscode)) {
     return '口令不正确或已过期。\n请查看现场大屏当前显示的 2 位数字口令，回复「投票 + 两位数」（例如：投票 58）领取专属投票链接。'
   }
 

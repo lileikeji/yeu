@@ -1643,6 +1643,8 @@ export const competitionPopularitySettingsSchema = z.object({
   votesPerVoter: z.number().int().min(1).max(20).default(1),
   allowRepeatVote: z.boolean().default(true),
   qrRotateSeconds: z.number().int().min(10).max(300),
+  passcodeRotate: z.boolean().optional(),
+  fixedPasscode: z.string().trim().max(2).optional(),
   showResults: z.boolean(),
   authMode: z.enum(['wechat_mp', 'device_strict']).optional(),
   wechatAccountName: z.string().trim().min(1).max(40).optional(),

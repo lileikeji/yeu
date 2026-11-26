@@ -28,6 +28,8 @@ const draft = reactive<SettingsDraft>({
   votesPerVoter: 1,
   allowRepeatVote: true,
   qrRotateSeconds: 30,
+  passcodeRotate: true,
+  fixedPasscode: '',
   showResults: true,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
   wechatAccountName: '仰恩大学指南',
@@ -70,6 +72,8 @@ function sync(): void {
     votesPerVoter: settings.votesPerVoter ?? 1,
     allowRepeatVote: settings.allowRepeatVote ?? true,
     qrRotateSeconds: settings.qrRotateSeconds,
+    passcodeRotate: settings.passcodeRotate ?? true,
+    fixedPasscode: settings.fixedPasscode ?? '',
     showResults: settings.showResults,
     authMode: settings.authMode ?? 'wechat_mp',
     wechatAccountName: settings.wechatAccountName ?? '仰恩大学指南',
@@ -135,6 +139,8 @@ async function saveSettings(): Promise<void> {
         votesPerVoter: Math.min(20, Math.max(1, Number(draft.votesPerVoter) || 1)),
         allowRepeatVote: draft.allowRepeatVote,
         qrRotateSeconds: Number(draft.qrRotateSeconds),
+        passcodeRotate: draft.passcodeRotate,
+        fixedPasscode: draft.fixedPasscode.trim(),
         showResults: draft.showResults,
         authMode: draft.authMode,
         wechatAccountName: draft.wechatAccountName.trim() || '仰恩大学指南',
@@ -421,6 +427,34 @@ async function copyDisplayUrl(): Promise<void> {
                 class="mt-1 w-full"
                 maxlength="260"
               />
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+              <input
+                v-model="draft.passcodeRotate"
+                type="checkbox"
+                class="size-4 rounded border-zinc-300"
+              >
+              口令每分钟自动轮换（关闭后整场使用固定口令）
+            </label>
+            <div
+              v-if="!draft.passcodeRotate"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <label
+                class="text-xs text-zinc-600 dark:text-zinc-400"
+                for="popularity-fixed-passcode"
+              >固定口令</label>
+              <input
+                id="popularity-fixed-passcode"
+                v-model="draft.fixedPasscode"
+                inputmode="numeric"
+                maxlength="2"
+                placeholder="如 58"
+                class="w-24 rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-1.5 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-950"
+              >
+              <span class="text-xs text-zinc-500">两位数（10–99），保存后立即生效</span>
             </div>
           </div>
           <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
