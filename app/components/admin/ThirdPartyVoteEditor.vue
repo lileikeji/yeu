@@ -26,17 +26,33 @@ interface Candidate {
   song: string | null
 }
 
+interface FormSummary {
+  token: string
+  name: string
+  entriesCount: number
+  createdAt: string
+  lastEntryAt: string | null
+  url: string
+}
+
 interface FormState {
   configured: boolean
+  tokenConfigured: boolean
   formToken: string
   optionField: string | null
+  activeSource: 'file' | 'env' | 'none'
   form: {
     token: string
     name: string
     description: string
     url: string
     fields: Array<{ apiCode: string, label: string, type: string, choices: Choice[] }>
+    weixinLimited: boolean
+    fillType: string
+    fillCondition: string
   } | null
+  forms: FormSummary[]
+  formsError: string | null
   remoteError: string | null
   candidates: Candidate[]
   optionCounts: Record<string, number>
@@ -87,6 +103,22 @@ const draft = reactive({
 const newChoice = ref('')
 const syncFull = ref(false)
 
+const showCreate = ref(false)
+const createDraft = reactive({
+  name: '',
+  description: '',
+  fieldLabel: '支持谁',
+  options: '',
+  activate: true
+})
+const settingsDraft = reactive({
+  name: '',
+  description: '',
+  weixinLimited: false,
+  oncePerWeixin: false
+})
+const deletingToken = ref('')
+
 const candidates = computed(() => formState.value?.candidates ?? votes.value?.candidates ?? [])
 const records = computed(() => votes.value?.records ?? [])
 const summary = computed(() => votes.value?.summary ?? formState.value?.summary ?? { total: 0, valid: 0, watch: 0, voided: 0 })
@@ -112,6 +144,7 @@ async function load(): Promise<void> {
     ])
     formState.value = state
     votes.value = list
+    syncSettingsDraft(state)
     if (!draft.optionId) {
       draft.optionId = state.candidates[0]?.name ?? list.candidates[0]?.name ?? ''
     }
@@ -304,6 +337,142 @@ function statusClass(status: VoteStatus): string {
 function votesOf(choice: Choice): number {
   return formState.value?.optionCounts[choice.name] ?? 0
 }
+
+function syncSettingsDraft(state: FormState): void {
+  if (!state.form) return
+  settingsDraft.name = state.form.name
+  settingsDraft.description = state.form.description
+  settingsDraft.weixinLimited = state.form.weixinLimited
+  settingsDraft.oncePerWeixin = state.form.fillType === 'once' && state.form.fillCondition === 'by_weixin'
+}
+
+function splitNames(raw: string): string[] {
+  return raw.split(/[,，\n]/).map(item => item.trim()).filter(Boolean)
+}
+
+async function submitCreateForm(): Promise<void> {
+  if (busy.value) return
+  const name = createDraft.name.trim()
+  if (!name) {
+    toast.add({ title: '请填写表单名称', color: 'warning' })
+    return
+  }
+
+  const options = splitNames(createDraft.options)
+  busy.value = 'create-form'
+  try {
+    const result = await adminFetch<{ token: string, url: string, activated: boolean }>(
+      '/api/admin/competition/popularity/third-party-form',
+      {
+        method: 'POST',
+        body: {
+          name,
+          description: createDraft.description.trim() || undefined,
+          fieldLabel: createDraft.fieldLabel.trim() || undefined,
+          options,
+          activate: createDraft.activate
+        }
+      }
+    )
+    toast.add({
+      title: `已创建表单 ${result.token}（${options.length} 个选项）`,
+      description: result.activated ? '已设为生效表单。' : '可在列表中切换成生效表单。',
+      color: 'success'
+    })
+    showCreate.value = false
+    createDraft.name = ''
+    createDraft.description = ''
+    createDraft.options = ''
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '新建表单失败',
+      description: apiErrorMessage(error, '请检查金数据套餐额度与令牌权限。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function saveFormSettings(): Promise<void> {
+  if (busy.value || !formState.value?.configured) return
+  busy.value = 'settings'
+  try {
+    await adminFetch('/api/admin/competition/popularity/third-party-form', {
+      method: 'PATCH',
+      body: {
+        name: settingsDraft.name.trim() || undefined,
+        description: settingsDraft.description,
+        weixinLimited: settingsDraft.weixinLimited,
+        oncePerWeixin: settingsDraft.oncePerWeixin
+      }
+    })
+    toast.add({ title: '表单设置已保存', color: 'success' })
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '保存设置失败',
+      description: apiErrorMessage(error, '自定义填写频次需要金数据企业版套餐。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function activateForm(token: string): Promise<void> {
+  if (busy.value) return
+  busy.value = `activate:${token}`
+  try {
+    await adminFetch('/api/admin/competition/popularity/third-party-form/switch', {
+      method: 'POST',
+      body: { token }
+    })
+    toast.add({ title: '已切换生效表单', color: 'success' })
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '切换失败',
+      description: apiErrorMessage(error, '表单可能已被删除或令牌无权限。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function deleteForm(token: string, name: string): Promise<void> {
+  if (busy.value) return
+  if (deletingToken.value !== token) {
+    deletingToken.value = token
+    toast.add({ title: `再点一次「删除」确认删除表单「${name}」`, color: 'warning' })
+    return
+  }
+
+  busy.value = `delete-form:${token}`
+  try {
+    const result = await adminFetch<{ cleared: boolean }>(
+      '/api/admin/competition/popularity/third-party-form',
+      { method: 'DELETE', body: { token, confirm: true } }
+    )
+    toast.add({
+      title: `已删除表单「${name}」`,
+      description: result.cleared ? '它原本是生效表单，已回退到环境变量配置。' : undefined,
+      color: 'success'
+    })
+    deletingToken.value = ''
+    await load()
+  } catch (error) {
+    toast.add({
+      title: '删除表单失败',
+      description: apiErrorMessage(error, '请确认令牌有删除权限。'),
+      color: 'warning'
+    })
+  } finally {
+    busy.value = ''
+  }
+}
 </script>
 
 <template>
@@ -356,6 +525,183 @@ function votesOf(choice: Choice): number {
         <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">有效 {{ summary.valid }}</span>
         <span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">待审 {{ summary.watch }}</span>
         <span class="rounded-full bg-rose-100 px-2.5 py-1 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">作废 {{ summary.voided }}</span>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            表单管理
+          </h4>
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            建表、切换生效表单、改名改描述、改填写规则、删除表单都在这里完成，换比赛不需要再改代码或配置。
+            当前配置来源：
+            <code>{{ formState?.activeSource === 'file' ? '后台写入的配置文件' : formState?.activeSource === 'env' ? '环境变量' : '未配置' }}</code>
+          </p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          :disabled="!formState?.tokenConfigured"
+          @click="showCreate = !showCreate"
+        >
+          {{ showCreate ? '收起' : '新建表单' }}
+        </button>
+      </div>
+
+      <p
+        v-if="formState && !formState.tokenConfigured"
+        class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+      >
+        没有读到金数据 API 令牌（NUXT_JINSHUJU_API_TOKEN），无法管理表单。
+      </p>
+      <p
+        v-else-if="formState?.formsError"
+        class="mt-3 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
+      >
+        读取表单列表失败：{{ formState.formsError }}
+      </p>
+
+      <div
+        v-if="showCreate"
+        class="mt-3 space-y-2 rounded-md border border-dashed border-zinc-300 p-3 dark:border-zinc-700"
+      >
+        <input
+          v-model="createDraft.name"
+          placeholder="表单名称，例：2027 新生歌手大赛 · 人气投票"
+          class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+        <input
+          v-model="createDraft.description"
+          placeholder="描述（可留空）"
+          class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+        <input
+          v-model="createDraft.fieldLabel"
+          placeholder="选项字段名，默认「支持谁」"
+          class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+        <textarea
+          v-model="createDraft.options"
+          rows="3"
+          placeholder="选项（选手名单），多个用逗号或换行分隔"
+          class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        />
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="flex items-center gap-2 text-xs">
+            <input
+              v-model="createDraft.activate"
+              type="checkbox"
+              class="size-4 rounded border-zinc-300"
+            >
+            创建后立即设为生效表单
+          </label>
+          <button
+            type="button"
+            class="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+            :disabled="Boolean(busy)"
+            @click="submitCreateForm"
+          >
+            创建
+          </button>
+        </div>
+      </div>
+
+      <ul
+        v-if="(formState?.forms?.length ?? 0) > 0"
+        class="mt-3 max-h-64 space-y-1 overflow-y-auto pr-1"
+      >
+        <li
+          v-for="item in formState?.forms ?? []"
+          :key="item.token"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800"
+        >
+          <div class="min-w-0">
+            <div class="truncate font-medium text-zinc-900 dark:text-zinc-100">
+              {{ item.name }}
+              <span
+                v-if="item.token === formState?.formToken"
+                class="ml-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+              >生效中</span>
+            </div>
+            <div class="mt-0.5 text-zinc-500 dark:text-zinc-400">
+              <code>{{ item.token }}</code> · {{ item.entriesCount }} 条提交
+            </div>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <a
+              :href="item.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-emerald-600 hover:underline"
+            >打开</a>
+            <button
+              v-if="item.token !== formState?.formToken"
+              type="button"
+              class="text-zinc-600 hover:underline disabled:opacity-50 dark:text-zinc-300"
+              :disabled="Boolean(busy)"
+              @click="activateForm(item.token)"
+            >
+              设为生效
+            </button>
+            <button
+              type="button"
+              class="text-rose-600 hover:underline disabled:opacity-50"
+              :disabled="Boolean(busy)"
+              @click="deleteForm(item.token, item.name)"
+            >
+              {{ deletingToken === item.token ? '确认删除' : '删除' }}
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      <div
+        v-if="formState?.form"
+        class="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800"
+      >
+        <h5 class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+          当前生效表单设置
+        </h5>
+        <div class="mt-2 space-y-2">
+          <input
+            v-model="settingsDraft.name"
+            placeholder="表单名称"
+            class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+          <input
+            v-model="settingsDraft.description"
+            placeholder="描述"
+            class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+          <div class="flex flex-wrap items-center gap-4">
+            <label class="flex items-center gap-2 text-xs">
+              <input
+                v-model="settingsDraft.weixinLimited"
+                type="checkbox"
+                class="size-4 rounded border-zinc-300"
+              >
+              只允许微信内填写
+            </label>
+            <label class="flex items-center gap-2 text-xs">
+              <input
+                v-model="settingsDraft.oncePerWeixin"
+                type="checkbox"
+                class="size-4 rounded border-zinc-300"
+              >
+              每个微信限投一次
+            </label>
+            <button
+              type="button"
+              class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+              :disabled="Boolean(busy)"
+              @click="saveFormSettings"
+            >
+              保存设置
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

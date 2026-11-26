@@ -7,6 +7,7 @@
  */
 
 import type { H3Event } from 'h3'
+import { readActiveFormConfig } from '../modules/vote-sync/form-config'
 
 const API_BASE = 'https://jinshuju.net/api/v1'
 const DEFAULT_LIMIT = 100
@@ -47,6 +48,12 @@ export interface JinshujuForm {
   description: string
   url: string
   fields: JinshujuField[]
+  /** 只允许在微信内填写 */
+  weixinLimited: boolean
+  /** 填写频次：once / unlimited / repeatable… */
+  fillType: string
+  /** 频次判定条件：by_weixin / by_ip / by_device */
+  fillCondition: string
 }
 
 export interface JinshujuChoiceUpdate {
@@ -71,13 +78,34 @@ function readString(source: Record<string, unknown>, key: string): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+/**
+ * 读取生效配置。
+ *
+ * 表单 token 与选项字段优先级：后台写入的 `third-party-form.json` → 环境变量。
+ * API 令牌只从环境变量读，不落文件。
+ */
 export function readJinshujuConfig(event?: H3Event): JinshujuConfig | null {
   const config = useRuntimeConfig(event) as Record<string, unknown>
   const apiToken = readString(config, 'jinshujuApiToken')
-  const formToken = readString(config, 'jinshujuFormToken')
-  const optionField = readString(config, 'jinshujuOptionField')
+  const stored = readActiveFormConfig(event)
+  const formToken = stored?.formToken || readString(config, 'jinshujuFormToken')
+  const optionField = stored?.optionField || readString(config, 'jinshujuOptionField')
   if (!apiToken || !formToken || !optionField) return null
   return { apiToken, formToken, optionField }
+}
+
+/** 只取令牌；管理表单时需要在同一次请求里操作多张表，不受当前生效 token 限制。 */
+export function readJinshujuToken(event?: H3Event): string {
+  const config = useRuntimeConfig(event) as Record<string, unknown>
+  return readString(config, 'jinshujuApiToken')
+}
+
+export function requireJinshujuConfig(event?: H3Event): JinshujuConfig {
+  const config = readJinshujuConfig(event)
+  if (!config) {
+    throw new JinshujuApiError('金数据未配置：需要 NUXT_JINSHUJU_API_TOKEN 与表单 token', 503)
+  }
+  return config
 }
 
 async function requestJinshuju(
@@ -180,12 +208,22 @@ export function normalizeJinshujuForm(payload: unknown): JinshujuForm {
     }
   }
 
+  const setting = (source.setting && typeof source.setting === 'object')
+    ? source.setting as Record<string, unknown>
+    : {}
+  const frequency = (setting.fill_frequency && typeof setting.fill_frequency === 'object')
+    ? setting.fill_frequency as Record<string, unknown>
+    : {}
+
   return {
     token: typeof source.token === 'string' ? source.token : '',
     name: typeof source.name === 'string' ? source.name : '',
     description: typeof source.description === 'string' ? source.description : '',
     url: typeof source.url === 'string' ? source.url : '',
-    fields
+    fields,
+    weixinLimited: setting.weixin_limited === true,
+    fillType: typeof frequency.fill_type === 'string' ? frequency.fill_type : 'unlimited',
+    fillCondition: typeof frequency.condition === 'string' ? frequency.condition : ''
   }
 }
 
@@ -225,6 +263,145 @@ export async function updateJinshujuChoices(
   )
 
   return normalizeJinshujuForm(payload)
+}
+
+
+export interface JinshujuFormSummary {
+  token: string
+  name: string
+  entriesCount: number
+  createdAt: string
+  lastEntryAt: string | null
+  url: string
+}
+
+/** 列出账号下所有表单。列表接口不返回 url，用短链规则拼一个可点的地址。 */
+export async function listJinshujuForms(config: JinshujuConfig): Promise<JinshujuFormSummary[]> {
+  const payload = await requestJinshuju(config, '/forms?limit=100')
+  const data = Array.isArray(payload.data) ? payload.data : []
+  return data.flatMap((item): JinshujuFormSummary[] => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    const token = typeof row.token === 'string' ? row.token.trim() : ''
+    if (!token) return []
+    return [{
+      token,
+      name: typeof row.name === 'string' ? row.name : token,
+      entriesCount: typeof row.entries_count === 'number' ? row.entries_count : 0,
+      createdAt: typeof row.created_at === 'string' ? row.created_at : '',
+      lastEntryAt: typeof row.last_entry_created_at === 'string' ? row.last_entry_created_at : null,
+      url: `https://jinshuju.net/f/${token}`
+    }]
+  })
+}
+
+export interface JinshujuFormCreateInput {
+  name: string
+  description?: string
+  fieldLabel?: string
+  options: string[]
+}
+
+/**
+ * 新建一张投票表单。
+ *
+ * 建表接口只接受 `{ name, fields: [{ type, label }] }`，选项要再走一次
+ * `update_choices`（建表时带 choices 的写法未验证），所以这里是两步。
+ */
+export async function createJinshujuForm(
+  config: JinshujuConfig,
+  input: JinshujuFormCreateInput
+): Promise<{ token: string, url: string }> {
+  const name = input.name.trim()
+  if (!name) throw new JinshujuApiError('表单名称不能为空', 400)
+  const label = (input.fieldLabel ?? '支持谁').trim() || '支持谁'
+
+  const body: Record<string, unknown> = {
+    name,
+    fields: [{ type: 'RadioButton', label }]
+  }
+  if (input.description?.trim()) body.description = input.description.trim()
+
+  const payload = await requestJinshuju({ ...config, formToken: '' }, '/forms', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  })
+  const token = typeof payload.token === 'string' ? payload.token.trim() : ''
+  if (!token) throw new JinshujuApiError('金数据没有返回表单 token', 502)
+  const url = typeof payload.url === 'string' && payload.url.trim()
+    ? payload.url.trim()
+    : `https://jinshuju.net/f/${token}`
+
+  const options = input.options.map(item => item.trim()).filter(Boolean)
+  if (options.length > 0) {
+    await updateJinshujuChoices(
+      { ...config, formToken: token },
+      { fieldApiCode: 'field_1', add: options }
+    )
+  }
+
+  return { token, url }
+}
+
+export async function deleteJinshujuForm(config: JinshujuConfig, formToken: string): Promise<void> {
+  await requestJinshuju(config, `/forms/${encodeURIComponent(formToken)}`, { method: 'DELETE' })
+}
+
+/** 改表单名称与描述。只传需要改的字段，两个都没传视为参数错误。 */
+export async function updateJinshujuFormInfo(
+  config: JinshujuConfig,
+  formToken: string,
+  input: { name?: string, description?: string }
+): Promise<JinshujuForm> {
+  const body: Record<string, unknown> = {}
+  if (input.name !== undefined) body.name = input.name.trim()
+  if (input.description !== undefined) body.description = input.description.trim()
+  if (Object.keys(body).length === 0) {
+    throw new JinshujuApiError('没有需要更新的表单信息', 400)
+  }
+  const payload = await requestJinshuju(
+    { ...config, formToken },
+    `/forms/${encodeURIComponent(formToken)}`,
+    { method: 'PATCH', body: JSON.stringify(body) }
+  )
+  return normalizeJinshujuForm(payload)
+}
+
+export interface JinshujuRuleUpdate {
+  /** true = 只允许在微信内填写（金数据按自己的 openid 记录身份） */
+  weixinLimited?: boolean
+  /** true = 每个微信只能提交一次 */
+  oncePerWeixin?: boolean
+}
+
+/** 改填写规则。`fill_type` 取 `once` / `unlimited`，条件取 `by_weixin`。 */
+export async function updateJinshujuRules(
+  config: JinshujuConfig,
+  formToken: string,
+  rules: JinshujuRuleUpdate
+): Promise<void> {
+  const setting: Record<string, unknown> = {}
+  if (rules.weixinLimited !== undefined) setting.weixin_limited = rules.weixinLimited
+  if (rules.oncePerWeixin !== undefined) {
+    setting.fill_frequency = rules.oncePerWeixin
+      ? {
+          fill_type: 'once',
+          condition: 'by_weixin',
+          cycle_period: 'every_day',
+          cycles_per_period: 1,
+          limited_time: 1,
+          limited_field_api_codes: []
+        }
+      : { fill_type: 'unlimited' }
+  }
+  if (Object.keys(setting).length === 0) {
+    throw new JinshujuApiError('没有需要更新的填写规则', 400)
+  }
+  await requestJinshuju(
+    { ...config, formToken },
+    `/forms/${encodeURIComponent(formToken)}`,
+    { method: 'PATCH', body: JSON.stringify({ setting }) }
+  )
 }
 
 /** 金数据的 created_at 参数要北京时间、无时区后缀。 */

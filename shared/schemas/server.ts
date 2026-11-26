@@ -1725,6 +1725,37 @@ export const thirdPartyFormChoicesSchema = z.object({
   remove: z.array(z.string().trim().min(1).max(40)).max(50).optional()
 }).strict()
 
+/** 表单设置：选项增删 / 改名改描述 / 填写规则，任意组合一次提交。 */
+export const thirdPartyFormUpdateSchema = z.object({
+  add: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
+  remove: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
+  name: z.string().trim().min(1).max(60).optional(),
+  description: z.string().trim().max(200).optional(),
+  weixinLimited: z.boolean().optional(),
+  oncePerWeixin: z.boolean().optional()
+}).strict()
+
+/** 新建金数据投票表单，options 是选项显示名。 */
+export const thirdPartyFormCreateSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  description: z.string().trim().max(200).optional(),
+  fieldLabel: z.string().trim().min(1).max(20).optional(),
+  options: z.array(z.string().trim().min(1).max(40)).max(200).optional(),
+  activate: z.boolean().optional()
+}).strict()
+
+/** 删除表单必须显式确认。 */
+export const thirdPartyFormDeleteSchema = z.object({
+  token: z.string().trim().min(1).max(40),
+  confirm: z.literal(true)
+}).strict()
+
+/** 切换后台生效的表单。 */
+export const thirdPartyFormSwitchSchema = z.object({
+  token: z.string().trim().min(1).max(40),
+  optionField: z.string().trim().min(1).max(40).optional()
+}).strict()
+
 /** 手动触发一次条目同步。 */
 export const thirdPartySyncRunSchema = z.object({
   full: z.boolean().optional(),
