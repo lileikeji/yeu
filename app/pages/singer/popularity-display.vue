@@ -231,11 +231,6 @@ onBeforeUnmount(() => {
               alt="优公教育"
               class="h-6 w-auto lg:h-7"
             >
-            <img
-              src="/brand/yougong-cow.png"
-              alt=""
-              class="h-12 w-auto lg:h-14"
-            >
           </div>
           <p class="text-xs font-bold tracking-[0.28em] text-[var(--color-orange-700)]">
             仰恩大学音乐协会 · 新声歌手大赛
@@ -377,6 +372,12 @@ onBeforeUnmount(() => {
                 </p>
               </div>
             </template>
+
+            <img
+              src="/brand/yougong-cow.png"
+              alt=""
+              class="pointer-events-none mt-3 h-20 w-auto self-end lg:h-24"
+            >
           </div>
 
           <p

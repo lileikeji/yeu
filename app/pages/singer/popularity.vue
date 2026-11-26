@@ -337,11 +337,6 @@ onBeforeUnmount(() => {
             alt="优公教育"
             class="h-6 w-auto"
           >
-          <img
-            src="/brand/yougong-cow.png"
-            alt=""
-            class="h-11 w-auto -translate-y-0.5"
-          >
         </div>
         <p class="text-xs font-semibold tracking-[0.24em] text-[var(--color-orange-700)]">
           仰恩大学音乐协会 · 新声歌手大赛
@@ -464,14 +459,21 @@ onBeforeUnmount(() => {
           </div>
           <div
             v-if="state.wechatQrUrl"
-            class="flex shrink-0 flex-col items-center gap-1 self-center"
+            class="flex shrink-0 items-end gap-2 self-center"
           >
+            <div class="flex flex-col items-center gap-1">
+              <img
+                :src="state.wechatQrUrl"
+                :alt="state.wechatAccountName || '公众号二维码'"
+                class="size-24 rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] object-contain p-1"
+              >
+              <span class="text-[11px] font-semibold text-[var(--muted-ink)]">长按识别关注</span>
+            </div>
             <img
-              :src="state.wechatQrUrl"
-              :alt="state.wechatAccountName || '公众号二维码'"
-              class="size-24 rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] object-contain p-1"
+              src="/brand/yougong-cow.png"
+              alt=""
+              class="mb-4 h-16 w-auto"
             >
-            <span class="text-[11px] font-semibold text-[var(--muted-ink)]">长按识别关注</span>
           </div>
         </div>
 
