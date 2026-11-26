@@ -23,6 +23,7 @@ import {
   setEntryAccompaniment,
   setEntryAdvanced,
   setEntryCheckIn,
+  setFinal2Order,
   submitJudgeScore,
   updateCompetitionEvent,
   updateRound
@@ -311,6 +312,56 @@ test('决赛第一首收伴奏、第二首背景视频统一走两首歌页', as
     () => commitAccompanimentKey(client, final2Round, entry.id, { key: 'uploads/背景.mp4', name: '背景.mp4', size: 3 }),
     (error: unknown) => codeOf(error) === 'COMPETITION_FINAL_VIDEO_DEDICATED'
   )
+
+  closeDatabase(path)
+  rmSync(join(path, '..'), { recursive: true, force: true })
+})
+
+test('决赛第二轮按人工排定的顺序出场，没晋级的自动剔除', async () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const contentId = createContent(client, 'final2-order')
+  const event = setupEvent(client, contentId)
+  const names = ['甲选手', '乙选手', '丙选手', '丁选手']
+  const singers = names.map((name, index) => createSinger(client, event.id, {
+    name,
+    song: `初赛曲${index}`,
+    className: '26音乐学1班',
+    studentNo: `2026777${index}`,
+    qq: `3000077${index}`
+  }))
+  await advanceFour(client, contentId, singers)
+
+  let finalRound = updateRound(client, getRoundByKey(client, event.id, 'final'), { status: 'open' })
+  checkInRound(client, contentId, 'final')
+  const finalJudges = await createJudgeAccounts(client, finalRound, 1)
+  // 决赛第一轮固定取前六；这里只给前两位打分，丙丁没成绩自然不参与晋级。
+  const scoreOf = [10, 9]
+  scoreOf.forEach((score, index) => {
+    submitJudgeScore(
+      client,
+      { ...finalJudges[0]!, eventId: event.id, roundId: finalRound.id },
+      singers[index]!.id,
+      { scores: scoresForAll(score) }
+    )
+  })
+
+  // 名字写错一个字也能对上；完全对不上的要原样回给运营确认。
+  const wrong = setFinal2Order(client, contentId, ['乙选手', '查无此人'])
+  assert.deepEqual(wrong.unmatched, ['查无此人'])
+  assert.equal(wrong.order.length, 1)
+
+  const saved = setFinal2Order(client, contentId, ['乙选手', '甲选手'])
+  assert.deepEqual(saved.order.map(item => item.name), ['乙选手', '甲选手'])
+
+  finalRound = updateRound(client, getRoundByKey(client, event.id, 'final'), { status: 'closed' })
+  // 晋级的是甲、乙（前两名），但出场顺序按人工排定的乙在前。
+  assert.equal(confirmAdvanceRoster(client, finalRound).advanced, 2)
+
+  const final2Rows = listRoundEntryRows(client, getRoundByKey(client, event.id, 'final2').id)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+  assert.deepEqual(final2Rows.map(row => row.singerId), [singers[1]!.id, singers[0]!.id])
+  assert.deepEqual(final2Rows.map(row => row.sortOrder), [1, 2])
 
   closeDatabase(path)
   rmSync(join(path, '..'), { recursive: true, force: true })

@@ -194,8 +194,50 @@ export function useCompetitionAdvance(options: UseCompetitionAdvanceOptions) {
     }
   }
 
-  watch(payload, syncReminder, { immediate: true })
+  // 决赛第二轮出场顺序：运营按姓名逐行录入，晋级的人按这个先后落名单。
+  const final2OrderText = ref('')
+  const final2OrderSaving = ref(false)
+  const final2OrderUnmatched = ref<string[]>([])
 
+  function syncFinal2Order(current: CompetitionAdminPayload | null) {
+    const ids = current?.event?.final2Order ?? []
+    const nameById = new Map((current?.singers ?? []).map(singer => [singer.id, singer.name]))
+    final2OrderText.value = ids.map(id => nameById.get(id) ?? '').filter(Boolean).join('\n')
+  }
+
+  async function saveFinal2Order(): Promise<void> {
+    if (final2OrderSaving.value) return
+    final2OrderSaving.value = true
+    try {
+      const names = final2OrderText.value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+      const data = await adminFetch<{
+        payload: CompetitionAdminPayload
+        order: { singerId: string, name: string }[]
+        unmatched: string[]
+      }>('/api/admin/competition/final2-order', { method: 'POST', body: { names } })
+      payload.value = data.payload
+      final2OrderUnmatched.value = data.unmatched
+      syncFinal2Order(data.payload)
+      toast.add({
+        title: data.unmatched.length > 0
+          ? `已存 ${data.order.length} 人，${data.unmatched.length} 个名字没对上`
+          : `第二轮顺序已存 ${data.order.length} 人`,
+        color: data.unmatched.length > 0 ? 'warning' : 'success'
+      })
+    } catch (error) {
+      toast.add({ title: apiErrorMessage(error, '保存顺序失败，请重试'), color: 'error' })
+    } finally {
+      final2OrderSaving.value = false
+    }
+  }
+
+  watch(payload, (value) => {
+    syncReminder()
+    syncFinal2Order(value)
+  }, { immediate: true })
   return {
     advanceBusyKey,
     pairsBusyKey,
@@ -218,6 +260,10 @@ export function useCompetitionAdvance(options: UseCompetitionAdvanceOptions) {
     sendReminders,
     editionLabel,
     editionCreating,
+    final2OrderText,
+    final2OrderSaving,
+    final2OrderUnmatched,
+    saveFinal2Order,
     createEdition
   }
 }

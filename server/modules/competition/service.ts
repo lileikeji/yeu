@@ -498,6 +498,63 @@ export function nextRoundOf(client: DatabaseClient, round: RoundRow): RoundRow |
     .get() ?? null
 }
 
+/** 决赛第二轮的人工出场顺序（singerId 数组）；空数组 = 按第一轮名次排。 */
+export function getFinal2Order(row: EventRow | null | undefined): string[] {
+  if (!row) return []
+  try {
+    const parsed: unknown = JSON.parse(row.final2OrderJson || '[]')
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0)
+  } catch {
+    return []
+  }
+}
+
+export interface Final2OrderResult {
+  /** 按输入顺序排好的名单；singerId 用于落库，name 用于回显。 */
+  order: { singerId: string, name: string }[]
+  /** 没在选手库里对上的名字，原样回给运营确认。 */
+  unmatched: string[]
+}
+
+/**
+ * 排定决赛第二轮的出场顺序：运营按姓名逐行录入，晋级的按这个先后排，
+ * 没晋级的在确认名单时自然被剔除。名字写错一个字（形近字）也能对上。
+ */
+export function setFinal2Order(client: DatabaseClient, contentId: string, input: unknown): Final2OrderResult {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const names = (Array.isArray(input) ? input : [])
+    .map(item => String(item ?? '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  if (names.length > 40) validationError('出场顺序最多 40 人', 'names')
+  const singers = listSingers(client, eventRow.id)
+  const keyOf = (value: string | null | undefined) => normalizeLookup(value ?? undefined)
+  const used = new Set<string>()
+  const order: { singerId: string, name: string }[] = []
+  const unmatched: string[] = []
+  for (const name of names) {
+    const target = keyOf(name)
+    const candidates = singers.filter(singer => !used.has(singer.id))
+    const exact = candidates.find(singer => keyOf(singer.name) === target)
+    // 同名不同字（形近字）时按「同姓 + 名首字 + 名等长」兜一层，免得录错一个字整份报错
+    const loose = exact ?? candidates.find((singer) => {
+      const singerName = keyOf(singer.name)
+      if (singerName.length !== target.length || singerName.length < 2) return false
+      return singerName[0] === target[0] && singerName[1] === target[1]
+    })
+    if (!loose) {
+      unmatched.push(name)
+      continue
+    }
+    used.add(loose.id)
+    order.push({ singerId: loose.id, name: loose.name ?? name })
+  }
+  client.db.update(competitionEvents)
+    .set({ final2OrderJson: JSON.stringify(order.map(item => item.singerId)), updatedAt: Date.now() })
+    .where(eq(competitionEvents.id, eventRow.id)).run()
+  return { order, unmatched }
+}
+
 export function serializeCompetitionEvent(row: EventRow, club: { slug: string, title: string }): CompetitionEvent {
   const dimensions = getCompetitionDimensions(row)
   return {
@@ -519,6 +576,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     maxTotal: competitionMaxTotal(dimensions),
     revivalEnabled: row.revivalEnabled === true,
     revivalSlots: row.revivalSlots > 0 ? row.revivalSlots : 2,
+    final2Order: getFinal2Order(row),
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
   }
@@ -5592,6 +5650,17 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   const nextRound = nextRoundOf(client, round)
   if (nextRound && countRoundScores(client, nextRound.id) > 0) {
     conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已经开始评分了，名单不能再改')
+  }
+  // 决赛第二轮按人工排定的出场顺序落名单：晋级的按这个先后，没晋级的自然不在 picked 里。
+  if (nextRound?.key === 'final2') {
+    const final2Order = getFinal2Order(getEvent(client, round.eventId))
+    if (final2Order.length > 0) {
+      const position = new Map(final2Order.map((singerId, index) => [singerId, index]))
+      picked.sort((left, right) => (
+        (position.get(left.singer.id) ?? Number.MAX_SAFE_INTEGER)
+        - (position.get(right.singer.id) ?? Number.MAX_SAFE_INTEGER)
+      ))
+    }
   }
   const now = Date.now()
   // 决赛第二轮的曲目来自「决赛两首歌」提交里的第二首；确认前六时一并写进名单。

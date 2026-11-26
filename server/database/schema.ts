@@ -1109,6 +1109,8 @@ export const competitionEvents = sqliteTable('competition_events', {
   revivalEnabled: integer('revival_enabled', { mode: 'boolean' }).notNull().default(false),
   /** 复活名额（1–6）；revivalEnabled 为 0 时不生效。 */
   revivalSlots: integer('revival_slots').notNull().default(2),
+  /** 决赛第二轮出场顺序：singerId 数组；空 = 按第一轮名次排。晋级名单确认时按它重排，未晋级的自然剔除。 */
+  final2OrderJson: text('final2_order_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [

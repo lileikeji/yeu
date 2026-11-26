@@ -251,7 +251,8 @@ const {
   pairsBusyKey, duelPairs, duelResolved, drawPairs,
   toggleAdvance, confirmAdvance, reopenAdvance,
   reminderSubject, reminderBody, reminderSaving, reminderSending, saveReminderTemplate, sendReminders,
-  editionLabel, editionCreating, createEdition
+  editionLabel, editionCreating, createEdition,
+  final2OrderText, final2OrderSaving, final2OrderUnmatched, saveFinal2Order
 } = useCompetitionAdvance({ payload, activeRound, load, toast })
 
 /** 只有决赛第一轮切到 1v1 时，出场名单才改成按组展示；其他轮次保持原表格。 */
@@ -2365,6 +2366,42 @@ onBeforeUnmount(stopLiveRefresh)
                 确认晋级名单后方可发送通知邮件。
               </template>
             </p>
+            <div
+              v-if="activeRound.key === 'final'"
+              class="mt-3 rounded-lg border border-zinc-200 px-3 py-3 dark:border-zinc-700"
+            >
+              <p class="text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                决赛第二轮出场顺序
+              </p>
+              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                一行一个名字，按这个先后排；确认晋级名单时，晋级的人按这个顺序出场，没晋级的自动剔除。
+              </p>
+              <UTextarea
+                v-model="final2OrderText"
+                :rows="6"
+                placeholder="郭梓瑜&#10;陈新铌&#10;张晨捷"
+                class="mt-2 w-full"
+                :disabled="final2OrderSaving"
+              />
+              <div class="mt-2 flex items-center gap-2">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-save"
+                  :loading="final2OrderSaving"
+                  @click="saveFinal2Order"
+                >
+                  保存顺序
+                </UButton>
+                <span
+                  v-if="final2OrderUnmatched.length > 0"
+                  class="text-xs text-amber-600 dark:text-amber-400"
+                >
+                  没对上：{{ final2OrderUnmatched.join('、') }}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div

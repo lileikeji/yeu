@@ -1614,6 +1614,11 @@ export const competitionAdminFinalSongsSchema = z.object({
   revision: z.number().int().min(0).max(1_000_000).optional()
 }).strict()
 
+/** 决赛第二轮出场顺序：运营按姓名逐行录入，后台按这个先后落晋级名单。 */
+export const competitionFinal2OrderSchema = z.object({
+  names: z.array(z.string().trim().min(1).max(30)).max(40)
+}).strict()
+
 /** 人气奖后台设置：所有可调项都在这里，时间用毫秒时间戳。 */
 export const competitionPopularitySettingsSchema = z.object({
   enabled: z.boolean(),
