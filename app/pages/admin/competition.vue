@@ -2086,7 +2086,7 @@ onBeforeUnmount(stopLiveRefresh)
                           <input
                             :value="finalSongsValue(entry).firstSong"
                             class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                            :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
+                            :disabled="activeRound.status !== 'draft' || finalSongsBusyId === entry.singer.id"
                             placeholder="第一轮唱"
                             @input="setFinalSongsDraft(entry, 'firstSong', ($event.target as HTMLInputElement).value)"
                           >
@@ -2096,7 +2096,7 @@ onBeforeUnmount(stopLiveRefresh)
                           <input
                             :value="finalSongsValue(entry).secondSong"
                             class="min-w-0 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1 py-0.5 text-sm text-zinc-700 focus:border-emerald-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                            :disabled="activeRound.status === 'closed' || finalSongsBusyId === entry.singer.id"
+                            :disabled="activeRound.status !== 'draft' || finalSongsBusyId === entry.singer.id"
                             placeholder="进前六后唱"
                             @input="setFinalSongsDraft(entry, 'secondSong', ($event.target as HTMLInputElement).value)"
                           >
@@ -2108,7 +2108,7 @@ onBeforeUnmount(stopLiveRefresh)
                           icon="i-lucide-check"
                           class="self-start"
                           :loading="finalSongsBusyId === entry.singer.id"
-                          :disabled="activeRound.status === 'closed'"
+                          :disabled="activeRound.status !== 'draft'"
                           @click="saveFinalSongs(activeRound, entry)"
                         >
                           保存两首

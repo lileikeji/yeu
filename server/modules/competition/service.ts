@@ -6102,7 +6102,7 @@ function finalSongLockReason(
   entry: EntryRow | null
 ): string {
   if (!entry) return '你不在决赛名单里，先找组委会确认'
-  if (finalRound.status === 'closed') return '决赛第一轮已经结束，两首歌已锁定'
+  if (finalRound.status !== 'draft') return '决赛已经开始，两首歌和附件都不能再改'
   if (final2Round && countRoundScores(client, final2Round.id) > 0) {
     return '决赛第二轮已经开始评分，两首歌已锁定'
   }
@@ -6630,7 +6630,7 @@ export function setFinalSongsByAdmin(
   const eventRow = ensureCompetitionEvent(client, contentId)
   const finalRound = getRoundByKeySafe(client, eventRow.id, 'final')
   if (!finalRound) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '决赛还没建好，等组委会通知')
-  if (finalRound.status === 'closed') conflictError('ROUND_CLOSED', '决赛第一轮已经结束，两首歌已锁定')
+  if (finalRound.status !== 'draft') conflictError('ROUND_CLOSED', '决赛已经开始，两首歌不能再改')
   const final2Round = getRoundByKeySafe(client, eventRow.id, 'final2')
   if (final2Round && countRoundScores(client, final2Round.id) > 0) {
     conflictError('COMPETITION_FINAL_SONGS_LOCKED', '决赛第二轮已经开始评分，两首歌已锁定')
