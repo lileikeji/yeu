@@ -625,6 +625,8 @@ export interface CompetitionEntryAccompaniment {
 export interface CompetitionFinalSongsPair {
   firstSong: string
   secondSong: string
+  /** 第二首已上传的背景视频文件名；后台据此显示「已传/未传」，不含签名地址。 */
+  secondVideoName: string | null
   revision: number
 }
 
