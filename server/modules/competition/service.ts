@@ -24,7 +24,7 @@ import {
 } from '../../database/schema'
 import { hashPasswordWithMinLength } from '../../utils/password'
 import { transcodeToMp3 } from '../../utils/audio-transcode'
-import { detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
+import { MAX_UPLOADED_AUDIO_BYTES, detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
 import { createZip, StreamingZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -2306,6 +2306,7 @@ export interface CompetitionPopularitySettingsInput {
   closesAt: number | null
   allowChange: boolean
   maxChanges: number
+  votesPerVoter: number
   qrRotateSeconds: number
   showResults: boolean
   authMode?: CompetitionPopularityAuthMode
@@ -2336,6 +2337,7 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     closesAt: row.closesAt == null ? null : Number(row.closesAt),
     allowChange: row.allowChange,
     maxChanges: Number(row.maxChanges),
+    votesPerVoter: Math.max(1, Number(row.votesPerVoter ?? 1)),
     qrRotateSeconds: Number(row.qrRotateSeconds),
     showResults: row.showResults,
     displayKey: row.displayKey,
@@ -2369,6 +2371,7 @@ export function ensurePopularitySettings(
     closesAt: null,
     allowChange: false,
     maxChanges: 1,
+    votesPerVoter: 1,
     qrRotateSeconds: 30,
     showResults: false,
     displayKey: randomBytes(18).toString('base64url'),
@@ -2421,6 +2424,7 @@ export function listPopularityCandidates(
 function popularityBallotView(row: PopularityBallotRow): CompetitionPopularityBallot {
   return {
     singerId: row.singerId,
+    voteIndex: Number(row.voteIndex ?? 0),
     changeCount: Number(row.changeCount),
     version: Number(row.version),
     updatedAt: Number(row.updatedAt ?? row.createdAt ?? 0)
@@ -2488,10 +2492,18 @@ export function getPopularityPublicState(
     .where(eq(competitionPopularityBallots.eventId, eventId))
     .all()
   const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0 && Number(ballot.quarantined) === 0)
-  const mine = deviceHash
-    ? (allBallots.find(ballot => ballot.deviceHash === deviceHash || ballot.voterOpenidHash === deviceHash) ?? null)
-    : null
-  const mineActive = mine && Number(mine.voided) === 0 ? mine : null
+  const myBallots = deviceHash
+    ? allBallots
+        .filter(ballot => ballot.deviceHash === deviceHash || ballot.voterOpenidHash === deviceHash)
+        .sort((left, right) => Number(left.voteIndex ?? 0) - Number(right.voteIndex ?? 0))
+    : []
+  const activeMine = myBallots.filter(ballot => Number(ballot.voided) === 0)
+  const mine = myBallots[0] ?? null
+  const mineActive = activeMine[0] ?? null
+  const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
+  const multiVote = votesPerVoter > 1
+  const votesUsed = activeMine.length
+  const votesRemaining = Math.max(0, votesPerVoter - votesUsed)
   const status = popularityStatusOf(settings)
   const results = popularityResultRows(candidates, activeBallots, activeBallots.length)
   const countBySinger = new Map<string, number>()
@@ -2505,10 +2517,12 @@ export function getPopularityPublicState(
   ))
   const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
   const requiresWechatTicket = options.requiresWechatTicket ?? (authMode === 'wechat_mp' && !options.wechatVerified)
-  const canChange = !requiresWechatTicket
+  const canChange = !multiVote
+    && !requiresWechatTicket
     && status === 'open'
     && candidates.length > 0
     && (!mine || (Number(mine.voided) === 0 && settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
+  const revision = multiVote ? votesUsed : Number(mineActive?.version ?? 0)
 
   return {
     title: settings.title,
@@ -2518,11 +2532,16 @@ export function getPopularityPublicState(
     closesAt: settings.closesAt == null ? null : Number(settings.closesAt),
     allowChange: settings.allowChange,
     maxChanges: Number(settings.maxChanges),
+    votesPerVoter,
     qrRotateSeconds: Number(settings.qrRotateSeconds),
     showResults: settings.showResults,
     candidates: rankedCandidates,
     totalVotes: activeBallots.length,
     myBallot: mineActive ? popularityBallotView(mineActive) : null,
+    myBallots: activeMine.map(popularityBallotView),
+    votesUsed,
+    votesRemaining,
+    revision,
     canChange,
     authMode,
     wechatVerified: Boolean(options.wechatVerified),
@@ -2739,7 +2758,7 @@ export function recordPopularityBallot(
   if (!candidate) conflictError('POPULARITY_CANDIDATE_INVALID', '这位选手不在人气奖候选名单里')
 
   const normalizedOpenIdHash = telemetry?.voterOpenidHash?.trim() || null
-  const existing = normalizedOpenIdHash
+  const myBallots = (normalizedOpenIdHash
     ? client.db.select().from(competitionPopularityBallots)
         .where(and(
           eq(competitionPopularityBallots.eventId, eventId),
@@ -2748,13 +2767,18 @@ export function recordPopularityBallot(
             eq(competitionPopularityBallots.deviceHash, deviceHash)
           )
         ))
-        .get()
+        .all()
     : client.db.select().from(competitionPopularityBallots)
         .where(and(
           eq(competitionPopularityBallots.eventId, eventId),
           eq(competitionPopularityBallots.deviceHash, deviceHash)
         ))
-        .get()
+        .all())
+    .sort((left, right) => Number(left.voteIndex ?? 0) - Number(right.voteIndex ?? 0))
+  const existing = myBallots[0] ?? null
+  const activeMine = myBallots.filter(ballot => Number(ballot.voided) === 0)
+  const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
+  const multiVote = votesPerVoter > 1
 
   const wechatVerified = Boolean(normalizedOpenIdHash || existing?.voterOpenidHash)
   const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
@@ -2763,11 +2787,11 @@ export function recordPopularityBallot(
     requiresWechatTicket: authMode === 'wechat_mp' && !wechatVerified
   }
 
-  if (existing && Number(existing.voided) === 1) {
+  if (!multiVote && existing && Number(existing.voided) === 1) {
     conflictError('POPULARITY_BALLOT_VOIDED', '当前选票已被风控作废，无法更改')
   }
 
-  if (existing && existing.singerId === singerId) {
+  if (!multiVote && existing && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
   }
 
@@ -2782,8 +2806,18 @@ export function recordPopularityBallot(
   const autoQuarantine = telemetry?.autoQuarantineOverride ?? Boolean(settings.autoQuarantine ?? true)
   const quarantineThreshold = normalizedOpenIdHash ? 80 : 60
 
-  if (!existing) {
-    if (revision != null && revision !== 0) {
+  if (!existing || multiVote) {
+    const nextVoteIndex = multiVote
+      ? myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1) + 1
+      : 0
+    if (multiVote) {
+      if (activeMine.length >= votesPerVoter) {
+        conflictError('POPULARITY_VOTE_LIMIT', `每人最多投 ${votesPerVoter} 票，你的票已经投满`)
+      }
+      if (revision != null && revision !== activeMine.length) {
+        conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
+      }
+    } else if (revision != null && revision !== 0) {
       conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
     }
     const evalResult = evaluateRealtimeBallotSuspicion(client, eventId, {
@@ -2806,7 +2840,8 @@ export function recordPopularityBallot(
         eventId,
         singerId,
         deviceHash,
-        voterOpenidHash: normalizedOpenIdHash,
+        voterOpenidHash: normalizedOpenIdHash ?? existing?.voterOpenidHash ?? null,
+        voteIndex: nextVoteIndex,
         ipHash: normalizedIpHash,
         risk: evalResult.risk,
         quarantined,
@@ -2861,7 +2896,7 @@ export function recordPopularityBallot(
     })()
 
     if (!inserted) {
-      const raced = normalizedOpenIdHash
+      const racedRows = (normalizedOpenIdHash
         ? client.db.select().from(competitionPopularityBallots)
             .where(and(
               eq(competitionPopularityBallots.eventId, eventId),
@@ -2870,13 +2905,21 @@ export function recordPopularityBallot(
                 eq(competitionPopularityBallots.deviceHash, deviceHash)
               )
             ))
-            .get()
+            .all()
         : client.db.select().from(competitionPopularityBallots)
             .where(and(
               eq(competitionPopularityBallots.eventId, eventId),
               eq(competitionPopularityBallots.deviceHash, deviceHash)
             ))
-            .get()
+            .all())
+      if (multiVote) {
+        const racedActive = racedRows.filter(ballot => Number(ballot.voided) === 0)
+        if (racedActive.length >= votesPerVoter) {
+          conflictError('POPULARITY_VOTE_LIMIT', `每人最多投 ${votesPerVoter} 票，你的票已经投满`)
+        }
+        conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
+      }
+      const raced = racedRows[0]
       if (raced?.singerId === singerId) return getPopularityPublicState(client, eventId, raced.deviceHash, stateOptions)
       conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
     }
@@ -2989,6 +3032,7 @@ export function updatePopularitySettings(
     closesAt: input.closesAt,
     allowChange: input.allowChange,
     maxChanges: input.maxChanges,
+    votesPerVoter: input.votesPerVoter,
     qrRotateSeconds: input.qrRotateSeconds,
     showResults: input.showResults,
     authMode: input.authMode ?? existing.authMode,
@@ -6273,8 +6317,8 @@ export function getFinalSongMediaUploadTarget(
   const key = newAccompanimentKey(config, extension)
   return {
     key,
-    uploadUrl: presignCosPut(config, key, FINAL_SONG_MIME_BY_EXTENSION[extension] ?? spec.fallbackMime, 900),
-    expiresIn: 900
+    uploadUrl: presignCosPut(config, key, FINAL_SONG_MIME_BY_EXTENSION[extension] ?? spec.fallbackMime, 3600),
+    expiresIn: 3600
   }
 }
 
