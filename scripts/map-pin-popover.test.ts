@@ -96,7 +96,7 @@ test('pin card stays on the mobile branch and keeps the moments block', () => {
 test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /const ARROW_INSET = 18/)
   assert.match(popoverSource, /const offset = anchor\.x - \(baseLeft \+ appliedShift\)/)
-  assert.match(popoverSource, /const limit = Math\.max\(0, rect\.width \/ 2 - 8\)/)
+  assert.match(popoverSource, /const limit = Math\.max\(0, width \/ 2 - 8\)/)
   assert.match(popoverSource, /el\.style\.setProperty\('--pin-arrow-x', Math\.round\(clamped\) \+ 'px'\)/)
   assert.match(popoverSource, /inset-inline-start: var\(--pin-arrow-x, 50%\)/)
   // 打开后连算两帧：第一帧等浏览器把卡片排好，第二帧才拿到最终尺寸（降级路径尤其需要）。
@@ -107,7 +107,7 @@ test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /addEventListener\('resize', onViewportResize/)
   assert.match(popoverSource, /const VIEWPORT_INSET = 0/)
   // getBoundingClientRect() 含 translate：修正量必须扣掉已写入的位移再算，否则第二帧会把卡片放回屏外。
-  assert.match(popoverSource, /const baseLeft = rect\.left - appliedShift/)
+  assert.match(popoverSource, /const baseLeft = unscaledLeft - appliedShift/)
   assert.match(popoverSource, /const overflowRight = baseRight - \(window\.innerWidth - VIEWPORT_INSET\)/)
   assert.match(popoverSource, /if \(shift !== appliedShift\) \{/)
   assert.match(popoverSource, /el\.style\.translate = shift \+ 'px 0'/)

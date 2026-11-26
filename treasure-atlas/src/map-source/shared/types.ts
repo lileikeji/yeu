@@ -651,10 +651,10 @@ export interface CompetitionPopularitySettings {
   /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
   allowRepeatVote: boolean
   qrRotateSeconds: number
-  /** 公众号口令是否每分钟轮换；false = 整场固定为 fixedPasscode。 */
+  /** 公众号是否要求口令；false = 关注后直接发「投票」即可领取链接。 */
   passcodeRotate: boolean
-  /** 关闭轮换时使用的两位固定口令；空串 = 未设置，回落动态口令。 */
-  fixedPasscode: string
+  /** 投票截止前是否允许撤回自己已投的票。 */
+  allowWithdraw: boolean
   /** 公开页是否展示票数。 */
   showResults: boolean
   /** 大屏取码密钥；只在后台返回。 */
@@ -724,6 +724,12 @@ export interface CompetitionPopularityPublicState {
   /** 页面票据与乐观锁版本：多票模式 = votesUsed，一人一票 = myBallot.version。 */
   revision: number
   canChange: boolean
+  /** 是否允许撤回自己已投的票（本场开关 + 窗口开启）。 */
+  allowWithdraw: boolean
+  /** 当前有没有可撤回的票。 */
+  canWithdraw: boolean
+  /** 公众号领票是否需要两位数字口令；false = 直接发「投票」即可。 */
+  passcodeRequired: boolean
   /** 本机签名设备令牌；存 localStorage，清 cookie 后仍能识别同一浏览器。 */
   deviceToken?: string
   /** 服务端签发的页面加载凭证，用于校验页面真实渲染与最短停留时长。 */

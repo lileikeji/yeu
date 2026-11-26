@@ -13,6 +13,7 @@ import {
   deleteActivity,
   getAdminActivity,
   getPublicActivity,
+  listActivityHotspots,
   listActivityPlaceIds,
   listAdminActivities,
   listHomepageActivities,
@@ -205,6 +206,38 @@ test('activities: 提交后进入待审核，总管理员通过后公开', () =>
     assert.throws(
       () => reviewActivity(client, superSession(), created.id, { decision: 'approve', note: null }),
       (error: { statusCode?: number }) => error.statusCode === 409
+    )
+  } finally {
+    cleanup()
+  }
+})
+
+test('activities: 地图热点每地点只给前 6 条预览，placeTotal 仍是在期真数', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const org = organizationSession(ORG_ADMIN_A_ID, CLUB_A_ID, 'club-a', '社团甲')
+    const publish = (title: string, placeId: string, hourOffset: number) => {
+      const created = createActivity(client, org, activityInput({
+        title,
+        placeId,
+        startsAt: new Date(Date.now() + hourOffset * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(Date.now() + (hourOffset + 1) * 60 * 60 * 1000).toISOString()
+      }))
+      submitActivity(client, org, created.id)
+      reviewActivity(client, superSession(), created.id, { decision: 'approve', note: null })
+    }
+    for (let index = 0; index < 8; index += 1) publish(`热点活动 ${index}`, BUILDING_ID, 24 + index)
+    publish('老楼活动', OLD_BUILDING_ID, 48)
+
+    const hotspots = listActivityHotspots(client, 6)
+    const atBuilding = hotspots.filter(hotspot => hotspot.placeId === BUILDING_ID)
+    assert.equal(atBuilding.length, 6, '每个地点最多 6 条预览')
+    assert.deepEqual(atBuilding.map(hotspot => hotspot.placeTotal), Array.from({ length: 6 }, () => 8), 'placeTotal 必须是该地点在期活动真数，不是预览行数')
+    assert.equal(hotspots.filter(hotspot => hotspot.placeId === OLD_BUILDING_ID).length, 1, '条数少的地点不能被别的地点挤掉')
+    assert.deepEqual(
+      [...new Set(hotspots.map(hotspot => hotspot.placeId))].sort(),
+      [...listActivityPlaceIds(client)].sort(),
+      '红点地点集合必须与热点地点集合一致'
     )
   } finally {
     cleanup()

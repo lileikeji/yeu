@@ -74,6 +74,8 @@ interface MapActivityHotspot {
   title: string
   startsAt: string
   endsAt: string | null
+  /** 该地点的在期活动总数：接口每个地点只给前 6 条，界面上的场次必须用这个真值。 */
+  placeTotal: number
 }
 
 const { data: activityPlaceResponse } = await useFetch<{
@@ -167,11 +169,16 @@ function rememberSheetMotionAnchor(event: PointerEvent): void {
   const rect = trigger.getBoundingClientRect()
   if (!rect.width && !rect.height) return
   sheetMotionAnchor.value = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+  sheetMotionAnchorAt = Date.now()
 }
 /** 入场时那一刻的锚点：收起必须回到同一个锚点，而不是最后点的那个按钮。 */
 const sheetBloomAnchor = shallowRef<{ x: number, y: number } | null>(null)
 /** 入场那一刻算出的原点（px）；收起直接复用同一组数值，两相才是同一个点。 */
 const sheetBloomOrigin = shallowRef<{ x: number | null, y: number | null, tx: number } | null>(null)
+/** 入场那一刻的「视口坐标」：收起时按当时的盒子重新折算，不能直接复用入场时的局部坐标。 */
+const sheetBloomPoint = shallowRef<{ x: number, y: number } | null>(null)
+/** 指针锚点的时间戳：键盘 / 程序化打开时不能沿用上一次点击的位置。 */
+let sheetMotionAnchorAt = 0
 /** 动效原点在面板内的坐标（px）；null = 没有指针信息，CSS 回落到 50% / 100%。 */
 const sheetOriginX = ref<number | null>(null)
 const sheetOriginY = ref<number | null>(null)
@@ -196,7 +203,8 @@ function syncSheetMotionOrigin(anchor?: { x: number, y: number } | null): void {
   const boxLeft = (parentRect?.left ?? 0) + element.offsetLeft
   const boxTop = (parentRect?.top ?? 0) + element.offsetTop
   const width = element.offsetWidth || Math.max(0, window.innerWidth - 20)
-  const point = anchor ?? sheetMotionAnchor.value
+  // 显式传 null（键盘 / 程序化打开）必须清掉旧锚点，只有省略参数时才回落到最近一次指针位置。
+  const point = arguments.length > 0 ? anchor : sheetMotionAnchor.value
   if (!point || !width) {
     sheetOriginX.value = null
     sheetOriginY.value = null
@@ -221,8 +229,11 @@ function syncSheetMotionOrigin(anchor?: { x: number, y: number } | null): void {
 function bloomSheetFromDock(): void {
   if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-  sheetBloomAnchor.value = sheetMotionAnchor.value
-  syncSheetMotionOrigin()
+  // 1 秒内的指针锚点才算这次动作的锚点：键盘或程序化打开时清空，回落底边中点。
+  const freshAnchor = Date.now() - sheetMotionAnchorAt < 1000 ? sheetMotionAnchor.value : null
+  sheetBloomAnchor.value = freshAnchor
+  sheetBloomPoint.value = freshAnchor
+  syncSheetMotionOrigin(freshAnchor)
   sheetBloomOrigin.value = { x: sheetOriginX.value, y: sheetOriginY.value, tx: sheetTranslateX.value }
   if (sheetBloomFrame !== null) window.cancelAnimationFrame(sheetBloomFrame)
   sheetBlooming.value = true
@@ -261,6 +272,12 @@ function collapseSheetToDock(): void {
   if (window.matchMedia?.(PANEL_DESKTOP_MEDIA_QUERY).matches) return
   if (sheetCollapsePhase.value === 'on') return
   // 回到「长出来」的那个锚点：从箭头长出来就缩回箭头，从详情按钮长出来就缩回详情按钮。
+  // 入场坐标是「当时盒子里的局部坐标」，半屏→展开后盒子高了 200 多像素就偏了：
+  // 用存下来的视口点按当前几何重新折算，旧局部坐标作废。
+  if (sheetBloomPoint.value) {
+    syncSheetMotionOrigin(sheetBloomPoint.value)
+    sheetBloomOrigin.value = null
+  }
   const bloomed = sheetBloomOrigin.value
   if (bloomed) {
     sheetOriginX.value = bloomed.x
@@ -318,6 +335,9 @@ const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobi
 // 半屏固定 326：手机活动视图与普通半屏共用同一个类串，抽成常量避免两条分支各写一份
 // （守门会数这个字面量出现次数，必须为 1）。
 const SHEET_HALF_326 = 'max-md:!h-[326px]'
+// 活动视图的半屏也要跟着展开上限收：横屏这类矮容器里 326 会压过锚点算出的 half/expanded，
+// 拖到半屏反而判成展开。上限与 resolveActivitySheetAnchors 的 80px 让位同源。
+const SHEET_ACTIVITY_HALF = 'max-md:!h-[min(326px,calc(100%_-_5.75rem))]'
 /** 动效原点写进 .map-workspace 的自定义属性，面板与底栏共用同一套坐标。 */
 const sheetOriginCss = computed(() => (sheetOriginX.value === null ? '50%' : `${sheetOriginX.value}px`))
 const sheetOriginYCss = computed(() => (sheetOriginY.value === null ? '100%' : `${sheetOriginY.value}px`))
@@ -804,6 +824,21 @@ function mobileSheetAnchors() {
   if (mapSheetView.value === 'activity') return resolveActivitySheetAnchors(anchors)
   if (mapSheetView.value === 'transit') return resolveTransitSheetAnchors(anchors)
   return anchors
+}
+
+// 系统取消（来电、手势被打断）不是轻点：清拖拽态、回到原高度，不切高度。
+function cancelMobileSheetDrag(pointerId?: number): void {
+  const sheet = mobileSheetElement.value
+  if (pointerId !== undefined && sheet?.hasPointerCapture(pointerId)) {
+    sheet.releasePointerCapture(pointerId)
+  }
+  if (!mobileSheetDragging.value) return
+  sheetDragEndedAt = Date.now()
+  mobileSheetDragging.value = false
+  mobileSheetDragPointerId.value = null
+  mobileSheetDragHeight.value = null
+  mobileSheetDragMoved.value = false
+  mobileSheetDragFromHandle.value = false
 }
 
 function finishMobileSheetDrag(pointerId?: number): void {
@@ -1680,6 +1715,8 @@ onMounted(() => {
   startLocateDisplay()
   // 手机上公交列表默认收起，免得和校车浮层叠在一起
   if (window.innerWidth < 768) transitPanelOpen.value = false
+  refreshActivityClock()
+  document.addEventListener('visibilitychange', handleActivityVisibility)
   window.addEventListener('popstate', handleSheetPopState)
   window.addEventListener('keydown', handleSheetKeydown)
   // 玻璃开关按上次的选择恢复；移动端才 attach（桌面浮层是 md:hidden，不需要这一层）
@@ -1709,6 +1746,9 @@ onBeforeUnmount(() => {
   cancelNativeSearch()
   clearWalkingRoute()
   stopMapGlass()
+  if (activityClockTimer) clearTimeout(activityClockTimer)
+  activityClockTimer = null
+  document.removeEventListener('visibilitychange', handleActivityVisibility)
   window.removeEventListener('popstate', handleSheetPopState)
   window.removeEventListener('keydown', handleSheetKeydown)
   sheetHistoryPushed = false
@@ -2059,15 +2099,40 @@ const hotspotsByPlaceId = computed(() => {
   }
   return grouped
 })
+// 每个地点只列 6 条预览，场次标签用服务端给的地点真值，不能数列表行数。
 const hotspotTotalByPlaceId = computed(() => {
   const totals = new Map<string, number>()
   for (const hotspot of activityHotspots.value) {
-    totals.set(hotspot.placeId, (totals.get(hotspot.placeId) ?? 0) + 1)
+    totals.set(hotspot.placeId, hotspot.placeTotal || 1)
   }
   return totals
 })
+/** 在期活动总数（按地点去重累加）：列表可能被 6 条/地点的预览截断，这是真值。 */
+const activityTotalCount = computed(() => {
+  let total = 0
+  for (const placeTotal of hotspotTotalByPlaceId.value.values()) total += placeTotal
+  return total
+})
+const activityListTruncated = computed(() => activityHotspots.value.length < activityTotalCount.value)
 const HOTSPOT_SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 const HOTSPOT_DAY_MS = 24 * 60 * 60 * 1000
+// 跨上海午夜后「今天 / 明天」得自己翻页：computed 读不到时间就不会失效，所以给它一个响应式的 now。
+const activityNow = ref(Date.now())
+let activityClockTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleActivityClock(): void {
+  if (activityClockTimer) clearTimeout(activityClockTimer)
+  if (typeof window === 'undefined') return
+  const dayStart = Math.floor((activityNow.value + HOTSPOT_SHANGHAI_OFFSET_MS) / HOTSPOT_DAY_MS) * HOTSPOT_DAY_MS
+  const nextMidnight = dayStart + HOTSPOT_DAY_MS - HOTSPOT_SHANGHAI_OFFSET_MS
+  activityClockTimer = setTimeout(refreshActivityClock, Math.max(1000, nextMidnight - activityNow.value + 1000))
+}
+function refreshActivityClock(): void {
+  activityNow.value = Date.now()
+  scheduleActivityClock()
+}
+function handleActivityVisibility(): void {
+  if (document.visibilityState === 'visible') refreshActivityClock()
+}
 // 活动时间是服务端 UTC ISO；徽标与分组一律按 Asia/Shanghai 算，换浏览器时区不该换天。
 function hotspotShanghai(startsAt: string) {
   const shifted = new Date(Date.parse(startsAt) + HOTSPOT_SHANGHAI_OFFSET_MS)
@@ -2080,7 +2145,7 @@ function hotspotShanghai(startsAt: string) {
   }
 }
 function hotspotDayDiff(startsAt: string): number {
-  const todayIndex = Math.floor((Date.now() + HOTSPOT_SHANGHAI_OFFSET_MS) / HOTSPOT_DAY_MS)
+  const todayIndex = Math.floor((activityNow.value + HOTSPOT_SHANGHAI_OFFSET_MS) / HOTSPOT_DAY_MS)
   return hotspotShanghai(startsAt).dayIndex - todayIndex
 }
 function hotspotDayLabel(startsAt: string): string {
@@ -2161,6 +2226,8 @@ function hideActivitySheet(): void {
   mobileSheetState.value = 'collapsed'
 }
 function openActivitySheetRow(hotspot: MapActivityHotspot): void {
+  // 地点下架时不能先把浮卡收掉再什么都不发生。
+  if (!catalogPlaces.value.some(item => item.id === hotspot.placeId)) return
   hideActivitySheet()
   openHotspotPlace(hotspot.placeId)
 }
@@ -2180,8 +2247,6 @@ function pinHotspotRows(placeId: string, placeName: string, phone?: string | nul
     label: hotspot.title,
     meta: placeName
   }))
-  const total = hotspotTotalByPlaceId.value.get(placeId) ?? hotspots.length
-  if (total > 2) rows.push({ badge: `共 ${total} 场`, label: '查看全部活动', meta: placeName })
   return [...rows, ...phoneRows]
 }
 function openMapSheetCategory(id: MapSheetCategoryId): void {
@@ -2224,9 +2289,12 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           : mapSheetView === 'transit'
             ? resolveTransitSheetHeightClass(mobileSheetState)
             : mapSheetView === 'activity'
-              ? (mobileSheetState === 'expanded'
-                ? 'max-md:!h-[min(548px,calc(100%_-_0.75rem))]'
-                : SHEET_HALF_326)
+              ? (mobileSheetDragging
+                // 拖拽时高度由 inline style 决定，挂 !important 高度类会把它按住不动。
+                ? ''
+                : mobileSheetState === 'expanded'
+                  ? 'max-md:!h-[min(548px,calc(100%_-_5.75rem))]'
+                  : SHEET_ACTIVITY_HALF)
               : mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
@@ -2253,7 +2321,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       @transitioncancel="handleSheetTransitionEnd"
       @pointermove="handleMobileSheetPointerMove"
       @pointerup="finishMobileSheetDrag($event.pointerId)"
-      @pointercancel="finishMobileSheetDrag($event.pointerId)"
+      @pointercancel="cancelMobileSheetDrag($event.pointerId)"
       @lostpointercapture="finishMobileSheetDrag()"
     >
       <template v-if="mapSheetView !== 'bus'">
@@ -2756,11 +2824,13 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             data-sheet-drag-handle
             class="absolute left-1/2 top-1.5 h-2 w-10 -translate-x-1/2 touch-none rounded-full bg-zinc-300 active:bg-zinc-400 dark:bg-zinc-700 dark:active:bg-zinc-600"
             aria-label="上下拖动活动面板"
+            @keydown.enter.prevent="toggleMobileSheetHeight"
+            @keydown.space.prevent="toggleMobileSheetHeight"
             @pointerdown="handleMobileSheetPointerDown"
           />
           <p class="flex min-w-0 flex-1 items-baseline gap-1.5">
             <span class="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">近期活动</span>
-            <span class="shrink-0 text-[12px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ activityHotspots.length }} 个</span>
+            <span class="shrink-0 text-[12px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ activityHotspots.length }}<template v-if="activityListTruncated"> / {{ activityTotalCount }}</template> 个</span>
           </p>
           <button
             type="button"
@@ -2821,12 +2891,18 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0 text-zinc-400" />
             </button>
           </template>
+          <p
+            v-if="activityListTruncated"
+            class="px-1 py-2 text-center text-[11px] text-zinc-400 dark:text-zinc-500"
+          >
+            每个地点最多列出 6 场，共 {{ activityTotalCount }} 场在期活动
+          </p>
         </div>
         <p
           v-if="mobileSheetState === 'expanded'"
           class="shrink-0 border-t border-[var(--sheet-hairline)] px-3 py-2 text-center text-[11px] text-zinc-500 dark:text-zinc-400"
         >
-          共 {{ activityHotspots.length }} 个活动 · 点任意一条在地图上定位
+          共 {{ activityTotalCount }} 个活动 · 点任意一条在地图上定位
         </p>
       </div>
       <div

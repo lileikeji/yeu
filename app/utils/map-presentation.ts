@@ -298,7 +298,12 @@ export function resolveTransitSheetAnchors(fallback: MobileSheetAnchors): Mobile
  * 所以 collapsed 锚点是 0，与 transit 同构。
  */
 export function resolveActivitySheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
-  return { collapsed: 0, half: 326, expanded: Math.min(548, fallback.expanded) }
+  // 渲染侧的展开上限是容器高 - 5.75rem（底部浮卡让位 80px + 顶部 12px），拖拽锚点必须同口径：
+  // fallback.expanded 是「容器高 - 12」，减掉两者差的 80px 就是渲染上限；否则小容器下展开比半屏还矮，
+  // 拖到 548 也落不住。半屏同样不许超过这个上限，保证 collapsed ≤ half ≤ expanded。
+  const limit = Math.max(0, Math.min(548, fallback.expanded - 80))
+  const half = Math.min(326, limit)
+  return { collapsed: 0, half, expanded: Math.max(half, limit) }
 }
 
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
