@@ -1,7 +1,5 @@
-import {
-  decryptWechatPayload,
-  verifyWechatCallbackSignature
-} from '../../modules/wechat/callback'
+import { decryptWechatPayload } from '../../modules/wechat/callback'
+import { readWechatMpAccounts, resolveWechatMpAccount } from '../../modules/wechat/accounts'
 
 function queryText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -15,10 +13,8 @@ export default defineEventHandler((event) => {
   setHeader(event, 'X-Robots-Tag', 'noindex, nofollow')
 
   const runtime = useRuntimeConfig(event)
-  const token = String(runtime.wechatMpToken || '').trim()
-  const encodingAesKey = String(runtime.wechatMpEncodingAesKey || '').trim()
-  const appId = String(runtime.wechatMpAppId || '').trim()
-  if (!token || !encodingAesKey || !appId) {
+  const accounts = readWechatMpAccounts(runtime as unknown as Record<string, unknown>)
+  if (!accounts.length) {
     throw createError({ statusCode: 503, statusMessage: '微信公众号回调尚未完成配置' })
   }
 
@@ -33,28 +29,32 @@ export default defineEventHandler((event) => {
   }
 
   if (encryptedSignature) {
-    if (!verifyWechatCallbackSignature({
-      token,
+    const account = resolveWechatMpAccount(accounts, {
       timestamp,
       nonce,
       signature: encryptedSignature,
       encrypted: echo
-    })) {
+    })
+    if (!account) {
       throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
     }
     try {
-      return decryptWechatPayload({ encrypted: echo, encodingAesKey, appId })
+      return decryptWechatPayload({
+        encrypted: echo,
+        encodingAesKey: account.encodingAesKey,
+        appId: account.appId
+      })
     } catch {
       throw createError({ statusCode: 401, statusMessage: 'Invalid encrypted verification request' })
     }
   }
 
-  if (!verifyWechatCallbackSignature({
-    token,
+  const account = resolveWechatMpAccount(accounts, {
     timestamp,
     nonce,
     signature: plaintextSignature
-  })) {
+  })
+  if (!account) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
   }
   return echo
