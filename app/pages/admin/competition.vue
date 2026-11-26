@@ -61,6 +61,13 @@ function onPickAccompaniment(round: CompetitionRoundView, entry: CompetitionRoun
   if (file) void uploadEntryAccompaniment(round, entry, file)
 }
 
+function onPickFinalVideo(entry: CompetitionRoundEntry, event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) void uploadFinalSongVideo(entry, file)
+}
+
 const rankedEntries = computed(() => {
   const list = activeRound.value?.entries ?? []
   return [...list].sort((left, right) => {
@@ -214,6 +221,7 @@ const {
   entrySongBusyId, entrySongValue, setEntrySongDraft, saveEntrySong,
   finalSongsBusyId, finalSongsValue, setFinalSongsDraft, saveFinalSongs,
   accompanimentBusyId, uploadEntryAccompaniment,
+  finalVideoBusyId, finalVideoPercent, uploadFinalSongVideo,
   photoBusyId, uploadEntryPhoto, changeJudgeDay, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
@@ -2145,10 +2153,30 @@ onBeforeUnmount(stopLiveRefresh)
                             ? (accompanimentKind(entry.accompaniment.name) === 'audio' ? '换伴奏' : '换视频/压缩包')
                             : (activeRound?.key === 'final' ? '传第一首伴奏' : '传伴奏') }}
                         </label>
+                        <label
+                          v-if="activeRound?.key === 'final'"
+                          class="ml-1 inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-200 px-2 py-1 text-xs hover:border-emerald-500 dark:border-zinc-700"
+                          :class="finalVideoBusyId === entry.id ? 'opacity-60' : ''"
+                        >
+                          <input
+                            type="file"
+                            class="hidden"
+                            accept="video/mp4,.mp4,application/zip,.zip"
+                            :disabled="finalVideoBusyId === entry.id || activeRound?.status === 'closed'"
+                            @change="onPickFinalVideo(entry, $event)"
+                          >
+                          {{ finalVideoBusyId === entry.id
+                            ? `上传中 ${finalVideoPercent ?? 0}%`
+                            : (entry.finalSongs?.secondVideoName ? '换第二首视频' : '传第二首视频') }}
+                        </label>
                         <span
-                          v-else
+                          v-if="activeRound?.key === 'final' && entry.finalSongs?.secondVideoName"
+                          class="ml-1 text-[11px] text-zinc-400"
+                        >{{ entry.finalSongs.secondVideoName }}</span>
+                        <span
+                          v-if="activeRound?.key === 'final2'"
                           class="text-[11px] text-zinc-400"
-                        >决赛第二首背景视频由选手在「决赛两首歌」页上传</span>
+                        >决赛第二首背景视频在决赛轮那行传，名单生成后自动带过来</span>
                         <template v-if="entry.accompaniment">
                           <button
                             type="button"

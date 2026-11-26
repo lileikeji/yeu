@@ -20,6 +20,7 @@ import {
   createSinger,
   ensureCompetitionEvent,
   getAdminCompetitionPayload,
+  getAdminFinalSongMediaTarget,
   getFinalSongEditor,
   getFinalSongMediaUploadTarget,
   getRankBoard,
@@ -298,6 +299,20 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
     (error: unknown) => codeOf(error) === 'STORAGE_NOT_CONFIGURED'
   )
 
+  // 后台代传第二首视频：按 singerId 直接定位，不依赖三要素与第二轮出场记录。
+  assert.throws(
+    () => getAdminFinalSongMediaTarget(client, contentId, randomUUID(), '背景.mp4'),
+    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+  )
+  assert.throws(
+    () => getAdminFinalSongMediaTarget(client, contentId, singers[2]!.id, '背景.mkv'),
+    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+  )
+  assert.throws(
+    () => getAdminFinalSongMediaTarget(client, contentId, singers[2]!.id, '背景.zip'),
+    (error: unknown) => codeOf(error) === 'STORAGE_NOT_CONFIGURED'
+  )
+
   // 分片签名：签名参数名一律小写，真实 query 里保留 partNumber / uploadId 驼峰；
   // 写反了 COS 会回 403 SignatureDoesNotMatch（实机验证过）。
   const signedPart = signCosUrl({
@@ -360,6 +375,7 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   assert.deepEqual(adminEntryAfter?.finalSongs, {
     firstSong: '后台一曲12',
     secondSong: '后台二曲12',
+    secondVideoName: null,
     revision: 5
   })
   // 后台拿旧版本改也要报冲突，不能静默覆盖。

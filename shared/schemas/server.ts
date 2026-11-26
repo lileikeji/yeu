@@ -1562,6 +1562,18 @@ export const competitionFinalSongVideoCommitSchema = z.object({
   size: z.number().int().positive().max(1024 * 1024 * 1024)
 }).strict()
 
+/** 后台代传第二首背景视频：直接按 singerId 指定选手，不需要三要素。 */
+export const competitionAdminFinalSongMediaTicketSchema = z.object({
+  singerId: z.string().trim().min(1).max(64),
+  filename: z.string().trim().min(1).max(160)
+}).strict()
+
+export const competitionAdminFinalSongMediaCommitSchema = z.object({
+  singerId: z.string().trim().min(1).max(64),
+  key: z.string().trim().min(4).max(512),
+  size: z.number().int().positive().max(1024 * 1024 * 1024)
+}).strict()
+
 /**
  * 决赛文件的分片上传会话（断点续传）：init 开一个会话，sign 取分片地址，
  * status 查已传分片，complete 收口落库，abort 放弃。
