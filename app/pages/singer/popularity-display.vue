@@ -45,6 +45,7 @@ interface TokenState {
   wechatAccountName: string
   wechatQrUrl: string
   wechatPasscode: string
+  passcodeRotate?: boolean
   state: CompetitionPopularityPublicState
 }
 
@@ -314,7 +315,7 @@ onBeforeUnmount(() => {
                   投票 {{ tokenState.wechatPasscode }}
                 </p>
                 <p class="mt-1.5 text-xs font-medium text-[var(--muted-ink)]">
-                  口令每分钟自动刷新 · 发送后点击专属链接投票
+                  {{ tokenState.passcodeRotate === false ? '本场固定口令 · 发送后点击专属链接投票' : '口令每分钟自动刷新 · 发送后点击专属链接投票' }}
                 </p>
               </div>
 
