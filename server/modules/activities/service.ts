@@ -552,44 +552,36 @@ export function listActivityHotspots(
   previewPerPlace = 6,
   now: number = Date.now()
 ): ActivityHotspot[] {
-  const rows = client.db
-    .select({
-      placeId: activities.placeId,
-      title: activities.title,
-      startsAt: activities.startsAt,
-      endsAt: activities.endsAt
-    })
-    .from(activities)
-    .where(and(
-      eq(activities.status, 'published'),
-      isNotNull(activities.placeId),
-      or(
-        and(isNotNull(activities.endsAt), gte(activities.endsAt, now)),
-        and(isNull(activities.endsAt), gte(activities.startsAt, now - ACTIVITY_PUBLIC_GRACE_MS))
-      )
-    ))
-    .orderBy(asc(activities.startsAt))
-    .all()
-
   // 每个地点只留前 previewPerPlace 条预览。原来的全局 limit 会让一个地点占满分页，
-  // 别的地点就变成「图钉有红点、热点列表却没有行」。
-  const perPlace = new Map<string, ActivityHotspot[]>()
-  for (const row of rows) {
-    const placeId = row.placeId as string
-    const bucket = perPlace.get(placeId) ?? []
-    if (bucket.length >= previewPerPlace) continue
-    bucket.push({
-      placeId,
-      title: row.title,
-      startsAt: new Date(row.startsAt).toISOString(),
-      endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
-    })
-    perPlace.set(placeId, bucket)
-  }
+  // 别的地点就变成「图钉有红点、热点列表却没有行」；分桶放到 SQL 里做，
+  // 单个地点有几百条时也不用把整批行搬进内存再丢掉。
+  const rows = client.sqlite.prepare(`
+    select place_id as placeId, title, starts_at as startsAt, ends_at as endsAt
+    from (
+      select place_id, title, starts_at, ends_at,
+        row_number() over (partition by place_id order by starts_at asc) as rn
+      from activities
+      where status = 'published'
+        and place_id is not null
+        and (
+          (ends_at is not null and ends_at >= @now)
+          or (ends_at is null and starts_at >= @graceFrom)
+        )
+    )
+    where rn <= @perPlace
+    order by starts_at asc
+  `).all({
+    now,
+    graceFrom: now - ACTIVITY_PUBLIC_GRACE_MS,
+    perPlace: Math.max(1, previewPerPlace)
+  }) as Array<{ placeId: string, title: string, startsAt: number, endsAt: number | null }>
 
-  return [...perPlace.values()]
-    .flat()
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  return rows.map(row => ({
+    placeId: row.placeId,
+    title: row.title,
+    startsAt: new Date(row.startsAt).toISOString(),
+    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
+  }))
 }
 
 export function getPublicActivity(client: DatabaseClient, slug: string): ApiPublicActivity {

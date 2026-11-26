@@ -302,7 +302,9 @@ function alignArrow(): void {
   // 否则首次打开会偏几像素，而且过渡结束后不会自己修正。
   const width = el.offsetWidth || rect.width
   if (width === 0) return
-  const baseLeft = rect.left - appliedShift
+  // scale 以中心为原点，左边缘也要换算回未缩放位置：rect.left 比真实左边缘偏右 (rect.width - width) / 2。
+  const unscaledLeft = rect.left + (rect.width - width) / 2
+  const baseLeft = unscaledLeft - appliedShift
   const baseRight = baseLeft + width
   const overflowRight = baseRight - (window.innerWidth - VIEWPORT_INSET)
   const overflowLeft = VIEWPORT_INSET - baseLeft

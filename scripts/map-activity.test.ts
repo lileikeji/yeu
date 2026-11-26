@@ -28,7 +28,7 @@ test('T-040 阶段1：接口返回 placeIds + hotspots，热点查询复用同�
   const fnStart = service.indexOf('export function listActivityHotspots(')
   const body = service.slice(fnStart, fnStart + 1600)
   assert.match(body, /ACTIVITY_PUBLIC_GRACE_MS/, '热点查询必须复用 listActivityPlaceIds 的时间边界')
-  assert.match(body, /orderBy\(asc\(activities\.startsAt\)\)/)
+  assert.match(body, /row_number\(\) over \(partition by place_id order by starts_at asc\)/)
 })
 
 test('T-040 阶段2：两家图钉都是纯红点，高德不留文字角标', () => {
@@ -80,8 +80,8 @@ test('T-041 阶段4：活动视图进入 MapSheetView，收起直达 sections �
 test('T-041 阶段4：活动面板锚点 326/548，不存在 84 残条', () => {
   const anchors = sliceBetween(presentation, 'export function resolveActivitySheetAnchors(', 'export function resolveMobileSheetHeightClass(')
   assert.match(anchors, /collapsed: 0/)
-  assert.match(anchors, /half: 326/)
-  assert.match(anchors, /const expanded = Math\.max\(326, Math\.min\(548, fallback\.expanded\)\)/)
+  assert.match(anchors, /const half = Math\.min\(326, limit\)/)
+  assert.match(anchors, /const limit = Math\.max\(0, Math\.min\(548, fallback\.expanded - 80\)\)/)
   // 326 已抽成 SHEET_HALF_326 常量，活动分支引用常量而不是内联字面量。
   assert.match(index, /const SHEET_HALF_326 = 'max-md:!h-\[326px\]'/, '半屏 326 抽成常量，活动分支复用它')
   assert.match(index, /mapSheetView === 'activity'[\s\S]{0,420}SHEET_HALF_326/)

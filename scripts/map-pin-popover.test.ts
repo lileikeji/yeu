@@ -107,7 +107,7 @@ test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /addEventListener\('resize', onViewportResize/)
   assert.match(popoverSource, /const VIEWPORT_INSET = 0/)
   // getBoundingClientRect() 含 translate：修正量必须扣掉已写入的位移再算，否则第二帧会把卡片放回屏外。
-  assert.match(popoverSource, /const baseLeft = rect\.left - appliedShift/)
+  assert.match(popoverSource, /const baseLeft = unscaledLeft - appliedShift/)
   assert.match(popoverSource, /const overflowRight = baseRight - \(window\.innerWidth - VIEWPORT_INSET\)/)
   assert.match(popoverSource, /if \(shift !== appliedShift\) \{/)
   assert.match(popoverSource, /el\.style\.translate = shift \+ 'px 0'/)

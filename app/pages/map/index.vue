@@ -201,7 +201,8 @@ function syncSheetMotionOrigin(anchor?: { x: number, y: number } | null): void {
   const boxLeft = (parentRect?.left ?? 0) + element.offsetLeft
   const boxTop = (parentRect?.top ?? 0) + element.offsetTop
   const width = element.offsetWidth || Math.max(0, window.innerWidth - 20)
-  const point = anchor ?? sheetMotionAnchor.value
+  // 显式传 null（键盘 / 程序化打开）必须清掉旧锚点，只有省略参数时才回落到最近一次指针位置。
+  const point = arguments.length > 0 ? anchor : sheetMotionAnchor.value
   if (!point || !width) {
     sheetOriginX.value = null
     sheetOriginY.value = null
