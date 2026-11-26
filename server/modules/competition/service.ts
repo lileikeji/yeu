@@ -2449,7 +2449,7 @@ export function ensurePopularitySettings(
     votesPerVoter: 1,
     allowRepeatVote: true,
     qrRotateSeconds: 30,
-    showResults: false,
+    showResults: true,
     displayKey: randomBytes(18).toString('base64url'),
     authMode: 'wechat_mp',
     wechatAccountName: '仰恩大学指南',
@@ -2473,6 +2473,7 @@ export function listPopularityCandidates(
 ): CompetitionPopularityCandidate[] {
   const finalRound = getRoundByKeySafe(client, eventId, 'final')
   if (!finalRound) return []
+  const isDuel = finalRound.advanceMode === 'duel'
   return client.db.select({
     singerId: competitionSingers.id,
     name: competitionSingers.name,
@@ -2480,7 +2481,9 @@ export function listPopularityCandidates(
     photoKey: competitionSingers.photoKey,
     entrySong: competitionRoundEntries.song,
     singerSong: competitionSingers.song,
-    sortOrder: competitionRoundEntries.sortOrder
+    sortOrder: competitionRoundEntries.sortOrder,
+    pairNo: competitionRoundEntries.pairNo,
+    pairSlot: competitionRoundEntries.pairSlot
   }).from(competitionRoundEntries)
     .innerJoin(competitionSingers, eq(competitionRoundEntries.singerId, competitionSingers.id))
     .where(eq(competitionRoundEntries.roundId, finalRound.id))
@@ -2493,7 +2496,9 @@ export function listPopularityCandidates(
       className: row.className,
       photoUrl: singerPhotoUrl({ photoKey: row.photoKey }),
       song: (row.entrySong ?? '').trim() || row.singerSong,
-      sortOrder: Number(row.sortOrder)
+      sortOrder: Number(row.sortOrder),
+      pairNo: isDuel && row.pairNo !== null && row.pairNo !== undefined ? Number(row.pairNo) : null,
+      pairSlot: isDuel && row.pairSlot !== null && row.pairSlot !== undefined ? Number(row.pairSlot) : null
     }))
 }
 
@@ -2583,15 +2588,6 @@ export function getPopularityPublicState(
   const votesRemaining = Math.max(0, votesPerVoter - votesUsed)
   const status = popularityStatusOf(settings)
   const results = popularityResultRows(candidates, activeBallots, activeBallots.length)
-  const countBySinger = new Map<string, number>()
-  for (const ballot of activeBallots) {
-    countBySinger.set(ballot.singerId, (countBySinger.get(ballot.singerId) ?? 0) + 1)
-  }
-  // 投票页按当前人气从高到低排；同票按出场号，保证顺序稳定。
-  const rankedCandidates = [...candidates].sort((left, right) => (
-    (countBySinger.get(right.singerId) ?? 0) - (countBySinger.get(left.singerId) ?? 0)
-    || left.number - right.number
-  ))
   const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
   const requiresWechatTicket = options.requiresWechatTicket ?? (authMode === 'wechat_mp' && !options.wechatVerified)
   const canChange = !multiVote
@@ -2613,7 +2609,7 @@ export function getPopularityPublicState(
     allowRepeatVote,
     qrRotateSeconds: Number(settings.qrRotateSeconds),
     showResults: settings.showResults,
-    candidates: rankedCandidates,
+    candidates,
     totalVotes: activeBallots.length,
     myBallot: mineActive ? popularityBallotView(mineActive) : null,
     myBallots: activeMine.map(popularityBallotView),

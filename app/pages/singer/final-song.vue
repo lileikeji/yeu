@@ -770,7 +770,7 @@ onBeforeUnmount(() => {
               v-else-if="state.secondVideo"
               :href="state.secondVideo.url"
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               class="mt-3 flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-sm text-[var(--color-green-700)] underline"
             >
               <UIcon

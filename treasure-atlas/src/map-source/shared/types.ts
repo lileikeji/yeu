@@ -331,6 +331,8 @@ export interface CompetitionEvent {
   revivalEnabled: boolean
   /** 复活名额（1–6），revivalEnabled 为 false 时不生效。 */
   revivalSlots: number
+  /** 决赛第二轮出场顺序（singerId，按人工排定的先后）；空 = 按第一轮名次。 */
+  final2Order: string[]
   createdAt: number
   updatedAt: number
 }
@@ -669,6 +671,10 @@ export interface CompetitionPopularityCandidate {
   /** 决赛第一轮曲目，方便投票人认人。 */
   song: string
   sortOrder: number
+  /** 决赛 1v1 分组序号；非 1v1 或尚未抽签时为 null。 */
+  pairNo?: number | null
+  /** 决赛 1v1 组内位置（1 或 2）；非 1v1 或尚未抽签时为 null。 */
+  pairSlot?: number | null
 }
 
 export interface CompetitionPopularityBallot {

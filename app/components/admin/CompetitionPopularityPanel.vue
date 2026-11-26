@@ -28,7 +28,7 @@ const draft = reactive<SettingsDraft>({
   votesPerVoter: 1,
   allowRepeatVote: true,
   qrRotateSeconds: 30,
-  showResults: false,
+  showResults: true,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
   wechatAccountName: '仰恩大学指南',
   wechatQrUrl: '',
@@ -369,7 +369,7 @@ async function copyDisplayUrl(): Promise<void> {
             type="checkbox"
             class="size-4 rounded border-zinc-300"
           >
-          公开页展示实时票数（默认隐藏，避免从众）
+          公开页展示实时票数与名次（默认开启，关闭后公开页隐藏票数与排名）
         </label>
 
         <div class="mt-4 space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">

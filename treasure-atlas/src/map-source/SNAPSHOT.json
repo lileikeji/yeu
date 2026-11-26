@@ -6,7 +6,7 @@
     "data/seeds/preview-places.ts": "6d3ee715b0f12c57a2cb9c2829d8942a22b7d6381ce5a49a84605dda82fbf18f",
     "LICENSE": "e9c0b639e1d5d0ea82262a9d8d235a22b1b0a97f8f4bb044203a42ae9551efe8",
     "map/core/types.ts": "744c5c41ff8e64bb74ff599a02f0bd7946676b57e4c1cda12996687e804438d5",
-    "shared/types.ts": "bccd54eb33f768a2b28a49bb2cfcf982cb0a5e564b77dca844231496442abfb3",
+    "shared/types.ts": "687081833d416a5a02b58cd1f10c437d932f587644c90b483992190db155d5c2",
     "shared/utils/bus-route-progress.ts": "f232b6294c64f8efcdb86d50a62f9ec80b5daeb0d6b490ca447360cd457d636e",
     "shared/utils/campus-dorm-buildings.ts": "31f5075bb3ac983327faa896e001fc83d43168fad0ce6e8ecea2360d81c34087",
     "shared/utils/campus-speed-bumps.ts": "985c737dbd706ebf3c2f25c9c2a12d9603ec49b7a89d308cecb03052add00147",

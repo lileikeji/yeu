@@ -671,6 +671,10 @@ export interface CompetitionPopularityCandidate {
   /** 决赛第一轮曲目，方便投票人认人。 */
   song: string
   sortOrder: number
+  /** 决赛 1v1 分组序号；非 1v1 或尚未抽签时为 null。 */
+  pairNo?: number | null
+  /** 决赛 1v1 组内位置（1 或 2）；非 1v1 或尚未抽签时为 null。 */
+  pairSlot?: number | null
 }
 
 export interface CompetitionPopularityBallot {
