@@ -13,6 +13,7 @@ import {
 } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { competitionFinalSongs, contents } from '../server/database/schema'
+import { signCosUrl } from '../server/utils/cos-storage'
 import {
   confirmAdvanceRoster,
   createJudgeAccounts,
@@ -26,6 +27,7 @@ import {
   listRoundEntryRows,
   setEntryCheckIn,
   setFinalSongsByAdmin,
+  startFinalSongMultipart,
   submitFinalSongsByThreeFactors,
   submitJudgeScore,
   submitSongByThreeFactors,
@@ -259,6 +261,59 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
     }, 1, '伴奏.mp4'),
     (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
   )
+
+  // 第二首除 MP4 外也收 ZIP（相册视频 / 文件压缩包两条路），别的容器仍然拒绝。
+  assert.throws(
+    () => getFinalSongMediaUploadTarget(client, contentId, {
+      name: singers[0]!.name,
+      studentNo: singers[0]!.studentNo ?? '',
+      contact: singers[0]!.qq ?? ''
+    }, 2, '背景.zip'),
+    (error: unknown) => codeOf(error) === 'STORAGE_NOT_CONFIGURED'
+  )
+  assert.throws(
+    () => getFinalSongMediaUploadTarget(client, contentId, {
+      name: singers[0]!.name,
+      studentNo: singers[0]!.studentNo ?? '',
+      contact: singers[0]!.qq ?? ''
+    }, 2, '背景.mkv'),
+    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+  )
+  assert.throws(
+    () => getFinalSongMediaUploadTarget(client, contentId, {
+      name: singers[0]!.name,
+      studentNo: singers[0]!.studentNo ?? '',
+      contact: singers[0]!.qq ?? ''
+    }, 1, '伴奏.zip'),
+    (error: unknown) => codeOf(error) === 'VALIDATION_ERROR'
+  )
+
+  // 没配对象存储时分片会话要给出明确提示，不能让选手卡在 500。
+  await assert.rejects(
+    () => startFinalSongMultipart(client, contentId, {
+      name: singers[0]!.name,
+      studentNo: singers[0]!.studentNo ?? '',
+      contact: singers[0]!.qq ?? ''
+    }, 2, '背景.mp4', 8 * 1024 * 1024),
+    (error: unknown) => codeOf(error) === 'STORAGE_NOT_CONFIGURED'
+  )
+
+  // 分片签名：签名参数名一律小写，真实 query 里保留 partNumber / uploadId 驼峰；
+  // 写反了 COS 会回 403 SignatureDoesNotMatch（实机验证过）。
+  const signedPart = signCosUrl({
+    bucket: 'demo-1250000000',
+    region: 'ap-shanghai',
+    secretId: 'AKIDdemo',
+    secretKey: 'secretdemo',
+    prefix: 'competition/accompaniment'
+  }, {
+    method: 'PUT',
+    key: 'competition/accompaniment/final-2/singer/x.mp4',
+    expiresIn: 60,
+    params: { partNumber: '3', uploadId: 'upload-abc' }
+  })
+  assert.match(signedPart, /q-url-param-list=partnumber;uploadid/)
+  assert.match(signedPart, /\?partNumber=3&uploadId=upload-abc&q-sign-algorithm=sha1/)
 
   // 同一组歌重提、只换顺序都不算重复，可以正常保存（版本号继续递增）。
   const tweak = { name: singers[11]!.name, studentNo: singers[11]!.studentNo ?? '', contact: singers[11]!.qq ?? '' }

@@ -1562,6 +1562,50 @@ export const competitionFinalSongVideoCommitSchema = z.object({
   size: z.number().int().positive().max(1024 * 1024 * 1024)
 }).strict()
 
+/**
+ * 决赛文件的分片上传会话（断点续传）：init 开一个会话，sign 取分片地址，
+ * status 查已传分片，complete 收口落库，abort 放弃。
+ */
+const competitionFinalSongMediaWho = {
+  name: z.string().trim().min(1).max(60),
+  studentNo: z.string().trim().min(1).max(40),
+  contact: z.string().trim().min(4).max(120),
+  slot: z.union([z.literal(1), z.literal(2)])
+}
+
+const competitionFinalSongMediaSession = {
+  ...competitionFinalSongMediaWho,
+  key: z.string().trim().min(4).max(512),
+  uploadId: z.string().trim().min(8).max(200)
+}
+
+export const competitionFinalSongMediaMultipartSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('init'),
+    ...competitionFinalSongMediaWho,
+    filename: z.string().trim().min(1).max(160),
+    size: z.number().int().positive().max(1024 * 1024 * 1024)
+  }).strict(),
+  z.object({
+    action: z.literal('status'),
+    ...competitionFinalSongMediaSession
+  }).strict(),
+  z.object({
+    action: z.literal('sign'),
+    ...competitionFinalSongMediaSession,
+    partNumbers: z.array(z.number().int().min(1).max(10000)).min(1).max(20)
+  }).strict(),
+  z.object({
+    action: z.literal('complete'),
+    ...competitionFinalSongMediaSession,
+    size: z.number().int().positive().max(1024 * 1024 * 1024)
+  }).strict(),
+  z.object({
+    action: z.literal('abort'),
+    ...competitionFinalSongMediaSession
+  }).strict()
+])
+
 export const competitionAdminFinalSongsSchema = z.object({
   singerId: z.string().trim().min(1).max(64),
   firstSong: z.string().trim().min(1).max(100),

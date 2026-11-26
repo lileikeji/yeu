@@ -319,6 +319,14 @@ function accompanimentSize(bytes: number | null | undefined): string {
   return `${Math.max(1, Math.round(bytes / 1024))}KB`
 }
 
+/** 决赛第二首可能是 MP4，也可能是打包好的 ZIP，预览方式要分开。 */
+function accompanimentKind(name: string | null | undefined): 'video' | 'zip' | 'audio' {
+  const value = (name || '').toLowerCase()
+  if (value.endsWith('.mp4')) return 'video'
+  if (value.endsWith('.zip')) return 'zip'
+  return 'audio'
+}
+
 function openAccompaniment(entry: CompetitionRoundEntry): void {
   if (!entry.accompaniment) return
   accompanimentPreview.value = {
@@ -2133,7 +2141,7 @@ onBeforeUnmount(stopLiveRefresh)
                             @change="onPickAccompaniment(activeRound!, entry, $event)"
                           >
                           {{ entry.accompaniment
-                            ? (entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '换背景视频' : '换伴奏')
+                            ? (accompanimentKind(entry.accompaniment.name) === 'audio' ? '换伴奏' : '换视频/压缩包')
                             : (activeRound?.key === 'final' ? '传第一首伴奏' : '传伴奏') }}
                         </label>
                         <span
@@ -2144,14 +2152,14 @@ onBeforeUnmount(stopLiveRefresh)
                           <button
                             type="button"
                             class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
-                            :aria-label="entry.accompaniment?.name.toLowerCase().endsWith('.mp4') ? '预览背景视频' : '试听伴奏'"
+                            :aria-label="accompanimentKind(entry.accompaniment?.name) === 'video' ? '预览背景视频' : accompanimentKind(entry.accompaniment?.name) === 'zip' ? '下载压缩包' : '试听伴奏'"
                             @click="openAccompaniment(entry)"
                           >
                             <UIcon
                               name="i-lucide-play"
                               class="size-3"
                             />
-                            {{ entry.accompaniment.name.toLowerCase().endsWith('.mp4') ? '预览' : '试听' }}
+                            {{ accompanimentKind(entry.accompaniment.name) === 'video' ? '预览' : accompanimentKind(entry.accompaniment.name) === 'zip' ? '下载' : '试听' }}
                           </button>
                           <span class="ml-1 text-[11px]">
                             {{ entry.accompaniment.name }}
@@ -3738,19 +3746,25 @@ onBeforeUnmount(stopLiveRefresh)
     <UModal
       v-model:open="accompanimentPreviewOpen"
       :title="accompanimentPreview?.name || '伴奏'"
-      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}${accompanimentPreview.updatedAt ? `，更新于 ${formatDateTime(accompanimentPreview.updatedAt)}` : ''}，手机上直接点播放就能看/听，电脑也可以下载下来。` : '手机上直接点播放就能看/听，电脑也可以下载下来。'"
+      :description="accompanimentPreview ? `文件大小 ${accompanimentSize(accompanimentPreview.size)}${accompanimentPreview.updatedAt ? `，更新于 ${formatDateTime(accompanimentPreview.updatedAt)}` : ''}，${accompanimentKind(accompanimentPreview.name) === 'zip' ? '压缩包不能在线预览，下载后解压查看' : '手机上直接点播放就能看/听，电脑也可以下载下来'}。` : '手机上直接点播放就能看/听，电脑也可以下载下来。'"
       :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
     >
       <template #body>
         <div class="space-y-3">
           <video
-            v-if="accompanimentPreview && accompanimentPreview.name.toLowerCase().endsWith('.mp4')"
+            v-if="accompanimentPreview && accompanimentKind(accompanimentPreview.name) === 'video'"
             :src="accompanimentPreview.url"
             controls
             playsinline
             preload="metadata"
             class="max-h-[70vh] w-full rounded-lg bg-black"
           />
+          <div
+            v-else-if="accompanimentPreview && accompanimentKind(accompanimentPreview.name) === 'zip'"
+            class="rounded-lg border border-dashed border-zinc-300 px-3 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+          >
+            压缩包不能在线预览，点下面下载后解压。
+          </div>
           <audio
             v-else-if="accompanimentPreview"
             :src="accompanimentPreview.url"
@@ -3767,10 +3781,10 @@ onBeforeUnmount(stopLiveRefresh)
             class="inline-flex items-center gap-1 text-sm text-emerald-700 underline dark:text-emerald-300"
           >
             <UIcon
-              name="i-lucide-download"
+              :name="accompanimentKind(accompanimentPreview.name) === 'zip' ? 'i-lucide-file-archive' : 'i-lucide-download'"
               class="size-4"
             />
-            下载这个{{ accompanimentPreview.name.toLowerCase().endsWith('.mp4') ? '视频' : '伴奏' }}
+            下载这个{{ accompanimentKind(accompanimentPreview.name) === 'video' ? '视频' : accompanimentKind(accompanimentPreview.name) === 'zip' ? '压缩包' : '伴奏' }}
           </a>
           <a
             v-if="accompanimentPreview?.original"

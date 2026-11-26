@@ -52,7 +52,8 @@ export function encodeCosKey(key: string): string {
 }
 
 export interface CosSignedUrlOptions {
-  method: 'GET' | 'PUT' | 'HEAD' | 'DELETE'
+  /** POST 用于分片上传：`?uploads` 初始化、`?uploadId` 收口。 */
+  method: 'GET' | 'PUT' | 'HEAD' | 'DELETE' | 'POST'
   key: string
   expiresIn: number
   contentType?: string
@@ -77,9 +78,14 @@ export function signCosUrl(config: CosConfig, options: CosSignedUrlOptions): str
 
   const headerList = headerPairs.map(([name]) => name).join(';')
   const paramPairs = Object.entries(options.params ?? {}).sort(([left], [right]) => left.localeCompare(right))
-  const urlParamList = paramPairs.map(([name]) => name).join(';')
+  // COS 签名要求 HTTPParameters 的参数名一律小写，而真实请求 URL 里子资源是
+  // partNumber / uploadId 这种驼峰写法，所以签名名与 query 名必须分开维护。
+  const signNames = paramPairs.map(([name]) => name.toLowerCase())
+  const urlParamList = signNames.join(';')
   const httpHeaders = headerPairs.map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join('&')
-  const httpParams = paramPairs.map(([name, value]) => `${name}=${encodeURIComponent(value)}`).join('&')
+  const httpParams = paramPairs
+    .map(([, value], index) => `${signNames[index]}=${encodeURIComponent(value)}`)
+    .join('&')
   const httpString = `${options.method.toLowerCase()}\n${pathname}\n${httpParams}\n${httpHeaders}\n`
 
   const stringToSign = `sha1\n${keyTime}\n${sha1(httpString)}\n`
@@ -110,6 +116,7 @@ export function contentTypeForKey(key: string): string {
   if (extension === 'aac') return 'audio/aac'
   if (extension === 'ogg') return 'audio/ogg'
   if (extension === 'flac') return 'audio/flac'
+  if (extension === 'zip') return 'application/zip'
   return 'audio/mpeg'
 }
 
@@ -141,6 +148,113 @@ export function contentTypeForName(name: string | null | undefined, fallbackKey?
   const match = value.match(/\.([a-z0-9]{2,5})$/i)
   if (match) return contentTypeForKey(`x.${match[1]!.toLowerCase()}`)
   return contentTypeForKey(fallbackKey || '')
+}
+
+/**
+ * 分片上传（断点续传）：
+ *   1. 后端 POST `?uploads` 拿 uploadId，key 由后端生成；
+ *   2. 浏览器按 partNumber 逐片 PUT（每片单独预签名，1MB~5GB，最后一片可更小）；
+ *   3. 断线后后端 GET `?uploadId` 列已上传分片，前端只补缺的；
+ *   4. 全部到位后后端 POST complete 收口，再 HEAD 校验大小并落库。
+ * 分片 ETag 一律由后端从 ListParts 取，不依赖浏览器能否读到 ETag 响应头。
+ */
+export const COS_MULTIPART_PART_SIZE = 8 * 1024 * 1024
+export const COS_MULTIPART_MAX_PARTS = 10000
+
+/** 浏览器直传单个分片用的预签名 PUT。 */
+export function presignCosMultipartPart(
+  config: CosConfig,
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  expiresIn = 3600
+): string {
+  return signCosUrl(config, {
+    method: 'PUT',
+    key,
+    expiresIn,
+    params: { partNumber: String(partNumber), uploadId }
+  })
+}
+
+function parseUploadId(xml: string): string | null {
+  return xml.match(/<UploadId>([^<]+)<\/UploadId>/)?.[1] ?? null
+}
+
+/** 服务端发起分片上传，返回 uploadId。 */
+export async function startCosMultipart(config: CosConfig, key: string): Promise<string> {
+  const url = signCosUrl(config, { method: 'POST', key, expiresIn: 600, params: { uploads: '' } })
+  const response = await fetch(url, { method: 'POST' })
+  const text = await response.text()
+  const uploadId = response.ok ? parseUploadId(text) : null
+  if (!uploadId) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Storage multipart init failed',
+      data: { code: 'STORAGE_UPLOAD_FAILED', message: `对象存储初始化分片上传失败（${response.status}）：${text.slice(0, 200)}` }
+    })
+  }
+  return uploadId
+}
+
+export interface CosMultipartPart {
+  partNumber: number
+  size: number
+  etag: string
+}
+
+/** 列出已上传分片；断点续传与收口都靠它，不信任客户端上报的分片表。 */
+export async function listCosMultipartParts(
+  config: CosConfig,
+  key: string,
+  uploadId: string
+): Promise<CosMultipartPart[]> {
+  const url = signCosUrl(config, { method: 'GET', key, expiresIn: 300, params: { uploadId } })
+  const response = await fetch(url)
+  const text = await response.text()
+  if (!response.ok) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Storage multipart list failed',
+      data: { code: 'STORAGE_UPLOAD_FAILED', message: `对象存储查询分片失败（${response.status}）：${text.slice(0, 200)}` }
+    })
+  }
+  const parts: CosMultipartPart[] = []
+  for (const block of text.match(/<Part>[\s\S]*?<\/Part>/g) ?? []) {
+    const partNumber = Number(block.match(/<PartNumber>(\d+)<\/PartNumber>/)?.[1] ?? 0)
+    const size = Number(block.match(/<Size>(\d+)<\/Size>/)?.[1] ?? 0)
+    const etag = block.match(/<ETag>([^<]*)<\/ETag>/)?.[1] ?? ''
+    if (partNumber > 0 && etag) parts.push({ partNumber, size, etag })
+  }
+  return parts.sort((left, right) => left.partNumber - right.partNumber)
+}
+
+/** 收口分片上传，parts 必须从 listCosMultipartParts 取，保证 ETag 可信。 */
+export async function completeCosMultipart(
+  config: CosConfig,
+  key: string,
+  uploadId: string,
+  parts: CosMultipartPart[]
+): Promise<void> {
+  const url = signCosUrl(config, { method: 'POST', key, expiresIn: 600, params: { uploadId } })
+  const body = `<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUpload>${parts
+    .map(part => `<Part><PartNumber>${part.partNumber}</PartNumber><ETag>${part.etag}</ETag></Part>`)
+    .join('')}</CompleteMultipartUpload>`
+  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/xml' }, body })
+  if (!response.ok) {
+    const text = await response.text()
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Storage multipart complete failed',
+      data: { code: 'STORAGE_UPLOAD_FAILED', message: `对象存储合并分片失败（${response.status}）：${text.slice(0, 200)}` }
+    })
+  }
+}
+
+/** 取消分片上传（选手放弃或换文件时调用），失败不影响主流程。 */
+export async function abortCosMultipart(config: CosConfig, key: string, uploadId: string): Promise<void> {
+  const url = signCosUrl(config, { method: 'DELETE', key, expiresIn: 300, params: { uploadId } })
+  await fetch(url, { method: 'DELETE' }).catch(() => undefined)
 }
 
 /** 给一声部生成新的 object key（保留扩展名）。 */

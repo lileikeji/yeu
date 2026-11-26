@@ -29,7 +29,22 @@ import { createZip, StreamingZip } from '../../utils/zip-archive'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
-import { contentTypeForName, cosConfig, headCosObject, newAccompanimentKey, presignCosGet, presignCosPut, putCosObject, type CosConfig } from '../../utils/cos-storage'
+import {
+  COS_MULTIPART_PART_SIZE,
+  abortCosMultipart,
+  completeCosMultipart,
+  contentTypeForName,
+  cosConfig,
+  headCosObject,
+  listCosMultipartParts,
+  newAccompanimentKey,
+  presignCosGet,
+  presignCosMultipartPart,
+  presignCosPut,
+  putCosObject,
+  startCosMultipart,
+  type CosConfig
+} from '../../utils/cos-storage'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -6256,7 +6271,7 @@ export function submitFinalSongsByThreeFactors(
 
 /**
  * 决赛两首歌的上传规格：第一首只收伴奏音频（跟初赛/复赛同一套格式），
- * 第二首只收 MP4 背景视频。
+ * 第二首收 MP4 背景视频，也接受同名规则打包的 ZIP（相册里的视频和文件管理器里的压缩包都能选）。
  */
 const FINAL_SONG_AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'aac', 'ogg', 'flac'] as const
 const FINAL_SONG_MIME_BY_EXTENSION: Record<string, string> = {
@@ -6266,7 +6281,8 @@ const FINAL_SONG_MIME_BY_EXTENSION: Record<string, string> = {
   aac: 'audio/aac',
   ogg: 'audio/ogg',
   flac: 'audio/flac',
-  mp4: 'video/mp4'
+  mp4: 'video/mp4',
+  zip: 'application/zip'
 }
 
 function finalSongUploadSpec(slot: 1 | 2): {
@@ -6286,9 +6302,9 @@ function finalSongUploadSpec(slot: 1 | 2): {
     }
   }
   return {
-    extensions: ['mp4'],
+    extensions: ['mp4', 'zip'],
     maxBytes: 1024 * 1024 * 1024,
-    typeError: '第二首背景视频只收 MP4',
+    typeError: '第二首只收 MP4 视频或 ZIP 压缩包',
     sizeError: '背景视频大小需要在 1GB 以内',
     fallbackMime: 'video/mp4'
   }
@@ -6300,7 +6316,17 @@ function uploadExtensionOf(key: string): string {
   return match ? match[1]!.toLowerCase() : ''
 }
 
-/** 决赛两首歌的上传地址：第一首伴奏音频，第二首 MP4 背景视频。 */
+/** 第二首允许的存储类型：MP4 视频、ZIP 压缩包，以及浏览器不识别时给的通用类型。 */
+const FINAL_SONG_VIDEO_CONTENT_TYPES = new Set([
+  'video/mp4',
+  'application/zip',
+  'application/x-zip-compressed',
+  'multipart/x-zip',
+  'application/octet-stream',
+  'binary/octet-stream'
+])
+
+/** 决赛两首歌的上传地址：第一首伴奏音频，第二首 MP4 视频或 ZIP 压缩包。 */
 export function getFinalSongMediaUploadTarget(
   client: DatabaseClient,
   contentId: string,
@@ -6308,17 +6334,60 @@ export function getFinalSongMediaUploadTarget(
   slot: 1 | 2,
   filename: string
 ): { key: string, uploadUrl: string, expiresIn: number } {
-  const { singer, eventRow, finalRound, final2Round, entry } = finalSongContext(client, contentId, input)
-  const reason = finalSongLockReason(client, finalRound, final2Round, entry)
-  if (reason) conflictError('COMPETITION_FINAL_SONGS_LOCKED', reason)
-  const songs = readFinalSongs(client, eventRow.id, singer.id)
-  const row = slot === 1 ? songs.first : songs.second
-  if (!row) conflictError('SONG_REQUIRED', '先提交两首歌，再给每首歌上传伴奏/背景视频')
   const extension = uploadExtensionOf(filename)
   const spec = finalSongUploadSpec(slot)
   if (!spec.extensions.includes(extension)) {
     validationError(spec.typeError, 'filename')
   }
+  const { singer, config } = finalSongMediaScope(client, contentId, input, slot)
+  const key = newFinalSongMediaKey(config, singer.id, slot, extension)
+  return {
+    key,
+    uploadUrl: presignCosPut(config, key, FINAL_SONG_MIME_BY_EXTENSION[extension] ?? spec.fallbackMime, 3600),
+    expiresIn: 3600
+  }
+}
+
+/** 决赛文件的对象 key 必须带选手归属，分片会话才能证明「这个 key 是发给他的」。 */
+function newFinalSongMediaKey(config: CosConfig, singerId: string, slot: 1 | 2, extension: string): string {
+  return `${config.prefix}/final-${slot}/${singerId}/${randomUUID()}.${extension}`
+}
+
+function assertFinalSongMediaKey(config: CosConfig, singerId: string, slot: 1 | 2, key: string): void {
+  const prefix = `${config.prefix}/final-${slot}/${singerId}/`
+  const value = String(key || '')
+  const rest = value.startsWith(prefix) ? value.slice(prefix.length) : ''
+  if (!/^[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(rest)) {
+    validationError('这次上传不属于当前选手，请重新开始上传', 'key')
+  }
+  if (!finalSongUploadSpec(slot).extensions.includes(uploadExtensionOf(value))) {
+    validationError(finalSongUploadSpec(slot).typeError, 'key')
+  }
+}
+
+function finalSongMediaScope(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2
+): {
+  singer: ReturnType<typeof finalSongContext>['singer']
+  eventRow: ReturnType<typeof finalSongContext>['eventRow']
+  finalRound: ReturnType<typeof finalSongContext>['finalRound']
+  final2Round: ReturnType<typeof finalSongContext>['final2Round']
+  entry: ReturnType<typeof finalSongContext>['entry']
+  row: NonNullable<ReturnType<typeof readFinalSongs>['first']>
+  config: CosConfig
+  spec: ReturnType<typeof finalSongUploadSpec>
+} {
+  const context = finalSongContext(client, contentId, input)
+  const { singer, eventRow, finalRound, final2Round, entry } = context
+  const reason = finalSongLockReason(client, finalRound, final2Round, entry)
+  if (reason) conflictError('COMPETITION_FINAL_SONGS_LOCKED', reason)
+  const songs = readFinalSongs(client, eventRow.id, singer.id)
+  const row = slot === 1 ? songs.first : songs.second
+  if (!row) conflictError('SONG_REQUIRED', '先提交两首歌，再给每首歌上传伴奏/背景视频')
+  if (slot === 1 && !entry) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '没找到决赛第一轮的出场记录')
   const config = cosConfig()
   if (!config) {
     throw createError({
@@ -6327,12 +6396,125 @@ export function getFinalSongMediaUploadTarget(
       data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛文件暂时传不了' }
     })
   }
-  const key = newAccompanimentKey(config, extension)
+  return { singer, eventRow, finalRound, final2Round, entry, row, config, spec: finalSongUploadSpec(slot) }
+}
+
+export interface FinalSongMultipartSession {
+  key: string
+  uploadId: string
+  partSize: number
+  expiresIn: number
+  uploaded: Array<{ partNumber: number, size: number }>
+}
+
+/**
+ * 开一个分片上传会话（断点续传的第一步）。浏览器只负责逐片 PUT，
+ * uploadId 与分片清单都由后端保管，断线回来先问「传到第几片了」。
+ */
+export async function startFinalSongMultipart(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  filename: string,
+  size: number
+): Promise<FinalSongMultipartSession> {
+  const extension = uploadExtensionOf(filename)
+  const spec = finalSongUploadSpec(slot)
+  if (!spec.extensions.includes(extension)) validationError(spec.typeError, 'filename')
+  if (!Number.isFinite(size) || size <= 0 || size > spec.maxBytes) validationError(spec.sizeError, 'size')
+  const { singer, config } = finalSongMediaScope(client, contentId, input, slot)
+  const key = newFinalSongMediaKey(config, singer.id, slot, extension)
+  const uploadId = await startCosMultipart(config, key)
+  return { key, uploadId, partSize: COS_MULTIPART_PART_SIZE, expiresIn: 3600, uploaded: [] }
+}
+
+/** 断点续传：问后端这个会话已经收下了哪些分片。 */
+export async function listFinalSongMultipart(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  key: string,
+  uploadId: string
+): Promise<FinalSongMultipartSession> {
+  const { singer, config } = finalSongMediaScope(client, contentId, input, slot)
+  assertFinalSongMediaKey(config, singer.id, slot, key)
+  const parts = await listCosMultipartParts(config, key, uploadId)
   return {
     key,
-    uploadUrl: presignCosPut(config, key, FINAL_SONG_MIME_BY_EXTENSION[extension] ?? spec.fallbackMime, 3600),
+    uploadId,
+    partSize: COS_MULTIPART_PART_SIZE,
+    expiresIn: 3600,
+    uploaded: parts.map(part => ({ partNumber: part.partNumber, size: part.size }))
+  }
+}
+
+/** 给指定分片批量换预签名 PUT（一次最多 20 片，够前端 3 并发跑一轮）。 */
+export function signFinalSongMultipartParts(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  key: string,
+  uploadId: string,
+  partNumbers: number[]
+): { urls: Array<{ partNumber: number, url: string }>, expiresIn: number } {
+  const { singer, config } = finalSongMediaScope(client, contentId, input, slot)
+  assertFinalSongMediaKey(config, singer.id, slot, key)
+  const unique = [...new Set(partNumbers.map(value => Math.trunc(Number(value))))]
+    .filter(value => Number.isFinite(value) && value >= 1 && value <= 10000)
+    .sort((left, right) => left - right)
+  if (!unique.length) validationError('没有要签名的分片', 'partNumbers')
+  if (unique.length > 20) validationError('一次最多签 20 个分片', 'partNumbers')
+  return {
+    urls: unique.map(partNumber => ({
+      partNumber,
+      url: presignCosMultipartPart(config, key, uploadId, partNumber, 3600)
+    })),
     expiresIn: 3600
   }
+}
+
+/**
+ * 收口：先按 ListParts 核对分片数与总字节数，再合并、HEAD 校验、写库。
+ * 任何一个分片缺失都会返回 409，让前端继续补传而不是把半截文件登记成成品。
+ */
+export async function completeFinalSongMultipart(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  key: string,
+  uploadId: string,
+  size: number
+): Promise<CompetitionFinalSongsState> {
+  const { singer, config, spec } = finalSongMediaScope(client, contentId, input, slot)
+  assertFinalSongMediaKey(config, singer.id, slot, key)
+  if (!Number.isFinite(size) || size <= 0 || size > spec.maxBytes) validationError(spec.sizeError, 'size')
+  const parts = await listCosMultipartParts(config, key, uploadId)
+  const expectedParts = Math.ceil(size / COS_MULTIPART_PART_SIZE)
+  const uploadedBytes = parts.reduce((total, part) => total + part.size, 0)
+  const continuous = parts.every((part, index) => part.partNumber === index + 1)
+  if (parts.length !== expectedParts || !continuous || uploadedBytes !== size) {
+    conflictError('UPLOAD_INCOMPLETE', `还有分片没传完（已传 ${parts.length}/${expectedParts} 片），继续上传后再提交`)
+  }
+  await completeCosMultipart(config, key, uploadId, parts)
+  return saveFinalSongMediaByThreeFactors(client, contentId, input, slot, key, size)
+}
+
+/** 放弃这次上传（换文件或选手主动取消）。 */
+export async function abortFinalSongMultipart(
+  client: DatabaseClient,
+  contentId: string,
+  input: { name?: string, studentNo?: string, contact?: string },
+  slot: 1 | 2,
+  key: string,
+  uploadId: string
+): Promise<void> {
+  const { singer, config } = finalSongMediaScope(client, contentId, input, slot)
+  assertFinalSongMediaKey(config, singer.id, slot, key)
+  await abortCosMultipart(config, key, uploadId)
 }
 
 /**
@@ -6380,8 +6562,8 @@ export async function saveFinalSongMediaByThreeFactors(
       || contentType === 'application/octet-stream'
       || /^video\/(mp4|quicktime)$/.test(contentType)
     if (!audioOk) validationError('上传的文件不是音频', 'key')
-  } else if (contentType && contentType !== 'video/mp4' && contentType !== 'application/octet-stream' && contentType !== 'binary/octet-stream') {
-    validationError('上传的文件不是 MP4 视频', 'key')
+  } else if (contentType && !FINAL_SONG_VIDEO_CONTENT_TYPES.has(contentType)) {
+    validationError(extension === 'zip' ? '上传的文件不是 ZIP 压缩包' : '上传的文件不是 MP4 视频', 'key')
   }
   if (Math.abs(head.size - reportedSize) > 1024 * 1024) {
     validationError('文件大小对不上，请重新上传', 'size')
