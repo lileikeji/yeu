@@ -309,13 +309,22 @@ onBeforeUnmount(() => {
             <template v-if="tokenState?.authMode === 'wechat_mp'">
               <div class="mt-4 w-full rounded-2xl border border-rose-400/50 bg-rose-500/10 px-4 py-3.5 text-center">
                 <p class="text-xs font-bold tracking-wide text-[var(--ink)]">
-                  向「{{ tokenState.wechatAccountName || '仰恩大学指南' }}」发送口令
+                  {{ tokenState.passcodeRotate === false ? `关注「${tokenState.wechatAccountName || '仰恩大学指南'}」即可领票` : `向「${tokenState.wechatAccountName || '仰恩大学指南'}」发送口令` }}
                 </p>
-                <p class="mt-1.5 text-4xl font-black tracking-[0.14em] tabular-nums text-rose-600 dark:text-rose-400 xl:text-5xl">
+                <p
+                  v-if="tokenState.passcodeRotate !== false"
+                  class="mt-1.5 text-4xl font-black tracking-[0.14em] tabular-nums text-rose-600 dark:text-rose-400 xl:text-5xl"
+                >
                   投票 {{ tokenState.wechatPasscode }}
                 </p>
+                <p
+                  v-else
+                  class="mt-1.5 text-3xl font-black tracking-wide text-rose-600 dark:text-rose-400 xl:text-4xl"
+                >
+                  发送「投票」
+                </p>
                 <p class="mt-1.5 text-xs font-medium text-[var(--muted-ink)]">
-                  {{ tokenState.passcodeRotate === false ? '本场固定口令 · 发送后点击专属链接投票' : '口令每分钟自动刷新 · 发送后点击专属链接投票' }}
+                  {{ tokenState.passcodeRotate === false ? '无需口令 · 一人一微信号一票' : '口令每分钟自动刷新 · 发送后点击专属链接投票' }}
                 </p>
               </div>
 
@@ -326,7 +335,8 @@ onBeforeUnmount(() => {
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="grid size-4 shrink-0 place-items-center rounded-full bg-[var(--color-green-600)] text-[10px] font-black text-white">2</span>
-                  <span>在公众号对话框发送「<strong class="text-[var(--ink)]">投票 {{ tokenState.wechatPasscode }}</strong>」</span>
+                  <span v-if="tokenState.passcodeRotate !== false">在公众号对话框发送「<strong class="text-[var(--ink)]">投票 {{ tokenState.wechatPasscode }}</strong>」</span>
+                  <span v-else>在公众号对话框直接发送「<strong class="text-[var(--ink)]">投票</strong>」</span>
                 </li>
                 <li class="flex items-center gap-2">
                   <span class="grid size-4 shrink-0 place-items-center rounded-full bg-[var(--color-green-600)] text-[10px] font-black text-white">3</span>

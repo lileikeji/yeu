@@ -211,6 +211,37 @@ async function vote(singerId: string): Promise<void> {
   }
 }
 
+async function withdrawVote(): Promise<void> {
+  if (!state.value || savingId.value) return
+  const target = state.value.myBallot?.singerId
+  if (!target) return
+  savingId.value = 'withdraw'
+  try {
+    const device = readDeviceToken()
+    const vt = readWechatTicket()
+    const next = await plainFetch<CompetitionPopularityPublicState>(
+      '/api/public/competition/popularity/withdraw',
+      {
+        method: 'POST',
+        body: {
+          ...(token.value ? { token: token.value } : {}),
+          ...(vt ? { vt } : {}),
+          singerId: target,
+          ...(device ? { d: device } : {})
+        }
+      }
+    )
+    state.value = next
+    persistDeviceToken(next.deviceToken)
+    toast.add({ title: '已取消投票，可以重新选择', color: 'success' })
+  } catch (caught) {
+    toast.add({ title: messageOf(caught), color: 'error' })
+    void load()
+  } finally {
+    savingId.value = ''
+  }
+}
+
 function remainingText(): string {
   const closesAt = state.value?.closesAt
   if (!closesAt) return ''
@@ -403,8 +434,14 @@ onBeforeUnmount(() => {
             </p>
             <p class="text-xs leading-relaxed text-[var(--muted-ink)]">
               1. 打开微信关注「<strong>{{ state.wechatAccountName || '仰恩大学指南' }}</strong>」（长按右侧二维码识别，或微信搜索公众号名）；<br>
-              2. 看现场大屏上的 2 位数字口令，发送「<strong>投票 XX</strong>」（如：投票 58）；<br>
-              3. 点回复的专属链接进入即可投票。
+              <template v-if="state.passcodeRequired !== false">
+                2. 看现场大屏上的 2 位数字口令，发送「<strong>投票 XX</strong>」（如：投票 58）；<br>
+                3. 点回复的专属链接进入即可投票。
+              </template>
+              <template v-else>
+                2. 直接给公众号发送「<strong>投票</strong>」，即可收到你的专属投票链接；<br>
+                3. 点开链接就能投票（一人一微信号一票）。
+              </template>
             </p>
           </div>
           <div
@@ -433,6 +470,15 @@ onBeforeUnmount(() => {
             v-else
             class="text-[var(--muted-ink)]"
           >投票后不可更改。</span>
+          <button
+            v-if="state.canWithdraw"
+            type="button"
+            class="ml-2 rounded-full border border-rose-300/80 bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+            :disabled="Boolean(savingId)"
+            @click="withdrawVote()"
+          >
+            {{ savingId === 'withdraw' ? '取消中…' : '取消投票' }}
+          </button>
         </p>
         <p
           v-else-if="!hasBallot && !canVote && !state.requiresWechatTicket"

@@ -2383,7 +2383,7 @@ export interface CompetitionPopularitySettingsInput {
   allowRepeatVote: boolean
   qrRotateSeconds: number
   passcodeRotate?: boolean
-  fixedPasscode?: string
+  allowWithdraw?: boolean
   showResults: boolean
   authMode?: CompetitionPopularityAuthMode
   wechatAccountName?: string
@@ -2417,7 +2417,7 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     allowRepeatVote: Boolean(row.allowRepeatVote ?? true),
     qrRotateSeconds: Number(row.qrRotateSeconds),
     passcodeRotate: Boolean(row.passcodeRotate ?? true),
-    fixedPasscode: row.fixedPasscode || '',
+    allowWithdraw: Boolean(row.allowWithdraw ?? true),
     showResults: row.showResults,
     displayKey: row.displayKey,
     authMode: row.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp',
@@ -2454,7 +2454,7 @@ export function ensurePopularitySettings(
     allowRepeatVote: true,
     qrRotateSeconds: 30,
     passcodeRotate: true,
-    fixedPasscode: '',
+    allowWithdraw: true,
     showResults: true,
     displayKey: randomBytes(18).toString('base64url'),
     authMode: 'wechat_mp',
@@ -2601,6 +2601,7 @@ export function getPopularityPublicState(
     && status === 'open'
     && candidates.length > 0
     && (!mine || (Number(mine.voided) === 0 && settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
+  const allowWithdraw = Boolean(settings.allowWithdraw ?? true)
   const revision = multiVote ? votesUsed : Number(mineActive?.version ?? 0)
 
   return {
@@ -2611,6 +2612,9 @@ export function getPopularityPublicState(
     closesAt: settings.closesAt == null ? null : Number(settings.closesAt),
     allowChange: settings.allowChange,
     maxChanges: Number(settings.maxChanges),
+    allowWithdraw,
+    canWithdraw: allowWithdraw && status === 'open' && activeMine.length > 0,
+    passcodeRequired: Boolean(settings.passcodeRotate),
     votesPerVoter,
     allowRepeatVote,
     qrRotateSeconds: Number(settings.qrRotateSeconds),
@@ -2868,11 +2872,15 @@ export function recordPopularityBallot(
     requiresWechatTicket: authMode === 'wechat_mp' && !wechatVerified
   }
 
-  if (!multiVote && existing && Number(existing.voided) === 1) {
+  const voterCancelled = Boolean(
+    existing && Number(existing.voided) === 1 && existing.voidedReason === 'voter_cancel'
+  )
+
+  if (!multiVote && existing && Number(existing.voided) === 1 && !voterCancelled) {
     conflictError('POPULARITY_BALLOT_VOIDED', '当前选票已被风控作废，无法更改')
   }
 
-  if (!multiVote && existing && existing.singerId === singerId) {
+  if (!multiVote && existing && !voterCancelled && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
   }
 
@@ -2887,7 +2895,7 @@ export function recordPopularityBallot(
   const autoQuarantine = telemetry?.autoQuarantineOverride ?? Boolean(settings.autoQuarantine ?? true)
   const quarantineThreshold = normalizedOpenIdHash ? 80 : 60
 
-  if (!existing || multiVote) {
+  if (!existing || voterCancelled || multiVote) {
     const nextVoteIndex = multiVote
       ? myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1) + 1
       : 0
@@ -3102,6 +3110,63 @@ export function recordPopularityBallot(
   return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
 }
 
+/**
+ * 撤回自己已投的选票：只把票标记为作废（voided=1），不删除行，
+ * 撤回后同一设备/微信号可以重新投票；改票次数不返还。
+ * 流水表的 action 有 CHECK 约束（cast/change/blocked），撤回痕迹记录在 ballots 的 voided_* 三列上。
+ */
+export function withdrawPopularityBallot(
+  client: DatabaseClient,
+  eventId: string,
+  deviceHash: string,
+  options: { singerId?: string | null, voterOpenidHash?: string | null, now?: number } = {}
+): CompetitionPopularityPublicState {
+  const settings = ensurePopularitySettings(client, eventId)
+  const status = popularityStatusOf(settings)
+  if (status === 'closed') conflictError('POPULARITY_CLOSED', '投票已经截止')
+  if (status !== 'open') conflictError('POPULARITY_NOT_OPEN', '投票还没开始')
+  if (!Boolean(settings.allowWithdraw ?? true)) {
+    conflictError('POPULARITY_WITHDRAW_DISABLED', '本场不支持取消投票')
+  }
+
+  const openIdHash = options.voterOpenidHash?.trim() || null
+  const rows = (openIdHash
+    ? client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          or(
+            eq(competitionPopularityBallots.voterOpenidHash, openIdHash),
+            eq(competitionPopularityBallots.deviceHash, deviceHash)
+          )
+        ))
+        .all()
+    : client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          eq(competitionPopularityBallots.deviceHash, deviceHash)
+        ))
+        .all())
+  const active = rows.filter(row => Number(row.voided) === 0)
+  const target = options.singerId
+    ? active.find(row => row.singerId === options.singerId) ?? null
+    : active[0] ?? null
+  if (!target) conflictError('POPULARITY_BALLOT_MISSING', '你没有可取消的选票')
+
+  const now = options.now ?? Date.now()
+  client.db.update(competitionPopularityBallots).set({
+    voided: 1,
+    voidedReason: 'voter_cancel',
+    voidedAt: now,
+    voidedBy: 'voter',
+    updatedAt: now
+  }).where(eq(competitionPopularityBallots.id, target.id)).run()
+
+  return getPopularityPublicState(client, eventId, deviceHash, {
+    wechatVerified: Boolean(openIdHash || target.voterOpenidHash),
+    requiresWechatTicket: false
+  })
+}
+
 export function updatePopularitySettings(
   client: DatabaseClient,
   eventId: string,
@@ -3112,11 +3177,6 @@ export function updatePopularitySettings(
   }
   const existing = ensurePopularitySettings(client, eventId)
   const passcodeRotate = input.passcodeRotate ?? Boolean(existing.passcodeRotate ?? true)
-  const fixedRaw = (input.fixedPasscode ?? existing.fixedPasscode ?? '').trim()
-  const fixedPasscode = /^\d{2}$/.test(fixedRaw) ? fixedRaw : ''
-  if (!passcodeRotate && !fixedPasscode) {
-    validationError('关闭口令轮换时必须设置两位固定口令（10–99）', 'fixedPasscode')
-  }
   client.db.update(competitionPopularitySettings).set({
     enabled: input.enabled,
     title: input.title.trim(),
@@ -3129,7 +3189,7 @@ export function updatePopularitySettings(
     allowRepeatVote: input.allowRepeatVote,
     qrRotateSeconds: input.qrRotateSeconds,
     passcodeRotate,
-    fixedPasscode,
+    allowWithdraw: input.allowWithdraw ?? Boolean(existing.allowWithdraw ?? true),
     showResults: input.showResults,
     authMode: input.authMode ?? existing.authMode,
     wechatAccountName: input.wechatAccountName !== undefined

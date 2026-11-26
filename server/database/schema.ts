@@ -1421,10 +1421,10 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   allowRepeatVote: integer('allow_repeat_vote', { mode: 'boolean' }).notNull().default(true),
   /** 大屏二维码刷新间隔（秒）。 */
   qrRotateSeconds: integer('qr_rotate_seconds').notNull().default(30),
-  /** 公众号口令是否每分钟轮换；false = 整场固定为 fixedPasscode（现场信号差时更好念）。 */
+  /** 公众号是否要求口令；false = 关注后直接发送「投票」即可领取专属链接。 */
   passcodeRotate: integer('passcode_rotate', { mode: 'boolean' }).notNull().default(true),
-  /** 关闭轮换时使用的两位固定口令；空串表示未设置（回落到动态口令）。 */
-  fixedPasscode: text('fixed_passcode').notNull().default(''),
+  /** 投票截止前是否允许撤回自己已投的票（撤回后可重投）。 */
+  allowWithdraw: integer('allow_withdraw', { mode: 'boolean' }).notNull().default(true),
   /** 公开页是否展示各候选票数；默认关闭，避免从众。 */
   showResults: integer('show_results', { mode: 'boolean' }).notNull().default(false),
   /** 大屏取码密钥；后台可以一键更换，旧大屏链接立即失效。 */
@@ -1485,10 +1485,12 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  uniqueIndex('competition_popularity_ballots_event_device_slot_unique').on(table.eventId, table.deviceHash, table.voteIndex),
+  uniqueIndex('competition_popularity_ballots_event_device_slot_unique')
+    .on(table.eventId, table.deviceHash, table.voteIndex)
+    .where(sql`${table.voided} = 0`),
   uniqueIndex('competition_popularity_ballots_event_openid_slot_unique')
     .on(table.eventId, table.voterOpenidHash, table.voteIndex)
-    .where(sql`${table.voterOpenidHash} is not null`),
+    .where(sql`${table.voterOpenidHash} is not null and ${table.voided} = 0`),
   index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
   index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt),
   index('competition_popularity_ballots_event_voided_idx').on(table.eventId, table.voided, table.createdAt),

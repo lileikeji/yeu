@@ -51,8 +51,7 @@ export function handleWechatMpPopularityMessage(
   }
 
   const code = (match[1] || '').trim()
-  const fixedPasscode = settings.passcodeRotate ? null : settings.fixedPasscode
-  if (!code || !verifyPopularityWechatPasscode(input.secret, eventRow.id, code, now, fixedPasscode)) {
+  if (settings.passcodeRotate && (!code || !verifyPopularityWechatPasscode(input.secret, eventRow.id, code, now))) {
     return '口令不正确或已过期。\n请查看现场大屏当前显示的 2 位数字口令，回复「投票 + 两位数」（例如：投票 58）领取专属投票链接。'
   }
 
@@ -62,7 +61,53 @@ export function handleWechatMpPopularityMessage(
   const link = `${origin}/singer/popularity?vt=${encodeURIComponent(issued.ticket)}`
 
   return [
-    '身份核验通过，请点击下方你的专属链接投票：',
+    settings.passcodeRotate ? '身份核验通过，请点击下方你的专属链接投票：' : '请点击下方你的专属链接投票：',
+    link,
+    '一人一微信号一票（45 分钟内有效，请勿转发他人）。'
+  ].join('\n')
+}
+
+export interface WechatMpPopularityEventInput {
+  fromUserName: string
+  siteOrigin: string
+  secret: string
+  now?: number
+}
+
+/**
+ * 关注即领票：扫码关注后直接回一条带专属链接的消息，观众不用再打字。
+ * 窗口未开/已截止时只回提示，仍然欢迎关注。
+ */
+export function handleWechatMpPopularityFollow(
+  client: DatabaseClient,
+  input: WechatMpPopularityEventInput
+): string {
+  const contentId = findMusicAssociationContent(client).id
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const settings = getPopularitySettings(client, eventRow.id)
+  const accountName = settings.wechatAccountName || '仰大音乐馆'
+  const welcome = `欢迎关注「${accountName}」！`
+  if (!settings.enabled) {
+    return `${welcome}\n本场「人气奖投票」尚未开启，请留意现场主持人通知。`
+  }
+
+  const adminState = getPopularityAdminState(client, eventRow.id)
+  if (adminState.status === 'scheduled') {
+    return `${welcome}\n「人气奖投票」尚未开始，请留意现场大屏倒计时。`
+  }
+  if (adminState.status === 'closed') {
+    return `${welcome}\n本场「人气奖投票」已截止，感谢参与！`
+  }
+
+  const now = input.now ?? Date.now()
+  const openIdHash = popularityOpenIdHash(input.secret, eventRow.id, input.fromUserName)
+  const issued = issuePopularityWechatTicket(input.secret, eventRow.id, openIdHash, 45 * 60_000, now)
+  const origin = input.siteOrigin.replace(/\/+$/, '')
+  const link = `${origin}/singer/popularity?vt=${encodeURIComponent(issued.ticket)}`
+
+  return [
+    welcome,
+    '点击下方专属链接，为喜欢的歌手投票：',
     link,
     '一人一微信号一票（45 分钟内有效，请勿转发他人）。'
   ].join('\n')

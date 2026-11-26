@@ -29,7 +29,7 @@ const draft = reactive<SettingsDraft>({
   allowRepeatVote: true,
   qrRotateSeconds: 30,
   passcodeRotate: true,
-  fixedPasscode: '',
+  allowWithdraw: true,
   showResults: true,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
   wechatAccountName: '仰恩大学指南',
@@ -73,7 +73,7 @@ function sync(): void {
     allowRepeatVote: settings.allowRepeatVote ?? true,
     qrRotateSeconds: settings.qrRotateSeconds,
     passcodeRotate: settings.passcodeRotate ?? true,
-    fixedPasscode: settings.fixedPasscode ?? '',
+    allowWithdraw: settings.allowWithdraw ?? true,
     showResults: settings.showResults,
     authMode: settings.authMode ?? 'wechat_mp',
     wechatAccountName: settings.wechatAccountName ?? '仰恩大学指南',
@@ -140,7 +140,7 @@ async function saveSettings(): Promise<void> {
         allowRepeatVote: draft.allowRepeatVote,
         qrRotateSeconds: Number(draft.qrRotateSeconds),
         passcodeRotate: draft.passcodeRotate,
-        fixedPasscode: draft.fixedPasscode.trim(),
+        allowWithdraw: draft.allowWithdraw,
         showResults: draft.showResults,
         authMode: draft.authMode,
         wechatAccountName: draft.wechatAccountName.trim() || '仰恩大学指南',
@@ -436,27 +436,23 @@ async function copyDisplayUrl(): Promise<void> {
                 type="checkbox"
                 class="size-4 rounded border-zinc-300"
               >
-              口令每分钟自动轮换（关闭后整场使用固定口令）
+              发口令领票（大屏显示 2 位数字口令，每分钟自动轮换）
             </label>
-            <div
+            <p
               v-if="!draft.passcodeRotate"
-              class="flex flex-wrap items-center gap-2"
+              class="text-xs text-zinc-500"
             >
-              <label
-                class="text-xs text-zinc-600 dark:text-zinc-400"
-                for="popularity-fixed-passcode"
-              >固定口令</label>
-              <input
-                id="popularity-fixed-passcode"
-                v-model="draft.fixedPasscode"
-                inputmode="numeric"
-                maxlength="2"
-                placeholder="如 58"
-                class="w-24 rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-1.5 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-950"
-              >
-              <span class="text-xs text-zinc-500">两位数（10–99），保存后立即生效</span>
-            </div>
+              已关闭：观众关注公众号后直接发送「投票」即可收到专属链接，大屏不再显示数字口令。
+            </p>
           </div>
+          <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+            <input
+              v-model="draft.allowWithdraw"
+              type="checkbox"
+              class="size-4 rounded border-zinc-300"
+            >
+            允许观众取消自己已投的票（取消后可重新投）
+          </label>
           <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
             <input
               v-model="draft.autoQuarantine"
