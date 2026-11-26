@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">迎新指南标志（深色背景版）</title>
+  <desc id="desc">亮翠晴空双页折册与明亮金橙指北罗盘构成的多彩立体标志</desc>
+  <defs>
+    <clipPath id="mark-dark-clip-left">
+      <rect x="0" y="0" width="256.5" height="512"/>
+    </clipPath>
+    <clipPath id="mark-dark-clip-right">
+      <rect x="256" y="0" width="256" height="512"/>
+    </clipPath>
+    <linearGradient id="mark-dark-kite-left" x1="140" y1="52" x2="256" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FEF08A"/>
+      <stop offset="1" stop-color="#FBBF24"/>
+    </linearGradient>
+    <linearGradient id="mark-dark-kite-right" x1="256" y1="52" x2="372" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDBA74"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="mark-dark-book-left" x1="56" y1="172" x2="256" y2="466" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6EE7B7"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="mark-dark-book-right" x1="256" y1="172" x2="456" y2="466" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7DD3FC"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M56,225.41 A32,32 0 0,1 103.1,197.2 L243.73,272.44 A26,26 0 0,0 268.27,272.44 L408.9,197.2 A32,32 0 0,1 456,225.41 L456,340.74 A32,32 0 0,1 438.99,369.02 L270.05,458.55 A30,30 0 0,1 241.95,458.55 L73.01,369.02 A32,32 0 0,1 56,340.74 L56,225.41Z" fill="url(#mark-dark-book-right)" clip-path="url(#mark-dark-clip-right)"/>
+    <path d="M56,225.41 A32,32 0 0,1 103.1,197.2 L243.73,272.44 A26,26 0 0,0 268.27,272.44 L408.9,197.2 A32,32 0 0,1 456,225.41 L456,340.74 A32,32 0 0,1 438.99,369.02 L270.05,458.55 A30,30 0 0,1 241.95,458.55 L73.01,369.02 A32,32 0 0,1 56,340.74 L56,225.41Z" fill="url(#mark-dark-book-left)" clip-path="url(#mark-dark-clip-left)"/>
+    <path d="M239.37,71.21 A22,22 0 0,1 272.63,71.21 L352.34,163.29 A24,24 0 0,1 345.51,200.16 L266.37,242.46 A22,22 0 0,1 245.63,242.46 L166.49,200.16 A24,24 0 0,1 159.66,163.29 L239.37,71.21Z" fill="url(#mark-dark-kite-right)" clip-path="url(#mark-dark-clip-right)"/>
+    <path d="M239.37,71.21 A22,22 0 0,1 272.63,71.21 L352.34,163.29 A24,24 0 0,1 345.51,200.16 L266.37,242.46 A22,22 0 0,1 245.63,242.46 L166.49,200.16 A24,24 0 0,1 159.66,163.29 L239.37,71.21Z" fill="url(#mark-dark-kite-left)" clip-path="url(#mark-dark-clip-left)"/>
+  </g>
+</svg>
