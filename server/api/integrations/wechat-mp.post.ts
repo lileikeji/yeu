@@ -117,8 +117,9 @@ export default defineEventHandler(async (event) => {
   })
   if (popularityReply != null) {
     try {
-      assertRateLimit(event, `bot:wechat-mp:vote:user:${incoming.fromUserName}`, 30, 60_000, client)
-      assertRateLimit(event, 'bot:wechat-mp:vote:global', 3000, 60_000, client)
+      // 现场投票分支只走进程内计数：每条消息少两次 SQLite 写，60 秒窗口丢一次无所谓。
+      assertRateLimit(event, `bot:wechat-mp:vote:user:${incoming.fromUserName}`, 30, 60_000)
+      assertRateLimit(event, 'bot:wechat-mp:vote:global', 3000, 60_000)
     } catch (error) {
       if (botRateLimited(error)) return 'success'
       throw error
