@@ -16,8 +16,8 @@ useHead({
     { name: 'apple-mobile-web-app-status-bar-style', content: 'default' }
   ],
   link: [
-    { rel: 'icon', type: 'image/png', href: '/icons/app-icon-192.png?v=20261126b' },
-    { rel: 'apple-touch-icon', href: '/icons/app-icon-192.png?v=20261126b' }
+    { rel: 'icon', type: 'image/png', href: '/icons/app-icon-192.png?v=20261126r2' },
+    { rel: 'apple-touch-icon', href: '/icons/app-icon-192.png?v=20261126r2' }
   ]
 })
 
@@ -29,12 +29,12 @@ useSeoMeta({
   ogSiteName: '迎新指南',
   ogType: 'website',
   ogLocale: 'zh_CN',
-  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261126b',
+  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261126r2',
   ogImageWidth: 512,
   ogImageHeight: 512,
   ogImageAlt: '迎新指南',
   twitterCard: 'summary_large_image',
-  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261126b'
+  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261126r2'
 })
 
 const pwaManifestComponent = import.meta.dev

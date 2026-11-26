@@ -1,4 +1,4 @@
-import { listActivityPlaceIds } from '../../modules/activities/service'
+import { listActivityHotspots, listActivityPlaceIds } from '../../modules/activities/service'
 import { useAppDatabase } from '../../utils/database'
 import { setPublicCache } from '../../utils/http'
 
@@ -8,7 +8,9 @@ import { setPublicCache } from '../../utils/http'
  */
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')
-  const placeIds = listActivityPlaceIds(useAppDatabase(event))
+  const client = useAppDatabase(event)
+  const placeIds = listActivityPlaceIds(client)
+  const hotspots = listActivityHotspots(client)
   setPublicCache(event, 30)
-  return { placeIds }
+  return { placeIds, hotspots }
 })

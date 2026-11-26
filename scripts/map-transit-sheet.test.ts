@@ -10,15 +10,15 @@ const componentSource = readFileSync(resolve('app/components/MapTransitPanel.vue
 const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
 const sheetSource = componentSource.slice(0, componentSource.indexOf('v-else-if="!open"'))
 
-test('T-029 入口：第 3 行两格各占一半，叮叮车与校外公交并排', () => {
-  assert.match(pageSource, /type MapSheetView = 'sections' \| 'all' \| 'bus' \| 'transit'/)
+test('T-040 入口：分类格改 4×2，校外公交独占第 8 格', () => {
+  assert.match(pageSource, /type MapSheetView = 'sections' \| 'all' \| 'activity' \| 'bus' \| 'transit'/)
   assert.match(pageSource, /function openTransitSheet\(\)/)
   assert.match(pageSource, /aria-label="打开校外公交"/)
   assert.match(pageSource, /aria-label="打开叮叮车"/)
-  assert.match(pageSource, /\.map-workspace \.map-sheet-categories > \* \{\s*grid-column: span 2;/)
-  assert.match(pageSource, /\.map-workspace \.map-sheet-categories > \.map-sheet-transport \{\s*grid-column: span 3;/)
+  assert.match(pageSource, /map-sheet-categories mt-0\.5 grid grid-cols-4 gap-1 pb-2/)
+  assert.doesNotMatch(pageSource, /grid-column: span [23];/, '6 列覆盖整块已删除')
   assert.doesNotMatch(pageSource, /nth-child\(n \+ 4\)/)
-  assert.equal(pageSource.match(/class="map-sheet-transport /g)?.length, 2, '两个交通格都要挂 map-sheet-transport')
+  assert.equal(pageSource.match(/class="map-sheet-transport /g)?.length, 1, '只剩校外公交一格挂 map-sheet-transport')
 })
 
 test('T-032 线路双卡：两卡并排、无 tablist、选中卡走线色内联样式', () => {
@@ -86,8 +86,9 @@ test('T-029 守卫层跟着面板状态进出，popstate 与 Esc 共用一条判
 })
 
 test('T-030 面板左右竖带：sheet 只按上边算 band，玻璃开也干净', () => {
-  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 2\.2, 0\.18, 0, 'top'\)/)
-  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all', radiusPx\?: number\): void => \{/)
+  // 2026-11-26 玻璃全交 WebGL2：frost 拉满 1、strengthMul 3，第 8 参 band=16px 只留一条薄折射带。
+  assert.match(pageSource, /push\(mobileSheetElement\.value, 0\.008, 3, 1, 0, 'top', 26, 16\)/)
+  assert.match(pageSource, /const push = \(element: HTMLElement \| null, radius: number, strengthMul: number, frost: number, rim = 1, bandEdges: 'all' \| 'top' = 'all', radiusPx\?: number, band = 0\): void => \{/)
   assert.match(glassSource, /bandEdges\?: 'all' \| 'top'/)
   assert.match(glassSource, /if \(vEdges > 0\.5\)/)
   assert.match(glassSource, /uniform1fv\(pipeline\.uEdges, mount\.edges\)/)

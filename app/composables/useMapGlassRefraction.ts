@@ -142,9 +142,14 @@ precision highp float;
 precision highp sampler2D;
 
 uniform sampler2D uTex;
+// 第二张纹理：同一帧底图的 1/20 缩略图。大半径平均只能靠缩略图双线性上采样得到，
+// 在着色器里用少量稀疏抽样做大半径会把 POI 圆点复制成一串软圆（看起来就是「重影」）。
+uniform sampler2D uBlurScene;
 uniform vec2 uRes;
 uniform float uStrength;
 uniform float uDpr;
+// 2026-11-26 用户「深色模式下的玻璃样式有异常」：主题是全局的，一个 float 就够。
+uniform float uDark;
 
 flat in vec4 vRect;
 flat in vec4 vParams;
@@ -156,7 +161,7 @@ out vec4 outColor;
  * 饱和度乘子。底图是大面积绿色，超过 0.7 就明显发绿（实测 0.85 时草地
  * 会把玻璃整体染成淡绿），所以固定在 0.7，等于轻微降饱和。
  */
-const float SAT_MIX = 0.7;
+const float SAT_MIX = 0.85;
 
 /** 圆角矩形有符号距离：d < 0 在内部。 */
 float sdRoundRect(vec2 p, vec2 b, float r) {
@@ -172,22 +177,30 @@ vec3 sampleSrc(vec2 uv) {
   return texture(uTex, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
 }
 
+vec3 sampleSoft(vec2 uv) {
+  return texture(uBlurScene, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+}
+
 /**
  * 9 抽样模糊。步长固定 1.3 设备像素：这是实测出来的上限，
  * 再大（1.6 以上）面板下面的道路名会糊成一团、文字压不住底图。
  */
-vec3 blur9(vec2 uv) {
-  vec2 e = 1.3 / uRes;
-  vec3 c = sampleSrc(uv) * 4.0;
-  c += sampleSrc(uv + vec2(-e.x, 0.0)) * 2.0;
-  c += sampleSrc(uv + vec2(e.x, 0.0)) * 2.0;
-  c += sampleSrc(uv + vec2(0.0, -e.y)) * 2.0;
-  c += sampleSrc(uv + vec2(0.0, e.y)) * 2.0;
-  c += sampleSrc(uv + vec2(-e.x, -e.y));
-  c += sampleSrc(uv + vec2(e.x, -e.y));
-  c += sampleSrc(uv + vec2(-e.x, e.y));
-  c += sampleSrc(uv + vec2(e.x, e.y));
-  return c * (1.0 / 16.0);
+vec3 blur9(vec2 uv, float stepPx) {
+  // 5×5 高斯（25 抽样）。原来的 9 抽样 + 2.6× 外圈在面板上会把底图 POI 圆点复制成
+  // 好几个软圆（看着就是「重影」），因为稀疏采样等于把点复制到各个偏移位置。
+  // 改成密集网格后，步长内的细节被真正平均掉，大半径也不会出现复制纹。
+  vec2 e = stepPx / uRes;
+  vec3 c = vec3(0.0);
+  float wsum = 0.0;
+  for (int iy = -2; iy <= 2; iy++) {
+    for (int ix = -2; ix <= 2; ix++) {
+      float d2 = float(ix * ix + iy * iy);
+      float w = exp(-d2 * 0.45);
+      c += sampleSrc(uv + vec2(float(ix), float(iy)) * e) * w;
+      wsum += w;
+    }
+  }
+  return c / wsum;
 }
 
 void main() {
@@ -245,17 +258,39 @@ void main() {
   sharp.b = sampleSrc(uvLens + off * 0.982).b;
 
   // 中心只做轻微模糊：整块都折射会把底图纹理扭到文字下面。
-  vec3 blurred = blur9(uvLens);
-  vec3 col = mix(blurred, sharp, smoothstep(0.0, 0.55, band));
+  // 2026-11-26 用户「我要把折射都改为 webgl2」：面板那层白纱从 CSS 挪进着色器，
+  // 所以雾化强度必须跟 frost 走 —— frost 大（大面板）时把 9 抽样的步长拉到 6px，
+  // 底图的路名/图标糊成色块，只剩整体色调；frost 小（胶囊 0.25）仍按 1.3~1.6px 保留细节。
+  // 平方是为了让 0.25 那一档几乎不动（0.0625 → 1.59px），只对大 frost 起效。
+  // stepPx 是设备像素：乘 uDpr 让模糊半径在 dpr2/3 上都是 ~46 CSS px。
+  // 半径必须明显大于底图 POI 圆点直径（~24 CSS px），否则圆点被糊成软圆、看着像重影。
+  // 5×5 网格覆盖 ±2×step：面板取 15 CSS px 步长 = 半径 ~30 CSS px，足够糊掉 POI 圆点。
+  float blurStep = mix(0.6, 6.0, frost * frost) * uDpr;
+  vec3 blurred = mix(blur9(uvLens, blurStep), sampleSoft(uvLens), frost * 0.9);
+  // sharp 只占一半：整块走 sharp 时面板顶上会显出一条「没糊过的底图」，用户直接读成白条。
+  // 2026-11-26 用户「玻璃感觉成磨砂感了，能不能再透一点」：透的代价是边缘不再回掺未模糊的 sharp，
+  // 否则面板顶边那条 band 里的路名/楼名会半清晰地透出来（看着像重影）。sharp 只留给 frost 小的胶囊。
+  vec3 col = mix(blurred, sharp, 0.5 * smoothstep(0.0, 0.55, band) * (1.0 - frost));
 
-  // 雾化：往冷白方向提，越靠近中心越浓，边缘保持清晰。
-  col = mix(col, vec3(0.97, 0.98, 1.0), frost * 0.5 * (1.0 - band));
-  col = mix(vec3(luma(col)), col, SAT_MIX);
+  // 雾化：越靠近中心越浓，边缘保持清晰。
+  // 2026-11-26 用户「深色模式下的玻璃样式有异常」：雾化色必须跟主题走 —— 浅色往冷白提，
+  // 深色往 --surface 那块深灰（#16181c）提。写死冷白的话深色页面上会糊出整块发白的玻璃，
+  // 面板里 #fafafa 的字直接消失。
+  vec3 frostTint = mix(vec3(0.97, 0.98, 1.0), vec3(0.086, 0.094, 0.110), uDark);
+  // 深色底子浅（#16181c）而底图是浅色，同样的 0.42 会糊成灰绿奶汤；dark 抬到 0.62，
+  // 玻璃才读作「深色玻璃」而不是「脏了的白玻璃」。
+  col = mix(col, frostTint, frost * mix(0.58, 0.78, uDark) * (1.0 - band * 0.25));
+  // 高光同理：深色下白色 specular 会亮成一条灯带，压到 28%。
+  float hiGain = mix(1.0, 0.28, uDark);
+  // 深色下底图透上来的是一整片绿/米色，彩度不收就成了脏绿玻璃；真实深色玻璃只留一点点色偏。
+  col = mix(vec3(luma(col)), col, mix(SAT_MIX, 0.40, uDark));
 
   // 上缘高光：假设光源在正上方，靠近上边 45% 范围内缓慢提亮。
   float topLit = smoothstep(bpx.y * 0.45, bpx.y, px.y);
   topLit *= 1.0 - smoothstep(0.0, 3.0 * uDpr, -d);
-  col += vec3(1.0) * topLit * 0.18;
+  // 2026-11-23 用户「左上角右上角还有白色的亮条」：上缘高光只跟 rim 走。
+  // 面板 rim=0（它那条 2px 亮边会变成一道白线），高光却仍在，于是圆角外的边缘一圈发白。
+  col += vec3(1.0) * topLit * 0.18 * hiGain * clamp(vParams.w, 0.0, 1.0);
 
   // 2 CSS px 亮边 rim：紧贴边界内侧，液态玻璃的「水切面」。
   // vParams.w 是逐目标的 rim 倍率（默认 1）：大面板上这条 2px 亮边会变成一道白线，
@@ -264,23 +299,27 @@ void main() {
   // T-035：乘 inside。圆角外侧不该有亮边，去掉 DOM 边框后这一圈残余白线就是「白月牙」。
   // T-037 CR-6：alpha 也要用同一份掩码 —— 色值收进圆角内、透明度没收到，外侧仍留半透明白弧。
   float rimMasked = rim * inside;
-  col += vec3(1.0) * rimMasked * 0.35;
+  col += vec3(1.0) * rimMasked * 0.35 * hiGain;
 
   // 16~34 CSS px 内侧 gloss：一道很软的内高光。12→16 淡入、34→40 淡出，
   // 中间 16~34 保持满强度；这个区间来自对比截图，整段收窄到 16px 以内就会像描边。
   float gloss = smoothstep(12.0 * uDpr, 16.0 * uDpr, -d)
               * (1.0 - smoothstep(34.0 * uDpr, 40.0 * uDpr, -d));
   gloss *= smoothstep(bpx.y * 0.2, bpx.y, px.y);
-  col += vec3(0.85, 0.93, 1.0) * gloss * 0.10;
+  // 内侧 gloss 是给 38px 小胶囊画「水切面」的；磨砂大面板上它会在顶上糊出一条横向亮带，
+  // 必须随 frost 关掉（用户 2026-11-26「这里有白条呀」）。
+  col += vec3(0.85, 0.93, 1.0) * gloss * 0.10 * hiGain * (1.0 - frost);
 
   // 厚度：内侧底部压一条暗弧，模拟玻璃下沿的折射堆积。
   float bottom = 1.0 - smoothstep(-0.95, -0.35, px.y / max(bpx.y, 1e-3));
   float thick = bottom * (1.0 - smoothstep(0.0, 10.0 * uDpr, -d));
-  col *= 1.0 - thick * 0.16;
+  col *= 1.0 - thick * 0.16 * (1.0 - frost);
 
   // 中心透明度 0.14、大面板雾化后 0.92：frost 越大越不透明，文字越好读。
-  float alpha = inside * mix(0.32, 0.92, frost);
-  alpha += rimMasked * 0.25 + topLit * 0.12 + gloss * 0.06;
+  // 上限给到 1.0：frost 拉满的大面板必须完全不透，否则底图的路名、楼名会以几个百分点的强度
+  // 直接透过玻璃（实测 alpha 0.9 时「水利楼」仍清晰可辨，看着像面板没糊住）。
+  float alpha = inside * mix(0.32, 1.0, frost);
+  alpha += rimMasked * 0.25 * hiGain + topLit * clamp(vParams.w, 0.0, 1.0) * 0.12 * hiGain + gloss * 0.06 * hiGain * (1.0 - frost);
   alpha = clamp(alpha, 0.0, 1.0);
 
   // CR-4：上下文按 premultipliedAlpha:true 创建，输出必须是预乘色，否则合成器会再乘一次 alpha。
@@ -295,13 +334,16 @@ interface GlassPipeline {
   vao: WebGLVertexArrayObject
   buffer: WebGLBuffer
   texture: WebGLTexture
+  blurTexture: WebGLTexture
   uRect: WebGLUniformLocation | null
   uParams: WebGLUniformLocation | null
   uEdges: WebGLUniformLocation | null
   uRes: WebGLUniformLocation | null
   uStrength: WebGLUniformLocation | null
   uDpr: WebGLUniformLocation | null
+  uDark: WebGLUniformLocation | null
   uTex: WebGLUniformLocation | null
+  uBlurScene: WebGLUniformLocation | null
 }
 
 /** 已挂载的状态。 */
@@ -413,10 +455,12 @@ function buildPipeline(gl: WebGL2RenderingContext): GlassPipeline | null {
   const vao = gl.createVertexArray()
   const buffer = gl.createBuffer()
   const texture = gl.createTexture()
-  if (!vao || !buffer || !texture) {
+  const blurTexture = gl.createTexture()
+  if (!vao || !buffer || !texture || !blurTexture) {
     if (vao) gl.deleteVertexArray(vao)
     if (buffer) gl.deleteBuffer(buffer)
     if (texture) gl.deleteTexture(texture)
+    if (blurTexture) gl.deleteTexture(blurTexture)
     gl.deleteProgram(program)
     return null
   }
@@ -437,11 +481,19 @@ function buildPipeline(gl: WebGL2RenderingContext): GlassPipeline | null {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]))
   // 底图是 DOM 来源（canvas / img），按左上角为第 0 行上传；翻转后 v=0 对应图像底部，
   // 正好和「归一化坐标原点在左下」对齐，着色器里就不用再倒一次。
+  // 缩略图纹理：同样的过滤参数，内容由 uploadSource 每次上传时重画。
+  gl.bindTexture(gl.TEXTURE_2D, blurTexture)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]))
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
   gl.bindTexture(gl.TEXTURE_2D, null)
 
   gl.useProgram(program)
   gl.uniform1i(gl.getUniformLocation(program, 'uTex'), 0)
+  gl.uniform1i(gl.getUniformLocation(program, 'uBlurScene'), 1)
 
   return {
     gl,
@@ -449,13 +501,16 @@ function buildPipeline(gl: WebGL2RenderingContext): GlassPipeline | null {
     vao,
     buffer,
     texture,
+    blurTexture,
     uRect: gl.getUniformLocation(program, 'uRect[0]'),
     uParams: gl.getUniformLocation(program, 'uParams[0]'),
     uEdges: gl.getUniformLocation(program, 'uEdges[0]'),
     uRes: gl.getUniformLocation(program, 'uRes'),
     uStrength: gl.getUniformLocation(program, 'uStrength'),
     uDpr: gl.getUniformLocation(program, 'uDpr'),
-    uTex: gl.getUniformLocation(program, 'uTex')
+    uDark: gl.getUniformLocation(program, 'uDark'),
+    uTex: gl.getUniformLocation(program, 'uTex'),
+    uBlurScene: gl.getUniformLocation(program, 'uBlurScene')
   }
 }
 
@@ -465,6 +520,7 @@ function destroyPipeline(pipeline: GlassPipeline): void {
   gl.deleteVertexArray(pipeline.vao)
   gl.deleteBuffer(pipeline.buffer)
   gl.deleteTexture(pipeline.texture)
+  gl.deleteTexture(pipeline.blurTexture)
 }
 
 function resolveSourceSize(source: HTMLCanvasElement | HTMLImageElement): { width: number, height: number } {
@@ -482,9 +538,15 @@ const GLASS_UPLOAD_INTERVAL_MS = 33
 let downscaleCanvas: HTMLCanvasElement | null = null
 let downscaleContext: CanvasRenderingContext2D | null = null
 
+/** 缩略图整除因子：1/20 下采样后双线性上采样就平均掉 20+ CSS px 的细节（POI 圆点、路名）。 */
+const GLASS_SOFT_DIVISOR = 20
+let softCanvas: HTMLCanvasElement | null = null
+let softContext: CanvasRenderingContext2D | null = null
+
 function uploadSource(
   gl: WebGL2RenderingContext,
   texture: WebGLTexture,
+  blurTexture: WebGLTexture,
   source: HTMLCanvasElement | HTMLImageElement
 ): boolean {
   const size = resolveSourceSize(source)
@@ -504,6 +566,21 @@ function uploadSource(
     downscaleContext.clearRect(0, 0, targetWidth, targetHeight)
     downscaleContext.drawImage(source, 0, 0, targetWidth, targetHeight)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, downscaleCanvas)
+    // 同一帧再缩一次成缩略图：着色器用它的双线性上采样做大半径平均，
+    // 成本只有几十像素的 texImage2D，但能真正抹掉圆点而不是把圆点复制成好几个。
+    const softWidth = Math.max(4, Math.round(targetWidth / GLASS_SOFT_DIVISOR))
+    const softHeight = Math.max(4, Math.round(targetHeight / GLASS_SOFT_DIVISOR))
+    if (!softCanvas) softCanvas = document.createElement('canvas')
+    if (!softContext) softContext = softCanvas.getContext('2d')
+    if (!softContext) return false
+    if (softCanvas.width !== softWidth || softCanvas.height !== softHeight) {
+      softCanvas.width = softWidth
+      softCanvas.height = softHeight
+    }
+    softContext.clearRect(0, 0, softWidth, softHeight)
+    softContext.drawImage(downscaleCanvas, 0, 0, softWidth, softHeight)
+    gl.bindTexture(gl.TEXTURE_2D, blurTexture)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, softCanvas)
   } catch {
     // 跨域污染时 drawImage / texImage2D 会抛 DOMException；本帧不画，下一帧继续试。
     return false
@@ -589,7 +666,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     // 上传限频：底图只在平移缩放时才变，稳态 60Hz 重传同一张纹理是白烧 GPU。
     const now = globalThis.performance?.now?.() ?? 0
     if (!textureUploaded || (!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS)) {
-      if (!uploadSource(gl, pipeline.texture, source)) return
+      if (!uploadSource(gl, pipeline.texture, pipeline.blurTexture, source)) return
       textureUploaded = true
       lastUploadAt = now
     }
@@ -625,12 +702,18 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, pipeline.texture)
     gl.uniform1i(pipeline.uTex, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, pipeline.blurTexture)
+    gl.uniform1i(pipeline.uBlurScene, 1)
+    gl.activeTexture(gl.TEXTURE0)
     gl.uniform4fv(pipeline.uRect, mount.rects)
     gl.uniform4fv(pipeline.uParams, mount.params)
     gl.uniform1fv(pipeline.uEdges, mount.edges)
     gl.uniform2f(pipeline.uRes, pixelWidth, pixelHeight)
     gl.uniform1f(pipeline.uStrength, strength)
     gl.uniform1f(pipeline.uDpr, dpr)
+    // 每帧读一次：切主题不需要重建 GL 资源。
+    gl.uniform1f(pipeline.uDark, document.documentElement.classList.contains('dark') ? 1 : 0)
 
     gl.enable(gl.BLEND)
     // 上下文按 premultipliedAlpha:true 创建、着色器输出预乘色，混合也必须按预乘来（否则颜色被二次衰减）。

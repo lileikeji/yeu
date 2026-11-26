@@ -258,7 +258,7 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <span class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0">
           <img
-            src="/images/brand/system-logo-mark.png?v=20261126b"
+            src="/images/brand/system-logo-mark.png?v=20261126r2"
             alt=""
             aria-hidden="true"
             class="size-9 object-contain"
@@ -304,14 +304,14 @@ onMounted(async () => {
             class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0"
           >
             <img
-              src="/images/brand/system-logo-mark-light.png?v=20261126b"
+              src="/images/brand/system-logo-mark-light.png?v=20261126r2"
               alt=""
               aria-hidden="true"
               class="size-full object-contain dark:hidden"
               decoding="async"
             >
             <img
-              src="/images/brand/system-logo-mark.png?v=20261126b"
+              src="/images/brand/system-logo-mark.png?v=20261126r2"
               alt=""
               aria-hidden="true"
               class="hidden size-full object-contain dark:block"

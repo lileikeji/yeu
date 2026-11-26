@@ -274,6 +274,13 @@ function placeFallback(): void {
   const arrowLimit = Math.max(ARROW_INSET, width - ARROW_INSET)
   const arrowX = Math.min(Math.max(anchor.x - left, ARROW_INSET), arrowLimit)
   el.style.setProperty('--pin-arrow-x', Math.round(arrowX) + 'px')
+  setOriginFromAnchor(el, arrowX, flipped)
+}
+
+/** 入场缩放要以「指向 pin 的那条边」为原点长出来，而不是卡片中心。 */
+function setOriginFromAnchor(el: HTMLElement, arrowX: number, flipped: boolean): void {
+  el.style.setProperty('--pin-origin-x', Math.round(arrowX) + 'px')
+  el.style.setProperty('--pin-origin-y', flipped ? '0%' : '100%')
 }
 
 /** 定位入口：浏览器支持锚定就交给 CSS，不支持就自己算。 */
@@ -320,6 +327,7 @@ function alignArrow(): void {
   const limit = Math.max(0, rect.width / 2 - 8)
   const clamped = Math.min(Math.max(offset, Math.min(ARROW_INSET, limit)), rect.width - Math.min(ARROW_INSET, limit))
   el.style.setProperty('--pin-arrow-x', Math.round(clamped) + 'px')
+  setOriginFromAnchor(el, clamped, rect.top > anchor.y)
 }
 
 /**
@@ -975,7 +983,9 @@ function onToggle(event: Event): void {
 
 @media (prefers-reduced-motion: no-preference) {
   .pin-popover {
-    transition: opacity 140ms ease, translate 140ms ease;
+    transition: opacity 140ms ease, translate 140ms ease, scale 140ms ease;
+    /* T-046：origin 由脚本按箭头位置写，卡片从 pin 一侧长出/收回。 */
+    transform-origin: var(--pin-origin-x, 50%) var(--pin-origin-y, 100%);
   }
 
   @starting-style {
@@ -983,6 +993,7 @@ function onToggle(event: Event): void {
     .pin-popover:popover-open:not([data-entered]) {
       opacity: 0;
       translate: 0 4px;
+      scale: 0.94;
     }
   }
 }

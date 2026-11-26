@@ -139,7 +139,11 @@ async function ensurePlaceListVisible(page: Page) {
 test('地图不展示已停用的平面图入口，地点查询保持可用', async ({ page }) => {
   await page.goto('/map')
   await expect(page.getByRole('button', { name: '平面图', exact: true })).toHaveCount(0)
-  await (await resolveMapSearch(page)).fill('图书馆')
+  // 2026-11-24 起输入期不抬面板，回车/搜索键才算提交（见 ShellDock 的 submitSearch），
+  // 所以这里补一次 Enter 才能看到结果列表。
+  const search = await resolveMapSearch(page)
+  await search.fill('图书馆')
+  await search.press('Enter')
   await expect(page.getByRole('button', { name: /^图书馆 / }).first()).toBeVisible()
 })
 
