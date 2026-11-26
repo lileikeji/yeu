@@ -101,6 +101,7 @@ function createEventWithSingers(client: DatabaseClient) {
     allowChange: true,
     maxChanges: 2,
     votesPerVoter: 1,
+    allowRepeatVote: true,
     qrRotateSeconds: 30,
     showResults: true
   })
@@ -173,6 +174,7 @@ test('刷票预估、批量作废/恢复与作废设备锁改票联动准确', (
     allowChange: true,
     maxChanges: 2,
     votesPerVoter: 1,
+    allowRepeatVote: true,
     qrRotateSeconds: 30,
     showResults: true,
     autoQuarantine: false
@@ -519,6 +521,7 @@ test('0087 实时自动冻结与 AI 巡检直接执法：等距节拍隔离不�
     allowChange: true,
     maxChanges: 1,
     votesPerVoter: 1,
+    allowRepeatVote: true,
     qrRotateSeconds: 30,
     showResults: true,
     authMode: 'device_strict',

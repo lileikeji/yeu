@@ -84,6 +84,7 @@ function openWindow(
     allowChange: boolean
     maxChanges: number
     votesPerVoter: number
+    allowRepeatVote: boolean
     showResults: boolean
     opensAt: number | null
     closesAt: number | null
@@ -99,6 +100,7 @@ function openWindow(
     allowChange: overrides.allowChange ?? true,
     maxChanges: overrides.maxChanges ?? 2,
     votesPerVoter: overrides.votesPerVoter ?? 1,
+    allowRepeatVote: overrides.allowRepeatVote ?? true,
     qrRotateSeconds: 30,
     showResults: overrides.showResults ?? true
   })
@@ -129,6 +131,7 @@ test('迁移 0081/0083：人气奖设置表、投票表与风险列可用，默�
   assert.equal(settings.allowChange, false)
   assert.equal(settings.maxChanges, 1)
   assert.equal(settings.votesPerVoter, 1)
+  assert.equal(settings.allowRepeatVote, true)
   assert.equal(settings.qrRotateSeconds, 30)
   assert.equal(settings.showResults, false)
   assert.ok(settings.displayKey.length >= 16)
@@ -291,6 +294,33 @@ test('人气奖：每人可投 3 票，可重复投同一选手，投满后拒�
   cleanup(client, path)
 })
 
+test('人气奖：多票可限制同一选手最多 1 票', () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const { event, singers } = createFinalEvent(client)
+  const opened = openWindow(client, event.id, { votesPerVoter: 3, allowRepeatVote: false })
+  assert.equal(opened.settings.votesPerVoter, 3)
+  assert.equal(opened.settings.allowRepeatVote, false)
+
+  const first = recordPopularityBallot(client, event.id, 'device-distinct', singers[0]!.id, 0)
+  assert.equal(first.votesUsed, 1)
+  assert.throws(() => recordPopularityBallot(client, event.id, 'device-distinct', singers[0]!.id, 1), error => (
+    codeOf(error) === 'POPULARITY_VOTE_DUPLICATE'
+  ))
+
+  const second = recordPopularityBallot(client, event.id, 'device-distinct', singers[1]!.id, 1)
+  assert.equal(second.votesUsed, 2)
+  const third = recordPopularityBallot(client, event.id, 'device-distinct', singers[2]!.id, 2)
+  assert.equal(third.votesUsed, 3)
+  assert.equal(third.votesRemaining, 0)
+  assert.deepEqual(third.myBallots.map(row => row.singerId), [singers[0]!.id, singers[1]!.id, singers[2]!.id])
+
+  const admin = getPopularityAdminState(client, event.id)
+  assert.deepEqual(admin.results.map(row => row.count), [1, 1, 1])
+
+  cleanup(client, path)
+})
+
 test('人气奖：截止、重置、开关与显示密钥轮换', () => {
   const { client, path } = temporaryDatabase()
   runMigrations(client)
@@ -306,6 +336,7 @@ test('人气奖：截止、重置、开关与显示密钥轮换', () => {
     allowChange: true,
     maxChanges: 1,
     votesPerVoter: 1,
+    allowRepeatVote: true,
     qrRotateSeconds: 30,
     showResults: false
   }), error => (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR')

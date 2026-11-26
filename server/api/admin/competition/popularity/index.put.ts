@@ -25,6 +25,8 @@ export default defineEventHandler(async (event) => {
       enabled: input.enabled,
       allowChange: input.allowChange,
       maxChanges: input.maxChanges,
+      votesPerVoter: input.votesPerVoter,
+      allowRepeatVote: input.allowRepeatVote,
       qrRotateSeconds: input.qrRotateSeconds,
       showResults: input.showResults
     }

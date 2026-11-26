@@ -1415,6 +1415,8 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   maxChanges: integer('max_changes').notNull().default(1),
   /** 每人最多可投票数；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
   votesPerVoter: integer('votes_per_voter').notNull().default(1),
+  /** 多票模式下是否允许把多票投给同一位选手；false = 同一选手最多 1 票。 */
+  allowRepeatVote: integer('allow_repeat_vote', { mode: 'boolean' }).notNull().default(true),
   /** 大屏二维码刷新间隔（秒）。 */
   qrRotateSeconds: integer('qr_rotate_seconds').notNull().default(30),
   /** 公开页是否展示各候选票数；默认关闭，避免从众。 */

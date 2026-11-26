@@ -26,6 +26,7 @@ const draft = reactive<SettingsDraft>({
   allowChange: false,
   maxChanges: 1,
   votesPerVoter: 1,
+  allowRepeatVote: true,
   qrRotateSeconds: 30,
   showResults: false,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
@@ -67,6 +68,7 @@ function sync(): void {
     allowChange: settings.allowChange,
     maxChanges: settings.maxChanges,
     votesPerVoter: settings.votesPerVoter ?? 1,
+    allowRepeatVote: settings.allowRepeatVote ?? true,
     qrRotateSeconds: settings.qrRotateSeconds,
     showResults: settings.showResults,
     authMode: settings.authMode ?? 'wechat_mp',
@@ -131,6 +133,7 @@ async function saveSettings(): Promise<void> {
         allowChange: draft.allowChange,
         maxChanges: Number(draft.maxChanges),
         votesPerVoter: Math.min(20, Math.max(1, Number(draft.votesPerVoter) || 1)),
+        allowRepeatVote: draft.allowRepeatVote,
         qrRotateSeconds: Number(draft.qrRotateSeconds),
         showResults: draft.showResults,
         authMode: draft.authMode,
@@ -293,7 +296,25 @@ async function copyDisplayUrl(): Promise<void> {
             class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-[12rem]"
           >
           <p class="mt-1 text-xs text-zinc-500">
-            1 = 一人一票，可改票；大于 1 = 每人可投多票（可重复投同一选手），改票设置不生效。
+            1 = 一人一票，可改票；大于 1 = 每人可投多票，改票设置不生效。
+          </p>
+          <label
+            v-if="draft.votesPerVoter > 1"
+            class="mt-2 flex items-center gap-2 text-sm"
+          >
+            <input
+              v-model="draft.allowRepeatVote"
+              type="checkbox"
+            >
+            允许把多票投给同一位选手
+          </label>
+          <p
+            v-if="draft.votesPerVoter > 1"
+            class="mt-1 text-xs text-zinc-500"
+          >
+            {{ draft.allowRepeatVote
+              ? '自由分配：可投给不同选手，也可重复投同一选手。'
+              : '同一选手最多 1 票：3 票必须投给 3 位不同选手。' }}
           </p>
         </div>
 

@@ -644,6 +644,8 @@ export interface CompetitionPopularitySettings {
   maxChanges: number
   /** 每人最多可投票数；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
   votesPerVoter: number
+  /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
+  allowRepeatVote: boolean
   qrRotateSeconds: number
   /** 公开页是否展示票数。 */
   showResults: boolean
@@ -702,6 +704,8 @@ export interface CompetitionPopularityPublicState {
   myBallots: CompetitionPopularityBallot[]
   /** 每人最多可投票数。 */
   votesPerVoter: number
+  /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
+  allowRepeatVote: boolean
   /** 当前设备/微信号已投的有效票数（含冻结票，不含作废票）。 */
   votesUsed: number
   votesRemaining: number

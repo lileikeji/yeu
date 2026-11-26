@@ -2307,6 +2307,7 @@ export interface CompetitionPopularitySettingsInput {
   allowChange: boolean
   maxChanges: number
   votesPerVoter: number
+  allowRepeatVote: boolean
   qrRotateSeconds: number
   showResults: boolean
   authMode?: CompetitionPopularityAuthMode
@@ -2338,6 +2339,7 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     allowChange: row.allowChange,
     maxChanges: Number(row.maxChanges),
     votesPerVoter: Math.max(1, Number(row.votesPerVoter ?? 1)),
+    allowRepeatVote: Boolean(row.allowRepeatVote ?? true),
     qrRotateSeconds: Number(row.qrRotateSeconds),
     showResults: row.showResults,
     displayKey: row.displayKey,
@@ -2372,6 +2374,7 @@ export function ensurePopularitySettings(
     allowChange: false,
     maxChanges: 1,
     votesPerVoter: 1,
+    allowRepeatVote: true,
     qrRotateSeconds: 30,
     showResults: false,
     displayKey: randomBytes(18).toString('base64url'),
@@ -2502,6 +2505,7 @@ export function getPopularityPublicState(
   const mineActive = activeMine[0] ?? null
   const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
   const multiVote = votesPerVoter > 1
+  const allowRepeatVote = Boolean(settings.allowRepeatVote ?? true)
   const votesUsed = activeMine.length
   const votesRemaining = Math.max(0, votesPerVoter - votesUsed)
   const status = popularityStatusOf(settings)
@@ -2533,6 +2537,7 @@ export function getPopularityPublicState(
     allowChange: settings.allowChange,
     maxChanges: Number(settings.maxChanges),
     votesPerVoter,
+    allowRepeatVote,
     qrRotateSeconds: Number(settings.qrRotateSeconds),
     showResults: settings.showResults,
     candidates: rankedCandidates,
@@ -2779,6 +2784,7 @@ export function recordPopularityBallot(
   const activeMine = myBallots.filter(ballot => Number(ballot.voided) === 0)
   const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
   const multiVote = votesPerVoter > 1
+  const allowRepeatVote = Boolean(settings.allowRepeatVote ?? true)
 
   const wechatVerified = Boolean(normalizedOpenIdHash || existing?.voterOpenidHash)
   const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
@@ -2811,6 +2817,9 @@ export function recordPopularityBallot(
       ? myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1) + 1
       : 0
     if (multiVote) {
+      if (!allowRepeatVote && myBallots.some(ballot => ballot.singerId === singerId && Number(ballot.voided) === 0)) {
+        conflictError('POPULARITY_VOTE_DUPLICATE', '同一选手最多投 1 票，请把票投给其他选手')
+      }
       if (activeMine.length >= votesPerVoter) {
         conflictError('POPULARITY_VOTE_LIMIT', `每人最多投 ${votesPerVoter} 票，你的票已经投满`)
       }
@@ -2913,6 +2922,9 @@ export function recordPopularityBallot(
             ))
             .all())
       if (multiVote) {
+        if (!allowRepeatVote && racedRows.some(ballot => ballot.singerId === singerId && Number(ballot.voided) === 0)) {
+          conflictError('POPULARITY_VOTE_DUPLICATE', '同一选手最多投 1 票，请把票投给其他选手')
+        }
         const racedActive = racedRows.filter(ballot => Number(ballot.voided) === 0)
         if (racedActive.length >= votesPerVoter) {
           conflictError('POPULARITY_VOTE_LIMIT', `每人最多投 ${votesPerVoter} 票，你的票已经投满`)
@@ -3033,6 +3045,7 @@ export function updatePopularitySettings(
     allowChange: input.allowChange,
     maxChanges: input.maxChanges,
     votesPerVoter: input.votesPerVoter,
+    allowRepeatVote: input.allowRepeatVote,
     qrRotateSeconds: input.qrRotateSeconds,
     showResults: input.showResults,
     authMode: input.authMode ?? existing.authMode,

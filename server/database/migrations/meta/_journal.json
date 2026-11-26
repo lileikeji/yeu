@@ -631,6 +631,13 @@
       "when": 1795541600000,
       "tag": "0089_votes_per_voter",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
+      "when": 1795545200000,
+      "tag": "0090_repeat_vote_setting",
+      "breakpoints": true
     }
   ]
 }

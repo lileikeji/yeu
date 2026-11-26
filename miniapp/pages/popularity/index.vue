@@ -18,6 +18,7 @@ interface PopularityCandidate {
 
 interface PopularityBallot {
   singerId: string
+  voteIndex?: number
   changeCount: number
   version: number
 }
@@ -32,6 +33,12 @@ interface PopularityState {
   totalVotes?: number
   candidates: PopularityCandidate[]
   myBallot?: PopularityBallot | null
+  myBallots?: PopularityBallot[]
+  votesPerVoter?: number
+  allowRepeatVote?: boolean
+  votesUsed?: number
+  votesRemaining?: number
+  revision?: number
   pageTicket?: string
   deviceToken?: string
 }
@@ -55,6 +62,27 @@ const statusText = computed(() => {
 })
 
 const mySingerId = computed(() => state.value?.myBallot?.singerId || '')
+const votesPerVoter = computed(() => Math.max(1, state.value?.votesPerVoter ?? 1))
+const votesUsed = computed(() => state.value?.votesUsed ?? 0)
+const votesRemaining = computed(() => state.value?.votesRemaining ?? Math.max(0, votesPerVoter.value - votesUsed.value))
+const multiVote = computed(() => votesPerVoter.value > 1)
+const allowRepeatVote = computed(() => state.value?.allowRepeatVote !== false)
+const myVoteCounts = computed(() => {
+  const counts = new Map<string, number>()
+  for (const ballot of state.value?.myBallots ?? []) {
+    counts.set(ballot.singerId, (counts.get(ballot.singerId) ?? 0) + 1)
+  }
+  return counts
+})
+function voteCountOf(singerId: string): number {
+  return myVoteCounts.value.get(singerId) ?? 0
+}
+function canVoteFor(singerId: string): boolean {
+  if (busy.value || state.value?.status !== 'open') return false
+  if (multiVote.value && votesRemaining.value <= 0) return false
+  if (multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) return false
+  return true
+}
 
 function envPayload(): { tz: string, lang: string, screen: string, touch: number } {
   const info = uni.getSystemInfoSync()
@@ -117,6 +145,15 @@ async function voteFor(candidate: PopularityCandidate): Promise<void> {
     uni.showToast({ title: '正在确认选手，请稍候', icon: 'none' })
     return
   }
+  if (!canVoteFor(candidate.singerId)) {
+    uni.showToast({
+      title: multiVote.value && votesRemaining.value <= 0
+        ? '你的票已经投满'
+        : '同一选手最多投 1 票',
+      icon: 'none'
+    })
+    return
+  }
   busy.value = true
   try {
     const result = await postJson<PopularityState>({
@@ -124,7 +161,7 @@ async function voteFor(candidate: PopularityCandidate): Promise<void> {
       body: {
         vt: vt.value,
         singerId: candidate.singerId,
-        revision: state.value.myBallot?.version ?? 0,
+        revision: state.value.revision ?? state.value.myBallot?.version ?? 0,
         pageTicket: pageTicket.value,
         d: deviceToken.value || undefined,
         env: envPayload()
@@ -133,7 +170,12 @@ async function voteFor(candidate: PopularityCandidate): Promise<void> {
     pageTicket.value = result.pageTicket || pageTicket.value
     state.value = result
     trackMiniApp('result_click', '/pages/popularity/index', { entityType: 'competition', kind: 'popularity_vote' })
-    uni.showToast({ title: '投票成功', icon: 'success' })
+    uni.showToast({
+      title: result.votesPerVoter && result.votesPerVoter > 1
+        ? `投票成功，已投 ${result.votesUsed ?? 0}/${result.votesPerVoter} 票`
+        : '投票成功',
+      icon: 'success'
+    })
   } catch (cause) {
     const message = explainError(cause)
     if (message.includes('凭证') || message.includes('刷新')) {
@@ -166,6 +208,7 @@ onPullDownRefresh(() => {
     >
       <view class="status-row">
         <text class="chip" :class="state?.status">{{ statusText }}</text>
+        <text v-if="multiVote" class="t-meta">我的票 {{ votesUsed }}/{{ votesPerVoter }}</text>
         <text v-if="state?.showResults" class="t-meta">共 {{ state?.totalVotes ?? 0 }} 票</text>
       </view>
 
@@ -173,16 +216,24 @@ onPullDownRefresh(() => {
         <view v-for="candidate in state?.candidates || []" :key="candidate.singerId" class="list-card">
           <view class="row-head">
             <text class="t-item">{{ candidate.number }}. {{ candidate.name }}</text>
-            <text v-if="mySingerId === candidate.singerId" class="chip-pin">已投</text>
+            <text v-if="voteCountOf(candidate.singerId) > 0" class="chip-pin">
+              {{ multiVote ? `已投 ${voteCountOf(candidate.singerId)} 票` : '已投' }}
+            </text>
           </view>
           <text v-if="candidate.className" class="t-meta">{{ candidate.className }}</text>
           <text v-if="candidate.song" class="t-body">{{ candidate.song }}</text>
           <button
             class="btn-link vote-btn"
-            :disabled="busy || state?.status !== 'open'"
+            :disabled="!canVoteFor(candidate.singerId)"
             @click="voteFor(candidate)"
           >
-            {{ mySingerId === candidate.singerId ? (state?.allowChange ? '改投此人' : '已投此人') : '投这一票' }}
+            {{ multiVote
+              ? (votesRemaining <= 0
+                ? '票已投满'
+                : (!allowRepeatVote && voteCountOf(candidate.singerId) > 0
+                  ? '同一选手限一票'
+                  : (voteCountOf(candidate.singerId) > 0 ? '再投一票' : '投这一票')))
+              : (mySingerId === candidate.singerId ? (state?.allowChange ? '改投此人' : '已投此人') : '投这一票') }}
           </button>
         </view>
       </view>

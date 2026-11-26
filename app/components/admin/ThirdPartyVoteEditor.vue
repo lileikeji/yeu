@@ -324,7 +324,7 @@ function votesOf(choice: Choice): number {
             v-if="formState?.form?.url"
             :href="formState.form.url"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             class="mt-1 inline-block text-xs text-emerald-600 hover:underline"
           >{{ formState.form.url }}</a>
         </div>

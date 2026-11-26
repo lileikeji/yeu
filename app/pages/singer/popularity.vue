@@ -149,6 +149,10 @@ async function vote(singerId: string): Promise<void> {
     toast.add({ title: '你的票已经投满，不能继续投', color: 'warning' })
     return
   }
+  if (multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) {
+    toast.add({ title: '同一选手最多投 1 票，请投给其他选手', color: 'warning' })
+    return
+  }
   if (!multiVote.value && state.value.myBallot?.singerId === singerId) {
     toast.add({ title: '你已经投给这位选手了', color: 'neutral' })
     return
@@ -220,6 +224,7 @@ const votesPerVoter = computed(() => Math.max(1, state.value?.votesPerVoter ?? 1
 const votesUsed = computed(() => state.value?.votesUsed ?? 0)
 const votesRemaining = computed(() => state.value?.votesRemaining ?? Math.max(0, votesPerVoter.value - votesUsed.value))
 const multiVote = computed(() => votesPerVoter.value > 1)
+const allowRepeatVote = computed(() => state.value?.allowRepeatVote !== false)
 const myVoteCounts = computed(() => {
   const counts = new Map<string, number>()
   for (const ballot of state.value?.myBallots ?? []) {
@@ -236,6 +241,10 @@ const canVote = computed(() => (
   && (state.value?.candidates.length ?? 0) > 0
   && (!multiVote.value || votesRemaining.value > 0)
 ))
+function canVoteFor(singerId: string): boolean {
+  if (!canVote.value) return false
+  return !(multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0)
+}
 const hasBallot = computed(() => votesUsed.value > 0)
 
 onMounted(() => {
@@ -347,7 +356,9 @@ onBeforeUnmount(() => {
           class="rounded-xl border border-rose-200 bg-[var(--surface)] px-4 py-3 text-sm text-rose-800 shadow-sm"
         >
           你已投 <strong>{{ votesUsed }}/{{ votesPerVoter }}</strong> 票。
-          <span v-if="votesRemaining > 0">还可以投 {{ votesRemaining }} 票，可投给不同或同一位选手。</span>
+          <span v-if="votesRemaining > 0">
+            还可以投 {{ votesRemaining }} 票，{{ allowRepeatVote ? '可投给不同或同一位选手' : '同一选手最多 1 票' }}。
+          </span>
           <span v-else>票已投满，不能继续投。</span>
         </p>
         <p
@@ -416,7 +427,7 @@ onBeforeUnmount(() => {
                 :class="voteCountOf(candidate.singerId) > 0
                   ? 'bg-rose-100 text-rose-800'
                   : 'bg-rose-600 text-white hover:bg-rose-700'"
-                :disabled="Boolean(savingId) || !canVote || (multiVote ? votesRemaining <= 0 : (hasBallot && !state.canChange) || voteCountOf(candidate.singerId) > 0)"
+                :disabled="Boolean(savingId) || !canVoteFor(candidate.singerId) || (multiVote ? votesRemaining <= 0 : (hasBallot && !state.canChange) || voteCountOf(candidate.singerId) > 0)"
                 @click="vote(candidate.singerId)"
               >
                 <UIcon
@@ -426,6 +437,7 @@ onBeforeUnmount(() => {
                 />
                 <span v-else-if="state.requiresWechatTicket">请先从公众号领链接</span>
                 <span v-else-if="multiVote && votesRemaining <= 0">票已投满</span>
+                <span v-else-if="multiVote && !allowRepeatVote && voteCountOf(candidate.singerId) > 0">同一选手限一票</span>
                 <span v-else-if="multiVote">{{ voteCountOf(candidate.singerId) > 0 ? '再投一票' : '投给 TA' }}</span>
                 <span v-else-if="voteCountOf(candidate.singerId) > 0">你已投票</span>
                 <span v-else-if="hasBallot && !state.canChange">你已投票</span>
@@ -466,7 +478,7 @@ onBeforeUnmount(() => {
 
         <p class="text-center text-xs leading-relaxed text-[var(--muted-ink)]">
           {{ multiVote
-            ? `每人最多 ${votesPerVoter} 票，可投给不同或同一位选手；投出后不能改票。`
+            ? `每人最多 ${votesPerVoter} 票，${allowRepeatVote ? '可投给不同或同一位选手' : '同一选手最多 1 票'}；投出后不能改票。`
             : (state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。') }}
         </p>
 
