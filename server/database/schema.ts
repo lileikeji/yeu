@@ -1413,6 +1413,8 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   allowChange: integer('allow_change', { mode: 'boolean' }).notNull().default(false),
   /** 允许改票的次数；0 = 投完不能改。 */
   maxChanges: integer('max_changes').notNull().default(1),
+  /** 每人最多可投票数；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
+  votesPerVoter: integer('votes_per_voter').notNull().default(1),
   /** 大屏二维码刷新间隔（秒）。 */
   qrRotateSeconds: integer('qr_rotate_seconds').notNull().default(30),
   /** 公开页是否展示各候选票数；默认关闭，避免从众。 */
@@ -1435,6 +1437,7 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
 }, table => [
   uniqueIndex('competition_popularity_settings_event_unique').on(table.eventId),
   check('competition_popularity_settings_max_changes_check', sql`${table.maxChanges} between 0 and 20`),
+  check('competition_popularity_settings_votes_per_voter_check', sql`${table.votesPerVoter} between 1 and 20`),
   check('competition_popularity_settings_qr_rotate_check', sql`${table.qrRotateSeconds} between 10 and 300`)
 ])
 
@@ -1447,6 +1450,8 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   deviceHash: text('device_hash').notNull(),
   /** 微信公众号 OpenID 脱敏 HMAC 哈希（仅 wechat_mp 模式填充）；赛事内唯一。 */
   voterOpenidHash: text('voter_openid_hash'),
+  /** 同一设备/微信号的第几票（从 0 开始）；一人一票时恒为 0。 */
+  voteIndex: integer('vote_index').notNull().default(0),
   /** 投票请求的 IP HMAC；仅用于后台风险提示，不对外返回。 */
   ipHash: text('ip_hash'),
   /** 同 IP 多设备风险标记；1 = 仅标记，不拦截。 */
@@ -1472,9 +1477,9 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  uniqueIndex('competition_popularity_ballots_event_device_unique').on(table.eventId, table.deviceHash),
-  uniqueIndex('competition_popularity_ballots_event_openid_unique')
-    .on(table.eventId, table.voterOpenidHash)
+  uniqueIndex('competition_popularity_ballots_event_device_slot_unique').on(table.eventId, table.deviceHash, table.voteIndex),
+  uniqueIndex('competition_popularity_ballots_event_openid_slot_unique')
+    .on(table.eventId, table.voterOpenidHash, table.voteIndex)
     .where(sql`${table.voterOpenidHash} is not null`),
   index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
   index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt),
@@ -2047,4 +2052,46 @@ export const yeucaTreasureStamps = sqliteTable('yeuca_treasure_stamps', {
   uniqueIndex('yeuca_treasure_stamps_actor_point_unique').on(table.actorType, table.actorId, table.pointId),
   index('yeuca_treasure_stamps_point_idx').on(table.pointId),
   index('yeuca_treasure_stamps_collected_idx').on(table.collectedAt)
+])
+
+/** 第三方投票平台（目前是金数据）同步来的投票明细，(provider, recordId) 唯一做幂等。 */
+export const thirdPartyVoteRecords = sqliteTable('third_party_vote_records', {
+  id: text('id').primaryKey(),
+  provider: text('provider').notNull().default('jinshuju'),
+  formToken: text('form_token').notNull(),
+  recordId: text('record_id').notNull(),
+  optionId: text('option_id').notNull(),
+  voterRef: text('voter_ref'),
+  ipHash: text('ip_hash'),
+  ipCidr: text('ip_cidr'),
+  uaSummary: text('ua_summary'),
+  votedAt: integer('voted_at').notNull(),
+  fillSeconds: integer('fill_seconds'),
+  score: integer('score').notNull().default(0),
+  flagsJson: text('flags_json').notNull().default('[]'),
+  status: text('status', { enum: ['valid', 'watch', 'void'] }).notNull().default('valid'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('third_party_vote_records_provider_record_unique').on(table.provider, table.recordId),
+  index('third_party_vote_records_form_status_idx').on(table.formToken, table.status, table.votedAt),
+  index('third_party_vote_records_option_idx').on(table.formToken, table.optionId, table.status),
+  index('third_party_vote_records_ip_idx').on(table.formToken, table.ipCidr, table.votedAt),
+  check('third_party_vote_records_status_check', sql`${table.status} in ('valid', 'watch', 'void')`)
+])
+
+/** 第三方投票同步游标：记录金数据的 next 游标与水位，避免重复拉全量。 */
+export const thirdPartyVoteSyncStates = sqliteTable('third_party_vote_sync_states', {
+  id: text('id').primaryKey(),
+  provider: text('provider').notNull().default('jinshuju'),
+  formToken: text('form_token').notNull(),
+  cursor: text('cursor'),
+  lastSyncedAt: integer('last_synced_at'),
+  lastEntryAt: integer('last_entry_at'),
+  totalSynced: integer('total_synced').notNull().default(0),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('third_party_vote_sync_states_provider_form_unique').on(table.provider, table.formToken)
 ])

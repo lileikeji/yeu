@@ -145,11 +145,15 @@ async function vote(singerId: string): Promise<void> {
     toast.add({ title: '投票还没开始或已经截止', color: 'warning' })
     return
   }
-  if (state.value.myBallot?.singerId === singerId) {
+  if (multiVote.value && votesRemaining.value <= 0) {
+    toast.add({ title: '你的票已经投满，不能继续投', color: 'warning' })
+    return
+  }
+  if (!multiVote.value && state.value.myBallot?.singerId === singerId) {
     toast.add({ title: '你已经投给这位选手了', color: 'neutral' })
     return
   }
-  if (state.value.myBallot && !state.value.canChange) {
+  if (!multiVote.value && state.value.myBallot && !state.value.canChange) {
     toast.add({ title: '你已投票，不能继续改票', color: 'warning' })
     return
   }
@@ -166,17 +170,22 @@ async function vote(singerId: string): Promise<void> {
           ...(token.value ? { token: token.value } : {}),
           ...(vt ? { vt } : {}),
           singerId,
-          revision: state.value.myBallot?.version ?? 0,
+          revision: state.value.revision ?? 0,
           ...(device ? { d: device } : {}),
           ...(state.value.pageTicket ? { pageTicket: state.value.pageTicket } : {}),
           ...(env ? { env } : {})
         }
       }
     )
-    const changed = Boolean(state.value.myBallot)
+    const changed = !multiVote.value && votesUsed.value > 0
     state.value = next
     persistDeviceToken(next.deviceToken)
-    toast.add({ title: changed ? '改票成功' : '投票成功', color: 'success' })
+    toast.add({
+      title: multiVote.value
+        ? `投票成功（已投 ${next.votesUsed}/${next.votesPerVoter} 票）`
+        : (changed ? '改票成功' : '投票成功'),
+      color: 'success'
+    })
   } catch (caught) {
     const err = caught as { statusCode?: number, data?: { data?: { blockCode?: string } } }
     const code = errorCodeOf(caught)
@@ -207,12 +216,27 @@ function remainingText(): string {
   return `还剩 ${minutes} 分 ${String(rest).padStart(2, '0')} 秒`
 }
 
+const votesPerVoter = computed(() => Math.max(1, state.value?.votesPerVoter ?? 1))
+const votesUsed = computed(() => state.value?.votesUsed ?? 0)
+const votesRemaining = computed(() => state.value?.votesRemaining ?? Math.max(0, votesPerVoter.value - votesUsed.value))
+const multiVote = computed(() => votesPerVoter.value > 1)
+const myVoteCounts = computed(() => {
+  const counts = new Map<string, number>()
+  for (const ballot of state.value?.myBallots ?? []) {
+    counts.set(ballot.singerId, (counts.get(ballot.singerId) ?? 0) + 1)
+  }
+  return counts
+})
+function voteCountOf(singerId: string): number {
+  return myVoteCounts.value.get(singerId) ?? 0
+}
 const canVote = computed(() => (
   !state.value?.requiresWechatTicket
   && state.value?.status === 'open'
   && (state.value?.candidates.length ?? 0) > 0
+  && (!multiVote.value || votesRemaining.value > 0)
 ))
-const hasBallot = computed(() => Boolean(state.value?.myBallot))
+const hasBallot = computed(() => votesUsed.value > 0)
 
 onMounted(() => {
   syncWechatTicketFromLocation()
@@ -259,7 +283,13 @@ onBeforeUnmount(() => {
             {{ remainingText() }}
           </span>
           <span class="rounded-full bg-[var(--surface)] px-3 py-1 text-[var(--muted-ink)] shadow-sm">
-            {{ state?.totalVotes ?? 0 }} 人已投
+            {{ state?.totalVotes ?? 0 }} {{ multiVote ? '票' : '人已投' }}
+          </span>
+          <span
+            v-if="multiVote && hasBallot"
+            class="rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700 shadow-sm"
+          >
+            我的票 {{ votesUsed }}/{{ votesPerVoter }}
           </span>
           <span
             v-if="state?.wechatVerified"
@@ -296,7 +326,7 @@ onBeforeUnmount(() => {
             <p class="text-xs leading-relaxed text-[var(--muted-ink)]">
               1. 打开微信关注「<strong>{{ state.wechatAccountName || '仰恩大学指南' }}</strong>」（长按右侧二维码识别，或微信搜索公众号名）；<br>
               2. 看现场大屏上的 2 位数字口令，发送「<strong>投票 XX</strong>」（如：投票 58）；<br>
-              3. 点回复的专属链接进入即可投票（一人一微信号一票）。
+              3. 点回复的专属链接进入即可投票。
             </p>
           </div>
           <div
@@ -313,7 +343,15 @@ onBeforeUnmount(() => {
         </div>
 
         <p
-          v-if="hasBallot"
+          v-if="hasBallot && multiVote"
+          class="rounded-xl border border-rose-200 bg-[var(--surface)] px-4 py-3 text-sm text-rose-800 shadow-sm"
+        >
+          你已投 <strong>{{ votesUsed }}/{{ votesPerVoter }}</strong> 票。
+          <span v-if="votesRemaining > 0">还可以投 {{ votesRemaining }} 票，可投给不同或同一位选手。</span>
+          <span v-else>票已投满，不能继续投。</span>
+        </p>
+        <p
+          v-else-if="hasBallot"
           class="rounded-xl border border-rose-200 bg-[var(--surface)] px-4 py-3 text-sm text-rose-800 shadow-sm"
         >
           你已投票：<strong>{{ state.candidates.find(item => item.singerId === state?.myBallot?.singerId)?.name ?? '当前选手' }}</strong>。
@@ -332,7 +370,7 @@ onBeforeUnmount(() => {
             v-for="candidate in state.candidates"
             :key="candidate.singerId"
             class="flex flex-col overflow-hidden rounded-2xl border bg-[var(--surface)] shadow-sm"
-            :class="state.myBallot?.singerId === candidate.singerId
+            :class="voteCountOf(candidate.singerId) > 0
               ? 'border-rose-400 ring-2 ring-rose-200'
               : 'border-[var(--line)]'"
           >
@@ -353,10 +391,10 @@ onBeforeUnmount(() => {
                 {{ candidate.number }}号选手
               </span>
               <span
-                v-if="state.myBallot?.singerId === candidate.singerId"
+                v-if="voteCountOf(candidate.singerId) > 0"
                 class="absolute right-2 top-2 rounded-full bg-rose-600 px-2.5 py-1 text-xs font-bold text-white"
               >
-                已投
+                {{ multiVote ? `已投 ${voteCountOf(candidate.singerId)} 票` : '已投' }}
               </span>
             </div>
 
@@ -375,10 +413,10 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="mt-auto flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                :class="state.myBallot?.singerId === candidate.singerId
+                :class="voteCountOf(candidate.singerId) > 0
                   ? 'bg-rose-100 text-rose-800'
                   : 'bg-rose-600 text-white hover:bg-rose-700'"
-                :disabled="Boolean(savingId) || !canVote || (hasBallot && !state.canChange) || state.myBallot?.singerId === candidate.singerId"
+                :disabled="Boolean(savingId) || !canVote || (multiVote ? votesRemaining <= 0 : (hasBallot && !state.canChange) || voteCountOf(candidate.singerId) > 0)"
                 @click="vote(candidate.singerId)"
               >
                 <UIcon
@@ -386,9 +424,11 @@ onBeforeUnmount(() => {
                   name="i-lucide-loader-circle"
                   class="size-4 animate-spin"
                 />
-                <span v-else-if="state.myBallot?.singerId === candidate.singerId">你已投票</span>
-                <span v-else-if="hasBallot && !state.canChange">你已投票</span>
                 <span v-else-if="state.requiresWechatTicket">请先从公众号领链接</span>
+                <span v-else-if="multiVote && votesRemaining <= 0">票已投满</span>
+                <span v-else-if="multiVote">{{ voteCountOf(candidate.singerId) > 0 ? '再投一票' : '投给 TA' }}</span>
+                <span v-else-if="voteCountOf(candidate.singerId) > 0">你已投票</span>
+                <span v-else-if="hasBallot && !state.canChange">你已投票</span>
                 <span v-else-if="hasBallot">改投 TA</span>
                 <span v-else>投给 TA</span>
               </button>
@@ -425,7 +465,9 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="text-center text-xs leading-relaxed text-[var(--muted-ink)]">
-          {{ state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。' }}
+          {{ multiVote
+            ? `每人最多 ${votesPerVoter} 票，可投给不同或同一位选手；投出后不能改票。`
+            : (state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。') }}
         </p>
 
         <div class="flex justify-center">

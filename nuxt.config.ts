@@ -152,6 +152,13 @@ export default defineNuxtConfig({
     wechatMiniappAppId: '',
     wechatMiniappAppSecret: '',
     wechatShareAllowedHosts: 'yx.huiliyill.cn',
+    // 金数据第三方投票接入（NUXT_JINSHUJU_* 覆盖）；三项任一缺失时相关路由返回 503
+    jinshujuApiToken: '',
+    jinshujuFormToken: '',
+    jinshujuOptionField: '',
+    jinshujuWebhookSecret: '',
+    jinshujuSyncSecret: '',
+    jinshujuIpHashSecret: '',
     public: {
       siteUrl: 'http://localhost:3000',
       mapProvider: 'maplibre-dev',

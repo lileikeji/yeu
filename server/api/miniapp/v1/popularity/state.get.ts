@@ -59,7 +59,7 @@ export default defineEventHandler((event) => {
     security.secret,
     eventRow.id,
     ticket.openIdHash,
-    state.myBallot?.version ?? 0
+    state.revision
   )
   return { ...state, deviceToken: identity.token, pageTicket }
 })

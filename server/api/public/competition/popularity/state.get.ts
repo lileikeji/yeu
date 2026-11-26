@@ -59,7 +59,7 @@ export default defineEventHandler((event) => {
       security.secret,
       eventRow.id,
       wechatTicket.openIdHash,
-      state.myBallot?.version ?? 0
+      state.revision
     )
     return { ...state, deviceToken: identity.token, pageTicket }
   }
@@ -109,7 +109,7 @@ export default defineEventHandler((event) => {
     security.secret,
     eventRow.id,
     identity.deviceHash,
-    state.myBallot?.version ?? 0
+    state.revision
   )
   return { ...state, deviceToken: identity.token, pageTicket }
 })

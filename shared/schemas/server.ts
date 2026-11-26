@@ -1579,6 +1579,7 @@ export const competitionPopularitySettingsSchema = z.object({
   closesAt: z.number().int().min(0).max(4_000_000_000_000).nullable(),
   allowChange: z.boolean(),
   maxChanges: z.number().int().min(0).max(20),
+  votesPerVoter: z.number().int().min(1).max(20).default(1),
   qrRotateSeconds: z.number().int().min(10).max(300),
   showResults: z.boolean(),
   authMode: z.enum(['wechat_mp', 'device_strict']).optional(),
@@ -1651,6 +1652,20 @@ export const competitionPopularityStateQuerySchema = z.object({
   vt: z.string().trim().min(20).max(2000).optional(),
   /** 本机签名设备令牌；可选，缺失时退回 cookie。 */
   d: z.string().trim().min(20).max(2000).optional()
+}).strict()
+
+/** 后台手动补录第三方投票明细：现场代录、离线补票都走这里。 */
+export const thirdPartyVoteManualCreateSchema = z.object({
+  optionId: z.string().trim().min(1).max(80),
+  count: z.coerce.number().int().min(1).max(50).optional(),
+  votedAt: z.number().int().min(0).optional(),
+  voterRef: z.string().trim().max(80).optional(),
+  status: z.enum(['valid', 'watch', 'void']).optional()
+}).strict()
+
+export const thirdPartyVoteManualQuerySchema = z.object({
+  id: z.string().trim().min(1).max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional()
 }).strict()
 
 export const competitionResultLookupSchema = z.object({

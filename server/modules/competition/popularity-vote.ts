@@ -60,6 +60,7 @@ export async function handlePopularityVote(
   const eventRow = ensureCompetitionEvent(client, contentId)
   const settings = getPopularitySettings(client, eventRow.id)
   const isWechatMode = settings.authMode === 'wechat_mp'
+  const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
 
   const ip = getClientIpAddress(event)
   const ipHash = ip === 'unknown' ? null : popularityIpHash(security.secret, ip)
@@ -69,7 +70,7 @@ export async function handlePopularityVote(
   const envHash = popularityEnvHash(security.secret, event, input.env)
   const now = Date.now()
 
-  assertRateLimit(event, `popularity-vote-ip:${ip}`, isWechatMode ? 20 : 6, 60_000, client)
+  assertRateLimit(event, `popularity-vote-ip:${ip}`, isWechatMode ? Math.max(20, votesPerVoter + 10) : 6, 60_000, client)
   assertRateLimit(event, `popularity-vote-ip-10m:${ip}`, isWechatMode ? 60 : 15, 600_000, client)
 
   let voterHash = ''
@@ -112,7 +113,7 @@ export async function handlePopularityVote(
     }
     voterHash = wechatTicket!.openIdHash
     voterOpenidHash = wechatTicket!.openIdHash
-    assertRateLimit(event, `popularity-vote-device:${voterHash}`, 15, 60_000, client)
+    assertRateLimit(event, `popularity-vote-device:${voterHash}`, Math.max(15, votesPerVoter + 5), 60_000, client)
     const identity = resolvePopularityDevice(
       event,
       security.secret,
@@ -148,7 +149,7 @@ export async function handlePopularityVote(
     deviceTokenToReturn = identity.token
     qrNonce = token.nonce || null
     qrAgeMs = token.issuedAt != null ? Math.max(0, now - token.issuedAt) : null
-    assertRateLimit(event, `popularity-vote-device:${voterHash}`, 15, 60_000, client)
+    assertRateLimit(event, `popularity-vote-device:${voterHash}`, Math.max(15, votesPerVoter + 5), 60_000, client)
   }
 
   const botReason = detectAutomatedPopularityAgent(userAgent)
@@ -203,7 +204,10 @@ export async function handlePopularityVote(
     }
   )
 
-  const ballotRow = client.db.select({ quarantined: competitionPopularityBallots.quarantined })
+  const ballotRows = client.db.select({
+    quarantined: competitionPopularityBallots.quarantined,
+    voided: competitionPopularityBallots.voided
+  })
     .from(competitionPopularityBallots)
     .where(and(
       eq(competitionPopularityBallots.eventId, eventRow.id),
@@ -214,8 +218,10 @@ export async function handlePopularityVote(
           )
         : eq(competitionPopularityBallots.deviceHash, voterHash)
     ))
-    .get()
-  const hasNewQuarantined = Number(ballotRow?.quarantined ?? 0) === 1
+    .all()
+  const hasNewQuarantined = ballotRows.some(row => (
+    Number(row.quarantined) === 1 && Number(row.voided) === 0
+  ))
 
   const aiConfig = inspectorConfigFromValues(useRuntimeConfig(event) as Record<string, unknown>)
   const autoTask = maybeTriggerAutoPopularityInspection(client, eventRow.id, aiConfig, {
@@ -229,7 +235,7 @@ export async function handlePopularityVote(
     security.secret,
     eventRow.id,
     voterHash,
-    state.myBallot?.version ?? 0
+    state.revision
   )
   return { ...state, deviceToken: deviceTokenToReturn, pageTicket: nextTicket }
 }

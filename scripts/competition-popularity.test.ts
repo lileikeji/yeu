@@ -83,6 +83,7 @@ function openWindow(
   overrides: Partial<{
     allowChange: boolean
     maxChanges: number
+    votesPerVoter: number
     showResults: boolean
     opensAt: number | null
     closesAt: number | null
@@ -97,6 +98,7 @@ function openWindow(
     closesAt: overrides.closesAt === undefined ? now + 60_000 : overrides.closesAt,
     allowChange: overrides.allowChange ?? true,
     maxChanges: overrides.maxChanges ?? 2,
+    votesPerVoter: overrides.votesPerVoter ?? 1,
     qrRotateSeconds: 30,
     showResults: overrides.showResults ?? true
   })
@@ -126,6 +128,7 @@ test('迁移 0081/0083：人气奖设置表、投票表与风险列可用，默�
   assert.equal(settings.title, '人气奖投票')
   assert.equal(settings.allowChange, false)
   assert.equal(settings.maxChanges, 1)
+  assert.equal(settings.votesPerVoter, 1)
   assert.equal(settings.qrRotateSeconds, 30)
   assert.equal(settings.showResults, false)
   assert.ok(settings.displayKey.length >= 16)
@@ -242,6 +245,52 @@ test('人气奖：窗口、设备一票、幂等重投、改票上限、revision
   cleanup(client, path)
 })
 
+test('人气奖：每人可投 3 票，可重复投同一选手，投满后拒绝', () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const { event, singers } = createFinalEvent(client)
+  const opened = openWindow(client, event.id, { votesPerVoter: 3 })
+  assert.equal(opened.settings.votesPerVoter, 3)
+
+  const first = recordPopularityBallot(client, event.id, 'device-multi', singers[0]!.id, 0)
+  assert.equal(first.votesUsed, 1)
+  assert.equal(first.votesRemaining, 2)
+  assert.equal(first.revision, 1)
+  assert.equal(first.myBallots.length, 1)
+  assert.equal(first.myBallots[0]?.voteIndex, 0)
+
+  // 多票模式的 revision 等于已投数，旧 revision 被拒绝。
+  assert.throws(() => recordPopularityBallot(client, event.id, 'device-multi', singers[1]!.id, 0), error => (
+    codeOf(error) === 'POPULARITY_CONFLICT'
+  ))
+
+  const second = recordPopularityBallot(client, event.id, 'device-multi', singers[0]!.id, 1)
+  assert.equal(second.votesUsed, 2)
+  assert.equal(second.totalVotes, 2)
+  assert.equal(second.myBallots.filter(row => row.singerId === singers[0]!.id).length, 2)
+
+  const third = recordPopularityBallot(client, event.id, 'device-multi', singers[1]!.id, 2)
+  assert.equal(third.votesUsed, 3)
+  assert.equal(third.votesRemaining, 0)
+  assert.equal(third.totalVotes, 3)
+
+  assert.throws(() => recordPopularityBallot(client, event.id, 'device-multi', singers[2]!.id, 3), error => (
+    codeOf(error) === 'POPULARITY_VOTE_LIMIT'
+  ))
+
+  const admin = getPopularityAdminState(client, event.id)
+  assert.equal(admin.settings.votesPerVoter, 3)
+  assert.equal(admin.totalVotes, 3)
+  assert.deepEqual(admin.results.map(row => row.count).sort((left, right) => right - left), [2, 1, 0])
+
+  // 另一台设备仍有独立配额。
+  const other = recordPopularityBallot(client, event.id, 'device-other', singers[2]!.id, 0)
+  assert.equal(other.votesUsed, 1)
+  assert.equal(other.totalVotes, 4)
+
+  cleanup(client, path)
+})
+
 test('人气奖：截止、重置、开关与显示密钥轮换', () => {
   const { client, path } = temporaryDatabase()
   runMigrations(client)
@@ -256,6 +305,7 @@ test('人气奖：截止、重置、开关与显示密钥轮换', () => {
     closesAt: Date.now() + 5_000,
     allowChange: true,
     maxChanges: 1,
+    votesPerVoter: 1,
     qrRotateSeconds: 30,
     showResults: false
   }), error => (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR')
@@ -279,6 +329,7 @@ test('人气奖：截止、重置、开关与显示密钥轮换', () => {
     closesAt: null,
     allowChange: true,
     maxChanges: 1,
+    votesPerVoter: 1,
     qrRotateSeconds: 45,
     showResults: true
   })

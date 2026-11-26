@@ -2854,6 +2854,7 @@ onBeforeUnmount(stopLiveRefresh)
           :state="payload?.popularity ?? null"
           @refresh="load"
         />
+        <AdminThirdPartyVoteEditor />
       </section>
 
       <section

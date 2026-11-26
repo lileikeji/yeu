@@ -571,8 +571,8 @@ export interface CompetitionFinalSongsState {
   stageTitle: string
   firstSong: string
   secondSong: string
-  /** 第一首歌的背景视频；都走对象存储，播放链接是临时签名地址。 */
-  firstVideo: CompetitionEntryAccompaniment | null
+  /** 第一首歌的伴奏（音频，跟初赛/复赛同一套格式）；都走对象存储，播放链接是临时签名地址。 */
+  firstAccompaniment: CompetitionEntryAccompaniment | null
   /** 第二首歌的背景视频；没进前六不会用到，但提前一起准备。 */
   secondVideo: CompetitionEntryAccompaniment | null
   revision: number
@@ -642,6 +642,8 @@ export interface CompetitionPopularitySettings {
   allowChange: boolean
   /** 允许改票的次数；0 = 不能改。 */
   maxChanges: number
+  /** 每人最多可投票数；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
+  votesPerVoter: number
   qrRotateSeconds: number
   /** 公开页是否展示票数。 */
   showResults: boolean
@@ -669,6 +671,8 @@ export interface CompetitionPopularityCandidate {
 
 export interface CompetitionPopularityBallot {
   singerId: string
+  /** 同一设备/微信号的第几票（从 0 开始）。 */
+  voteIndex: number
   changeCount: number
   version: number
   updatedAt: number
@@ -694,6 +698,15 @@ export interface CompetitionPopularityPublicState {
   candidates: CompetitionPopularityCandidate[]
   totalVotes: number
   myBallot: CompetitionPopularityBallot | null
+  /** 当前设备/微信号已投的有效选票（多票模式下列表长度即已投数）。 */
+  myBallots: CompetitionPopularityBallot[]
+  /** 每人最多可投票数。 */
+  votesPerVoter: number
+  /** 当前设备/微信号已投的有效票数（含冻结票，不含作废票）。 */
+  votesUsed: number
+  votesRemaining: number
+  /** 页面票据与乐观锁版本：多票模式 = votesUsed，一人一票 = myBallot.version。 */
+  revision: number
   canChange: boolean
   /** 本机签名设备令牌；存 localStorage，清 cookie 后仍能识别同一浏览器。 */
   deviceToken?: string
@@ -1128,4 +1141,42 @@ export interface CompetitionJudgePayload {
     scored: number
     total: number
   }
+}
+
+/** 第三方（金数据）投票的单项榜单条目。 */
+export interface ThirdPartyRankingEntry {
+  /** 金数据选项名，当前就是选手姓名。 */
+  optionId: string
+  /** 按姓名回连本站选手；历史名单或改名后可能为 null。 */
+  singerId: string | null
+  /** 决赛第一轮出场号；未匹配时为 null。 */
+  number: number | null
+  name: string
+  className: string | null
+  photoUrl: string | null
+  song: string
+  /** 计入排名的有效票。 */
+  valid: number
+  /** 待人工复核的票，不计入排名但单独展示。 */
+  watch: number
+  /** 被判定无效的票，只在总数里体现。 */
+  voided: number
+  /** 名次，同票并列；0 表示没有有效票。 */
+  rank: number
+  /** 占全部有效票的比例，0–1。 */
+  share: number
+}
+
+/** 公开榜单接口的返回结构。 */
+export interface ThirdPartyRankingPayload {
+  /** 未配置表单时为空字符串。 */
+  formToken: string
+  generatedAt: number
+  totals: {
+    received: number
+    valid: number
+    watch: number
+    voided: number
+  }
+  entries: ThirdPartyRankingEntry[]
 }

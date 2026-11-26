@@ -78,6 +78,7 @@
     "lint:arch": "depcruise app map shared server --config .dependency-cruiser.cjs",
     "lint:ast": "ast-grep scan app map shared server",
     "lint:secrets": "node scripts/verify-secrets.mjs",
+    "jinshuju:discover": "node scripts/jinshuju-discover.mjs",
     "verify:fast": "pnpm lint:arch && pnpm lint:ast && pnpm lint:secrets && pnpm typecheck && pnpm test",
     "verify": "pnpm verify:fast && pnpm build && pnpm bundle:budget && pnpm pwa:build:test",
     "typecheck": "nuxt typecheck",

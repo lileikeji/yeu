@@ -25,6 +25,7 @@ const draft = reactive<SettingsDraft>({
   closesAtLocal: '',
   allowChange: false,
   maxChanges: 1,
+  votesPerVoter: 1,
   qrRotateSeconds: 30,
   showResults: false,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
@@ -65,6 +66,7 @@ function sync(): void {
     closesAtLocal: toLocalInput(settings.closesAt),
     allowChange: settings.allowChange,
     maxChanges: settings.maxChanges,
+    votesPerVoter: settings.votesPerVoter ?? 1,
     qrRotateSeconds: settings.qrRotateSeconds,
     showResults: settings.showResults,
     authMode: settings.authMode ?? 'wechat_mp',
@@ -128,6 +130,7 @@ async function saveSettings(): Promise<void> {
         closesAt,
         allowChange: draft.allowChange,
         maxChanges: Number(draft.maxChanges),
+        votesPerVoter: Math.min(20, Math.max(1, Number(draft.votesPerVoter) || 1)),
         qrRotateSeconds: Number(draft.qrRotateSeconds),
         showResults: draft.showResults,
         authMode: draft.authMode,
@@ -276,6 +279,24 @@ async function copyDisplayUrl(): Promise<void> {
           </div>
         </div>
 
+        <div class="mt-4">
+          <label
+            class="block text-sm font-medium"
+            for="popularity-votes-per-voter"
+          >每人可投票数</label>
+          <input
+            id="popularity-votes-per-voter"
+            v-model.number="draft.votesPerVoter"
+            type="number"
+            min="1"
+            max="20"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-[12rem]"
+          >
+          <p class="mt-1 text-xs text-zinc-500">
+            1 = 一人一票，可改票；大于 1 = 每人可投多票（可重复投同一选手），改票设置不生效。
+          </p>
+        </div>
+
         <div class="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label
@@ -315,6 +336,12 @@ async function copyDisplayUrl(): Promise<void> {
           >
           允许改票（关闭即投票后锁定；最多 {{ draft.maxChanges }} 次）
         </label>
+        <p
+          v-if="draft.votesPerVoter > 1"
+          class="mt-1 text-xs text-amber-600"
+        >
+          每人可投 {{ draft.votesPerVoter }} 票时，改票次数与「允许改票」不生效。
+        </p>
         <label class="mt-2 flex items-center gap-2 text-sm">
           <input
             v-model="draft.showResults"

@@ -100,6 +100,7 @@ function createEventWithSingers(client: DatabaseClient) {
     closesAt: Date.now() + 300_000,
     allowChange: true,
     maxChanges: 2,
+    votesPerVoter: 1,
     qrRotateSeconds: 30,
     showResults: true
   })
@@ -171,6 +172,7 @@ test('刷票预估、批量作废/恢复与作废设备锁改票联动准确', (
     closesAt: Date.now() + 300_000,
     allowChange: true,
     maxChanges: 2,
+    votesPerVoter: 1,
     qrRotateSeconds: 30,
     showResults: true,
     autoQuarantine: false
@@ -415,10 +417,10 @@ test('0087 微信口令领票与唯一索引：动态口令核验、同一微信
   const now = 1_795_534_500_000
 
   const idxRows = client.sqlite.prepare(
-    `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('competition_popularity_ballots_event_openid_unique', 'competition_popularity_ballots_event_quarantined_idx') ORDER BY name`
+    `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('competition_popularity_ballots_event_openid_slot_unique', 'competition_popularity_ballots_event_quarantined_idx') ORDER BY name`
   ).all() as Array<{ name: string }>
   assert.deepEqual(idxRows.map(r => r.name), [
-    'competition_popularity_ballots_event_openid_unique',
+    'competition_popularity_ballots_event_openid_slot_unique',
     'competition_popularity_ballots_event_quarantined_idx'
   ])
 
@@ -516,6 +518,7 @@ test('0087 实时自动冻结与 AI 巡检直接执法：等距节拍隔离不�
     closesAt: Date.now() + 300_000,
     allowChange: true,
     maxChanges: 1,
+    votesPerVoter: 1,
     qrRotateSeconds: 30,
     showResults: true,
     authMode: 'device_strict',

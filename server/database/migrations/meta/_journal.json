@@ -617,6 +617,20 @@
       "when": 1795534400000,
       "tag": "0087_competition_popularity_fortress",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1795538000000,
+      "tag": "0088_third_party_vote_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "6",
+      "when": 1795541600000,
+      "tag": "0089_votes_per_voter",
+      "breakpoints": true
     }
   ]
 }

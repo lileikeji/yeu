@@ -21,6 +21,7 @@
 | [SIGNAL.md](./SIGNAL.md) | 校园热度：双评分入选、事件聚簇、48 小时半衰热度、日报/周报/月报与调度命令 |
 | [GIT_RESOURCES_AND_CONFIGURATION.md](./GIT_RESOURCES_AND_CONFIGURATION.md) | Git 资源与配置：仓库边界、环境变量、数据库私有存放、发布配置 |
 | [bot-integrations.md](./bot-integrations.md) | QQ / 微信机器人接入 |
+| [third-party-vote.md](./third-party-vote.md) | 第三方投票（金数据）接入：同步、评分口径与边界 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献指南：Issue/PR 流程、测试要求、安全红线与文档同步 |
 | [rules/TASK_COMPLETION_REVIEW.md](./rules/TASK_COMPLETION_REVIEW.md) | 任务完成复盘与架构同步规则 |
 | [rules/RELEASE_RULES.md](./rules/RELEASE_RULES.md) | 发布规则与已发生事故：基线含 master、干净工作树构建、外键体检、同名 release、种子清单行尾 |
