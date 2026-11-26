@@ -31,6 +31,8 @@
 
 前三项任一缺失时两个接口都返回 503，不发上游请求。两个 secret 缺失时分别返回 `webhook_secret_not_configured` / `sync_secret_not_configured`。
 
+表单 token 与选项字段可以在后台直接改（见下节「后台表单管理」）：只配 `NUXT_JINSHUJU_API_TOKEN` 也能用，这两项留空时读 `third-party-form.json`。
+
 ### 建表单与自动发现配置
 
 金数据开放平台支持直接创表，不必去网页点：
@@ -107,6 +109,24 @@ curl -X POST ".../sync?full=1&maxPages=50" -H "Authorization: Bearer $NUXT_JINSH
 
 所以即使套餐开不了数据推送，站内也能自己把票捞回来；数据推送只是把延迟从分钟级压到秒级。
 
+## 后台表单管理
+
+建表、切换生效表单、改名改描述、改填写规则、删表全部收进后台，换一场比赛不用改环境变量也不用重启。
+
+- 页面：`/admin/competition` → 人气投票分区 → 「表单管理」
+- `GET /api/admin/competition/popularity/third-party-form`：账号下表单清单、当前生效表单结构、决赛候选、有效票统计、同步水位、配置来源
+- `POST` 同一路径：`{ name, description?, fieldLabel?, options?, activate? }` 新建表单，`activate` 为真时顺手设为生效
+- `PATCH` 同一路径：`{ add?, remove?, name?, description?, weixinLimited?, oncePerWeixin? }`，任意组合一次提交
+- `DELETE` 同一路径：`{ token, confirm: true }`；删的是生效表单时同时清掉本地配置，回退到环境变量
+- `POST /api/admin/competition/popularity/third-party-form/switch`：`{ token, optionField? }` 切换生效表单；写盘前先读一次远端结构，token 不存在或字段对不上直接 400
+
+生效表单落在数据库同级的 `third-party-form.json`（`{ formToken, optionField, updatedAt }`），不占迁移、不改 schema、不用重启。读取顺序是 **文件 → 环境变量**，文件不存在时行为与只用 `.env` 完全一致。API 令牌始终只从环境变量读，不落文件。
+
+两条限制要记住：
+
+1. 删表是破坏性操作，表单里的提交记录一起消失，但本地 `third_party_vote_records` 已入库的票不会自动清理；发现删错了只能换 token 重来。
+2. 免费版套餐的「自定义填写频次」按官方套餐表属企业版能力，`oncePerWeixin` 在免费版可能 402。失败时后台会提示，不影响已有规则。
+
 ## 后台手动补录
 
 金数据表单开启「仅微信内填写」后，桌面浏览器与部分手机进不去；现场投不了的人由后台代录。
@@ -171,6 +191,8 @@ curl -X POST ".../sync?full=1&maxPages=50" -H "Authorization: Bearer $NUXT_JINSH
 - `server/modules/vote-sync/window.ts`：10 分钟 / 60 秒窗口统计
 - `server/modules/vote-sync/jinshuju-map.ts`：条目归一化
 - `server/modules/vote-sync/ingest.ts`：幂等入库与游标
-- `server/utils/jinshuju.ts`：API 客户端
+- `server/modules/vote-sync/form-config.ts`：生效表单配置文件读写（`third-party-form.json`）
+- `server/utils/jinshuju.ts`：API 客户端（条目、表单结构、建表 / 删表 / 改填写规则）
 - `server/database/migrations/0088_third_party_vote_sync.sql`：两表与索引
-- `scripts/third-party-vote.test.ts`：18 个用例
+- `scripts/third-party-vote.test.ts`：25 个用例（评分、归一化、窗口、榜单）
+- `scripts/third-party-vote-manual.test.ts`：7 个用例（补录、改状态、删除、汇总）
