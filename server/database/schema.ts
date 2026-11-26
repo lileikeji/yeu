@@ -1421,6 +1421,10 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   allowRepeatVote: integer('allow_repeat_vote', { mode: 'boolean' }).notNull().default(true),
   /** 大屏二维码刷新间隔（秒）。 */
   qrRotateSeconds: integer('qr_rotate_seconds').notNull().default(30),
+  /** 公众号口令是否每分钟轮换；false = 整场固定为 fixedPasscode（现场信号差时更好念）。 */
+  passcodeRotate: integer('passcode_rotate', { mode: 'boolean' }).notNull().default(true),
+  /** 关闭轮换时使用的两位固定口令；空串表示未设置（回落到动态口令）。 */
+  fixedPasscode: text('fixed_passcode').notNull().default(''),
   /** 公开页是否展示各候选票数；默认关闭，避免从众。 */
   showResults: integer('show_results', { mode: 'boolean' }).notNull().default(false),
   /** 大屏取码密钥；后台可以一键更换，旧大屏链接立即失效。 */

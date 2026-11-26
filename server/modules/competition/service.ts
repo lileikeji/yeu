@@ -2382,6 +2382,8 @@ export interface CompetitionPopularitySettingsInput {
   votesPerVoter: number
   allowRepeatVote: boolean
   qrRotateSeconds: number
+  passcodeRotate?: boolean
+  fixedPasscode?: string
   showResults: boolean
   authMode?: CompetitionPopularityAuthMode
   wechatAccountName?: string
@@ -2414,6 +2416,8 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     votesPerVoter: Math.max(1, Number(row.votesPerVoter ?? 1)),
     allowRepeatVote: Boolean(row.allowRepeatVote ?? true),
     qrRotateSeconds: Number(row.qrRotateSeconds),
+    passcodeRotate: Boolean(row.passcodeRotate ?? true),
+    fixedPasscode: row.fixedPasscode || '',
     showResults: row.showResults,
     displayKey: row.displayKey,
     authMode: row.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp',
@@ -2449,6 +2453,8 @@ export function ensurePopularitySettings(
     votesPerVoter: 1,
     allowRepeatVote: true,
     qrRotateSeconds: 30,
+    passcodeRotate: true,
+    fixedPasscode: '',
     showResults: true,
     displayKey: randomBytes(18).toString('base64url'),
     authMode: 'wechat_mp',
@@ -3105,6 +3111,12 @@ export function updatePopularitySettings(
     validationError('开始时间必须早于截止时间', 'opensAt')
   }
   const existing = ensurePopularitySettings(client, eventId)
+  const passcodeRotate = input.passcodeRotate ?? Boolean(existing.passcodeRotate ?? true)
+  const fixedRaw = (input.fixedPasscode ?? existing.fixedPasscode ?? '').trim()
+  const fixedPasscode = /^\d{2}$/.test(fixedRaw) ? fixedRaw : ''
+  if (!passcodeRotate && !fixedPasscode) {
+    validationError('关闭口令轮换时必须设置两位固定口令（10–99）', 'fixedPasscode')
+  }
   client.db.update(competitionPopularitySettings).set({
     enabled: input.enabled,
     title: input.title.trim(),
@@ -3116,6 +3128,8 @@ export function updatePopularitySettings(
     votesPerVoter: input.votesPerVoter,
     allowRepeatVote: input.allowRepeatVote,
     qrRotateSeconds: input.qrRotateSeconds,
+    passcodeRotate,
+    fixedPasscode,
     showResults: input.showResults,
     authMode: input.authMode ?? existing.authMode,
     wechatAccountName: input.wechatAccountName !== undefined

@@ -39,6 +39,7 @@ interface TokenState {
   wechatAccountName: string
   wechatQrUrl: string
   wechatPasscode: string
+  passcodeRotate?: boolean
   state: CompetitionPopularityPublicState
 }
 
@@ -193,7 +194,7 @@ onBeforeUnmount(() => {
                 投票 {{ tokenState.wechatPasscode }}
               </p>
               <p class="mt-1 text-xs text-[var(--muted-ink)]">
-                口令每分钟刷新 · 一人一微信号一票
+                {{ tokenState.passcodeRotate === false ? '本场固定口令 · 一人一微信号一票' : '口令每分钟刷新 · 一人一微信号一票' }}
               </p>
             </div>
           </template>

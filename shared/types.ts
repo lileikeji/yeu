@@ -651,6 +651,10 @@ export interface CompetitionPopularitySettings {
   /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
   allowRepeatVote: boolean
   qrRotateSeconds: number
+  /** 公众号口令是否每分钟轮换；false = 整场固定为 fixedPasscode。 */
+  passcodeRotate: boolean
+  /** 关闭轮换时使用的两位固定口令；空串 = 未设置，回落动态口令。 */
+  fixedPasscode: string
   /** 公开页是否展示票数。 */
   showResults: boolean
   /** 大屏取码密钥；只在后台返回。 */
