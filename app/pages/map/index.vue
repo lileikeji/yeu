@@ -2940,7 +2940,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         </button>
         <button
           type="button"
-          class="pointer-events-auto ml-auto inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-3.5 text-[13px] font-medium text-[var(--bus-accent)] shadow-lg backdrop-blur-[18px]"
+          class="pointer-events-auto ml-auto inline-flex h-11 items-center gap-1.5 rounded-full border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-3.5 text-[13px] font-medium text-[color-mix(in_srgb,var(--bus-accent)_88%,black)] shadow-lg backdrop-blur-[18px] dark:text-[var(--bus-accent)]"
           aria-label="打开叮叮车"
           @click="openBusSheet"
         >
