@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
   })
 
   const state = getPopularityPublicState(client, eventRow.id, '')
-  const fixedPasscode = settings.passcodeRotate ? null : settings.fixedPasscode
+  const passcodeRequired = Boolean(settings.passcodeRotate)
 
   return {
     expiresAt: issued.expiresAt,
@@ -94,8 +94,10 @@ export default defineEventHandler(async (event) => {
     authMode: settings.authMode,
     wechatAccountName: settings.wechatAccountName,
     wechatQrUrl: settings.wechatQrUrl,
-    wechatPasscode: computePopularityWechatPasscode(security.secret, eventRow.id, Date.now(), fixedPasscode),
-    passcodeRotate: Boolean(settings.passcodeRotate && !fixedPasscode),
+    wechatPasscode: passcodeRequired
+      ? computePopularityWechatPasscode(security.secret, eventRow.id, Date.now())
+      : '',
+    passcodeRotate: passcodeRequired,
     state
   }
 })

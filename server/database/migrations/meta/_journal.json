@@ -659,6 +659,13 @@
       "when": 1795559600000,
       "tag": "0093_competition_popularity_passcode",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "6",
+      "when": 1795559700000,
+      "tag": "0094_competition_popularity_withdraw",
+      "breakpoints": true
     }
   ]
 }

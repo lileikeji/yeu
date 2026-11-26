@@ -358,11 +358,8 @@ export function resolvePopularityDevice(
 export function computePopularityWechatPasscode(
   secret: string,
   eventId: string,
-  now = Date.now(),
-  fixedPasscode?: string | null
+  now = Date.now()
 ): string {
-  const fixed = (fixedPasscode || '').trim()
-  if (/^\d{2}$/.test(fixed)) return fixed
   const bucket = Math.floor(now / PASSCODE_WINDOW_MS)
   const digest = createHmac('sha256', secret)
     .update(PASSCODE_PURPOSE)
@@ -377,13 +374,10 @@ export function verifyPopularityWechatPasscode(
   secret: string,
   eventId: string,
   code: string | null | undefined,
-  now = Date.now(),
-  fixedPasscode?: string | null
+  now = Date.now()
 ): boolean {
   const normalized = (code || '').trim()
   if (!/^\d{2}$/.test(normalized)) return false
-  const fixed = (fixedPasscode || '').trim()
-  if (/^\d{2}$/.test(fixed)) return safeEqual(normalized, fixed)
   const current = computePopularityWechatPasscode(secret, eventId, now)
   const previous = computePopularityWechatPasscode(secret, eventId, now - PASSCODE_WINDOW_MS)
   return safeEqual(normalized, current) || safeEqual(normalized, previous)

@@ -1644,7 +1644,7 @@ export const competitionPopularitySettingsSchema = z.object({
   allowRepeatVote: z.boolean().default(true),
   qrRotateSeconds: z.number().int().min(10).max(300),
   passcodeRotate: z.boolean().optional(),
-  fixedPasscode: z.string().trim().max(2).optional(),
+  allowWithdraw: z.boolean().optional(),
   showResults: z.boolean(),
   authMode: z.enum(['wechat_mp', 'device_strict']).optional(),
   wechatAccountName: z.string().trim().min(1).max(40).optional(),
@@ -1682,6 +1682,14 @@ export const competitionPopularityVoteSchema = z.object({
 }).strict()
 
 /** 小程序登录：用 wx.login 的一次性 code 换取 openid 后再签发票据。 */
+export const competitionPopularityWithdrawSchema = z.object({
+  token: z.string().trim().min(20).max(2000).optional(),
+  vt: z.string().trim().min(20).max(2000).optional(),
+  /** 指定要撤回哪一票；多票模式必填，一人一票可省略。 */
+  singerId: z.string().trim().min(1).max(64).optional(),
+  d: z.string().trim().min(20).max(2000).optional()
+}).strict()
+
 export const competitionPopularityMiniappLoginSchema = z.object({
   code: z.string().trim().min(8).max(256)
 }).strict()

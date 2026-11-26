@@ -188,13 +188,22 @@ onBeforeUnmount(() => {
           <template v-if="tokenState?.authMode === 'wechat_mp'">
             <div class="mt-4 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface-sunken)] px-4 py-3 text-center">
               <p class="text-xs font-semibold tracking-wider text-[var(--color-green-600)]">
-                关注「{{ tokenState.wechatAccountName }}」发送口令领票
+                关注「{{ tokenState.wechatAccountName }}」{{ tokenState.passcodeRotate === false ? '即可领票' : '发送口令领票' }}
               </p>
-              <p class="mt-1 text-3xl font-black tracking-widest text-[var(--ink)]">
+              <p
+                v-if="tokenState.passcodeRotate !== false"
+                class="mt-1 text-3xl font-black tracking-widest text-[var(--ink)]"
+              >
                 投票 {{ tokenState.wechatPasscode }}
               </p>
+              <p
+                v-else
+                class="mt-1 text-2xl font-black tracking-wide text-[var(--ink)]"
+              >
+                发送「投票」
+              </p>
               <p class="mt-1 text-xs text-[var(--muted-ink)]">
-                {{ tokenState.passcodeRotate === false ? '本场固定口令 · 一人一微信号一票' : '口令每分钟刷新 · 一人一微信号一票' }}
+                {{ tokenState.passcodeRotate === false ? '无需口令 · 一人一微信号一票' : '口令每分钟刷新 · 一人一微信号一票' }}
               </p>
             </div>
           </template>
