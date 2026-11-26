@@ -671,6 +671,24 @@ onBeforeUnmount(() => {
             刷新投票状态
           </UButton>
         </div>
+
+        <div class="flex items-center justify-center gap-5 pb-1 opacity-90">
+          <img
+            src="/brand/music-association.png"
+            alt="仰恩大学音乐协会"
+            class="size-9"
+          >
+          <img
+            src="/brand/yougong.png"
+            alt="优公教育"
+            class="h-6 w-auto"
+          >
+          <img
+            src="/brand/yougong-cow.png"
+            alt=""
+            class="h-12 w-auto"
+          >
+        </div>
       </template>
     </div>
   </div>

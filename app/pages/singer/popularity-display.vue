@@ -359,6 +359,12 @@ onBeforeUnmount(() => {
                 </p>
               </div>
             </template>
+
+            <img
+              src="/brand/yougong-cow.png"
+              alt=""
+              class="pointer-events-none mt-3 h-20 w-auto self-end lg:h-24"
+            >
           </div>
 
           <p
@@ -517,8 +523,22 @@ onBeforeUnmount(() => {
         </main>
       </div>
 
-      <footer class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-[var(--muted-ink)]">
-        <span>{{ ruleSummary }}</span>
+      <footer class="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-[var(--muted-ink)]">
+        <div class="flex flex-wrap items-center gap-3">
+          <span>{{ ruleSummary }}</span>
+          <span class="flex items-center gap-2.5">
+            <img
+              src="/brand/music-association.png"
+              alt="仰恩大学音乐协会"
+              class="size-8 opacity-90"
+            >
+            <img
+              src="/brand/yougong.png"
+              alt="优公教育"
+              class="h-5 w-auto opacity-90"
+            >
+          </span>
+        </div>
         <span>数据每 {{ Math.min(10, Math.max(5, tokenState?.rotateSeconds ?? 10)) }} 秒自动刷新 · 按决赛出场顺序排列</span>
       </footer>
     </div>
