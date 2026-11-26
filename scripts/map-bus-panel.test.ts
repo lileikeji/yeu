@@ -110,10 +110,13 @@ test('T-040 入口：叮叮车移到折叠态浮钮带，一次点击进第三�
   assert.doesNotMatch(gridBlock, /打开叮叮车/, '分类格里不再有叮叮车 chip')
   const at = pageSource.indexOf('aria-label="打开叮叮车"')
   assert.ok(at > 0, '叮叮车入口仍在页面上')
-  const block = pageSource.slice(at - 1200, at + 400)
-  assert.match(block, /@click="openBusSheet"/)
-  assert.match(block, /var\(--bus-accent-soft\)/)
-  assert.match(block, /mapSheetView !== 'bus'/)
+  // 按包裹 div 定位浮钮带，不再用固定字符数截窗口：给按钮加样式会把窗口切偏，
+  // 2026-11-26 加一个 text-* 类就让 v-show 掉出了窗口。
+  const bandAt = pageSource.lastIndexOf('<div', at)
+  const band = pageSource.slice(bandAt, at)
+  assert.match(band, /mapSheetView !== 'bus'/)
+  assert.match(band, /var\(--bus-accent-soft\)/)
+  assert.match(pageSource.slice(at, at + 300), /@click="openBusSheet"/)
 })
 
 test('手机浮标退场：dock 机制清零，顶部分类行仍是五格横向滑动', () => {
