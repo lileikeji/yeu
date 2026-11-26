@@ -12,13 +12,14 @@ const transitSource = readFileSync(resolve('app/composables/useMapTransit.ts'), 
 const bloomAt = pageSource.indexOf('// 只有「折叠 → 非折叠」的离散切换才 bloom')
 const bloomWatcher = pageSource.slice(bloomAt, bloomAt + 900)
 
-test('D1 叮叮车面板让开合成块：根节点暴露 data-bus-dock，层外按 dock 高度抬 bottom', () => {
-  assert.match(pageSource, /:data-bus-dock="mapSheetView === 'bus' && mobileSheetState !== 'expanded' \? 'on' : 'off'"/)
-  assert.match(pageSource, /\.map-workspace\[data-bus-dock='on'\] > aside\.map-glass-sheet \{\s*bottom: calc\(var\(--shell-dock-map-height, 6\.25rem\) \+ var\(--mobile-dock-inset, 0\.625rem\)\)/)
+test('D1 独立浮卡让开底栏：根节点暴露 data-detached-dock，层外按底栏高度抬 bottom', () => {
+  assert.match(pageSource, /:data-detached-dock="mapSheetView === 'bus' \|\| mapSheetView === 'activity' \? 'on' : 'off'"/)
+  assert.match(pageSource, /\.map-workspace\[data-detached-dock='on'\] > aside\.map-glass-sheet \{\s*bottom: calc\(var\(--mobile-nav-height, 3\.25rem\) \+ 0\.5rem \+ var\(--mobile-dock-inset, 0\.625rem\) \+ var\(--map-float-gap, 0\.625rem\)/)
+  assert.match(pageSource, /\.map-workspace\[data-detached-dock='on'\] > aside\.map-glass-sheet \{[\s\S]{0,320}?border-radius: 26px;/, '浮卡四周自己收圆角，不跟底栏拼成一块')
   // 过渡只在稳态生效：bloom 首帧与收起三相位必须保持瞬时
   assert.match(pageSource, /\.map-workspace\[data-sheet-bloom='off'\]\[data-sheet-collapse='off'\] > aside\.map-glass-sheet \{\s*transition:/)
   assert.match(pageSource, /bottom 220ms var\(--ease-sheet\)/)
-  assert.equal((pageSource.match(/:data-bus-dock=/g) ?? []).length, 1, '只暴露一处，别在别的分支重复绑定')
+  assert.equal((pageSource.match(/:data-detached-dock=/g) ?? []).length, 1, '只暴露一处，别在别的分支重复绑定')
 })
 
 test('D2 站列真能滚：overflow-y-auto + 隐藏滚动条 + 只在真溢出时给 12px 渐隐', () => {

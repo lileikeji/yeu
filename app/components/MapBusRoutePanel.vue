@@ -25,6 +25,7 @@ const emit = defineEmits<{
   'sheet-raise': []
   'sheet-expand': []
   'sheet-collapse': []
+  'sheet-hide': []
   'sheet-back': []
   'sheet-drag-start': [event: PointerEvent]
 }>()
@@ -438,9 +439,23 @@ function markerBarTop(ratio: number): string {
             class="mx-auto block h-1 w-10 rounded-full bg-[var(--line)]"
           />
         </button>
-        <p class="truncate text-[15px] font-semibold leading-6 text-[var(--ink)]">
-          叮叮车
-        </p>
+        <div
+          data-sheet-drag-handle
+          class="min-w-0 flex-1 touch-none"
+          @pointerdown="emit('sheet-drag-start', $event)"
+        >
+          <p class="truncate text-[15px] font-semibold leading-6 text-[var(--ink)]">
+            叮叮车
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="收起叮叮车面板"
+          class="mb-0.5 h-7 shrink-0 rounded-full px-2.5 text-[12px] font-medium text-[var(--muted-ink)] active:bg-[var(--bus-accent-soft)]"
+          @click="emit('sheet-hide')"
+        >
+          收起
+        </button>
       </div>
 
       <!-- 线路 tab 34 -->
