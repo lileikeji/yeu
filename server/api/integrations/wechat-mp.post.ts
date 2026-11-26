@@ -118,7 +118,7 @@ export default defineEventHandler(async (event) => {
   if (popularityReply != null) {
     try {
       assertRateLimit(event, `bot:wechat-mp:vote:user:${incoming.fromUserName}`, 30, 60_000, client)
-      assertRateLimit(event, 'bot:wechat-mp:vote:global', 1200, 60_000, client)
+      assertRateLimit(event, 'bot:wechat-mp:vote:global', 3000, 60_000, client)
     } catch (error) {
       if (botRateLimited(error)) return 'success'
       throw error
