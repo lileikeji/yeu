@@ -294,17 +294,22 @@ onBeforeUnmount(() => {
               需要先向公众号领取专属投票链接
             </p>
             <p class="text-xs leading-relaxed text-[var(--muted-ink)]">
-              1. 打开微信关注「<strong>{{ state.wechatAccountName || '仰恩大学指南' }}</strong>」；<br>
+              1. 打开微信关注「<strong>{{ state.wechatAccountName || '仰恩大学指南' }}</strong>」（长按右侧二维码识别，或微信搜索公众号名）；<br>
               2. 看现场大屏上的 2 位数字口令，发送「<strong>投票 XX</strong>」（如：投票 58）；<br>
               3. 点回复的专属链接进入即可投票（一人一微信号一票）。
             </p>
           </div>
-          <img
+          <div
             v-if="state.wechatQrUrl"
-            :src="state.wechatQrUrl"
-            :alt="state.wechatAccountName || '公众号二维码'"
-            class="size-24 shrink-0 self-center rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] object-contain p-1"
+            class="flex shrink-0 flex-col items-center gap-1 self-center"
           >
+            <img
+              :src="state.wechatQrUrl"
+              :alt="state.wechatAccountName || '公众号二维码'"
+              class="size-24 rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] object-contain p-1"
+            >
+            <span class="text-[11px] font-semibold text-[var(--muted-ink)]">长按识别关注</span>
+          </div>
         </div>
 
         <p

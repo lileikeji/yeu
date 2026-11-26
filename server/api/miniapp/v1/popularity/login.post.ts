@@ -84,10 +84,16 @@ export default defineEventHandler(async (event) => {
 
   const openIdHash = popularityOpenIdHash(security.secret, eventRow.id, openId)
   const issued = issuePopularityWechatTicket(security.secret, eventRow.id, openIdHash, 45 * 60_000)
+  const nowMs = Date.now()
+  const opensAt = settings.opensAt
+  const closesAt = settings.closesAt
+  const status = typeof opensAt === 'number' && nowMs < opensAt
+    ? 'scheduled'
+    : (typeof closesAt === 'number' && nowMs > closesAt ? 'closed' : 'open')
   return {
     vt: issued.ticket,
     expiresAt: issued.expiresAt,
     authMode: settings.authMode,
-    status: Date.now() < settings.opensAt ? 'scheduled' : (Date.now() > settings.closesAt ? 'closed' : 'open')
+    status
   }
 })

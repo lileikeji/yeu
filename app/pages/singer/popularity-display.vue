@@ -47,6 +47,17 @@ const state = ref<CompetitionPopularityPublicState | null>(null)
 const error = ref('')
 const now = ref(Date.now())
 
+/**
+ * 公众号模式下 wechat_qr_url 本身就是公众号名片码图片，
+ * 再包一层二维码会让学生扫到图片文件后还要长按识别。
+ */
+const displayQrSrc = computed(() => {
+  const source = tokenState.value
+  if (!source) return ''
+  if (source.authMode === 'wechat_mp' && source.wechatQrUrl) return source.wechatQrUrl
+  return source.qrDataUrl
+})
+
 let tickTimer: ReturnType<typeof setInterval> | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let stopped = false
@@ -156,11 +167,17 @@ onBeforeUnmount(() => {
       <div class="mt-6 grid flex-1 gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
         <div class="flex flex-col items-center justify-center rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-5 text-[var(--ink)] shadow-2xl">
           <img
-            v-if="tokenState?.qrDataUrl"
-            :src="tokenState.qrDataUrl"
+            v-if="displayQrSrc"
+            :src="displayQrSrc"
             alt="人气奖投票二维码"
             class="aspect-square w-full max-w-[320px] rounded-xl"
           >
+          <p
+            v-if="displayQrSrc && tokenState?.authMode === 'wechat_mp'"
+            class="mt-3 text-center text-sm font-bold text-[var(--color-green-600)]"
+          >
+            微信扫一扫，直接关注公众号领票
+          </p>
           <div
             v-else
             class="grid aspect-square w-full max-w-[320px] place-items-center rounded-xl bg-zinc-100 text-sm text-zinc-500"
