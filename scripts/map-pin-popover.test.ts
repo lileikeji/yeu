@@ -96,7 +96,7 @@ test('pin card stays on the mobile branch and keeps the moments block', () => {
 test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /const ARROW_INSET = 18/)
   assert.match(popoverSource, /const offset = anchor\.x - \(baseLeft \+ appliedShift\)/)
-  assert.match(popoverSource, /const limit = Math\.max\(0, rect\.width \/ 2 - 8\)/)
+  assert.match(popoverSource, /const limit = Math\.max\(0, width \/ 2 - 8\)/)
   assert.match(popoverSource, /el\.style\.setProperty\('--pin-arrow-x', Math\.round\(clamped\) \+ 'px'\)/)
   assert.match(popoverSource, /inset-inline-start: var\(--pin-arrow-x, 50%\)/)
   // 打开后连算两帧：第一帧等浏览器把卡片排好，第二帧才拿到最终尺寸（降级路径尤其需要）。
