@@ -222,7 +222,7 @@ test('F-40 面板从按钮原点放大：origin 取 --sheet-origin-x、首帧 sc
   )
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: translate3d\(0, 0, 0\) scale\(1, 1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,320}?transform 560ms var\(--ease-spring-sheet\),[\s\S]{0,200}?opacity 200ms cubic-bezier\(0\.16, 1, 0\.3, 1\),[\s\S]{0,240}?height 320ms var\(--ease-sheet\);/,
+    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: translate3d\(0, 0, 0\) scale\(1, 1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,320}?transform 560ms var\(--ease-spring-sheet\),[\s\S]{0,200}?opacity 200ms var\(--ease-fade\),[\s\S]{0,240}?height 320ms var\(--ease-sheet\);/,
     '放大相缺 340ms transform / 240ms opacity，或把面板自己的 320ms 高度过渡冲掉了'
   )
   assert.match(mapPage, /const sheetBlooming = ref\(false\)/)

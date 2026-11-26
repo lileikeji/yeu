@@ -57,7 +57,7 @@ test('显示设置面板：两个齿轮都传事件，Transition 在 before-ente
 test('面板 bloom 用液体弹簧曲线，高度仍走 --ease-sheet', () => {
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,320}?transform 560ms var\(--ease-spring-sheet\),[\s\S]{0,200}?opacity 200ms cubic-bezier\(0\.16, 1, 0\.3, 1\),[\s\S]{0,240}?height 320ms var\(--ease-sheet\);/
+    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,320}?transform 560ms var\(--ease-spring-sheet\),[\s\S]{0,200}?opacity 200ms var\(--ease-fade\),[\s\S]{0,240}?height 320ms var\(--ease-sheet\);/
   )
 })
 

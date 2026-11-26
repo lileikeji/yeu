@@ -98,6 +98,12 @@ function raiseSheet(ev?: Event): void {
 }
 
 /** 2026-11-24：回车/输入法搜索键＝提交，只有这时才把面板抬起来（打字不再呼出面板）。 */
+/** 输入法组词中的 Enter 是选词，不是提交（keydown 在 compositionend 之前，isComposing 为真）。 */
+function onSearchEnter(event: KeyboardEvent): void {
+  if (event.isComposing || event.keyCode === 229) return
+  submitSearch()
+}
+
 function submitSearch(): void {
   if (!searchQuery.value.trim()) return
   dockCommand.value = { kind: 'search-submit', seq: dockCommand.value.seq + 1 }
@@ -185,7 +191,7 @@ onMounted(() => {
             @input="onSearchInput"
             @compositionstart="onSearchCompositionStart"
             @compositionend="onSearchCompositionEnd"
-            @keyup.enter="submitSearch"
+            @keydown.enter="onSearchEnter"
           >
           <button
             v-show="searchQuery"

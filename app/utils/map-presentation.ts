@@ -298,7 +298,9 @@ export function resolveTransitSheetAnchors(fallback: MobileSheetAnchors): Mobile
  * 所以 collapsed 锚点是 0，与 transit 同构。
  */
 export function resolveActivitySheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
-  return { collapsed: 0, half: 326, expanded: Math.min(548, fallback.expanded) }
+  // 小视口下 expanded 上限可能低于半屏 326，锚点必须保持 collapsed ≤ half ≤ expanded。
+  const expanded = Math.max(326, Math.min(548, fallback.expanded))
+  return { collapsed: 0, half: 326, expanded }
 }
 
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {

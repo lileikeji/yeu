@@ -513,8 +513,10 @@ export function listHomepageActivities(
  * 地图建筑图标上的活动红点：只返回“已发布且尚未结束”的活动关联地点。
  * 与活动列表使用同一条时间边界，避免列表已经结束、红点还挂着。
  */
-export function listActivityPlaceIds(client: DatabaseClient): string[] {
-  const now = Date.now()
+export function listActivityPlaceIds(
+  client: DatabaseClient,
+  now: number = Date.now()
+): string[] {
   const rows = client.db
     .select({ placeId: activities.placeId })
     .from(activities)
@@ -547,9 +549,9 @@ export interface ActivityHotspot {
  */
 export function listActivityHotspots(
   client: DatabaseClient,
-  limit = 60
+  previewPerPlace = 6,
+  now: number = Date.now()
 ): ActivityHotspot[] {
-  const now = Date.now()
   const rows = client.db
     .select({
       placeId: activities.placeId,
@@ -567,15 +569,27 @@ export function listActivityHotspots(
       )
     ))
     .orderBy(asc(activities.startsAt))
-    .limit(limit)
     .all()
 
-  return rows.map(row => ({
-    placeId: row.placeId as string,
-    title: row.title,
-    startsAt: new Date(row.startsAt).toISOString(),
-    endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
-  }))
+  // 每个地点只留前 previewPerPlace 条预览。原来的全局 limit 会让一个地点占满分页，
+  // 别的地点就变成「图钉有红点、热点列表却没有行」。
+  const perPlace = new Map<string, ActivityHotspot[]>()
+  for (const row of rows) {
+    const placeId = row.placeId as string
+    const bucket = perPlace.get(placeId) ?? []
+    if (bucket.length >= previewPerPlace) continue
+    bucket.push({
+      placeId,
+      title: row.title,
+      startsAt: new Date(row.startsAt).toISOString(),
+      endsAt: row.endsAt === null ? null : new Date(row.endsAt).toISOString()
+    })
+    perPlace.set(placeId, bucket)
+  }
+
+  return [...perPlace.values()]
+    .flat()
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
 }
 
 export function getPublicActivity(client: DatabaseClient, slug: string): ApiPublicActivity {

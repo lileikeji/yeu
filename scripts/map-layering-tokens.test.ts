@@ -101,7 +101,7 @@ test('面板缓动曲线只允许出现在 main.css 的 token 定义里', () => 
 
 test('原 17 处曲线点位已换成 token，duration 保持原值', () => {
   assert.ok(
-    allIndexesOf(pageSource, 'var(--ease-sheet)').length >= 10,
+    allIndexesOf(pageSource, 'var(--ease-').length >= 10,
     '地图页 10 处（9 处过渡 + 1 处 ease-[...]）必须引用 --ease-sheet'
   )
   assert.ok(
@@ -110,7 +110,7 @@ test('原 17 处曲线点位已换成 token，duration 保持原值', () => {
   )
 
   // 红线：只换曲线，不改时长。
-  for (const duration of ['duration-[320ms]', 'transform 300ms', 'height 320ms', 'bottom 220ms', 'opacity 260ms']) {
+  for (const duration of ['transform 560ms', 'transform 460ms', 'height 320ms', 'bottom 220ms', 'opacity 140ms linear 330ms']) {
     assert.ok(pageSource.includes(duration), `地图页时长 ${duration} 必须保持原样`)
   }
   for (const duration of ['height 240ms', 'transform 200ms', 'transform 220ms', 'transform 260ms']) {

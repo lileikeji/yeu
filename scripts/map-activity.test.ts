@@ -81,11 +81,11 @@ test('T-041 阶段4：活动面板锚点 326/548，不存在 84 残条', () => {
   const anchors = sliceBetween(presentation, 'export function resolveActivitySheetAnchors(', 'export function resolveMobileSheetHeightClass(')
   assert.match(anchors, /collapsed: 0/)
   assert.match(anchors, /half: 326/)
-  assert.match(anchors, /expanded: Math\.min\(548, fallback\.expanded\)/)
+  assert.match(anchors, /const expanded = Math\.max\(326, Math\.min\(548, fallback\.expanded\)\)/)
   // 326 已抽成 SHEET_HALF_326 常量，活动分支引用常量而不是内联字面量。
   assert.match(index, /const SHEET_HALF_326 = 'max-md:!h-\[326px\]'/, '半屏 326 抽成常量，活动分支复用它')
   assert.match(index, /mapSheetView === 'activity'[\s\S]{0,260}SHEET_HALF_326/)
-  assert.match(index, /mapSheetView === 'activity'[\s\S]{0,420}max-md:!h-\[min\(548px,calc\(100%_-_0\.75rem\)\)\]/)
+  assert.match(index, /mapSheetView === 'activity'[\s\S]{0,420}max-md:!h-\[min\(548px,calc\(100%_-_5\.75rem\)\)\]/)
 })
 
 test('T-041 阶段4：浮钮打开活动视图，行点击先收起再定位地点', () => {

@@ -46,7 +46,7 @@ test('T-036 搜索框聚焦不再抬面板，清空搜索收回折叠', () => {
 
 test('2026-11-24 输入期间不抬面板，只有回车/搜索键提交才抬', () => {
   const searchTag = tagAround(dock, 'aria-label="搜索地点"')
-  assert.match(searchTag, /@keyup\.enter="submitSearch"/, '回车要能提交搜索')
+  assert.match(searchTag, /@keydown\.enter="onSearchEnter"/, '回车要能提交搜索（输入法组词期间不提交）')
   assert.doesNotMatch(searchTag, /@input="[^"]*raiseSheet/, '输入事件又去抬面板了')
   assert.match(dock, /function submitSearch\(\): void \{[\s\S]{0,140}?kind: 'search-submit'/)
   // 打字期页面的 rise 分支必须空转；抬升只发生在显式提交命令里。

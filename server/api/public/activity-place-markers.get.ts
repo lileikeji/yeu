@@ -9,8 +9,10 @@ import { setPublicCache } from '../../utils/http'
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')
   const client = useAppDatabase(event)
-  const placeIds = listActivityPlaceIds(client)
-  const hotspots = listActivityHotspots(client)
+  // 红点与热点共用同一个时间边界：两次 Date.now() 在毫秒边界上会一个算「还没结束」、一个算「已结束」。
+  const now = Date.now()
+  const placeIds = listActivityPlaceIds(client, now)
+  const hotspots = listActivityHotspots(client, 6, now)
   setPublicCache(event, 30)
   return { placeIds, hotspots }
 })

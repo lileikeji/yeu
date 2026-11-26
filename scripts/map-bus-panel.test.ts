@@ -164,10 +164,14 @@ test('收起＝彻底收掉：sheet-hide 回地点列表，标题区可拖，不
   assert.notEqual(handleAt, -1)
   assert.equal(componentSource.slice(handleAt, handleAt + 260).includes('@pointerdown="emit(\'sheet-drag-start\', $event)"'), true)
   assert.match(pageSource, /function hideBusSheet\(\): void \{/)
-  assert.match(pageSource, /mapSheetView\.value = 'sections'/)
+  const hideBusAt = pageSource.indexOf('function hideBusSheet(): void {')
+  assert.notEqual(hideBusAt, -1, '缺少 hideBusSheet')
+  assert.match(pageSource.slice(hideBusAt, hideBusAt + 240), /mapSheetView\.value = 'sections'/, 'hideBusSheet 体内必须切回地点列表')
   assert.match(pageSource, /@sheet-hide="hideBusSheet\(\)"/)
   // 拖到底＝退出，不停在折叠条
-  assert.match(pageSource, /if \(mapSheetView\.value === 'bus' && nextState === 'collapsed'\) \{/)
+  const busCollapseAt = pageSource.search(/if \(mapSheetView\.value === 'bus' && nextState === 'collapsed'\) \{/)
+  assert.notEqual(busCollapseAt, -1, '拖到折叠态必须退出叮叮车')
+  assert.equal(pageSource.slice(busCollapseAt, busCollapseAt + 160).includes('hideBusSheet()'), true, '该分支必须真的调 hideBusSheet')
   // 不再给折叠条加叉号：折叠条块里没有「切回地点列表」（底栏的「地点」按钮不算）
   const barAt = componentSource.indexOf('data-bus-collapsed-bar')
   const barBlock = componentSource.slice(barAt, componentSource.indexOf('<template v-else>', barAt))
