@@ -599,7 +599,7 @@ onBeforeUnmount(() => {
           />
 
           <p class="mt-2 text-xs leading-relaxed text-[var(--muted-ink)]">
-            禁填「待定」，不可与初赛、复赛曲目重复；决赛第一轮结束前可修改。
+            禁填「待定」，不可与初赛、复赛曲目重复。
           </p>
 
           <button
