@@ -124,14 +124,14 @@ function shareCurrentPage(): void {
             <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0">
               <!-- 两枚 logo 由 CSS 切：SSR 不知道用户存的是暗色，条件 src 会造成 hydration mismatch -->
               <img
-                src="/images/brand/system-logo-mark-light.png?v=20261126b"
+                src="/images/brand/system-logo-mark-light.png?v=20261126r2"
                 alt=""
                 aria-hidden="true"
                 class="size-full object-contain dark:hidden"
                 decoding="async"
               >
               <img
-                src="/images/brand/system-logo-mark.png?v=20261126b"
+                src="/images/brand/system-logo-mark.png?v=20261126r2"
                 alt=""
                 aria-hidden="true"
                 class="hidden size-full object-contain dark:block"
