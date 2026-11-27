@@ -42,10 +42,10 @@ export default defineEventHandler((event) => {
   // 榜单由定时插件每 5 分钟更新一次，30 秒缓存足够，也能挡住突发流量。
   setPublicCache(event, 30)
 
-  return buildThirdPartyRanking({
-    formToken,
-    rows,
-    candidates,
-    generatedAt
-  })
+  const configured = Boolean(readJinshujuConfig(event)?.formToken)
+  return {
+    ...buildThirdPartyRanking({ formToken, rows, candidates, generatedAt }),
+    // 微信里点开即可投票；没配金数据表单时（纯手工补录）没有可跳转的地址。
+    formUrl: configured ? `https://jinshuju.net/f/${formToken}` : null
+  }
 })

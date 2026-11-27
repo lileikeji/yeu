@@ -1175,6 +1175,8 @@ export interface ThirdPartyRankingEntry {
 export interface ThirdPartyRankingPayload {
   /** 未配置表单时为空字符串。 */
   formToken: string
+  /** 投票表单的公开地址；没配置金数据表单时为 null。 */
+  formUrl: string | null
   generatedAt: number
   totals: {
     received: number
