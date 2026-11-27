@@ -308,8 +308,56 @@ function standingGapText(standing: PopularityCandidateStanding): string {
   return '当前第 1 名'
 }
 
-/** 访问埋点：页面打开打一发，服务端负责拆设备/浏览器并区分公众号来源。 */
-async function reportVisit(): Promise<void> {
+const sheetSingerId = ref('')
+const sheetCandidate = computed(() => (
+  state.value?.candidates.find(item => item.singerId === sheetSingerId.value) ?? null
+))
+
+const sheetStanding = computed(() => (
+  sheetCandidate.value ? standingOf(sheetCandidate.value.singerId) : null
+))
+const sheetRankText = computed(() => {
+  const value = sheetStanding.value
+  if (!value || value.rank === null) return '暂未开榜'
+  if (value.rank === 1 && value.tiedCount > 1) return '并列第 1'
+  return `第 ${value.rank} 名`
+})
+const sheetGapText = computed(() => (sheetStanding.value ? standingGapText(sheetStanding.value) : ''))
+
+function openSheet(singerId: string): void {
+  sheetSingerId.value = singerId
+}
+
+function closeSheet(): void {
+  sheetSingerId.value = ''
+}
+
+function voteLabelFor(singerId: string): string {
+  if (!state.value) return '投给 TA'
+  if (state.value.requiresWechatTicket) return '请先从公众号领链接'
+  if (multiVote.value && votesRemaining.value <= 0) return '票已投满'
+  if (multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) return '同一选手限一票'
+  if (multiVote.value) return voteCountOf(singerId) > 0 ? '再投一票' : '投给 TA'
+  if (voteCountOf(singerId) > 0) return '你已投票'
+  if (hasBallot.value && !state.value.canChange) return '你已投票'
+  if (hasBallot.value) return '改投 TA'
+  return '投给 TA'
+}
+
+function voteDisabledFor(singerId: string): boolean {
+  if (!state.value) return true
+  if (savingId.value) return true
+  if (!canVoteFor(singerId)) return true
+  if (multiVote.value) return votesRemaining.value <= 0 || voteCountOf(singerId) > 0
+  return (hasBallot.value && !state.value.canChange) || voteCountOf(singerId) > 0
+}
+
+async function voteFromSheet(singerId: string): Promise<void> {
+  await vote(singerId)
+  closeSheet()
+}
+
+/** 访问埋点：页面打开打一发，服务端负责拆设备/浏览器并区分公众号来源。 */async function reportVisit(): Promise<void> {
   try {
     const vt = readWechatTicket()
     await plainFetch<{ ok: boolean }>('/api/public/competition/popularity/visit', {
@@ -580,7 +628,14 @@ onBeforeUnmount(() => {
                   ? 'border-rose-400 ring-2 ring-rose-500/25'
                   : 'border-[var(--line)]'"
               >
-                <div class="relative aspect-[4/5] overflow-hidden bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface-sunken))]">
+                <div
+                  class="relative aspect-[4/5] cursor-pointer overflow-hidden bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface-sunken))]"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`查看 ${candidate.number}号 ${candidate.name} 的详情`"
+                  @click="openSheet(candidate.singerId)"
+                  @keydown.enter.prevent="openSheet(candidate.singerId)"
+                >
                   <img
                     v-if="candidate.photoUrl"
                     :src="candidate.photoUrl"
@@ -708,5 +763,17 @@ onBeforeUnmount(() => {
 
       </template>
     </div>
+
+    <CompetitionPopularitySingerSheet
+      :candidate="sheetCandidate"
+      :votes="sheetStanding ? sheetStanding.count : null"
+      :rank-text="sheetRankText"
+      :gap-text="sheetGapText"
+      :vote-label="sheetCandidate ? voteLabelFor(sheetCandidate.singerId) : '投给 TA'"
+      :vote-disabled="sheetCandidate ? voteDisabledFor(sheetCandidate.singerId) : true"
+      :busy="Boolean(savingId)"
+      @close="closeSheet"
+      @vote="voteFromSheet"
+    />
   </div>
 </template>
