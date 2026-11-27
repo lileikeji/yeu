@@ -55,11 +55,14 @@ test('两态互斥且导航行零位移：M 态 bottom 少 0.5rem、padding 多 
 test('动效时长与曲线照 spec：进入 240ms、离开 180ms 延迟 60ms、收回 260ms 延迟 80ms', () => {
   assert.match(dock, /height 240ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/)
   assert.match(dock, /height 180ms cubic-bezier\(0\.4, 0, 1, 1\) 60ms/)
-  assert.match(dock, /opacity 200ms linear 60ms/)
-  assert.match(dock, /transform 200ms cubic-bezier\(0\.22, 1, 0\.36, 1\) 60ms/)
+  // 搜索行入场：跟 dock 一起长高（height/margin/transform 220ms），文字延后 100ms 才淡入，
+  // 免得 0 高度里被压扁的字先冒出来（2026-11-26 加收起动效时一并调整）。
+  assert.match(dock, /opacity 160ms linear 100ms/)
+  assert.match(dock, /transform 220ms var\(--ease-sheet\),\s*visibility 0s linear 0s;/)
   assert.match(dock, /transform: translateY\(10px\) scale\(0\.98\);/)
-  assert.match(dock, /transform: translateY\(6px\);/)
-  assert.match(dock, /transform: translateY\(12px\);/)
+  // 用户 2026-11-23：半屏/展开不再下沉位移（dock 就是面板底栏，留在原位）
+  assert.doesNotMatch(dock, /transform: translateY\(6px\);/)
+  assert.doesNotMatch(dock, /transform: translateY\(12px\);/)
   assert.match(dock, /transform 260ms var\(--ease-sheet\) 80ms/)
   // 面板自己的 320ms 曲线不许被这次改动碰
   assert.match(mapPage, /duration-\[320ms\] ease-\[var\(--ease-sheet\)\]/)
@@ -77,11 +80,49 @@ test('R2 收窄与不透明底色：块左右各 10px 内衬、dock 底色不透
   assert.match(dock, /background: var\(--surface\);/)
   // R6 起 .shell-dock-primary 未选中态合法地用 transparent（描边圆），这里只锁 dock 自己的表面
   assert.doesNotMatch(dock, /\.shell-dock-root\.shell-dock--map \{[^}]*background:\s*transparent/)
-  // 半屏下沉 6px、展开淡出并让出点击
-  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-half \{[^}]*transform: translateY\(6px\);/)
-  // 半屏不许半透明：dock 压在面板上，淡化会把面板里的橙/蓝块透出来
-  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-half \{[^}]*opacity: 1;/)
-  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-expanded \{[^}]*pointer-events: none;/)
+  // 用户 2026-11-23 两次口径（m02188 / m02192）：「跟 dock 栏合为一体」「还是没有缝呀」——
+  // 底栏不再自己压一层底色 / 发丝线 / 圆角，而是完全融进面板玻璃；只保留贴底与不淡出。
+  for (const state of ['half', 'expanded']) {
+    const at = dock.indexOf(`.shell-dock-root.shell-dock--sheet-${state} {`)
+    assert.ok(at > 0, `${state} 态规则缺失`)
+    const block = dock.slice(at, at + 700)
+    // 用户 2026-11-23 最终口径：「不论什么时候都要没缝」—— 两态都不许有顶边线。
+    assert.doesNotMatch(block, /border-top: 1px solid/, `${state} 态画了顶边线（就是那道缝）`)
+    assert.doesNotMatch(block, /box-shadow: (?!none)/, `${state} 态又给 dock 加了投影，等于第二条缝`)
+    // 用户 2026-11-23：「我下面要圆角呀，不要和屏幕底部接触」—— 整块是浮起的卡片：
+    // 底部离屏 --map-float-gap + 安全区，下两角 26px 收圆。
+    // 底色必须是 transparent：表面只由 .map-glass-sheet 那一层 66% 玻璃画，两层各画一次会叠成 88%，
+    // 接缝处出现一条亮度台阶（用户 2026-11-23「四角有异常」排查出来的双层叠加）。
+    assert.match(block, /background: transparent;/, `${state} 态自己又画了一层底色，会和面板叠出亮度台阶`)
+    assert.match(block, /border-radius: 0 0 26px 26px;/, `${state} 态下两角没有 26px 圆角`)
+    assert.match(block, /bottom: calc\(var\(--map-float-gap, 0\.625rem\) \+ env\(safe-area-inset-bottom\)\);/, `${state} 态没离屏幕底部`)
+    assert.doesNotMatch(block, /opacity: 0;/, `${state} 态又把 dock 淡出了`)
+  }
+  // 展开态：卡片收成导航行高度（52 + 上下 8 = 60），搜索行整条隐去；半屏保留搜索行
+  assert.match(
+    dock,
+    /\.shell-dock-root\.shell-dock--sheet-expanded \{[\s\S]{0,200}?height: calc\(var\(--mobile-nav-height, 3\.25rem\) \+ 0\.5rem\);/,
+    '展开态没把卡片收到 60px'
+  )
+  // 选择器表在中途插了 detached（浮卡视图），窗口放宽到 200 字符仍锁「同一条规则」
+  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-expanded \.shell-dock-search,[\s\S]{0,200}?shell-dock--sheet-half \.shell-dock-search \{\s*height: 0;/)
+  // 用户 2026-11-23 19:56：「就算在半屏的时候搜索框也应该隐藏」—— 两态都收起搜索行。
+  // 用户 2026-11-26：「还有搜索框在别的面板弹出时的动画动效」—— 收法是缩高 + 下沉 + 淡出，不是硬切。
+  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-half \.shell-dock-search \{\s*height: 0;/, '半屏没收起搜索行')
+  assert.match(dock, /\.shell-dock--sheet-half \.shell-dock-search \{[\s\S]{0,400}?height 220ms var\(--ease-sheet\)/, '搜索行收起必须带高度过渡')
+  assert.match(dock, /visibility 0s linear 220ms/, 'visibility 要延迟到缩完再关，动画期间照常绘制')
+  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-half \{[\s\S]{0,400}?height: calc\(var\(--mobile-nav-height, 3\.25rem\) \+ 0\.5rem\);/, '半屏 dock 没收到导航行高度')
+  // 面板侧：两态滚动区都要收在 dock 上沿（margin，而不是只留 padding），
+  // 否则同玻璃 dock 会把文字透出来
+  assert.match(mapPage, /\[data-sheet-state='half'\] \.shell-fade-bottom--map[\s\S]{0,300}?margin-bottom: calc\(var\(--mobile-nav-height, 3\.25rem\) \+ 0\.5rem\)/)
+  assert.match(mapPage, /\[data-sheet-state='expanded'\] \.shell-fade-bottom--map[\s\S]{0,260}?margin-bottom: calc\(var\(--mobile-nav-height, 3\.25rem\) \+ 0\.5rem\)/)
+  // 面板本体的下沿：离屏底 10px；下两角由面板自己收 26px —— dock 两态底色已改 transparent，
+  // 表面只由面板画一次，所以圆角也必须挂在面板上（两处各画一次会叠出 88% 的亮度台阶）。
+  assert.match(mapPage, /\[data-sheet-state='half'\] \.map-glass-sheet,[\s\S]{0,320}?bottom: calc\(var\(--map-float-gap, 0\.625rem\) \+ env\(safe-area-inset-bottom\)\)/)
+  assert.match(mapPage, /\[data-sheet-state='half'\] \.map-glass-sheet,[\s\S]{0,420}?border-bottom-right-radius: 26px/)
+  assert.doesNotMatch(mapPage, /rounded-\[26px\]/)
+  // 面板与 dock 同宽：两个态下 aside 都要内收 --mobile-dock-inline
+  assert.match(mapPage, /\[data-sheet-state='half'\] \.map-glass-sheet,[\s\S]{0,200}?right: var\(--mobile-dock-inline, 0\.625rem\)/)
 })
 
 test('搜索行定位钮：只渲染不持逻辑，aria-pressed 跟共享态、点击发 locate 命令', () => {
@@ -170,19 +211,24 @@ test('F-31 dock 不再接 WebGL 折射：无画布节点、无玻璃类，95% �
   assert.doesNotMatch(mapPage, /'shell-dock-glass'/)
 })
 
-test('F-40 面板从搜索条放大：origin 50% calc(100% - 84px)、首帧 scale(0.86) + opacity 0.72、300ms 放大（T-033 R6）', () => {
+test('F-40 面板从按钮原点放大：origin 取 --sheet-origin-x、首帧 scale(0.62) + opacity 0、340ms 放大（T-046 R2）', () => {
   // R5 的 clip-path 写法已被用户否决（观感还是「从底下顶上来」），两条规则必须删干净
   assert.doesNotMatch(mapPage, /clip-path/, 'R5 的 clip-path 规则还留在页面里')
   assert.doesNotMatch(mapPage, /height: 110px !important;/, '面板仍靠钉高做 bloom，观感会是从底下顶上来')
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='on'\] \.map-glass-sheet \{[\s\S]{0,240}?transform-origin: 50% calc\(100% - 84px\);[\s\S]{0,200}?transform: scale\(0\.86\);[\s\S]{0,120}?opacity: 0\.72;[\s\S]{0,80}?transition: none;/,
-    '首帧没有缩到搜索条（origin/scale/opacity 不全）'
+    /\.map-workspace\[data-sheet-bloom='on'\] \.map-glass-sheet \{[\s\S]{0,240}?transform-origin: var\(--sheet-origin-x, 50%\) var\(--sheet-origin-y, 100%\);[\s\S]{0,200}?transform: translate3d\(var\(--sheet-tx, 0px\), var\(--sheet-ty, 24px\), 0\) scale\(var\(--sheet-scale, 0\.74\), var\(--sheet-scale-y, 0\.68\)\);[\s\S]{0,120}?opacity: 0;[\s\S]{0,80}?transition: none;/,
+    '首帧没有缩到按钮原点（origin/scale/opacity 不全）'
   )
   assert.match(
     mapPage,
-    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: scale\(1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,320}?transform 300ms var\(--ease-sheet\),[\s\S]{0,200}?opacity 220ms var\(--ease-sheet\),[\s\S]{0,200}?height 320ms var\(--ease-sheet\);/,
-    '放大相缺 300ms transform / 220ms opacity，或把面板自己的 320ms 高度过渡冲掉了'
+    /\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{[\s\S]{0,240}?transform: translate3d\(0, 0, 0\) scale\(1, 1\);[\s\S]{0,120}?opacity: 1;[\s\S]{0,600}?transform 300ms var\(--ease-sheet\),/,
+    '放大相缺兜底档：linear() 不可用时还得有一条 cubic-bezier 过渡，否则面板直接弹到位'
+  )
+  assert.match(
+    mapPage,
+    /@supports \(transition-timing-function: linear\(0, 1\)\) \{\s*\.map-workspace\[data-sheet-bloom='off'\] \.map-glass-sheet \{\s*transition:\s*transform 560ms var\(--ease-spring-sheet\),\s*opacity 200ms var\(--ease-soft-fade\),[\s\S]{0,120}?height 320ms var\(--ease-sheet\);/,
+    '放大相缺 560ms transform / 200ms opacity soft-fade，或把面板自己的 320ms 高度过渡冲掉了'
   )
   assert.match(mapPage, /const sheetBlooming = ref\(false\)/)
   assert.match(mapPage, /:data-sheet-bloom="sheetBlooming \? 'on' : 'off'"/)
@@ -209,8 +255,11 @@ test('F-42 五槽统一：38px 图标盒 + 22px 图标 + label 常显 + 全站�
   assert.doesNotMatch(dock, /shell-dock-slot--primary/)
   assert.doesNotMatch(dock, /46px/)
   // label 一律常显（R6 的视觉隐藏撤销）
-  assert.doesNotMatch(dock, /visibility: hidden/)
-  assert.doesNotMatch(dock, /display: none/)
+  assert.doesNotMatch(dock, /\.shell-dock-label \{[^}]*visibility: hidden/)
+  assert.doesNotMatch(dock, /\.shell-dock-label \{[^}]*display: none/)
+  // 搜索行收起不再走 display:none（用户 2026-11-26 要动效）——全文件不许再用这招
+  assert.equal((dock.match(/display: none/g) ?? []).length, 0)
+  assert.match(dock, /\.shell-dock--sheet-(expanded|half) \.shell-dock-search \{\s*height: 0;/)
   assert.match(dock, /\.shell-dock-icon \{[^}]*width: 38px;[^}]*height: 38px;/)
   assert.match(dock, /\.shell-dock-icon \{[^}]*background: transparent;/)
   assert.match(dock, /\.shell-dock-slot--active \.shell-dock-icon \{\s*background: var\(--ink\);\s*color: var\(--surface\);/)
@@ -229,35 +278,65 @@ test('F-42 之二：/login 也算「我的」，回跳登录页不丢选中（T-
   assert.match(layout, /prefix: '\/feedback', key: 'me'/)
 })
 
-test('F-43 收起＝展开逆动作：先缩回搜索条再落高，不整体下滑（T-033 R7）', () => {
-  assert.match(mapPage, /type SheetCollapsePhase = 'off' \| 'pin' \| 'shrink' \| 'drop'/)
+test('F-43 收起＝一相 CSS 过渡：缩向右下角那枚箭头（m06190）', () => {
+  assert.match(mapPage, /type SheetCollapsePhase = 'off' \| 'on'/)
   assert.match(mapPage, /:data-sheet-collapse="sheetCollapsePhase"/)
-  const pinAt = mapPage.indexOf('[data-sheet-collapse=\'pin\']')
-  assert.ok(pinAt > 0, 'pin 相缺失：收起会直接从 518 滑到 844')
-  const pin = mapPage.slice(pinAt, pinAt + 400)
-  assert.match(pin, /\[data-sheet-collapse='pin'\] \.map-glass-sheet \{[^}]*transform-origin: 50% calc\(100% - 84px\);/)
-  assert.match(pin, /\[data-sheet-collapse='pin'\] \.map-glass-sheet \{[^}]*transform: scale\(1\);/)
-  assert.match(pin, /transition: none;/)
-  const shrinkAt = mapPage.indexOf('[data-sheet-collapse=\'shrink\']')
-  assert.ok(shrinkAt > 0, 'shrink 相缺失：看不到缩回搜索条')
-  const shrink = mapPage.slice(shrinkAt, shrinkAt + 420)
-  assert.match(shrink, /\[data-sheet-collapse='shrink'\] \.map-glass-sheet \{[^}]*transform-origin: 50% calc\(100% - 84px\);/)
-  assert.match(shrink, /\[data-sheet-collapse='shrink'\] \.map-glass-sheet \{[^}]*transform: scale\(0\.86\);/)
-  assert.match(shrink, /\[data-sheet-collapse='shrink'\] \.map-glass-sheet \{[^}]*opacity: 0\.72;/)
-  assert.doesNotMatch(shrink, /height:/, 'shrink 相不该在过渡里带 height，否则会顺着 320ms 曲线往下滑')
-  const dropAt = mapPage.indexOf('[data-sheet-collapse=\'drop\']')
-  assert.ok(dropAt > 0, 'drop 相缺失：高度落 0 这一步没有')
-  assert.match(mapPage.slice(dropAt, dropAt + 300), /\[data-sheet-collapse='drop'\] \.map-glass-sheet \{[^}]*opacity: 0;/)
-  // 高度钉住必须写在 utilities 层（!h-0 也在这一层且 important）
-  assert.match(mapPage, /@layer utilities \{[\s\S]{0,260}?\[data-sheet-collapse='pin'\][\s\S]{0,220}?height: var\(--sheet-collapse-h, 326px\) !important;/)
-  assert.match(mapPage, /\[data-sheet-collapse='drop'\] \.map-glass-sheet \{\s*height: 0 !important;/)
-  assert.match(mapPage, /'--sheet-collapse-h': sheetCollapseHeight \+ 'px'/)
-  assert.match(mapPage, /sheetCollapseHeight\.value = Math\.round\(mobileSheetElement\.value\?\.getBoundingClientRect\(\)\.height/)
+  const at = mapPage.indexOf('[data-sheet-collapse=\'on\']')
+  assert.ok(at > 0, '收起相位缺失：面板会直接塌掉')
+  const rule = mapPage.slice(at, at + 640)
+  // 原点必须是底栏右下角那枚箭头的中心，而不是最后一次指针位置
+  assert.match(rule, /transform-origin: var\(--sheet-origin-x, 50%\) var\(--sheet-origin-y, 100%\);/)
+  // 液体感：纵横两轴不同缩放（挤出形变）+ 圆角同时收，opacity 延后才归零
+  assert.match(rule, /scale\(var\(--sheet-exit-scale, 0\.12\), var\(--sheet-exit-scale-y, 0\.12\)\)/)
+  assert.match(rule, /opacity: 0;/)
+  assert.match(rule, /border-radius: 18px;/)
+  // 弹簧相写在 @supports 里（linear() 只有新内核认）；兜底档留在原规则里，旧机不至于硬切。
+  assert.match(
+    mapPage,
+    /@supports \(transition-timing-function: linear\(0, 1\)\) \{\s*\.map-workspace\[data-sheet-collapse='on'\] \.map-glass-sheet \{\s*transition:\s*transform 460ms var\(--ease-liquid-out\),\s*opacity 140ms linear 330ms,\s*border-radius 460ms var\(--ease-liquid-out\);/,
+    '收起相缺果冻曲线，或淡出没延到末尾'
+  )
+  assert.match(rule, /transform 260ms var\(--ease-sheet\),/, '收起相缺旧内核兜底档')
+  // 曲线本身必须是 linear() 弹簧（m06662），且只定义一处
+  assert.equal((mapPage.match(/--ease-spring-sheet:/g) ?? []).length, 1)
+  assert.match(mapPage, /--ease-spring-sheet: linear\(0, 0\.1281 3%, /)
+  assert.doesNotMatch(mapPage, /cubic-bezier\(0\.(22|36)/, '面板进出还留着旧的贝塞尔曲线')
+  // 稳态那条权重更高、实际生效，曲线必须是弹簧（否则 bloom 会被它顶回 --ease-sheet）
+  assert.match(mapPage, /\[data-sheet-bloom='off'\]\[data-sheet-collapse='off'\] > aside\.map-glass-sheet \{\s*transition:[\s\S]{0,200}?transform 560ms var\(--ease-spring-sheet\),/)
+  // 收起期间高度钉住（--sheet-collapse-h）：height 若同时过渡到 0，bottom 锚定会让顶边下滑 = 「往下沉」。
+  assert.doesNotMatch(rule, /height \d+ms var\(--ease-sheet\)/)
+  assert.match(mapPage, /height: var\(--sheet-collapse-h, 326px\) !important;/)
+  // 高度落 0 仍写在 utilities 层（!h-0 也在这一层且 important）
+  assert.match(mapPage, /@layer utilities \{[\s\S]{0,260}?\[data-sheet-collapse='on'\][\s\S]{0,120}?height: var\(--sheet-collapse-h, 326px\) !important;/)
+  // 不再有 rAF / 定时器三相位
+  assert.doesNotMatch(mapPage, /sheetCollapseFrame|sheetCollapseTimer|teardownSheetCollapse/)
+  // 收起高度由收起那一刻量出（sheetCollapseHeight），不是写死 326
+  assert.match(mapPage, /const sheetCollapseHeight = ref<number \| null>\(null\)/)
   // 跳过条件：reduce / 拖拽松手 240ms / 叮叮车视图
   assert.ok((mapPage.match(/prefers-reduced-motion: reduce/g) ?? []).length >= 2, '收起少了 reduce 短路')
   assert.match(mapPage, /mapSheetView\.value === 'bus'/)
   assert.match(mapPage, /Date\.now\(\) - sheetDragEndedAt < 240/)
 })
+test('F-47 面板动效原点跟着指针走：--sheet-origin-x / --sheet-scale / pointerdown 记录（T-046 R2）', () => {
+  assert.match(mapPage, /const sheetMotionAnchor = shallowRef<\{ x: number, y: number \} \| null>\(null\)/)
+  assert.match(mapPage, /function rememberSheetMotionAnchor\(event: PointerEvent\): void/)
+  assert.match(mapPage, /window\.addEventListener\('pointerdown', rememberSheetMotionAnchor, \{ capture: true, passive: true \}\)/)
+  assert.match(mapPage, /function syncSheetMotionOrigin\(anchor\?: \{ x: number, y: number \} \| null\): void/)
+  // 收起原点改为纯 CSS 常量（右下角箭头中心），不再读最后一次指针位置（m06190）
+  assert.match(mapPage, /syncSheetMotionOrigin\(sheetBloomAnchor\.value \?\? sheetMotionAnchor\.value\)/)
+  // 原点/缩放从 workspace 变量下发，TS 常量与 CSS 变量同值
+  assert.match(mapPage, /'--sheet-origin-x': sheetOriginCss, '--sheet-origin-y': sheetOriginYCss/)
+  assert.match(mapPage, /'--sheet-scale': String\(SHEET_MOTION_SCALE\)/)
+  // 只剩入场两态用它（收起改成纯 CSS 常量原点）
+  assert.equal((mapPage.match(/transform-origin: var\(--sheet-origin-x, 50%\) var\(--sheet-origin-y, 100%\);/g) ?? []).length, 3)
+  // 入场只在 bloom on 用一次（两轴缩放，0.9 / 0.82）；收起同样一次（0.12 / 0.12）
+  assert.equal((mapPage.match(/scale\(var\(--sheet-scale, 0\.74\), var\(--sheet-scale-y, 0\.68\)\)/g) ?? []).length, 1)
+  assert.equal((mapPage.match(/scale\(var\(--sheet-exit-scale, 0\.12\), var\(--sheet-exit-scale-y, 0\.12\)\)/g) ?? []).length, 1)
+  // 旧写法（固定 84px origin + 0.86 缩放）必须清干净：缩放差只有 14%，用户读成「往底下沉」
+  assert.doesNotMatch(mapPage, /transform-origin: 50% calc\(100% - 84px\);/)
+  assert.doesNotMatch(mapPage, /transform: scale\(0\.86\);/)
+})
+
 test('F-46a 桌面端清掉底部渐隐 mask（T-033 R8 · CR-1）', () => {
   // 手机仍要渐隐：基础规则原样保留
   assert.match(css, /^ {2}-webkit-mask-image: linear-gradient\(to bottom, #000 0, #000 calc\(100% - 84px\), transparent 100%\);$/m)
@@ -290,18 +369,34 @@ test('F-46c 展开态 dock 对键盘不可达（T-033 R8 · CR-3）', () => {
   assert.match(inertBlock, /\.blur\(\)/)
 })
 
-test('F-44 dock 不透明 + 玻璃 fallback 与折射态同一条（T-033 R7）', () => {
+test('F-44 dock 不透明 + 折射态只由 WebGL2 画（CSS 不再叠白纱/blur）', () => {
   assert.doesNotMatch(dock, /backdrop-filter: blur\(18px\)/)
   const baseAt = mapPage.indexOf('.map-workspace .map-glass-sheet {')
   assert.ok(baseAt > 0, '面板基础规则不存在')
   const base = mapPage.slice(baseAt, baseAt + 260)
-  assert.match(base, /background: color-mix\(in srgb, var\(--surface\) 66%, transparent\);/)
+  assert.match(base, /background: color-mix\(in srgb, var\(--surface\) 96%, transparent\);/)
   assert.match(base, /backdrop-filter: blur\(2px\) saturate\(1\.05\);/)
   const refractAt = mapPage.indexOf('.map-workspace .map-glass-sheet.map-glass-refracting {')
   if (refractAt > 0) {
     const refract = mapPage.slice(refractAt, refractAt + 300)
-    assert.match(refract, /color-mix\(in srgb, var\(--surface\) 66%, transparent\)/)
+    // 2026-11-26 用户「我要把折射都改为 webgl2」：折射态的底色与雾化都在着色器里，
+    // CSS 白纱一留，WebGL2 弯折出来的底图就被压平，看起来像没有折射。
+    assert.match(refract, /background: transparent;/)
+    assert.match(refract, /backdrop-filter: none;/)
   }
+})
+
+test('浮卡视图（叮叮车 / 附近活动）的 dock 不跟着透明：底栏回白底、只收起搜索行', () => {
+  // 用户 2026-11-24 截图：打开叮叮车面板后底栏变透明、底图透上来。叮叮车面板是独立浮卡、
+  // 不到 dock 上沿，所以只有「贴 dock 的地点面板」才配透明。
+  const block = dock.match(/\.shell-dock-root\.shell-dock--sheet-detached \{[\s\S]*?\}/)?.[0] ?? ''
+  assert.ok(block, '缺少 .shell-dock--sheet-detached 规则')
+  assert.match(block, /background: var\(--surface\);/, '叮叮车视图 dock 必须回不透明底')
+  assert.doesNotMatch(block, /background: transparent/, '透明会让底图从底栏透上来')
+  assert.match(block, /height: calc\(var\(--mobile-nav-height, 3\.25rem\) \+ 0\.5rem\)/, '只收起搜索行')
+  assert.match(block, /border-radius: 24px;/, '独立浮卡状态 dock 自己收圆角')
+  assert.match(dock, /\.shell-dock-root\.shell-dock--sheet-detached \.shell-dock-search,/, '搜索行要一起隐藏')
+  assert.match(mapPage, /view === 'bus' \|\| view === 'activity' \? 'detached' : state/, '页面必须把叮叮车与附近活动都映射成 dock 的第四态')
 })
 
 test('F-51 dock 让位量按变量相减，不写死旧几何（100 − 52 = 48px）', () => {
@@ -315,4 +410,19 @@ test('F-51 dock 让位量按变量相减，不写死旧几何（100 − 52 = 48p
     '让位量必须由两个壳层变量相减得出'
   )
   assert.doesNotMatch(body, /'3\.875rem'/, '旧的 62px 常量会把浮层顶高 14px')
+})
+
+test('F-52 进页面默认收起不播动效：抬起钮只认真实手势，初始 half 不跑收起相位', () => {
+  // 用户 2026-11-26「切换或者打开这个页面的时候面板不能呈现展开态或者收回去」：
+  // ① 客户端导航进 /map 时，挂载把初始 half 落成 collapsed 会触发 watcher 播收起动效 —— 首帧先被钉成 326 再缩没；
+  // ② dev 的画布工具会合成 click 打到 dock 的抬起钮（isTrusted=false），面板就自己弹开。
+  const raiseAt = dock.indexOf('function raiseSheet(')
+  assert.ok(raiseAt > 0, '缺少 raiseSheet')
+  const raiseBody = dock.slice(raiseAt, raiseAt + 500)
+  assert.match(raiseBody, /if \(ev && !ev\.isTrusted\) return/, '抬起钮只能被真实手势触发')
+  assert.match(mapPage, /const skipInitialSheetCollapse = ref\(false\)/, '缺少首帧跳过收起相位的开关')
+  const flagAt = mapPage.indexOf('skipInitialSheetCollapse.value = true')
+  assert.ok(flagAt > 0, '挂载时没有设置首帧开关')
+  assert.ok(flagAt < mapPage.indexOf('sheetHydrated.value = true', flagAt), '开关必须先于水合打开设好')
+  assert.match(mapPage, /if \(skipInitialSheetCollapse\.value\) \{\r?\n\s+skipInitialSheetCollapse\.value = false\r?\n\s+return\r?\n\s+\}/, '收起 watcher 必须消费这个开关')
 })

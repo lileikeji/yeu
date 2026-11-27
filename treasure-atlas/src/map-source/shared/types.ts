@@ -331,6 +331,8 @@ export interface CompetitionEvent {
   revivalEnabled: boolean
   /** 复活名额（1–6），revivalEnabled 为 false 时不生效。 */
   revivalSlots: number
+  /** 决赛第二轮出场顺序（singerId，按人工排定的先后）；空 = 按第一轮名次。 */
+  final2Order: string[]
   createdAt: number
   updatedAt: number
 }
@@ -623,6 +625,8 @@ export interface CompetitionEntryAccompaniment {
 export interface CompetitionFinalSongsPair {
   firstSong: string
   secondSong: string
+  /** 第二首已上传的背景视频文件名；后台据此显示「已传/未传」，不含签名地址。 */
+  secondVideoName: string | null
   revision: number
 }
 
@@ -647,6 +651,10 @@ export interface CompetitionPopularitySettings {
   /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
   allowRepeatVote: boolean
   qrRotateSeconds: number
+  /** 公众号是否要求口令；false = 关注后直接发「投票」即可领取链接。 */
+  passcodeRotate: boolean
+  /** 投票截止前是否允许撤回自己已投的票。 */
+  allowWithdraw: boolean
   /** 公开页是否展示票数。 */
   showResults: boolean
   /** 大屏取码密钥；只在后台返回。 */
@@ -669,6 +677,10 @@ export interface CompetitionPopularityCandidate {
   /** 决赛第一轮曲目，方便投票人认人。 */
   song: string
   sortOrder: number
+  /** 决赛 1v1 分组序号；非 1v1 或尚未抽签时为 null。 */
+  pairNo?: number | null
+  /** 决赛 1v1 组内位置（1 或 2）；非 1v1 或尚未抽签时为 null。 */
+  pairSlot?: number | null
 }
 
 export interface CompetitionPopularityBallot {
@@ -712,6 +724,12 @@ export interface CompetitionPopularityPublicState {
   /** 页面票据与乐观锁版本：多票模式 = votesUsed，一人一票 = myBallot.version。 */
   revision: number
   canChange: boolean
+  /** 是否允许撤回自己已投的票（本场开关 + 窗口开启）。 */
+  allowWithdraw: boolean
+  /** 当前有没有可撤回的票。 */
+  canWithdraw: boolean
+  /** 公众号领票是否需要两位数字口令；false = 直接发「投票」即可。 */
+  passcodeRequired: boolean
   /** 本机签名设备令牌；存 localStorage，清 cookie 后仍能识别同一浏览器。 */
   deviceToken?: string
   /** 服务端签发的页面加载凭证，用于校验页面真实渲染与最短停留时长。 */

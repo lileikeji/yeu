@@ -14,7 +14,9 @@ test('pin card phone rows stay inside the card and dial through tel:', () => {
   assert.match(popoverSource, /:href="row\.href"/)
   assert.match(popoverSource, /pin-popover__row--link/)
   // 电话来自完整地点（原生搜索结果没有 catalog 行），不靠 poiId 再查一次 catalog。
-  assert.match(pageSource, /pinPhoneRows\(place\?\.phone\)/)
+  // T-040：活动行插在电话行之前，电话行仍由完整地点直出。
+  assert.match(pageSource, /rows: place \? pinHotspotRows\(place\.id, place\.name, place\.phone\)/)
+  assert.match(pageSource, /\.\.\.phoneRows/)
   assert.match(pageSource, /function pinPhoneRows\(phone\?: string \| null\)/)
   assert.match(pageSource, /parsePublicPhoneContacts/)
 })
@@ -94,7 +96,7 @@ test('pin card stays on the mobile branch and keeps the moments block', () => {
 test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /const ARROW_INSET = 18/)
   assert.match(popoverSource, /const offset = anchor\.x - \(baseLeft \+ appliedShift\)/)
-  assert.match(popoverSource, /const limit = Math\.max\(0, rect\.width \/ 2 - 8\)/)
+  assert.match(popoverSource, /const limit = Math\.max\(0, width \/ 2 - 8\)/)
   assert.match(popoverSource, /el\.style\.setProperty\('--pin-arrow-x', Math\.round\(clamped\) \+ 'px'\)/)
   assert.match(popoverSource, /inset-inline-start: var\(--pin-arrow-x, 50%\)/)
   // 打开后连算两帧：第一帧等浏览器把卡片排好，第二帧才拿到最终尺寸（降级路径尤其需要）。
@@ -105,7 +107,7 @@ test('pin arrow follows the anchor column after shift fallback', () => {
   assert.match(popoverSource, /addEventListener\('resize', onViewportResize/)
   assert.match(popoverSource, /const VIEWPORT_INSET = 0/)
   // getBoundingClientRect() 含 translate：修正量必须扣掉已写入的位移再算，否则第二帧会把卡片放回屏外。
-  assert.match(popoverSource, /const baseLeft = rect\.left - appliedShift/)
+  assert.match(popoverSource, /const baseLeft = unscaledLeft - appliedShift/)
   assert.match(popoverSource, /const overflowRight = baseRight - \(window\.innerWidth - VIEWPORT_INSET\)/)
   assert.match(popoverSource, /if \(shift !== appliedShift\) \{/)
   assert.match(popoverSource, /el\.style\.translate = shift \+ 'px 0'/)
@@ -275,7 +277,8 @@ test('T-035：浮窗拖动不重播入场、玻璃圆角按真实像素同心', 
   const refractingRule = popoverSource.match(/\.pin-popover\.map-glass-refracting \{[^}]*\}/)?.[0] ?? ''
   assert.match(refractingRule, /border-color: transparent;/, '折射态卡片没有隐藏 DOM 边框')
   // rim 只画在内侧：圆角外侧的残余白线就是白月牙（CR-6 起色值与 alpha 共用这份掩码）。
-  assert.match(glassSource, /col \+= vec3\(1\.0\) \* rimMasked \* 0\.35;/)
+  // 2026-11-26 深色主题：白色 specular 统一乘 hiGain（dark 下压到 28%），否则深色页面上是一条灯带。
+  assert.match(glassSource, /col \+= vec3\(1\.0\) \* rimMasked \* 0\.35 \* hiGain;/)
   // 关闭按钮与 14px 圆角共心：6px 内缩、24px 命中区。
   assert.match(popoverSource, /\.pin-popover__close \{[^}]*inset-block-start: 6px;/)
   assert.match(popoverSource, /\.pin-popover__close \{[^}]*inset-inline-end: 6px;/)
@@ -306,7 +309,12 @@ test('T-037：light dismiss 只在真点空白时关，玻璃 rim 内外一致',
   assert.match(pageSource, /activeNow\?\.isContentEditable/)
   // CR-6：rim 的色值与透明度共用同一份 inside 掩码。
   assert.match(glassSource, /float rimMasked = rim \* inside;/)
-  assert.match(glassSource, /alpha \+= rimMasked \* 0\.25 \+ topLit \* 0\.12 \+ gloss \* 0\.06;/)
+  assert.match(glassSource, /alpha \+= rimMasked \* 0\.25 \* hiGain \+ topLit \* clamp\(vParams\.w, 0\.0, 1\.0\) \* 0\.12 \* hiGain \+ gloss \* 0\.06 \* hiGain \* \(1\.0 - frost\);/, 'gloss 的 alpha 也要随 frost 关掉，否则磨砂面板顶上留一条亮带')
+  // 2026-11-26 用户「深色模式下的玻璃样式有异常」：雾化色必须是主题色，不能写死冷白。
+  assert.match(glassSource, /uniform float uDark;/)
+  assert.match(glassSource, /vec3 frostTint = mix\(vec3\(0\.97, 0\.98, 1\.0\), vec3\(0\.086, 0\.094, 0\.110\), uDark\);/)
+  assert.match(glassSource, /float hiGain = mix\(1\.0, 0\.28, uDark\);/)
+  assert.match(glassSource, /gl\.uniform1f\(pipeline\.uDark, document\.documentElement\.classList\.contains\('dark'\) \? 1 : 0\)/)
   // CR-7：radiusPx = 0 是合法圆角，不能当成缺省落到旧比例路径。
   assert.match(glassSource, /target\.radiusPx !== undefined && Number\.isFinite\(target\.radiusPx\)/)
 })

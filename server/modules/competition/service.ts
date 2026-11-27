@@ -498,6 +498,63 @@ export function nextRoundOf(client: DatabaseClient, round: RoundRow): RoundRow |
     .get() ?? null
 }
 
+/** 决赛第二轮的人工出场顺序（singerId 数组）；空数组 = 按第一轮名次排。 */
+export function getFinal2Order(row: EventRow | null | undefined): string[] {
+  if (!row) return []
+  try {
+    const parsed: unknown = JSON.parse(row.final2OrderJson || '[]')
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0)
+  } catch {
+    return []
+  }
+}
+
+export interface Final2OrderResult {
+  /** 按输入顺序排好的名单；singerId 用于落库，name 用于回显。 */
+  order: { singerId: string, name: string }[]
+  /** 没在选手库里对上的名字，原样回给运营确认。 */
+  unmatched: string[]
+}
+
+/**
+ * 排定决赛第二轮的出场顺序：运营按姓名逐行录入，晋级的按这个先后排，
+ * 没晋级的在确认名单时自然被剔除。名字写错一个字（形近字）也能对上。
+ */
+export function setFinal2Order(client: DatabaseClient, contentId: string, input: unknown): Final2OrderResult {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const names = (Array.isArray(input) ? input : [])
+    .map(item => String(item ?? '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+  if (names.length > 40) validationError('出场顺序最多 40 人', 'names')
+  const singers = listSingers(client, eventRow.id)
+  const keyOf = (value: string | null | undefined) => normalizeLookup(value ?? undefined)
+  const used = new Set<string>()
+  const order: { singerId: string, name: string }[] = []
+  const unmatched: string[] = []
+  for (const name of names) {
+    const target = keyOf(name)
+    const candidates = singers.filter(singer => !used.has(singer.id))
+    const exact = candidates.find(singer => keyOf(singer.name) === target)
+    // 同名不同字（形近字）时按「同姓 + 名首字 + 名等长」兜一层，免得录错一个字整份报错
+    const loose = exact ?? candidates.find((singer) => {
+      const singerName = keyOf(singer.name)
+      if (singerName.length !== target.length || singerName.length < 2) return false
+      return singerName[0] === target[0] && singerName[1] === target[1]
+    })
+    if (!loose) {
+      unmatched.push(name)
+      continue
+    }
+    used.add(loose.id)
+    order.push({ singerId: loose.id, name: loose.name ?? name })
+  }
+  client.db.update(competitionEvents)
+    .set({ final2OrderJson: JSON.stringify(order.map(item => item.singerId)), updatedAt: Date.now() })
+    .where(eq(competitionEvents.id, eventRow.id)).run()
+  return { order, unmatched }
+}
+
 export function serializeCompetitionEvent(row: EventRow, club: { slug: string, title: string }): CompetitionEvent {
   const dimensions = getCompetitionDimensions(row)
   return {
@@ -519,6 +576,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     maxTotal: competitionMaxTotal(dimensions),
     revivalEnabled: row.revivalEnabled === true,
     revivalSlots: row.revivalSlots > 0 ? row.revivalSlots : 2,
+    final2Order: getFinal2Order(row),
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
   }
@@ -2324,6 +2382,8 @@ export interface CompetitionPopularitySettingsInput {
   votesPerVoter: number
   allowRepeatVote: boolean
   qrRotateSeconds: number
+  passcodeRotate?: boolean
+  allowWithdraw?: boolean
   showResults: boolean
   authMode?: CompetitionPopularityAuthMode
   wechatAccountName?: string
@@ -2356,6 +2416,8 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     votesPerVoter: Math.max(1, Number(row.votesPerVoter ?? 1)),
     allowRepeatVote: Boolean(row.allowRepeatVote ?? true),
     qrRotateSeconds: Number(row.qrRotateSeconds),
+    passcodeRotate: Boolean(row.passcodeRotate ?? true),
+    allowWithdraw: Boolean(row.allowWithdraw ?? true),
     showResults: row.showResults,
     displayKey: row.displayKey,
     authMode: row.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp',
@@ -2391,7 +2453,9 @@ export function ensurePopularitySettings(
     votesPerVoter: 1,
     allowRepeatVote: true,
     qrRotateSeconds: 30,
-    showResults: false,
+    passcodeRotate: true,
+    allowWithdraw: true,
+    showResults: true,
     displayKey: randomBytes(18).toString('base64url'),
     authMode: 'wechat_mp',
     wechatAccountName: '仰恩大学指南',
@@ -2415,6 +2479,7 @@ export function listPopularityCandidates(
 ): CompetitionPopularityCandidate[] {
   const finalRound = getRoundByKeySafe(client, eventId, 'final')
   if (!finalRound) return []
+  const isDuel = finalRound.advanceMode === 'duel'
   return client.db.select({
     singerId: competitionSingers.id,
     name: competitionSingers.name,
@@ -2422,7 +2487,9 @@ export function listPopularityCandidates(
     photoKey: competitionSingers.photoKey,
     entrySong: competitionRoundEntries.song,
     singerSong: competitionSingers.song,
-    sortOrder: competitionRoundEntries.sortOrder
+    sortOrder: competitionRoundEntries.sortOrder,
+    pairNo: competitionRoundEntries.pairNo,
+    pairSlot: competitionRoundEntries.pairSlot
   }).from(competitionRoundEntries)
     .innerJoin(competitionSingers, eq(competitionRoundEntries.singerId, competitionSingers.id))
     .where(eq(competitionRoundEntries.roundId, finalRound.id))
@@ -2435,7 +2502,9 @@ export function listPopularityCandidates(
       className: row.className,
       photoUrl: singerPhotoUrl({ photoKey: row.photoKey }),
       song: (row.entrySong ?? '').trim() || row.singerSong,
-      sortOrder: Number(row.sortOrder)
+      sortOrder: Number(row.sortOrder),
+      pairNo: isDuel && row.pairNo !== null && row.pairNo !== undefined ? Number(row.pairNo) : null,
+      pairSlot: isDuel && row.pairSlot !== null && row.pairSlot !== undefined ? Number(row.pairSlot) : null
     }))
 }
 
@@ -2525,15 +2594,6 @@ export function getPopularityPublicState(
   const votesRemaining = Math.max(0, votesPerVoter - votesUsed)
   const status = popularityStatusOf(settings)
   const results = popularityResultRows(candidates, activeBallots, activeBallots.length)
-  const countBySinger = new Map<string, number>()
-  for (const ballot of activeBallots) {
-    countBySinger.set(ballot.singerId, (countBySinger.get(ballot.singerId) ?? 0) + 1)
-  }
-  // 投票页按当前人气从高到低排；同票按出场号，保证顺序稳定。
-  const rankedCandidates = [...candidates].sort((left, right) => (
-    (countBySinger.get(right.singerId) ?? 0) - (countBySinger.get(left.singerId) ?? 0)
-    || left.number - right.number
-  ))
   const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
   const requiresWechatTicket = options.requiresWechatTicket ?? (authMode === 'wechat_mp' && !options.wechatVerified)
   const canChange = !multiVote
@@ -2541,6 +2601,7 @@ export function getPopularityPublicState(
     && status === 'open'
     && candidates.length > 0
     && (!mine || (Number(mine.voided) === 0 && settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
+  const allowWithdraw = Boolean(settings.allowWithdraw ?? true)
   const revision = multiVote ? votesUsed : Number(mineActive?.version ?? 0)
 
   return {
@@ -2551,11 +2612,14 @@ export function getPopularityPublicState(
     closesAt: settings.closesAt == null ? null : Number(settings.closesAt),
     allowChange: settings.allowChange,
     maxChanges: Number(settings.maxChanges),
+    allowWithdraw,
+    canWithdraw: allowWithdraw && status === 'open' && activeMine.length > 0,
+    passcodeRequired: Boolean(settings.passcodeRotate),
     votesPerVoter,
     allowRepeatVote,
     qrRotateSeconds: Number(settings.qrRotateSeconds),
     showResults: settings.showResults,
-    candidates: rankedCandidates,
+    candidates,
     totalVotes: activeBallots.length,
     myBallot: mineActive ? popularityBallotView(mineActive) : null,
     myBallots: activeMine.map(popularityBallotView),
@@ -2808,11 +2872,15 @@ export function recordPopularityBallot(
     requiresWechatTicket: authMode === 'wechat_mp' && !wechatVerified
   }
 
-  if (!multiVote && existing && Number(existing.voided) === 1) {
+  const voterCancelled = Boolean(
+    existing && Number(existing.voided) === 1 && existing.voidedReason === 'voter_cancel'
+  )
+
+  if (!multiVote && existing && Number(existing.voided) === 1 && !voterCancelled) {
     conflictError('POPULARITY_BALLOT_VOIDED', '当前选票已被风控作废，无法更改')
   }
 
-  if (!multiVote && existing && existing.singerId === singerId) {
+  if (!multiVote && existing && !voterCancelled && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
   }
 
@@ -2827,7 +2895,7 @@ export function recordPopularityBallot(
   const autoQuarantine = telemetry?.autoQuarantineOverride ?? Boolean(settings.autoQuarantine ?? true)
   const quarantineThreshold = normalizedOpenIdHash ? 80 : 60
 
-  if (!existing || multiVote) {
+  if (!existing || voterCancelled || multiVote) {
     const nextVoteIndex = multiVote
       ? myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1) + 1
       : 0
@@ -3042,6 +3110,63 @@ export function recordPopularityBallot(
   return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
 }
 
+/**
+ * 撤回自己已投的选票：只把票标记为作废（voided=1），不删除行，
+ * 撤回后同一设备/微信号可以重新投票；改票次数不返还。
+ * 流水表的 action 有 CHECK 约束（cast/change/blocked），撤回痕迹记录在 ballots 的 voided_* 三列上。
+ */
+export function withdrawPopularityBallot(
+  client: DatabaseClient,
+  eventId: string,
+  deviceHash: string,
+  options: { singerId?: string | null, voterOpenidHash?: string | null, now?: number } = {}
+): CompetitionPopularityPublicState {
+  const settings = ensurePopularitySettings(client, eventId)
+  const status = popularityStatusOf(settings)
+  if (status === 'closed') conflictError('POPULARITY_CLOSED', '投票已经截止')
+  if (status !== 'open') conflictError('POPULARITY_NOT_OPEN', '投票还没开始')
+  if (!Boolean(settings.allowWithdraw ?? true)) {
+    conflictError('POPULARITY_WITHDRAW_DISABLED', '本场不支持取消投票')
+  }
+
+  const openIdHash = options.voterOpenidHash?.trim() || null
+  const rows = (openIdHash
+    ? client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          or(
+            eq(competitionPopularityBallots.voterOpenidHash, openIdHash),
+            eq(competitionPopularityBallots.deviceHash, deviceHash)
+          )
+        ))
+        .all()
+    : client.db.select().from(competitionPopularityBallots)
+        .where(and(
+          eq(competitionPopularityBallots.eventId, eventId),
+          eq(competitionPopularityBallots.deviceHash, deviceHash)
+        ))
+        .all())
+  const active = rows.filter(row => Number(row.voided) === 0)
+  const target = options.singerId
+    ? active.find(row => row.singerId === options.singerId) ?? null
+    : active[0] ?? null
+  if (!target) conflictError('POPULARITY_BALLOT_MISSING', '你没有可取消的选票')
+
+  const now = options.now ?? Date.now()
+  client.db.update(competitionPopularityBallots).set({
+    voided: 1,
+    voidedReason: 'voter_cancel',
+    voidedAt: now,
+    voidedBy: 'voter',
+    updatedAt: now
+  }).where(eq(competitionPopularityBallots.id, target.id)).run()
+
+  return getPopularityPublicState(client, eventId, deviceHash, {
+    wechatVerified: Boolean(openIdHash || target.voterOpenidHash),
+    requiresWechatTicket: false
+  })
+}
+
 export function updatePopularitySettings(
   client: DatabaseClient,
   eventId: string,
@@ -3051,6 +3176,7 @@ export function updatePopularitySettings(
     validationError('开始时间必须早于截止时间', 'opensAt')
   }
   const existing = ensurePopularitySettings(client, eventId)
+  const passcodeRotate = input.passcodeRotate ?? Boolean(existing.passcodeRotate ?? true)
   client.db.update(competitionPopularitySettings).set({
     enabled: input.enabled,
     title: input.title.trim(),
@@ -3062,6 +3188,8 @@ export function updatePopularitySettings(
     votesPerVoter: input.votesPerVoter,
     allowRepeatVote: input.allowRepeatVote,
     qrRotateSeconds: input.qrRotateSeconds,
+    passcodeRotate,
+    allowWithdraw: input.allowWithdraw ?? Boolean(existing.allowWithdraw ?? true),
     showResults: input.showResults,
     authMode: input.authMode ?? existing.authMode,
     wechatAccountName: input.wechatAccountName !== undefined
@@ -5593,6 +5721,17 @@ export function confirmAdvanceRoster(client: DatabaseClient, round: RoundRow): {
   if (nextRound && countRoundScores(client, nextRound.id) > 0) {
     conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已经开始评分了，名单不能再改')
   }
+  // 决赛第二轮按人工排定的出场顺序落名单：晋级的按这个先后，没晋级的自然不在 picked 里。
+  if (nextRound?.key === 'final2') {
+    const final2Order = getFinal2Order(getEvent(client, round.eventId))
+    if (final2Order.length > 0) {
+      const position = new Map(final2Order.map((singerId, index) => [singerId, index]))
+      picked.sort((left, right) => (
+        (position.get(left.singer.id) ?? Number.MAX_SAFE_INTEGER)
+        - (position.get(right.singer.id) ?? Number.MAX_SAFE_INTEGER)
+      ))
+    }
+  }
   const now = Date.now()
   // 决赛第二轮的曲目来自「决赛两首歌」提交里的第二首；确认前六时一并写进名单。
   const secondSongBySinger = new Map<string, {
@@ -6069,9 +6208,12 @@ function readFinalSongsForEvent(
     .all()
   const result = new Map<string, CompetitionFinalSongsPair>()
   for (const row of rows) {
-    const pair = result.get(row.singerId) ?? { firstSong: '', secondSong: '', revision: 0 }
+    const pair = result.get(row.singerId) ?? { firstSong: '', secondSong: '', secondVideoName: null, revision: 0 }
     if (row.slot === 1) pair.firstSong = row.song
-    else if (row.slot === 2) pair.secondSong = row.song
+    else if (row.slot === 2) {
+      pair.secondSong = row.song
+      pair.secondVideoName = row.videoName ?? null
+    }
     pair.revision = Math.max(pair.revision, Number(row.version ?? 0))
     result.set(row.singerId, pair)
   }
@@ -6326,6 +6468,40 @@ const FINAL_SONG_VIDEO_CONTENT_TYPES = new Set([
   'binary/octet-stream'
 ])
 
+/** 校验刚传到桶里的决赛文件：扩展名、体积、Content-Type 与前端报的大小。 */
+async function verifyFinalSongMediaUpload(
+  config: CosConfig,
+  slot: 1 | 2,
+  key: string,
+  reportedSize: number
+): Promise<{ size: number, extension: string }> {
+  const extension = uploadExtensionOf(key)
+  const spec = finalSongUploadSpec(slot)
+  if (!spec.extensions.includes(extension)) {
+    validationError(spec.typeError, 'key')
+  }
+  const head = await headCosObject(config, key)
+  if (!head) validationError('没有找到刚上传的文件，请重新传一次', 'key')
+  if (head.size <= 0 || head.size > spec.maxBytes) {
+    validationError(spec.sizeError, 'key')
+  }
+  const contentType = (head.contentType || '').split(';')[0]!.trim().toLowerCase()
+  if (slot === 1) {
+    // m4a 常被存成 video/mp4 容器，按音频放行。
+    const audioOk = !contentType
+      || contentType.startsWith('audio/')
+      || contentType === 'application/octet-stream'
+      || /^video\/(mp4|quicktime)$/.test(contentType)
+    if (!audioOk) validationError('上传的文件不是音频', 'key')
+  } else if (contentType && !FINAL_SONG_VIDEO_CONTENT_TYPES.has(contentType)) {
+    validationError(extension === 'zip' ? '上传的文件不是 ZIP 压缩包' : '上传的文件不是 MP4 视频', 'key')
+  }
+  if (Math.abs(head.size - reportedSize) > 1024 * 1024) {
+    validationError('文件大小对不上，请重新上传', 'size')
+  }
+  return { size: head.size, extension }
+}
+
 /** 决赛两首歌的上传地址：第一首伴奏音频，第二首 MP4 视频或 ZIP 压缩包。 */
 export function getFinalSongMediaUploadTarget(
   client: DatabaseClient,
@@ -6536,11 +6712,6 @@ export async function saveFinalSongMediaByThreeFactors(
   const row = slot === 1 ? songs.first : songs.second
   if (!row) conflictError('SONG_REQUIRED', '先提交两首歌，再给每首歌上传伴奏/背景视频')
   if (slot === 1 && !entry) conflictError('COMPETITION_LOOKUP_NOT_FOUND', '没找到决赛第一轮的出场记录')
-  const extension = uploadExtensionOf(key)
-  const spec = finalSongUploadSpec(slot)
-  if (!spec.extensions.includes(extension)) {
-    validationError(spec.typeError, 'key')
-  }
   const config = cosConfig()
   if (!config) {
     throw createError({
@@ -6549,25 +6720,7 @@ export async function saveFinalSongMediaByThreeFactors(
       data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛文件暂时传不了' }
     })
   }
-  const head = await headCosObject(config, key)
-  if (!head) validationError('没有找到刚上传的文件，请重新传一次', 'key')
-  if (head.size <= 0 || head.size > spec.maxBytes) {
-    validationError(spec.sizeError, 'key')
-  }
-  const contentType = (head.contentType || '').split(';')[0]!.trim().toLowerCase()
-  if (slot === 1) {
-    // m4a 常被存成 video/mp4 容器，按音频放行。
-    const audioOk = !contentType
-      || contentType.startsWith('audio/')
-      || contentType === 'application/octet-stream'
-      || /^video\/(mp4|quicktime)$/.test(contentType)
-    if (!audioOk) validationError('上传的文件不是音频', 'key')
-  } else if (contentType && !FINAL_SONG_VIDEO_CONTENT_TYPES.has(contentType)) {
-    validationError(extension === 'zip' ? '上传的文件不是 ZIP 压缩包' : '上传的文件不是 MP4 视频', 'key')
-  }
-  if (Math.abs(head.size - reportedSize) > 1024 * 1024) {
-    validationError('文件大小对不上，请重新上传', 'size')
-  }
+  const { size, extension } = await verifyFinalSongMediaUpload(config, slot, key, reportedSize)
   const name = accompanimentDisplayName(singer.name, row.song, extension)
   const now = Date.now()
   client.db.transaction((transaction) => {
@@ -6576,7 +6729,7 @@ export async function saveFinalSongMediaByThreeFactors(
         .set({
           accompanimentUrl: `cos:${key}`,
           accompanimentName: name,
-          accompanimentSize: head.size,
+          accompanimentSize: size,
           accompanimentUpdatedAt: now,
           originalUrl: null,
           originalName: null,
@@ -6589,7 +6742,7 @@ export async function saveFinalSongMediaByThreeFactors(
       .set({
         videoUrl: `cos:${key}`,
         videoName: name,
-        videoSize: head.size,
+        videoSize: size,
         videoUpdatedAt: now,
         updatedAt: now
       })
@@ -6603,7 +6756,7 @@ export async function saveFinalSongMediaByThreeFactors(
         .set({
           accompanimentUrl: `cos:${key}`,
           accompanimentName: name,
-          accompanimentSize: head.size,
+          accompanimentSize: size,
           accompanimentUpdatedAt: now,
           originalUrl: null,
           originalName: null,
@@ -6616,6 +6769,106 @@ export async function saveFinalSongMediaByThreeFactors(
     }
   })
   return getFinalSongEditor(client, contentId, input)
+}
+
+/**
+ * 后台代传第二首背景视频：落点与选手自传完全相同（两首歌表的 video 字段），
+ * 因此不依赖第二轮出场记录是否已经生成；名单生成后确认晋级会自动带上这份文件。
+ */
+function adminFinalSongMediaScope(
+  client: DatabaseClient,
+  contentId: string,
+  singerId: string
+): {
+  eventRow: EventRow
+  singer: typeof competitionSingers.$inferSelect
+  row: NonNullable<ReturnType<typeof readFinalSongs>['second']>
+  config: CosConfig
+  final2Round: RoundRow | null
+} {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const singer = client.db.select().from(competitionSingers)
+    .where(and(eq(competitionSingers.id, singerId), eq(competitionSingers.eventId, eventRow.id)))
+    .get()
+  if (!singer) validationError('没找到这位选手', 'singerId')
+  const songs = readFinalSongs(client, eventRow.id, singer.id)
+  if (!songs.second) conflictError('SONG_REQUIRED', '这位选手还没提交决赛两首歌，先让他提交，或你在后台把两首歌补上')
+  const config = cosConfig()
+  if (!config) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Storage not configured',
+      data: { code: 'STORAGE_NOT_CONFIGURED', message: '还没配对象存储，决赛视频暂时传不了' }
+    })
+  }
+  return { eventRow, singer, row: songs.second, config, final2Round: getRoundByKeySafe(client, eventRow.id, 'final2') }
+}
+
+/** 后台为某位决赛选手要一个第二首背景视频的直传地址。 */
+export function getAdminFinalSongMediaTarget(
+  client: DatabaseClient,
+  contentId: string,
+  singerId: string,
+  filename: string
+): { key: string, uploadUrl: string, expiresIn: number, name: string } {
+  const extension = uploadExtensionOf(filename)
+  const spec = finalSongUploadSpec(2)
+  if (!spec.extensions.includes(extension)) validationError(spec.typeError, 'filename')
+  const { singer, row, config } = adminFinalSongMediaScope(client, contentId, singerId)
+  const key = newFinalSongMediaKey(config, singer.id, 2, extension)
+  return {
+    key,
+    uploadUrl: presignCosPut(config, key, FINAL_SONG_MIME_BY_EXTENSION[extension] ?? spec.fallbackMime, 3600),
+    expiresIn: 3600,
+    name: accompanimentDisplayName(singer.name, row.song, extension)
+  }
+}
+
+/** 后台直传完成后登记第二首背景视频。 */
+export async function saveAdminFinalSongMedia(
+  client: DatabaseClient,
+  contentId: string,
+  singerId: string,
+  key: string,
+  reportedSize: number
+): Promise<{ name: string, size: number }> {
+  const { eventRow, singer, row, config, final2Round } = adminFinalSongMediaScope(client, contentId, singerId)
+  assertFinalSongMediaKey(config, singer.id, 2, key)
+  const { size, extension } = await verifyFinalSongMediaUpload(config, 2, key, reportedSize)
+  const name = accompanimentDisplayName(singer.name, row.song, extension)
+  const now = Date.now()
+  client.db.transaction((transaction) => {
+    transaction.update(competitionFinalSongs)
+      .set({
+        videoUrl: `cos:${key}`,
+        videoName: name,
+        videoSize: size,
+        videoUpdatedAt: now,
+        updatedAt: now
+      })
+      .where(and(
+        eq(competitionFinalSongs.eventId, eventRow.id),
+        eq(competitionFinalSongs.singerId, singer.id),
+        eq(competitionFinalSongs.slot, 2)
+      )).run()
+    if (final2Round) {
+      transaction.update(competitionRoundEntries)
+        .set({
+          accompanimentUrl: `cos:${key}`,
+          accompanimentName: name,
+          accompanimentSize: size,
+          accompanimentUpdatedAt: now,
+          originalUrl: null,
+          originalName: null,
+          originalSize: null
+        })
+        .where(and(
+          eq(competitionRoundEntries.roundId, final2Round.id),
+          eq(competitionRoundEntries.singerId, singer.id)
+        )).run()
+    }
+  })
+  return { name, size }
 }
 
 /**

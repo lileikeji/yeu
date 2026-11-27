@@ -189,6 +189,34 @@ export function parseWechatMpTextMessage(xml: string): WechatMpTextMessage | nul
   }
 }
 
+export interface WechatMpEventMessage {
+  toUserName: string
+  fromUserName: string
+  event: string
+  eventKey: string
+  createTime: string
+}
+
+/**
+ * 解析公众号事件推送（关注、扫码、菜单点击）。
+ * 事件消息没有 MsgId，调用方需要用 fromUserName + createTime 拼去重键。
+ */
+export function parseWechatMpEventMessage(xml: string): WechatMpEventMessage | null {
+  const messageType = readWechatXmlField(xml, 'MsgType')?.toLowerCase()
+  if (messageType !== 'event') return null
+  const toUserName = readWechatXmlField(xml, 'ToUserName')
+  const fromUserName = readWechatXmlField(xml, 'FromUserName')
+  const event = readWechatXmlField(xml, 'Event')?.toUpperCase()
+  if (!toUserName || !fromUserName || !event) return null
+  return {
+    toUserName: toUserName.slice(0, 160),
+    fromUserName: fromUserName.slice(0, 160),
+    event: event.slice(0, 40),
+    eventKey: (readWechatXmlField(xml, 'EventKey') || '').slice(0, 120),
+    createTime: (readWechatXmlField(xml, 'CreateTime') || '').slice(0, 20)
+  }
+}
+
 function cdata(value: string): string {
   return `<![CDATA[${value.replaceAll(']]>', ']]]]><![CDATA[>')}]]>`
 }

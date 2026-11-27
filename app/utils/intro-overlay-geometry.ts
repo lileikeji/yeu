@@ -129,23 +129,33 @@ export function buildGuideMark(width: number, height: number, lowPowerMode: bool
   const radius = isMobile ? Math.min(84, width * 0.22) : Math.min(112, width * 0.12)
   const centerX = width / 2
   const centerY = height / 2 - radius * 0.1
+  const scale = radius / 200
+  const mapPoint = (sx: number, sy: number): [number, number] => [
+    centerX + (sx - 256) * scale,
+    centerY + (sy - 259) * scale
+  ]
 
-  // A compass/map marker keeps the particle assembly useful without carrying
-  // a school seal or institution initials.
-  const ringCount = density * 5
-  for (let i = 0; i <= ringCount; i++) {
-    const angle = (Math.PI * 2 * i) / ringCount
-    points.push({
-      x: centerX + Math.cos(angle) * radius,
-      y: centerY + Math.sin(angle) * radius
-    })
+  // 采样新版「指北罗盘翼 + 双页折册」轮廓，延续无学校徽记的粒子汇聚体验。
+  const segments: Array<[[number, number], [number, number], number]> = [
+    [[256, 52], [372, 186], density],
+    [[372, 186], [256, 248], density],
+    [[256, 248], [140, 186], density],
+    [[140, 186], [256, 52], density],
+    [[256, 52], [256, 248], density],
+    [[56, 172], [256, 279], density],
+    [[256, 279], [456, 172], density],
+    [[456, 172], [456, 360], density],
+    [[456, 360], [256, 466], density],
+    [[256, 466], [56, 360], density],
+    [[56, 360], [56, 172], density],
+    [[256, 279], [256, 466], density]
+  ]
+
+  for (const [from, to, count] of segments) {
+    const [x1, y1] = mapPoint(from[0], from[1])
+    const [x2, y2] = mapPoint(to[0], to[1])
+    addSegment(points, x1, y1, x2, y2, count)
   }
-  addSegment(points, centerX - radius * 0.62, centerY, centerX + radius * 0.62, centerY, density * 2)
-  addSegment(points, centerX, centerY - radius * 0.62, centerX, centerY + radius * 0.62, density * 2)
-  addSegment(points, centerX, centerY - radius * 0.48, centerX + radius * 0.2, centerY + radius * 0.18, density)
-  addSegment(points, centerX + radius * 0.2, centerY + radius * 0.18, centerX, centerY + radius * 0.48, density)
-  addSegment(points, centerX, centerY + radius * 0.48, centerX - radius * 0.2, centerY + radius * 0.18, density)
-  addSegment(points, centerX - radius * 0.2, centerY + radius * 0.18, centerX, centerY - radius * 0.48, density)
 
   return points
 }

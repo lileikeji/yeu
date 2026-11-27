@@ -638,6 +638,41 @@
       "when": 1795545200000,
       "tag": "0090_repeat_vote_setting",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1795548800000,
+      "tag": "0091_popularity_show_results_on",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "6",
+      "when": 1795556000000,
+      "tag": "0092_final2_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "6",
+      "when": 1795559600000,
+      "tag": "0093_competition_popularity_passcode",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "6",
+      "when": 1795559700000,
+      "tag": "0094_competition_popularity_withdraw",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "6",
+      "when": 1795559800000,
+      "tag": "0095_competition_popularity_withdraw_slot",
+      "breakpoints": true
     }
   ]
 }

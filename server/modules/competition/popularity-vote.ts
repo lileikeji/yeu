@@ -1,7 +1,7 @@
 import { and, eq, or } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { getHeader, setHeader } from 'h3'
-import { competitionPopularityVoteSchema } from '../../../shared/schemas/server'
+import { competitionPopularityVoteSchema, competitionPopularityWithdrawSchema } from '../../../shared/schemas/server'
 import { competitionPopularityBallots } from '../../database/schema'
 import { recordBlockedPopularityAttempt } from './popularity-guard'
 import {
@@ -12,7 +12,8 @@ import {
   ensureCompetitionEvent,
   findMusicAssociationContent,
   getPopularitySettings,
-  recordPopularityBallot
+  recordPopularityBallot,
+  withdrawPopularityBallot
 } from './service'
 import { useAppDatabase } from '../../utils/database'
 import {
@@ -231,6 +232,91 @@ export async function handlePopularityVote(
     event.waitUntil(autoTask)
   }
 
+  const nextTicket = issuePopularityPageTicket(
+    security.secret,
+    eventRow.id,
+    voterHash,
+    state.revision
+  )
+  return { ...state, deviceToken: deviceTokenToReturn, pageTicket: nextTicket }
+}
+
+/**
+ * 撤回自己刚投出的选票：只要设备/微信身份，不需要页面票据与停留时长；
+ * 撤回后可以重新投票，改票次数不返还。多票模式必须指明 singerId。
+ */
+export async function handlePopularityWithdraw(
+  event: H3Event,
+  options: PopularityVoteOptions = {}
+): Promise<Record<string, unknown>> {
+  setHeader(event, 'Cache-Control', 'no-store')
+  if (options.requireBrowserOrigin !== false) assertTrustedOrigin(event)
+  const client = useAppDatabase(event)
+  const input = await parseBody(event, competitionPopularityWithdrawSchema)
+  const security = getSecurityConfig(event)
+
+  const eventRow = ensureCompetitionEvent(client, findMusicAssociationContent(client).id)
+  const settings = getPopularitySettings(client, eventRow.id)
+  const isWechatMode = settings.authMode === 'wechat_mp'
+  const ip = getClientIpAddress(event)
+  assertRateLimit(event, `popularity-withdraw-ip:${ip}`, 30, 60_000, client)
+
+  const now = Date.now()
+  let voterHash = ''
+  let voterOpenidHash: string | null = null
+  let deviceTokenToReturn: string | undefined
+
+  if (isWechatMode) {
+    const wechatTicket = input.vt ? verifyPopularityWechatTicket(security.secret, input.vt, now) : null
+    if (!wechatTicket || wechatTicket.eventId !== eventRow.id) {
+      throw createError({
+        statusCode: 403,
+        message: '请从公众号专属链接进入后再取消投票',
+        data: {
+          code: 'WECHAT_TICKET_REQUIRED',
+          message: '请从公众号专属链接进入后再取消投票'
+        }
+      })
+    }
+    voterHash = wechatTicket.openIdHash
+    voterOpenidHash = wechatTicket.openIdHash
+  } else {
+    const token = input.token ? verifyPopularityToken(security.secret, input.token) : null
+    if (!token || token.eventId !== eventRow.id) {
+      throw createError({
+        statusCode: 403,
+        message: '二维码已过期，请扫大屏上的新码',
+        data: { code: 'POPULARITY_TOKEN_INVALID', message: '二维码已过期，请扫大屏上的新码' }
+      })
+    }
+    const identity = resolvePopularityDevice(
+      event,
+      security.secret,
+      security.secureCookies,
+      eventRow.id,
+      input.d
+    )
+    voterHash = identity.deviceHash
+    deviceTokenToReturn = identity.token
+  }
+
+  if (isWechatMode) {
+    const identity = resolvePopularityDevice(
+      event,
+      security.secret,
+      security.secureCookies,
+      eventRow.id,
+      input.d
+    )
+    deviceTokenToReturn = identity.token
+  }
+
+  const state = withdrawPopularityBallot(client, eventRow.id, voterHash, {
+    singerId: input.singerId ?? null,
+    voterOpenidHash,
+    now
+  })
+  // 取消后版本号会变，旧 pageTicket 立即失效；这里直接补一张新的，页面才能接着重投。
   const nextTicket = issuePopularityPageTicket(
     security.secret,
     eventRow.id,

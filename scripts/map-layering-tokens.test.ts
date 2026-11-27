@@ -19,6 +19,7 @@ const Z_TOKENS: ReadonlyArray<readonly [string, string]> = [
 ]
 const SHEET_EASE = 'cubic-bezier(0.24, 1, 0.32, 1)'
 const COMPACT_SHEET_EASE = 'cubic-bezier(0.24,1,0.32,1)'
+const SOFT_FADE_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const SCAN_EXTENSIONS = new Set(['.vue', '.ts', '.js', '.css', '.scss', '.html'])
 
 function allIndexesOf(source: string, needle: string): number[] {
@@ -92,26 +93,53 @@ test('面板缓动曲线只允许出现在 main.css 的 token 定义里', () => 
       continue
     }
     const text = readFileSync(file, 'utf8')
-    if (allIndexesOf(text, SHEET_EASE).length > 0 || allIndexesOf(text, COMPACT_SHEET_EASE).length > 0) {
+    if (allIndexesOf(text, SHEET_EASE).length > 0
+      || allIndexesOf(text, COMPACT_SHEET_EASE).length > 0
+      || allIndexesOf(text, SOFT_FADE_EASE).length > 0) {
       offenders.push(file)
     }
   }
-  assert.deepEqual(offenders, [], '曲线必须引用 var(--ease-sheet)，不许裸写 cubic-bezier(0.24, 1, 0.32, 1)')
+  assert.deepEqual(offenders, [], '曲线必须引用 var(--ease-sheet) / var(--ease-soft-fade)，不许裸写 cubic-bezier')
 })
 
-test('原 17 处曲线点位已换成 token，duration 保持原值', () => {
-  assert.ok(
-    allIndexesOf(pageSource, 'var(--ease-sheet)').length >= 10,
-    '地图页 10 处（9 处过渡 + 1 处 ease-[...]）必须引用 --ease-sheet'
-  )
+test('面板曲线全部走 token，时长改动必须显式登记', () => {
+  const body = stripComments(pageSource)
+
+  // 2026-11-26 面板动效改成弹簧（linear() 过冲）＋收起草果冻曲线：曲线仍然只能来自 token。
+  assert.equal(allIndexesOf(body, 'cubic-bezier(').length, 0, '地图页不许裸写 cubic-bezier，曲线必须引用 token')
+  const pageTokens: ReadonlyArray<readonly [string, number]> = [
+    ['var(--ease-sheet)', 2],
+    ['var(--ease-spring-sheet)', 3],
+    ['var(--ease-liquid-out)', 2],
+    ['var(--ease-soft-fade)', 2]
+  ]
+  for (const [token, least] of pageTokens) {
+    assert.ok(allIndexesOf(body, token).length >= least, `地图页至少 ${least} 处必须引用 ${token}`)
+  }
   assert.ok(
     allIndexesOf(shellDockSource, 'var(--ease-sheet)').length >= 8,
     'ShellDock 8 处过渡必须引用 --ease-sheet'
   )
 
-  // 红线：只换曲线，不改时长。
-  for (const duration of ['duration-[320ms]', 'transform 300ms', 'height 320ms', 'bottom 220ms', 'opacity 260ms']) {
-    assert.ok(pageSource.includes(duration), `地图页时长 ${duration} 必须保持原样`)
+  // linear() 在旧内核（微信 X5 / Chromium < 113）不成立时整条 transition 会失效，
+  // 所以弹簧规则必须包在 @supports 里，页面里还得留一档 cubic-bezier 兜底。
+  assert.ok(
+    body.includes('@supports (transition-timing-function: linear(0, 1))'),
+    '弹簧 / 果冻曲线必须包在 @supports (transition-timing-function: linear(0, 1)) 里'
+  )
+  assert.ok(mainCss.includes(`--ease-soft-fade: ${SOFT_FADE_EASE};`), '--ease-soft-fade 必须在 main.css 的 :root 里定义')
+
+  // 红线：时长只能整档审过再改，改了就同步这张表。
+  for (const duration of [
+    'transform 300ms',
+    'transform 560ms',
+    'transform 460ms',
+    'height 320ms',
+    'bottom 220ms',
+    'opacity 200ms',
+    'opacity 140ms'
+  ]) {
+    assert.ok(body.includes(duration), `地图页时长 ${duration} 必须保持登记值`)
   }
   for (const duration of ['height 240ms', 'transform 200ms', 'transform 220ms', 'transform 260ms']) {
     assert.ok(shellDockSource.includes(duration), `ShellDock 时长 ${duration} 必须保持原样`)

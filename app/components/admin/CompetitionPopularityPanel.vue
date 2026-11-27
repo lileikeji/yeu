@@ -28,7 +28,9 @@ const draft = reactive<SettingsDraft>({
   votesPerVoter: 1,
   allowRepeatVote: true,
   qrRotateSeconds: 30,
-  showResults: false,
+  passcodeRotate: true,
+  allowWithdraw: true,
+  showResults: true,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
   wechatAccountName: '仰恩大学指南',
   wechatQrUrl: '',
@@ -70,6 +72,8 @@ function sync(): void {
     votesPerVoter: settings.votesPerVoter ?? 1,
     allowRepeatVote: settings.allowRepeatVote ?? true,
     qrRotateSeconds: settings.qrRotateSeconds,
+    passcodeRotate: settings.passcodeRotate ?? true,
+    allowWithdraw: settings.allowWithdraw ?? true,
     showResults: settings.showResults,
     authMode: settings.authMode ?? 'wechat_mp',
     wechatAccountName: settings.wechatAccountName ?? '仰恩大学指南',
@@ -135,6 +139,8 @@ async function saveSettings(): Promise<void> {
         votesPerVoter: Math.min(20, Math.max(1, Number(draft.votesPerVoter) || 1)),
         allowRepeatVote: draft.allowRepeatVote,
         qrRotateSeconds: Number(draft.qrRotateSeconds),
+        passcodeRotate: draft.passcodeRotate,
+        allowWithdraw: draft.allowWithdraw,
         showResults: draft.showResults,
         authMode: draft.authMode,
         wechatAccountName: draft.wechatAccountName.trim() || '仰恩大学指南',
@@ -369,7 +375,7 @@ async function copyDisplayUrl(): Promise<void> {
             type="checkbox"
             class="size-4 rounded border-zinc-300"
           >
-          公开页展示实时票数（默认隐藏，避免从众）
+          公开页展示实时票数与名次（默认开启，关闭后公开页隐藏票数与排名）
         </label>
 
         <div class="mt-4 space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -423,6 +429,30 @@ async function copyDisplayUrl(): Promise<void> {
               />
             </div>
           </div>
+          <div class="space-y-1.5">
+            <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+              <input
+                v-model="draft.passcodeRotate"
+                type="checkbox"
+                class="size-4 rounded border-zinc-300"
+              >
+              发口令领票（大屏显示 2 位数字口令，每分钟自动轮换）
+            </label>
+            <p
+              v-if="!draft.passcodeRotate"
+              class="text-xs text-zinc-500"
+            >
+              已关闭：观众关注公众号后直接发送「投票」即可收到专属链接，大屏不再显示数字口令。
+            </p>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+            <input
+              v-model="draft.allowWithdraw"
+              type="checkbox"
+              class="size-4 rounded border-zinc-300"
+            >
+            允许观众取消自己已投的票（取消后可重新投）
+          </label>
           <label class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
             <input
               v-model="draft.autoQuarantine"

@@ -201,7 +201,7 @@ export type MobileSheetAnchors = Record<MobileSheetState, number>
 export type MapSheetBackAction = 'close-drawer' | 'to-sections' | 'collapse' | 'leave'
 
 // T-029：手机面板只可能有这四个视图，收窄成联合后新增视图时编译期就会提醒补判定。
-export type MapSheetBackView = 'sections' | 'all' | 'bus' | 'transit'
+export type MapSheetBackView = 'sections' | 'all' | 'activity' | 'bus' | 'transit'
 
 export type MapSheetHistorySync = 'push' | 'drop' | 'none'
 
@@ -293,6 +293,19 @@ export function resolveTransitSheetAnchors(fallback: MobileSheetAnchors): Mobile
   return { collapsed: 0, half: 400, expanded: Math.min(548, fallback.expanded) }
 }
 
+/**
+ * 近期活动视图：半屏 326、展开上限 548；它没有折叠残条（收起直接回 sections），
+ * 所以 collapsed 锚点是 0，与 transit 同构。
+ */
+export function resolveActivitySheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
+  // 渲染侧的展开上限是容器高 - 5.75rem（底部浮卡让位 80px + 顶部 12px），拖拽锚点必须同口径：
+  // fallback.expanded 是「容器高 - 12」，减掉两者差的 80px 就是渲染上限；否则小容器下展开比半屏还矮，
+  // 拖到 548 也落不住。半屏同样不许超过这个上限，保证 collapsed ≤ half ≤ expanded。
+  const limit = Math.max(0, Math.min(548, fallback.expanded - 80))
+  const half = Math.min(326, limit)
+  return { collapsed: 0, half, expanded: Math.max(half, limit) }
+}
+
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   return ({
     // Fully hide the list sheet on mobile so the map and floating place card stay usable.
@@ -345,7 +358,10 @@ export function filterPublicMapPlacesForMapList(
 
   return places.filter((poi) => {
     const matchesScope = !input.activeScope || poi.scope === input.activeScope
-    const matchesCategory = hasQuery || input.activeCategory === 'all' || poi.category === input.activeCategory
+    // 「热点」不是地点分类，筛的是这段时间有活动的图钉（T-041）。
+    const matchesCategory = hasQuery
+      || input.activeCategory === 'all'
+      || (input.activeCategory === 'hotspot' ? poi.hasActivities === true : poi.category === input.activeCategory)
     const matchesQuery = placeMatchesQuery(poi, query)
     return matchesScope && matchesCategory && matchesQuery
   })

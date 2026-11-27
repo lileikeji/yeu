@@ -2,10 +2,11 @@ import {
   createWechatEncryptedTextReply,
   createWechatTextReplyXml,
   decryptWechatPayload,
+  parseWechatMpEventMessage,
   parseWechatMpTextMessage,
-  readWechatXmlField,
-  verifyWechatCallbackSignature
+  readWechatXmlField
 } from '../../modules/wechat/callback'
+import { readWechatMpAccounts, resolveWechatMpAccount } from '../../modules/wechat/accounts'
 import { botAssistantConfig, botRateLimited } from '../../modules/bots/runtime'
 import {
   answerAndSendBotQuestion,
@@ -13,7 +14,10 @@ import {
   releaseBotMessage,
   reserveBotMessage
 } from '../../modules/bots/service'
-import { handleWechatMpPopularityMessage } from '../../modules/competition/popularity-wechat'
+import {
+  handleWechatMpPopularityFollow,
+  handleWechatMpPopularityMessage
+} from '../../modules/competition/popularity-wechat'
 import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
 import { getSecurityConfig } from '../../utils/security'
@@ -34,10 +38,8 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'X-Robots-Tag', 'noindex, nofollow')
 
   const runtime = useRuntimeConfig(event)
-  const token = String(runtime.wechatMpToken || '').trim()
-  const encodingAesKey = String(runtime.wechatMpEncodingAesKey || '').trim()
-  const appId = String(runtime.wechatMpAppId || '').trim()
-  if (!token || !encodingAesKey || !appId) {
+  const accounts = readWechatMpAccounts(runtime as unknown as Record<string, unknown>)
+  if (!accounts.length) {
     throw createError({ statusCode: 503, statusMessage: '微信公众号回调尚未完成配置' })
   }
 
@@ -51,38 +53,46 @@ export default defineEventHandler(async (event) => {
   const nonce = queryText(query.nonce)
   const encrypted = readWechatXmlField(rawBody, 'Encrypt')
   const encryptedMode = Boolean(encrypted)
-  let messageXml = rawBody
-  if (encrypted) {
-    if (!verifyWechatCallbackSignature({
-      token,
-      timestamp,
-      nonce,
-      signature: queryText(query.msg_signature),
-      encrypted
-    })) {
-      throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
-    }
-    try {
-      messageXml = decryptWechatPayload({ encrypted, encodingAesKey, appId })
-    } catch {
-      throw createError({ statusCode: 401, statusMessage: 'Invalid encrypted callback' })
-    }
-  } else if (!verifyWechatCallbackSignature({
-    token,
+  // 换号过渡期：主号与副号并行，按签名自动识别来源。
+  const account = resolveWechatMpAccount(accounts, {
     timestamp,
     nonce,
-    signature: queryText(query.signature)
-  })) {
+    signature: encryptedMode ? queryText(query.msg_signature) : queryText(query.signature),
+    encrypted: encrypted ?? undefined
+  })
+  if (!account) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid signature' })
   }
 
-  const incoming = parseWechatMpTextMessage(messageXml)
-  if (!incoming) return 'success'
-  if (!reserveBotMessage('wechat', incoming.messageId)) return 'success'
+  let messageXml = rawBody
+  if (encrypted) {
+    try {
+      messageXml = decryptWechatPayload({
+        encrypted,
+        encodingAesKey: account.encodingAesKey,
+        appId: account.appId
+      })
+    } catch {
+      throw createError({ statusCode: 401, statusMessage: 'Invalid encrypted callback' })
+    }
+  }
+
+  const token = account.token
+  const encodingAesKey = account.encodingAesKey
+  const appId = account.appId
 
   const client = useAppDatabase(event)
-  const senderId = incoming.fromUserName
-  const receiverId = incoming.toUserName
+  const config = botAssistantConfig(runtime as unknown as Record<string, unknown>)
+  config.maxReplyChars = Math.min(config.maxReplyChars, 600)
+  const siteOrigin = String(runtime.public?.siteUrl || config.siteUrl || '').replace(/\/+$/, '') || getRequestURL(event).origin
+  const security = getSecurityConfig(event)
+
+  const incoming = parseWechatMpTextMessage(messageXml)
+  const eventMessage = incoming ? null : parseWechatMpEventMessage(messageXml)
+  if (!incoming && !eventMessage) return 'success'
+
+  const senderId = incoming?.fromUserName ?? eventMessage!.fromUserName
+  const receiverId = incoming?.toUserName ?? eventMessage!.toUserName
 
   function respond(content: string) {
     setHeader(event, 'Content-Type', 'application/xml; charset=utf-8')
@@ -103,10 +113,32 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const config = botAssistantConfig(runtime as unknown as Record<string, unknown>)
-  config.maxReplyChars = Math.min(config.maxReplyChars, 600)
-  const siteOrigin = String(runtime.public?.siteUrl || config.siteUrl || '').replace(/\/+$/, '') || getRequestURL(event).origin
-  const security = getSecurityConfig(event)
+  // 关注即领票：扫码关注后立刻回一条带专属链接的消息，观众不用再打字。
+  if (eventMessage) {
+    const dedupeKey = `evt:${eventMessage.fromUserName}:${eventMessage.createTime}:${eventMessage.event}:${eventMessage.eventKey}`
+    if (!reserveBotMessage('wechat', dedupeKey)) return 'success'
+    if (eventMessage.event === 'SUBSCRIBE') {
+      return respond(handleWechatMpPopularityFollow(client, {
+        fromUserName: eventMessage.fromUserName,
+        siteOrigin,
+        secret: security.secret
+      }))
+    }
+    const menuVote = eventMessage.event === 'CLICK' && /^(vote|vote_vote|投票|人气奖投票)$/i.test(eventMessage.eventKey)
+    if (eventMessage.event === 'SCAN' || menuVote) {
+      const reply = handleWechatMpPopularityMessage(client, {
+        fromUserName: eventMessage.fromUserName,
+        content: '投票',
+        siteOrigin,
+        secret: security.secret
+      })
+      return reply == null ? 'success' : respond(reply)
+    }
+    return 'success'
+  }
+
+  if (!incoming) return 'success'
+  if (!reserveBotMessage('wechat', incoming.messageId)) return 'success'
 
   // 现场口令/投票消息优先直出：几百条/分时不能被 AI 问答的 120 条/分限流吞掉。
   const popularityReply = handleWechatMpPopularityMessage(client, {

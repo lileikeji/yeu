@@ -13,6 +13,30 @@ import { adminFetch } from '~~/app/utils/admin-request'
 import { plainSortName } from '~~/shared/utils/competition'
 import type { SettingsDraft } from './useCompetitionPayload'
 
+function putObjectWithProgress(
+  url: string,
+  file: File,
+  contentType: string,
+  onProgress: (percent: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('PUT', url)
+    request.setRequestHeader('Content-Type', contentType)
+    request.timeout = 30 * 60 * 1000
+    request.upload.onprogress = (progress) => {
+      if (progress.lengthComputable) onProgress(Math.round((progress.loaded / progress.total) * 100))
+    }
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) resolve()
+      else reject(new Error(`上传失败（${request.status}）`))
+    }
+    request.onerror = () => reject(new Error('网络中断，请重试'))
+    request.ontimeout = () => reject(new Error('上传超时，请重试'))
+    request.send(file)
+  })
+}
+
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -387,6 +411,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   /** 各轮曲目草稿：初赛/复赛/决赛分开存，改哪轮只写哪轮条目的 song。 */
   const entrySongBusyId = ref('')
   const accompanimentBusyId = ref('')
+  const finalVideoBusyId = ref('')
+  const finalVideoPercent = ref<number | null>(null)
   const photoBusyId = ref('')
   const entrySongDraft = ref<Record<string, string>>({})
   const finalSongsBusyId = ref('')
@@ -567,6 +593,52 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       })
     } finally {
       accompanimentBusyId.value = ''
+    }
+  }
+
+  /**
+   * 后台代传决赛第二首背景视频（MP4 / ZIP，1GB 内）：字节直接进对象存储，
+   * 落点与选手自传相同，所以后台不需要等第二轮名单生成就能补。
+   */
+  async function uploadFinalSongVideo(entry: CompetitionRoundEntry, file: File): Promise<void> {
+    if (finalVideoBusyId.value) return
+    const extension = file.name.toLowerCase().split('.').pop() ?? ''
+    if (extension !== 'mp4' && extension !== 'zip') {
+      toast.add({ title: '只收 MP4 视频或 ZIP 压缩包', color: 'warning' })
+      return
+    }
+    if (file.size > 1024 * 1024 * 1024) {
+      toast.add({ title: '背景视频不能超过 1GB', color: 'warning' })
+      return
+    }
+    finalVideoBusyId.value = entry.id
+    finalVideoPercent.value = 0
+    try {
+      const ticket = await adminFetch<{ key: string, uploadUrl: string }>(
+        '/api/admin/competition/final-songs/media-ticket',
+        { method: 'POST', body: { singerId: entry.singer.id, filename: file.name } }
+      )
+      await putObjectWithProgress(
+        ticket.uploadUrl,
+        file,
+        extension === 'zip' ? 'application/zip' : 'video/mp4',
+        (percent) => { finalVideoPercent.value = percent }
+      )
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        '/api/admin/competition/final-songs/media-commit',
+        { method: 'POST', body: { singerId: entry.singer.id, key: ticket.key, size: file.size } }
+      )
+      payload.value = result.payload
+      toast.add({
+        title: `${entry.singer.name} 的第二首背景视频已上传`,
+        description: file.name,
+        color: 'success'
+      })
+    } catch (error) {
+      toast.add({ title: '上传第二首视频失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      finalVideoBusyId.value = ''
+      finalVideoPercent.value = null
     }
   }
 
@@ -786,6 +858,9 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     toggleEntryCheckIn,
     entrySongBusyId,
     accompanimentBusyId,
+    finalVideoBusyId,
+    finalVideoPercent,
+    uploadFinalSongVideo,
     photoBusyId,
     uploadEntryPhoto,
     uploadEntryAccompaniment,

@@ -1109,6 +1109,8 @@ export const competitionEvents = sqliteTable('competition_events', {
   revivalEnabled: integer('revival_enabled', { mode: 'boolean' }).notNull().default(false),
   /** 复活名额（1–6）；revivalEnabled 为 0 时不生效。 */
   revivalSlots: integer('revival_slots').notNull().default(2),
+  /** 决赛第二轮出场顺序：singerId 数组；空 = 按第一轮名次排。晋级名单确认时按它重排，未晋级的自然剔除。 */
+  final2OrderJson: text('final2_order_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
@@ -1419,6 +1421,10 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   allowRepeatVote: integer('allow_repeat_vote', { mode: 'boolean' }).notNull().default(true),
   /** 大屏二维码刷新间隔（秒）。 */
   qrRotateSeconds: integer('qr_rotate_seconds').notNull().default(30),
+  /** 公众号是否要求口令；false = 关注后直接发送「投票」即可领取专属链接。 */
+  passcodeRotate: integer('passcode_rotate', { mode: 'boolean' }).notNull().default(true),
+  /** 投票截止前是否允许撤回自己已投的票（撤回后可重投）。 */
+  allowWithdraw: integer('allow_withdraw', { mode: 'boolean' }).notNull().default(true),
   /** 公开页是否展示各候选票数；默认关闭，避免从众。 */
   showResults: integer('show_results', { mode: 'boolean' }).notNull().default(false),
   /** 大屏取码密钥；后台可以一键更换，旧大屏链接立即失效。 */
@@ -1479,10 +1485,12 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  uniqueIndex('competition_popularity_ballots_event_device_slot_unique').on(table.eventId, table.deviceHash, table.voteIndex),
+  uniqueIndex('competition_popularity_ballots_event_device_slot_unique')
+    .on(table.eventId, table.deviceHash, table.voteIndex)
+    .where(sql`${table.voided} = 0`),
   uniqueIndex('competition_popularity_ballots_event_openid_slot_unique')
     .on(table.eventId, table.voterOpenidHash, table.voteIndex)
-    .where(sql`${table.voterOpenidHash} is not null`),
+    .where(sql`${table.voterOpenidHash} is not null and ${table.voided} = 0`),
   index('competition_popularity_ballots_event_singer_idx').on(table.eventId, table.singerId),
   index('competition_popularity_ballots_event_ip_idx').on(table.eventId, table.ipHash, table.createdAt),
   index('competition_popularity_ballots_event_voided_idx').on(table.eventId, table.voided, table.createdAt),

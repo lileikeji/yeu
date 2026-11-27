@@ -1691,8 +1691,8 @@ export class AMapProvider implements MapProvider {
       element.setAttribute('aria-label', `${poi.name}，有活动`)
       activityBadge = document.createElement('span')
       activityBadge.setAttribute('aria-hidden', 'true')
-      activityBadge.textContent = '!'
-      activityBadge.style.cssText = 'pointer-events:none;position:absolute;top:7px;right:2px;z-index:3;display:grid;box-sizing:border-box;width:12px;height:12px;place-items:center;border:2px solid #fff;border-radius:50%;background:#e11d48;box-shadow:0 1px 3px rgb(0 0 0 / 28%);color:#fff;font:800 8px/1 system-ui,sans-serif;'
+      // T-040：与 maplibre 同形——10.8px 实心红点 + 1.5px 白边 + 外圈 1px 半透明白环，不再用文字。
+      activityBadge.style.cssText = 'pointer-events:none;position:absolute;top:7px;right:2px;z-index:3;box-sizing:border-box;width:10.8px;height:10.8px;border:1.5px solid #fff;border-radius:50%;background:#e11d48;box-shadow:0 0 0 1px rgba(255,255,255,.55),0 1px 3px rgb(0 0 0 / 28%);'
     }
 
     if (options.onClick) {

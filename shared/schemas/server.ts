@@ -1562,6 +1562,18 @@ export const competitionFinalSongVideoCommitSchema = z.object({
   size: z.number().int().positive().max(1024 * 1024 * 1024)
 }).strict()
 
+/** 后台代传第二首背景视频：直接按 singerId 指定选手，不需要三要素。 */
+export const competitionAdminFinalSongMediaTicketSchema = z.object({
+  singerId: z.string().trim().min(1).max(64),
+  filename: z.string().trim().min(1).max(160)
+}).strict()
+
+export const competitionAdminFinalSongMediaCommitSchema = z.object({
+  singerId: z.string().trim().min(1).max(64),
+  key: z.string().trim().min(4).max(512),
+  size: z.number().int().positive().max(1024 * 1024 * 1024)
+}).strict()
+
 /**
  * 决赛文件的分片上传会话（断点续传）：init 开一个会话，sign 取分片地址，
  * status 查已传分片，complete 收口落库，abort 放弃。
@@ -1614,6 +1626,11 @@ export const competitionAdminFinalSongsSchema = z.object({
   revision: z.number().int().min(0).max(1_000_000).optional()
 }).strict()
 
+/** 决赛第二轮出场顺序：运营按姓名逐行录入，后台按这个先后落晋级名单。 */
+export const competitionFinal2OrderSchema = z.object({
+  names: z.array(z.string().trim().min(1).max(30)).max(40)
+}).strict()
+
 /** 人气奖后台设置：所有可调项都在这里，时间用毫秒时间戳。 */
 export const competitionPopularitySettingsSchema = z.object({
   enabled: z.boolean(),
@@ -1626,6 +1643,8 @@ export const competitionPopularitySettingsSchema = z.object({
   votesPerVoter: z.number().int().min(1).max(20).default(1),
   allowRepeatVote: z.boolean().default(true),
   qrRotateSeconds: z.number().int().min(10).max(300),
+  passcodeRotate: z.boolean().optional(),
+  allowWithdraw: z.boolean().optional(),
   showResults: z.boolean(),
   authMode: z.enum(['wechat_mp', 'device_strict']).optional(),
   wechatAccountName: z.string().trim().min(1).max(40).optional(),
@@ -1663,6 +1682,14 @@ export const competitionPopularityVoteSchema = z.object({
 }).strict()
 
 /** 小程序登录：用 wx.login 的一次性 code 换取 openid 后再签发票据。 */
+export const competitionPopularityWithdrawSchema = z.object({
+  token: z.string().trim().min(20).max(2000).optional(),
+  vt: z.string().trim().min(20).max(2000).optional(),
+  /** 指定要撤回哪一票；多票模式必填，一人一票可省略。 */
+  singerId: z.string().trim().min(1).max(64).optional(),
+  d: z.string().trim().min(20).max(2000).optional()
+}).strict()
+
 export const competitionPopularityMiniappLoginSchema = z.object({
   code: z.string().trim().min(8).max(256)
 }).strict()

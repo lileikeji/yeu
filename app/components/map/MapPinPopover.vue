@@ -274,6 +274,13 @@ function placeFallback(): void {
   const arrowLimit = Math.max(ARROW_INSET, width - ARROW_INSET)
   const arrowX = Math.min(Math.max(anchor.x - left, ARROW_INSET), arrowLimit)
   el.style.setProperty('--pin-arrow-x', Math.round(arrowX) + 'px')
+  setOriginFromAnchor(el, arrowX, flipped)
+}
+
+/** 入场缩放要以「指向 pin 的那条边」为原点长出来，而不是卡片中心。 */
+function setOriginFromAnchor(el: HTMLElement, arrowX: number, flipped: boolean): void {
+  el.style.setProperty('--pin-origin-x', Math.round(arrowX) + 'px')
+  el.style.setProperty('--pin-origin-y', flipped ? '0%' : '100%')
 }
 
 /** 定位入口：浏览器支持锚定就交给 CSS，不支持就自己算。 */
@@ -291,9 +298,14 @@ function alignArrow(): void {
   if (!el || !anchor) return
   if (!supportsAnchor.value || !isShown()) return
   const rect = el.getBoundingClientRect()
-  if (rect.width === 0) return
-  const baseLeft = rect.left - appliedShift
-  const baseRight = rect.right - appliedShift
+  // getBoundingClientRect() 会把入场 scale(0.94) 算进矩形：箭头与 origin 用未缩放的 offsetWidth，
+  // 否则首次打开会偏几像素，而且过渡结束后不会自己修正。
+  const width = el.offsetWidth || rect.width
+  if (width === 0) return
+  // scale 以中心为原点，左边缘也要换算回未缩放位置：rect.left 比真实左边缘偏右 (rect.width - width) / 2。
+  const unscaledLeft = rect.left + (rect.width - width) / 2
+  const baseLeft = unscaledLeft - appliedShift
+  const baseRight = baseLeft + width
   const overflowRight = baseRight - (window.innerWidth - VIEWPORT_INSET)
   const overflowLeft = VIEWPORT_INSET - baseLeft
   const shift = overflowRight > 0
@@ -317,9 +329,10 @@ function alignArrow(): void {
   el.toggleAttribute('data-flipped', rect.top > anchor.y)
 
   const offset = anchor.x - (baseLeft + appliedShift)
-  const limit = Math.max(0, rect.width / 2 - 8)
-  const clamped = Math.min(Math.max(offset, Math.min(ARROW_INSET, limit)), rect.width - Math.min(ARROW_INSET, limit))
+  const limit = Math.max(0, width / 2 - 8)
+  const clamped = Math.min(Math.max(offset, Math.min(ARROW_INSET, limit)), width - Math.min(ARROW_INSET, limit))
   el.style.setProperty('--pin-arrow-x', Math.round(clamped) + 'px')
+  setOriginFromAnchor(el, clamped, rect.top > anchor.y)
 }
 
 /**
@@ -975,7 +988,9 @@ function onToggle(event: Event): void {
 
 @media (prefers-reduced-motion: no-preference) {
   .pin-popover {
-    transition: opacity 140ms ease, translate 140ms ease;
+    transition: opacity 140ms ease, translate 140ms ease, scale 140ms ease;
+    /* T-046：origin 由脚本按箭头位置写，卡片从 pin 一侧长出/收回。 */
+    transform-origin: var(--pin-origin-x, 50%) var(--pin-origin-y, 100%);
   }
 
   @starting-style {
@@ -983,6 +998,7 @@ function onToggle(event: Event): void {
     .pin-popover:popover-open:not([data-entered]) {
       opacity: 0;
       translate: 0 4px;
+      scale: 0.94;
     }
   }
 }

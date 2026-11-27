@@ -434,8 +434,8 @@ function initializeAnimation() {
   const cy = height / 2
   const letterPoints = buildGuideMark(width, height, lowPowerMode)
 
-  // 配色：交替主题绿 / 暖金 / 翡翠绿
-  const colors = ['#7dc79b', '#ffbd6e', '#b2dfc2', '#ffefd4', '#5eb88a']
+  // 配色：晴翠绿 / 晴空蓝 / 晨曦金橙（与新版系统标志四色呼应）
+  const colors = ['#34d399', '#38bdf8', '#fbbf24', '#fb923c', '#6ee7b7']
 
   particles = letterPoints.map((pt, i) => {
     // 从屏幕外围的随机角度飞入

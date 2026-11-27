@@ -93,6 +93,13 @@ export function createMarkerImage(color: string, selected: boolean, hasActivitie
   context.fill()
 
   if (hasActivities) {
+    // T-040：外圈 1px 半透明白环，与高德 DOM 红点同形；先画环再画实心点。
+    context.beginPath()
+    context.arc(31, 8, 6.9, 0, Math.PI * 2)
+    context.strokeStyle = 'rgba(255, 255, 255, 0.55)'
+    context.lineWidth = 1
+    context.stroke()
+
     // 红点落在图钉右上角，白色描边保证在深色楼栋和底图上都能认出来。
     context.beginPath()
     context.arc(31, 8, 5.4, 0, Math.PI * 2)

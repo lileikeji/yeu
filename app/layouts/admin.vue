@@ -444,13 +444,15 @@ function openCommandPalette() {
           >
           <span
             v-else
-            class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-white"
+            class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0"
           >
-            <UIcon
-              name="i-lucide-compass"
-              class="size-5"
+            <img
+              src="/images/brand/system-logo-mark.png?v=20261126r2"
+              alt=""
               aria-hidden="true"
-            />
+              class="size-8 object-contain"
+              decoding="async"
+            >
           </span>
           <div
             v-if="!desktopSidebarCollapsed"
@@ -664,13 +666,22 @@ function openCommandPalette() {
               >
               <span
                 v-else
-                class="grid size-8 place-items-center rounded-md bg-green-700 text-[var(--surface)]"
+                class="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0"
               >
-                <UIcon
-                  name="i-lucide-compass"
-                  class="size-4"
+                <img
+                  src="/images/brand/system-logo-mark-light.png?v=20261126r2"
+                  alt=""
                   aria-hidden="true"
-                />
+                  class="size-full object-contain dark:hidden"
+                  decoding="async"
+                >
+                <img
+                  src="/images/brand/system-logo-mark.png?v=20261126r2"
+                  alt=""
+                  aria-hidden="true"
+                  class="hidden size-full object-contain dark:block"
+                  decoding="async"
+                >
               </span>
               <span class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
                 {{ isYeucaWorkspace ? '仰恩计协 · 控制台' : '内容管理' }}
