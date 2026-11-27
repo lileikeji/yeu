@@ -26,9 +26,12 @@ export default defineEventHandler(async (event) => {
       allowChange: input.allowChange,
       maxChanges: input.maxChanges,
       votesPerVoter: input.votesPerVoter,
+      wechatBonusVotes: input.wechatBonusVotes,
       allowRepeatVote: input.allowRepeatVote,
       qrRotateSeconds: input.qrRotateSeconds,
-      showResults: input.showResults
+      showResults: input.showResults,
+      showRankGap: input.showRankGap,
+      authMode: input.authMode
     }
   })
 

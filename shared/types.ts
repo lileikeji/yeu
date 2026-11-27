@@ -633,8 +633,8 @@ export interface CompetitionFinalSongsPair {
 /** 人气奖投票状态：关闭 / 未到开始时间 / 进行中 / 已截止。 */
 export type CompetitionPopularityStatus = 'disabled' | 'scheduled' | 'open' | 'closed'
 
-/** 人气奖核验模式：公众号口令领专属票券（一人一微信一票） / 免关注设备严格风控降级。 */
-export type CompetitionPopularityAuthMode = 'wechat_mp' | 'device_strict'
+/** 人气奖核验模式：公众号领链接（一人一微信） / 混合模式（人人可投+关注加票） / 免关注设备严格风控降级。 */
+export type CompetitionPopularityAuthMode = 'wechat_mp' | 'device_strict' | 'hybrid'
 
 export interface CompetitionPopularitySettings {
   enabled: boolean
@@ -646,8 +646,10 @@ export interface CompetitionPopularitySettings {
   allowChange: boolean
   /** 允许改票的次数；0 = 不能改。 */
   maxChanges: number
-  /** 每人最多可投票数；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
+  /** 每人最多可投票数（混合模式下为免关注基础票数）；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
   votesPerVoter: number
+  /** 混合模式下关注公众号额外增加的票数（默认 +2，可投同一位选手）。 */
+  wechatBonusVotes: number
   /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
   allowRepeatVote: boolean
   qrRotateSeconds: number
@@ -657,6 +659,8 @@ export interface CompetitionPopularitySettings {
   allowWithdraw: boolean
   /** 公开页是否展示票数。 */
   showResults: boolean
+  /** 隐藏具体票数时，是否展示距离前一名差多少票。 */
+  showRankGap: boolean
   /** 大屏取码密钥；只在后台返回。 */
   displayKey: string
   authMode: CompetitionPopularityAuthMode
@@ -700,6 +704,16 @@ export interface CompetitionPopularityResultRow {
   percent: number
 }
 
+/** 脱敏差票信息：不返回具体得票数或百分比，只暴露名次与距前一名差票。 */
+export interface CompetitionPopularityStandingHint {
+  singerId: string
+  rank: number | null
+  tiedCount: number
+  prevRank: number | null
+  gapToPrev: number | null
+  leadOverNext: number | null
+}
+
 export interface CompetitionPopularityPublicState {
   title: string
   subtitle: string
@@ -710,13 +724,18 @@ export interface CompetitionPopularityPublicState {
   maxChanges: number
   qrRotateSeconds: number
   showResults: boolean
+  showRankGap?: boolean
   candidates: CompetitionPopularityCandidate[]
   totalVotes: number
   myBallot: CompetitionPopularityBallot | null
   /** 当前设备/微信号已投的有效选票（多票模式下列表长度即已投数）。 */
   myBallots: CompetitionPopularityBallot[]
-  /** 每人最多可投票数。 */
+  /** 每人最多可投票数（混合模式下为当前已解锁的可用总票数）。 */
   votesPerVoter: number
+  /** 混合模式下关注公众号额外加赠票数。 */
+  wechatBonusVotes?: number
+  /** 混合模式下关注公众号后的最高总可投票数（基础票 + 关注加赠）。 */
+  maxVotesPerVoter?: number
   /** 多票模式下是否允许重复投同一选手；false = 同一选手最多 1 票。 */
   allowRepeatVote: boolean
   /** 当前设备/微信号已投的有效票数（含冻结票，不含作废票）。 */
@@ -743,6 +762,8 @@ export interface CompetitionPopularityPublicState {
   wechatQrUrl?: string
   /** 只有 showResults 为真时才有内容；否则一律 null。 */
   results: CompetitionPopularityResultRow[] | null
+  /** 仅包含名次与距前一名差票（不含绝对票数）；showResults 或 showRankGap 开启时返回，否则 null。 */
+  standings?: CompetitionPopularityStandingHint[] | null
   now: number
 }
 

@@ -15,8 +15,15 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'X-Robots-Tag', 'noindex, nofollow')
 
   const runtimeConfig = useRuntimeConfig(event)
-  const appId = String(runtimeConfig.wechatMpAppId || process.env.WECHAT_MP_APP_ID || '').trim()
-  const appSecret = String(runtimeConfig.wechatMpAppSecret || process.env.WECHAT_MP_APP_SECRET || '').trim()
+  const primaryAppId = String(runtimeConfig.wechatMpAppId || process.env.WECHAT_MP_APP_ID || '').trim()
+  const primaryAppSecret = String(runtimeConfig.wechatMpAppSecret || process.env.WECHAT_MP_APP_SECRET || '').trim()
+  const altAppId = String(runtimeConfig.wechatMpAltAppId || process.env.WECHAT_MP_ALT_APP_ID || '').trim()
+  const altAppSecret = String(runtimeConfig.wechatMpAltAppSecret || process.env.WECHAT_MP_ALT_APP_SECRET || '').trim()
+  const [appId, appSecret] = (primaryAppId && primaryAppSecret)
+    ? [primaryAppId, primaryAppSecret]
+    : (altAppId && altAppSecret)
+        ? [altAppId, altAppSecret]
+        : ['', '']
   if (!appId || !appSecret) {
     throw createError({
       statusCode: 503,

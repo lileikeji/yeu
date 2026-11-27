@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
   const issued = issuePopularityToken(security.secret, eventRow.id, ttlSeconds * 1000)
   const configured = String(useRuntimeConfig(event).public.siteUrl || '').replace(/\/+$/, '')
   const origin = configured || getRequestURL(event).origin
-  const qrTargetUrl = settings.authMode === 'wechat_mp'
+  const qrTargetUrl = (settings.authMode === 'wechat_mp' || settings.authMode === 'hybrid')
     ? (settings.wechatQrUrl || `${origin}/singer/popularity`)
     : `${origin}/singer/popularity?t=${encodeURIComponent(issued.token)}`
 

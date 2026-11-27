@@ -119,7 +119,7 @@ function buildRetrospectiveBoosts(
 } {
   const ipDevices = new Map<string, Set<string>>()
   const envDevices = new Map<string, Set<string>>()
-  const ipEnvSingerBallots = new Map<string, BallotRow[]>()
+  const ipEnvSingerActors = new Map<string, Set<string>>()
   const qrBallots = new Map<string, Set<string>>()
   const latestQrByBallot = new Map<string, string>()
 
@@ -139,15 +139,16 @@ function buildRetrospectiveBoosts(
       ipDevices.set(ballot.ipHash, set)
     }
     if (ballot.envHash) {
-      const set = envDevices.get(ballot.envHash) ?? new Set<string>()
-      set.add(ballot.deviceHash)
-      envDevices.set(ballot.envHash, set)
+      const envKey = ballot.ipHash ? `${ballot.ipHash}|${ballot.envHash}` : ballot.envHash
+      const set = envDevices.get(envKey) ?? new Set<string>()
+      set.add(ballot.voterOpenidHash || ballot.deviceHash)
+      envDevices.set(envKey, set)
     }
     if (ballot.ipHash && ballot.envHash) {
       const key = `${ballot.ipHash}|${ballot.envHash}|${ballot.singerId}`
-      const list = ipEnvSingerBallots.get(key) ?? []
-      list.push(ballot)
-      ipEnvSingerBallots.set(key, list)
+      const actorSet = ipEnvSingerActors.get(key) ?? new Set<string>()
+      actorSet.add(ballot.voterOpenidHash || ballot.deviceHash)
+      ipEnvSingerActors.set(key, actorSet)
     }
   }
 
@@ -158,7 +159,8 @@ function buildRetrospectiveBoosts(
     let score = Number(ballot.suspicionScore ?? 0)
     const reasons = parseStringArray(ballot.suspicionReasonsJson)
     const ipCount = ballot.ipHash ? (ipDevices.get(ballot.ipHash)?.size ?? 0) : 0
-    const envCount = ballot.envHash ? (envDevices.get(ballot.envHash)?.size ?? 0) : 0
+    const envKey = ballot.envHash ? (ballot.ipHash ? `${ballot.ipHash}|${ballot.envHash}` : ballot.envHash) : ''
+    const envCount = envKey ? (envDevices.get(envKey)?.size ?? 0) : 0
     if (ipCount >= 5) {
       score = Math.max(score, 45)
       if (!reasons.some(r => r.includes('同IP'))) reasons.push(`同IP聚集(${ipCount}台设备)`)
@@ -168,10 +170,10 @@ function buildRetrospectiveBoosts(
       if (!reasons.some(r => r.includes('同设备环境'))) reasons.push(`同环境切换(${envCount}个身份)`)
     }
     if (ballot.ipHash && ballot.envHash) {
-      const clusterSize = ipEnvSingerBallots.get(`${ballot.ipHash}|${ballot.envHash}|${ballot.singerId}`)?.length ?? 0
+      const clusterSize = ipEnvSingerActors.get(`${ballot.ipHash}|${ballot.envHash}|${ballot.singerId}`)?.size ?? 0
       if (clusterSize >= 3) {
         score = Math.max(score, 80)
-        reasons.push(`同IP+环境同投该选手(${clusterSize}票)`)
+        reasons.push(`同IP+环境同投该选手(${clusterSize}个身份)`)
       }
     }
     const qrNonce = latestQrByBallot.get(ballot.id)

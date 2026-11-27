@@ -51,8 +51,9 @@ export default defineEventHandler((event) => {
       eventRow.id,
       query.d
     )
-    const state = getPopularityPublicState(client, eventRow.id, wechatTicket.openIdHash, {
+    const state = getPopularityPublicState(client, eventRow.id, identity.deviceHash, {
       wechatVerified: true,
+      openIdHash: wechatTicket.openIdHash,
       requiresWechatTicket: false
     })
     const pageTicket = issuePopularityPageTicket(
@@ -70,6 +71,28 @@ export default defineEventHandler((event) => {
       requiresWechatTicket: true
     })
     return { ...state }
+  }
+
+  if (settings.authMode === 'hybrid') {
+    const identity = resolvePopularityDevice(
+      event,
+      security.secret,
+      security.secureCookies,
+      eventRow.id,
+      query.d
+    )
+    const state = getPopularityPublicState(client, eventRow.id, identity.deviceHash, {
+      wechatVerified: false,
+      requiresWechatTicket: false,
+      requiresQrScan: false
+    })
+    const pageTicket = issuePopularityPageTicket(
+      security.secret,
+      eventRow.id,
+      identity.deviceHash,
+      state.revision
+    )
+    return { ...state, deviceToken: identity.token, pageTicket }
   }
 
   const payload = query.t ? verifyPopularityToken(security.secret, query.t) : null

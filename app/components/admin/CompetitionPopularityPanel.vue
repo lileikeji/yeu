@@ -26,16 +26,37 @@ const draft = reactive<SettingsDraft>({
   allowChange: false,
   maxChanges: 1,
   votesPerVoter: 1,
+  wechatBonusVotes: 2,
   allowRepeatVote: true,
   qrRotateSeconds: 30,
   passcodeRotate: true,
   allowWithdraw: true,
   showResults: true,
+  showRankGap: false,
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
   wechatAccountName: '仰恩大学指南',
   wechatQrUrl: '',
   autoQuarantine: true,
   aiAutoModerate: true
+})
+
+const displayPolicy = computed<'full' | 'gap_only' | 'hidden'>({
+  get() {
+    if (draft.showResults) return 'full'
+    return draft.showRankGap ? 'gap_only' : 'hidden'
+  },
+  set(value) {
+    if (value === 'full') {
+      draft.showResults = true
+      draft.showRankGap = true
+    } else if (value === 'gap_only') {
+      draft.showResults = false
+      draft.showRankGap = true
+    } else {
+      draft.showResults = false
+      draft.showRankGap = false
+    }
+  }
 })
 
 const saving = ref(false)
@@ -70,11 +91,13 @@ function sync(): void {
     allowChange: settings.allowChange,
     maxChanges: settings.maxChanges,
     votesPerVoter: settings.votesPerVoter ?? 1,
+    wechatBonusVotes: settings.wechatBonusVotes ?? 2,
     allowRepeatVote: settings.allowRepeatVote ?? true,
     qrRotateSeconds: settings.qrRotateSeconds,
     passcodeRotate: settings.passcodeRotate ?? true,
     allowWithdraw: settings.allowWithdraw ?? true,
     showResults: settings.showResults,
+    showRankGap: settings.showRankGap ?? false,
     authMode: settings.authMode ?? 'wechat_mp',
     wechatAccountName: settings.wechatAccountName ?? '仰恩大学指南',
     wechatQrUrl: settings.wechatQrUrl ?? '',
@@ -137,11 +160,13 @@ async function saveSettings(): Promise<void> {
         allowChange: draft.allowChange,
         maxChanges: Number(draft.maxChanges),
         votesPerVoter: Math.min(20, Math.max(1, Number(draft.votesPerVoter) || 1)),
+        wechatBonusVotes: Math.min(20, Math.max(0, Number(draft.wechatBonusVotes ?? 2))),
         allowRepeatVote: draft.allowRepeatVote,
         qrRotateSeconds: Number(draft.qrRotateSeconds),
         passcodeRotate: draft.passcodeRotate,
         allowWithdraw: draft.allowWithdraw,
         showResults: draft.showResults,
+        showRankGap: draft.showRankGap,
         authMode: draft.authMode,
         wechatAccountName: draft.wechatAccountName.trim() || '仰恩大学指南',
         wechatQrUrl: draft.wechatQrUrl.trim(),
@@ -292,7 +317,7 @@ async function copyDisplayUrl(): Promise<void> {
           <label
             class="block text-sm font-medium"
             for="popularity-votes-per-voter"
-          >每人可投票数</label>
+          >{{ draft.authMode === 'hybrid' ? '免关注基础票数' : '每人可投票数' }}</label>
           <input
             id="popularity-votes-per-voter"
             v-model.number="draft.votesPerVoter"
@@ -302,10 +327,32 @@ async function copyDisplayUrl(): Promise<void> {
             class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-[12rem]"
           >
           <p class="mt-1 text-xs text-zinc-500">
-            1 = 一人一票，可改票；大于 1 = 每人可投多票，改票设置不生效。
+            {{ draft.authMode === 'hybrid'
+              ? `不关注公众号即可直接投 ${draft.votesPerVoter} 票；关注公众号后总票数升级为 ${Number(draft.votesPerVoter || 1) + Number(draft.wechatBonusVotes ?? 2)} 票。`
+              : '1 = 一人一票，可改票；大于 1 = 每人可投多票，改票设置不生效。' }}
           </p>
+          <div
+            v-if="draft.authMode === 'hybrid'"
+            class="mt-3"
+          >
+            <label
+              class="block text-sm font-medium"
+              for="popularity-wechat-bonus-votes"
+            >关注公众号额外加赠票数</label>
+            <input
+              id="popularity-wechat-bonus-votes"
+              v-model.number="draft.wechatBonusVotes"
+              type="number"
+              min="0"
+              max="20"
+              class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-[12rem]"
+            >
+            <p class="mt-1 text-xs text-zinc-500">
+              默认 +2 票，关注公众号领专属链接后自动解锁并可与基础票合并投给同一位选手。
+            </p>
+          </div>
           <label
-            v-if="draft.votesPerVoter > 1"
+            v-if="draft.votesPerVoter > 1 || (draft.authMode === 'hybrid' && draft.wechatBonusVotes > 0)"
             class="mt-2 flex items-center gap-2 text-sm"
           >
             <input
@@ -315,12 +362,12 @@ async function copyDisplayUrl(): Promise<void> {
             允许把多票投给同一位选手
           </label>
           <p
-            v-if="draft.votesPerVoter > 1"
+            v-if="draft.votesPerVoter > 1 || (draft.authMode === 'hybrid' && draft.wechatBonusVotes > 0)"
             class="mt-1 text-xs text-zinc-500"
           >
             {{ draft.allowRepeatVote
-              ? '自由分配：可投给不同选手，也可重复投同一选手。'
-              : '同一选手最多 1 票：3 票必须投给 3 位不同选手。' }}
+              ? '自由分配：可投给不同选手，也可把全部票投给同一位选手。'
+              : '同一选手最多 1 票：多张票必须投给不同选手。' }}
           </p>
         </div>
 
@@ -369,14 +416,30 @@ async function copyDisplayUrl(): Promise<void> {
         >
           每人可投 {{ draft.votesPerVoter }} 票时，改票次数与「允许改票」不生效。
         </p>
-        <label class="mt-2 flex items-center gap-2 text-sm">
-          <input
-            v-model="draft.showResults"
-            type="checkbox"
-            class="size-4 rounded border-zinc-300"
+        <div class="mt-3">
+          <label
+            class="block text-sm font-medium text-zinc-900 dark:text-zinc-100"
+            for="popularity-display-policy"
+          >公开页与大屏票数公布策略</label>
+          <select
+            id="popularity-display-policy"
+            v-model="displayPolicy"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
-          公开页展示实时票数与名次（默认开启，关闭后公开页隐藏票数与排名）
-        </label>
+            <option value="full">
+              公布实时票数、名次与差票（完整公开）
+            </option>
+            <option value="gap_only">
+              不公布具体票数，仅显示距离前一名差多少票
+            </option>
+            <option value="hidden">
+              完全不公布（隐藏全部票数、名次与差票）
+            </option>
+          </select>
+          <p class="mt-1 text-xs text-zinc-500">
+            选「不公布具体票数，仅显示差票」时，前台与大屏不显示得票数、总票数与进度条，只显示名次及距离上一名差几票。
+          </p>
+        </div>
 
         <div class="mt-4 space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
           <div>
@@ -389,8 +452,11 @@ async function copyDisplayUrl(): Promise<void> {
               v-model="draft.authMode"
               class="mt-1 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             >
+              <option value="hybrid">
+                混合模式（人人可投基础票 + 关注公众号多投 {{ draft.wechatBonusVotes }} 票）
+              </option>
               <option value="wechat_mp">
-                公众号口令领专属链接（推荐 · 一人一微信号一票）
+                公众号口令领专属链接（必须先关注 · 一人一微信号）
               </option>
               <option value="device_strict">
                 免关注扫码降级（大屏单会话 + 设备严格风控）
@@ -398,7 +464,7 @@ async function copyDisplayUrl(): Promise<void> {
             </select>
           </div>
           <div
-            v-if="draft.authMode === 'wechat_mp'"
+            v-if="draft.authMode === 'wechat_mp' || draft.authMode === 'hybrid'"
             class="grid gap-2 sm:grid-cols-2"
           >
             <div>

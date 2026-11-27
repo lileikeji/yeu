@@ -1,6 +1,8 @@
 import { normalizeShareIconUrl, stripEphemeralShareParams } from '~~/shared/config/brand'
 import { isWechatUserAgent } from '~/utils/browser-environment'
 
+export type WechatSharePermissionState = 'unknown' | 'granted' | 'denied'
+
 interface WechatShareCardInput {
   title: string
   description: string
@@ -55,6 +57,8 @@ let configuredSignatureUrl: string | null = null
 let queuedSignatureUrl: string | null = null
 let queuedSignaturePromise: Promise<void> | null = null
 let latestShareDataVersion = 0
+const appMessagePermitted = ref<WechatSharePermissionState>('unknown')
+const timelinePermitted = ref<WechatSharePermissionState>('unknown')
 const reportedDiagnostics = new Set<string>()
 
 const SDK_READY_TIMEOUT_MS = 8_000
@@ -238,6 +242,43 @@ function shareUrl(rawUrl: string): string {
   return stripEphemeralShareParams(rawUrl, window.location.origin)
 }
 
+function dispatchWechatShareHook(
+  register: ((input: WechatSharePayload) => void) | undefined,
+  payload: WechatSharePayload,
+  permissionRef: Ref<WechatSharePermissionState>
+): Promise<void> {
+  if (typeof register !== 'function') return Promise.resolve()
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      resolve()
+    }
+    const timer = window.setTimeout(finish, 400)
+    try {
+      register({
+        ...payload,
+        success: () => {
+          permissionRef.value = 'granted'
+          reportWechatShareDiagnostic('share_data', 'success')
+          finish()
+        },
+        fail: (error) => {
+          permissionRef.value = 'denied'
+          reportWechatShareDiagnostic('share_data', 'error', error)
+          finish()
+        }
+      })
+    } catch (error) {
+      permissionRef.value = 'denied'
+      reportWechatShareDiagnostic('share_data', 'error', error)
+      finish()
+    }
+  })
+}
+
 export function useWechatShareCard() {
   async function configureWechatShare(input: WechatShareCardInput): Promise<boolean> {
     if (!import.meta.client || !isWechatUserAgent(navigator.userAgent)) return false
@@ -282,21 +323,22 @@ export function useWechatShareCard() {
         link: shareLink,
         imgUrl: imageUrl
       }
-      const modernPayload: WechatSharePayload = {
-        ...payload,
-        success: () => reportWechatShareDiagnostic('share_data', 'success'),
-        fail: error => reportWechatShareDiagnostic('share_data', 'error', error)
-      }
-      sdk.updateAppMessageShareData?.(modernPayload)
-      sdk.updateTimelineShareData?.(modernPayload)
+      const appMsgTask = dispatchWechatShareHook(sdk.updateAppMessageShareData, payload, appMessagePermitted)
+      const timelineTask = dispatchWechatShareHook(sdk.updateTimelineShareData, payload, timelinePermitted)
       // Older WeChat WebViews still expose only the legacy share hooks.
       sdk.onMenuShareAppMessage?.(payload)
       sdk.onMenuShareTimeline?.(payload)
+      await Promise.all([appMsgTask, timelineTask])
+      if (shareVersion !== latestShareDataVersion) return true
       return true
     } catch {
       return false
     }
   }
 
-  return { configureWechatShare }
+  return {
+    configureWechatShare,
+    appMessagePermitted: readonly(appMessagePermitted),
+    timelinePermitted: readonly(timelinePermitted)
+  }
 }

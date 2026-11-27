@@ -1415,8 +1415,10 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   allowChange: integer('allow_change', { mode: 'boolean' }).notNull().default(false),
   /** 允许改票的次数；0 = 投完不能改。 */
   maxChanges: integer('max_changes').notNull().default(1),
-  /** 每人最多可投票数；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
+  /** 每人最多可投票数（混合模式下为免关注基础票数）；1 = 一人一票（可改票），大于 1 = 可投多票且改票不生效。 */
   votesPerVoter: integer('votes_per_voter').notNull().default(1),
+  /** 混合模式下关注公众号额外增加的票数（默认 +2，可与基础票合并投给同一人）。 */
+  wechatBonusVotes: integer('wechat_bonus_votes').notNull().default(2),
   /** 多票模式下是否允许把多票投给同一位选手；false = 同一选手最多 1 票。 */
   allowRepeatVote: integer('allow_repeat_vote', { mode: 'boolean' }).notNull().default(true),
   /** 大屏二维码刷新间隔（秒）。 */
@@ -1427,10 +1429,12 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   allowWithdraw: integer('allow_withdraw', { mode: 'boolean' }).notNull().default(true),
   /** 公开页是否展示各候选票数；默认关闭，避免从众。 */
   showResults: integer('show_results', { mode: 'boolean' }).notNull().default(false),
+  /** 不公布具体票数时，是否仍展示当前名次及距离前一名差多少票。 */
+  showRankGap: integer('show_rank_gap', { mode: 'boolean' }).notNull().default(false),
   /** 大屏取码密钥；后台可以一键更换，旧大屏链接立即失效。 */
   displayKey: text('display_key').notNull(),
-  /** 核验模式：wechat_mp（公众号口令领专属凭证，默认）或 device_strict（免关注降级）。 */
-  authMode: text('auth_mode', { enum: ['wechat_mp', 'device_strict'] }).notNull().default('wechat_mp'),
+  /** 核验模式：wechat_mp（公众号领链接）、hybrid（人人直投+关注加票）或 device_strict（免关注降级）。 */
+  authMode: text('auth_mode', { enum: ['wechat_mp', 'device_strict', 'hybrid'] }).notNull().default('wechat_mp'),
   /** 现场引导关注的公众号名称与二维码 URL（留空则展示内置默认二维码）。 */
   wechatAccountName: text('wechat_account_name').notNull().default('仰恩大学指南'),
   wechatQrUrl: text('wechat_qr_url').notNull().default(''),
@@ -1446,6 +1450,7 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   uniqueIndex('competition_popularity_settings_event_unique').on(table.eventId),
   check('competition_popularity_settings_max_changes_check', sql`${table.maxChanges} between 0 and 20`),
   check('competition_popularity_settings_votes_per_voter_check', sql`${table.votesPerVoter} between 1 and 20`),
+  check('competition_popularity_settings_wechat_bonus_votes_check', sql`${table.wechatBonusVotes} between 0 and 20`),
   check('competition_popularity_settings_qr_rotate_check', sql`${table.qrRotateSeconds} between 10 and 300`)
 ])
 

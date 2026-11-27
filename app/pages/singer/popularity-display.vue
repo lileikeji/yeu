@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { CompetitionPopularityAuthMode, CompetitionPopularityPublicState } from '~~/shared/types'
 import {
-  computePopularityStandingMap,
   groupPopularityCandidates,
+  resolvePopularityStandingMap,
   type PopularityCandidateStanding
 } from '~~/shared/utils/competition'
 
@@ -61,20 +61,26 @@ const now = ref(Date.now())
 const displayQrSrc = computed(() => {
   const source = tokenState.value
   if (!source) return ''
-  if (source.authMode === 'wechat_mp' && source.wechatQrUrl) return source.wechatQrUrl
+  if ((source.authMode === 'wechat_mp' || source.authMode === 'hybrid') && source.wechatQrUrl) return source.wechatQrUrl
   return source.qrDataUrl
 })
 
 const votesPerVoter = computed(() => Math.max(1, state.value?.votesPerVoter ?? 1))
-const multiVote = computed(() => votesPerVoter.value > 1)
+const bonusVotes = computed(() => (state.value?.authMode === 'hybrid' ? Math.max(0, state.value?.wechatBonusVotes ?? 2) : 0))
+const multiVote = computed(() => votesPerVoter.value > 1 || bonusVotes.value > 0)
 const allowRepeatVote = computed(() => state.value?.allowRepeatVote !== false)
 
 const ruleSummary = computed(() => {
   const current = state.value
   if (!current) return '现场扫码投票'
+  const repeatLabel = allowRepeatVote.value ? '可重复投同一选手' : '同一选手限 1 票'
+  if (current.authMode === 'hybrid') {
+    const base = Math.max(1, current.votesPerVoter ?? 1)
+    const bonus = Math.max(0, current.wechatBonusVotes ?? 2)
+    return `人人可投 ${base} 票 · 关注公众号再加 ${bonus} 票 · ${repeatLabel}`
+  }
   const identityLabel = current.authMode === 'wechat_mp' ? '一人一微信号' : '每台设备'
   if (multiVote.value) {
-    const repeatLabel = allowRepeatVote.value ? '可重复投同一选手' : '同一选手限 1 票'
     return `${identityLabel} · 每人最多 ${votesPerVoter.value} 票 · ${repeatLabel}`
   }
   return `${identityLabel}限投 1 票 · ${current.allowChange ? '截止前可改票' : '投出后锁定'}`
@@ -84,7 +90,7 @@ const candidateGroups = computed(() => groupPopularityCandidates(state.value?.ca
 
 const standingMap = computed(() => (
   state.value
-    ? computePopularityStandingMap(state.value.candidates, state.value.results)
+    ? resolvePopularityStandingMap(state.value.candidates, state.value.results, state.value.standings)
     : null
 ))
 
@@ -100,12 +106,15 @@ function groupOrderLabel(numbers: number[]): string {
 }
 
 function standingGapText(standing: PopularityCandidateStanding): string {
+  const showExactVotes = Boolean(state.value?.showResults)
   if (standing.rank === null) return '等待投出第一票'
   if (standing.gapToPrev !== null && standing.prevRank !== null) {
-    return `距第 ${standing.prevRank} 名差 ${standing.gapToPrev} 票`
+    return showExactVotes
+      ? `距第 ${standing.prevRank} 名差 ${standing.gapToPrev} 票`
+      : `距前一名差 ${standing.gapToPrev} 票`
   }
   if (standing.rank === 1 && standing.tiedCount > 1) return '当前并列第 1 名'
-  if (standing.rank === 1 && standing.leadOverNext !== null) return `领先第 2 名 ${standing.leadOverNext} 票`
+  if (showExactVotes && standing.rank === 1 && standing.leadOverNext !== null) return `领先第 2 名 ${standing.leadOverNext} 票`
   return '当前第 1 名'
 }
 
@@ -285,10 +294,10 @@ onBeforeUnmount(() => {
 
           <div class="flex flex-col justify-between rounded-2xl border border-[var(--line)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-4 py-2.5 text-right shadow-sm">
             <p class="text-xs font-medium text-[var(--muted-ink)]">
-              {{ multiVote ? '累计有效票' : '已投有效票' }}
+              {{ state && !state.showResults ? '实时票数' : (multiVote ? '累计有效票' : '已投有效票') }}
             </p>
             <p class="mt-1 text-2xl font-black tabular-nums text-rose-600 dark:text-rose-400 xl:text-3xl">
-              {{ state?.totalVotes ?? 0 }}
+              {{ state && !state.showResults ? '暂不公开' : (state?.totalVotes ?? 0) }}
             </p>
           </div>
 
@@ -314,7 +323,11 @@ onBeforeUnmount(() => {
                 name="i-lucide-qr-code"
                 class="size-4"
               />
-              <span>{{ tokenState?.authMode === 'wechat_mp' ? '扫码关注公众号领票' : '现场扫码直投入口' }}</span>
+              <span>{{ tokenState?.authMode === 'hybrid'
+                ? '关注公众号再加投 2 票'
+                : tokenState?.authMode === 'wechat_mp'
+                  ? '扫码关注公众号领票'
+                  : '现场扫码直投入口' }}</span>
             </div>
 
             <div class="mt-3 w-full max-w-[300px] rounded-2xl border border-[var(--line)] bg-zinc-50 p-3 shadow-sm xl:max-w-[330px]">
@@ -332,10 +345,16 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <template v-if="tokenState?.authMode === 'wechat_mp'">
+            <template v-if="tokenState?.authMode === 'wechat_mp' || tokenState?.authMode === 'hybrid'">
               <div class="mt-4 w-full rounded-2xl border border-rose-400/50 bg-rose-500/10 px-4 py-3.5 text-center">
                 <p class="text-xs font-bold tracking-wide text-[var(--ink)]">
-                  {{ tokenState.passcodeRotate === false ? `关注「${tokenState.wechatAccountName || '仰恩大学指南'}」即可领票` : `向「${tokenState.wechatAccountName || '仰恩大学指南'}」发送口令` }}
+                  {{ tokenState.authMode === 'hybrid'
+                    ? (tokenState.passcodeRotate === false
+                      ? `人人可直投 · 关注「${tokenState.wechatAccountName || '仰恩大学指南'}」多加 ${state?.wechatBonusVotes ?? 2} 票`
+                      : `关注「${tokenState.wechatAccountName || '仰恩大学指南'}」发送口令多领 ${state?.wechatBonusVotes ?? 2} 票`)
+                    : (tokenState.passcodeRotate === false
+                      ? `关注「${tokenState.wechatAccountName || '仰恩大学指南'}」即可领票`
+                      : `向「${tokenState.wechatAccountName || '仰恩大学指南'}」发送口令`) }}
                 </p>
                 <p
                   v-if="tokenState.passcodeRotate !== false"
@@ -350,7 +369,9 @@ onBeforeUnmount(() => {
                   发送「投票」
                 </p>
                 <p class="mt-1.5 text-xs font-medium text-[var(--muted-ink)]">
-                  {{ tokenState.passcodeRotate === false ? '无需口令 · 一人一微信号一票' : '口令每分钟自动刷新 · 发送后点击专属链接投票' }}
+                  {{ tokenState.authMode === 'hybrid'
+                    ? `共可投 ${(state?.votesPerVoter ?? 1) + (state?.wechatBonusVotes ?? 2)} 票（可全投同一位选手）`
+                    : (tokenState.passcodeRotate === false ? '无需口令 · 一人一微信号一票' : '口令每分钟自动刷新 · 发送后点击专属链接投票') }}
                 </p>
               </div>
 
@@ -424,7 +445,7 @@ onBeforeUnmount(() => {
                 v-if="state && !state.showResults"
                 class="rounded-full bg-[var(--surface-sunken)] px-2.5 py-0.5 font-medium"
               >
-                当前隐藏实时票数
+                {{ state.showRankGap ? '当前隐藏实时票数 · 仅展示差票' : '当前隐藏实时票数' }}
               </span>
             </div>
           </div>
@@ -501,7 +522,10 @@ onBeforeUnmount(() => {
                     v-if="standingOf(candidate.singerId)"
                     class="space-y-1.5 border-t border-[var(--line)] pt-2"
                   >
-                    <div class="flex items-baseline justify-between gap-1">
+                    <div
+                      v-if="state?.showResults"
+                      class="flex items-baseline justify-between gap-1"
+                    >
                       <span class="whitespace-nowrap text-xs text-[var(--muted-ink)]">
                         <strong class="text-lg font-black tabular-nums text-[var(--ink)] xl:text-xl">{{ standingOf(candidate.singerId)!.count }}</strong>
                         <span class="ml-0.5">票</span>
@@ -526,14 +550,50 @@ onBeforeUnmount(() => {
                       </span>
                     </div>
 
-                    <div class="h-1.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+                    <div
+                      v-if="state?.showResults"
+                      class="h-1.5 overflow-hidden rounded-full bg-[var(--surface-sunken)]"
+                    >
                       <div
                         class="h-full rounded-full bg-rose-600 transition-[width] duration-500"
                         :style="{ width: `${progressPercentOf(standingOf(candidate.singerId)!.count)}%` }"
                       />
                     </div>
 
+                    <div
+                      v-if="!state?.showResults"
+                      class="flex items-center justify-between gap-1.5"
+                    >
+                      <p
+                        class="min-w-0 truncate text-xs font-bold leading-tight tabular-nums"
+                        :class="standingOf(candidate.singerId)!.gapToPrev !== null
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : 'text-[var(--muted-ink)]'"
+                      >
+                        {{ standingGapText(standingOf(candidate.singerId)!) }}
+                      </p>
+                      <span
+                        class="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
+                        :class="standingOf(candidate.singerId)!.rank === 1
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : standingOf(candidate.singerId)!.rank !== null
+                            ? 'bg-[var(--surface-sunken)] text-[var(--ink)] ring-1 ring-[var(--line)]'
+                            : 'bg-[var(--surface-sunken)] text-[var(--muted-ink)]'"
+                      >
+                        <template v-if="standingOf(candidate.singerId)!.rank === null">
+                          暂未开榜
+                        </template>
+                        <template v-else-if="standingOf(candidate.singerId)!.rank === 1 && standingOf(candidate.singerId)!.tiedCount > 1">
+                          并列第 1
+                        </template>
+                        <template v-else>
+                          第 {{ standingOf(candidate.singerId)!.rank }} 名
+                        </template>
+                      </span>
+                    </div>
+
                     <p
+                      v-if="state?.showResults"
                       class="truncate text-[11px] font-medium leading-tight tabular-nums"
                       :class="standingOf(candidate.singerId)!.gapToPrev !== null
                         ? 'text-rose-700 dark:text-rose-300'

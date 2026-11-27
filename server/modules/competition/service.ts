@@ -55,7 +55,8 @@ import {
   competitionMaxTotal,
   dimensionMaxOf,
   plainSortName,
-  roundCompetitionScore
+  roundCompetitionScore,
+  toPopularityStandingHints
 } from '../../../shared/utils/competition'
 import type {
   CompetitionAdminPayload,
@@ -2395,11 +2396,13 @@ export interface CompetitionPopularitySettingsInput {
   allowChange: boolean
   maxChanges: number
   votesPerVoter: number
+  wechatBonusVotes?: number
   allowRepeatVote: boolean
   qrRotateSeconds: number
   passcodeRotate?: boolean
   allowWithdraw?: boolean
   showResults: boolean
+  showRankGap?: boolean
   authMode?: CompetitionPopularityAuthMode
   wechatAccountName?: string
   wechatQrUrl?: string
@@ -2408,6 +2411,18 @@ export interface CompetitionPopularitySettingsInput {
 }
 
 export type CompetitionPopularityAction = 'open' | 'close' | 'disable' | 'reset-votes' | 'rotate-display-key'
+
+function normalizePopularityAuthMode(value: unknown): CompetitionPopularityAuthMode {
+  if (value === 'device_strict') return 'device_strict'
+  if (value === 'hybrid') return 'hybrid'
+  return 'wechat_mp'
+}
+
+function clampPopularityBonusVotes(value: unknown): number {
+  const num = Number(value ?? 2)
+  if (!Number.isFinite(num)) return 2
+  return Math.max(0, Math.min(20, Math.trunc(num)))
+}
 
 function popularityStatusOf(
   settings: PopularitySettingsRow,
@@ -2429,13 +2444,15 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     allowChange: row.allowChange,
     maxChanges: Number(row.maxChanges),
     votesPerVoter: Math.max(1, Number(row.votesPerVoter ?? 1)),
+    wechatBonusVotes: clampPopularityBonusVotes(row.wechatBonusVotes),
     allowRepeatVote: Boolean(row.allowRepeatVote ?? true),
     qrRotateSeconds: Number(row.qrRotateSeconds),
     passcodeRotate: Boolean(row.passcodeRotate ?? true),
     allowWithdraw: Boolean(row.allowWithdraw ?? true),
     showResults: row.showResults,
+    showRankGap: Boolean(row.showRankGap ?? false),
     displayKey: row.displayKey,
-    authMode: row.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp',
+    authMode: normalizePopularityAuthMode(row.authMode),
     wechatAccountName: row.wechatAccountName || '仰恩大学指南',
     wechatQrUrl: row.wechatQrUrl || '',
     autoQuarantine: Boolean(row.autoQuarantine ?? true),
@@ -2466,11 +2483,13 @@ export function ensurePopularitySettings(
     allowChange: false,
     maxChanges: 1,
     votesPerVoter: 1,
+    wechatBonusVotes: 2,
     allowRepeatVote: true,
     qrRotateSeconds: 30,
     passcodeRotate: true,
     allowWithdraw: true,
     showResults: true,
+    showRankGap: false,
     displayKey: randomBytes(18).toString('base64url'),
     authMode: 'wechat_mp',
     wechatAccountName: '仰恩大学指南',
@@ -2588,7 +2607,12 @@ export function getPopularityPublicState(
   client: DatabaseClient,
   eventId: string,
   deviceHash: string,
-  options: { wechatVerified?: boolean, requiresWechatTicket?: boolean, requiresQrScan?: boolean } = {}
+  options: {
+    wechatVerified?: boolean
+    openIdHash?: string | null
+    requiresWechatTicket?: boolean
+    requiresQrScan?: boolean
+  } = {}
 ): CompetitionPopularityPublicState {
   const settings = ensurePopularitySettings(client, eventId)
   const candidates = listPopularityCandidates(client, eventId)
@@ -2596,30 +2620,43 @@ export function getPopularityPublicState(
     .where(eq(competitionPopularityBallots.eventId, eventId))
     .all()
   const activeBallots = allBallots.filter(ballot => Number(ballot.voided) === 0 && Number(ballot.quarantined) === 0)
-  const myBallots = deviceHash
+  const openIdHash = options.openIdHash?.trim() || ''
+  const wechatVerified = Boolean(options.wechatVerified || openIdHash)
+  const myBallots = (deviceHash || openIdHash)
     ? allBallots
-        .filter(ballot => ballot.deviceHash === deviceHash || ballot.voterOpenidHash === deviceHash)
+        .filter((ballot) => {
+          if (openIdHash && ballot.voterOpenidHash === openIdHash) return true
+          if (deviceHash && (ballot.deviceHash === deviceHash || ballot.voterOpenidHash === deviceHash)) return true
+          return false
+        })
         .sort((left, right) => Number(left.voteIndex ?? 0) - Number(right.voteIndex ?? 0))
     : []
   const activeMine = myBallots.filter(ballot => Number(ballot.voided) === 0)
   const mine = myBallots[0] ?? null
   const mineActive = activeMine[0] ?? null
-  const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
-  const multiVote = votesPerVoter > 1
+
+  const authMode = normalizePopularityAuthMode(settings.authMode)
+  const baseVotes = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
+  const wechatBonusVotes = authMode === 'hybrid' ? clampPopularityBonusVotes(settings.wechatBonusVotes) : 0
+  const maxVotesPerVoter = baseVotes + wechatBonusVotes
+  const votesPerVoter = authMode === 'hybrid'
+    ? (wechatVerified ? maxVotesPerVoter : baseVotes)
+    : baseVotes
+  const slotMode = votesPerVoter > 1 || maxVotesPerVoter > 1
   const allowRepeatVote = Boolean(settings.allowRepeatVote ?? true)
   const votesUsed = activeMine.length
   const votesRemaining = Math.max(0, votesPerVoter - votesUsed)
   const status = popularityStatusOf(settings)
   const results = popularityResultRows(candidates, activeBallots, activeBallots.length)
-  const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
-  const requiresWechatTicket = options.requiresWechatTicket ?? (authMode === 'wechat_mp' && !options.wechatVerified)
-  const canChange = !multiVote
+  const requiresWechatTicket = options.requiresWechatTicket ?? (authMode === 'wechat_mp' && !wechatVerified)
+  const canChange = !slotMode
     && !requiresWechatTicket
     && status === 'open'
     && candidates.length > 0
     && (!mine || (Number(mine.voided) === 0 && settings.allowChange && Number(mine.changeCount) < Number(settings.maxChanges)))
   const allowWithdraw = Boolean(settings.allowWithdraw ?? true)
-  const revision = multiVote ? votesUsed : Number(mineActive?.version ?? 0)
+  const showRankGap = Boolean(settings.showRankGap ?? false)
+  const revision = slotMode ? votesUsed : Number(mineActive?.version ?? 0)
 
   return {
     title: settings.title,
@@ -2633,11 +2670,14 @@ export function getPopularityPublicState(
     canWithdraw: allowWithdraw && status === 'open' && activeMine.length > 0,
     passcodeRequired: Boolean(settings.passcodeRotate),
     votesPerVoter,
+    wechatBonusVotes,
+    maxVotesPerVoter,
     allowRepeatVote,
     qrRotateSeconds: Number(settings.qrRotateSeconds),
     showResults: settings.showResults,
+    showRankGap,
     candidates,
-    totalVotes: activeBallots.length,
+    totalVotes: settings.showResults ? activeBallots.length : 0,
     myBallot: mineActive ? popularityBallotView(mineActive) : null,
     myBallots: activeMine.map(popularityBallotView),
     votesUsed,
@@ -2645,12 +2685,15 @@ export function getPopularityPublicState(
     revision,
     canChange,
     authMode,
-    wechatVerified: Boolean(options.wechatVerified),
+    wechatVerified,
     requiresWechatTicket,
     requiresQrScan: Boolean(options.requiresQrScan),
     wechatAccountName: settings.wechatAccountName || '仰恩大学指南',
     wechatQrUrl: settings.wechatQrUrl || '',
     results: settings.showResults ? results : null,
+    standings: (settings.showResults || showRankGap)
+      ? toPopularityStandingHints(candidates, results)
+      : null,
     now: Date.now()
   }
 }
@@ -2665,6 +2708,7 @@ export interface PopularityVoteTelemetry {
   qrRotateSeconds?: number | null
   missingFetchMeta?: boolean
   voterOpenidHash?: string | null
+  webdriver?: boolean
   autoQuarantineOverride?: boolean
   now?: number
 }
@@ -2736,14 +2780,15 @@ function evaluateRealtimeBallotSuspicion(
       reasons.push('同IP连投该选手(3票)')
     }
 
-    // 机器等距节拍检测：同 IP 最近多票呈现低方差固定间隔（如脚本 per-ip-gap 10s 稳态）
+    // 机器等距节拍检测：按不同 device_hash 取首票时间算间隔，避免单个多票用户连投 3 票被误判为机器节拍
     if (input.action === 'cast') {
       const recentCastRows = client.sqlite.prepare(
-        `SELECT created_at AS createdAt FROM competition_popularity_vote_logs
-         WHERE event_id = ? AND ip_hash = ? AND action = 'cast' AND created_at > ?
-         ORDER BY created_at DESC LIMIT 5`
-      ).all(eventId, input.ipHash, since) as Array<{ createdAt: number }>
-      const times = [...recentCastRows.map(r => Number(r.createdAt)).reverse(), now]
+        `SELECT device_hash AS deviceHash, MIN(created_at) AS firstCastAt FROM competition_popularity_vote_logs
+         WHERE event_id = ? AND ip_hash = ? AND action = 'cast' AND device_hash != ? AND created_at > ?
+         GROUP BY device_hash
+         ORDER BY firstCastAt DESC LIMIT 5`
+      ).all(eventId, input.ipHash, input.deviceHash, since) as Array<{ deviceHash: string, firstCastAt: number }>
+      const times = [...recentCastRows.map(r => Number(r.firstCastAt)).reverse(), now]
       if (times.length >= 4) {
         const gaps: number[] = []
         for (let i = 1; i < times.length; i += 1) {
@@ -2766,23 +2811,69 @@ function evaluateRealtimeBallotSuspicion(
   }
 
   const envHash = input.telemetry?.envHash ?? null
+  const isGuestVote = !input.telemetry?.voterOpenidHash
   if (envHash) {
-    const envRows = client.db.select({ deviceHash: competitionPopularityBallots.deviceHash })
+    const envRows = client.db.select({
+      deviceHash: competitionPopularityBallots.deviceHash,
+      ipHash: competitionPopularityBallots.ipHash,
+      singerId: competitionPopularityBallots.singerId,
+      voterOpenidHash: competitionPopularityBallots.voterOpenidHash,
+      createdAt: competitionPopularityBallots.createdAt
+    })
       .from(competitionPopularityBallots)
       .where(and(
         eq(competitionPopularityBallots.eventId, eventId),
         eq(competitionPopularityBallots.envHash, envHash)
       ))
       .all()
-    const envDevices = new Set(envRows.map(row => row.deviceHash))
-    envDevices.add(input.deviceHash)
-    if (envDevices.size >= 3) {
+    const sameIpEnvRows = input.ipHash
+      ? envRows.filter(row => row.ipHash === input.ipHash)
+      : envRows
+    const envActors = new Set(sameIpEnvRows.map(row => row.voterOpenidHash || row.deviceHash))
+    envActors.add(input.telemetry?.voterOpenidHash || input.deviceHash)
+
+    if (isGuestVote && input.ipHash) {
+      const sameIpEnvGuestDevices = new Set(
+        sameIpEnvRows
+          .filter(row => !row.voterOpenidHash && row.singerId === input.singerId)
+          .map(row => row.deviceHash)
+      )
+      sameIpEnvGuestDevices.add(input.deviceHash)
+      if (sameIpEnvGuestDevices.size >= 3) {
+        score += 75
+        reasons.push(`同IP+同硬件免关注切号刷该选手(${sameIpEnvGuestDevices.size}台)`)
+      } else if (sameIpEnvGuestDevices.size === 2) {
+        score += 55
+        reasons.push('同IP+同硬件免关注切号投同选手')
+      }
+    }
+
+    if (isGuestVote) {
+      const recentWindow = now - 15 * 60_000
+      const recentEnvGuestDevices = new Set(
+        envRows
+          .filter(row => !row.voterOpenidHash && row.singerId === input.singerId && Number(row.createdAt ?? 0) >= recentWindow)
+          .map(row => row.deviceHash)
+      )
+      recentEnvGuestDevices.add(input.deviceHash)
+      if (recentEnvGuestDevices.size >= 4) {
+        score += 45
+        reasons.push(`15分钟同硬件跨IP切号投同选手(${recentEnvGuestDevices.size}台)`)
+      }
+    }
+
+    if (envActors.size >= 3) {
       score += 40
-      reasons.push(`同设备环境第${envDevices.size}次切换身份`)
-    } else if (envDevices.size === 2) {
+      reasons.push(`同设备环境第${envActors.size}次切换身份`)
+    } else if (envActors.size === 2) {
       score += 20
       reasons.push('同设备环境重复投票')
     }
+  }
+
+  if (input.telemetry?.webdriver === true) {
+    score += 75
+    reasons.push('检测到自动化WebDriver环境')
   }
 
   const dwellMs = input.telemetry?.dwellMs
@@ -2879,14 +2970,22 @@ export function recordPopularityBallot(
     .sort((left, right) => Number(left.voteIndex ?? 0) - Number(right.voteIndex ?? 0))
   const existing = myBallots[0] ?? null
   const activeMine = myBallots.filter(ballot => Number(ballot.voided) === 0)
-  const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
+  const authMode = normalizePopularityAuthMode(settings.authMode)
+  const baseVotes = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
+  const wechatBonusVotes = authMode === 'hybrid' ? clampPopularityBonusVotes(settings.wechatBonusVotes) : 0
+  const maxVotesPerVoter = baseVotes + wechatBonusVotes
+  const hasWechatIdentity = Boolean(normalizedOpenIdHash)
+  const votesPerVoter = authMode === 'hybrid'
+    ? (hasWechatIdentity ? maxVotesPerVoter : baseVotes)
+    : baseVotes
   const multiVote = votesPerVoter > 1
+  const slotMode = multiVote || maxVotesPerVoter > 1
   const allowRepeatVote = Boolean(settings.allowRepeatVote ?? true)
 
-  const wechatVerified = Boolean(normalizedOpenIdHash || existing?.voterOpenidHash)
-  const authMode = settings.authMode === 'device_strict' ? 'device_strict' : 'wechat_mp'
+  const wechatVerified = Boolean(normalizedOpenIdHash || (authMode === 'wechat_mp' && existing?.voterOpenidHash))
   const stateOptions = {
     wechatVerified,
+    openIdHash: normalizedOpenIdHash,
     requiresWechatTicket: authMode === 'wechat_mp' && !wechatVerified
   }
 
@@ -2894,11 +2993,11 @@ export function recordPopularityBallot(
     existing && Number(existing.voided) === 1 && existing.voidedReason === 'voter_cancel'
   )
 
-  if (!multiVote && existing && Number(existing.voided) === 1 && !voterCancelled) {
+  if (!slotMode && existing && Number(existing.voided) === 1 && !voterCancelled) {
     conflictError('POPULARITY_BALLOT_VOIDED', '当前选票已被风控作废，无法更改')
   }
 
-  if (!multiVote && existing && !voterCancelled && existing.singerId === singerId) {
+  if (!slotMode && existing && !voterCancelled && existing.singerId === singerId) {
     return getPopularityPublicState(client, eventId, existing.deviceHash, stateOptions)
   }
 
@@ -2913,15 +3012,19 @@ export function recordPopularityBallot(
   const autoQuarantine = telemetry?.autoQuarantineOverride ?? Boolean(settings.autoQuarantine ?? true)
   const quarantineThreshold = normalizedOpenIdHash ? 80 : 60
 
-  if (!existing || voterCancelled || multiVote) {
-    const nextVoteIndex = multiVote
-      ? myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1) + 1
-      : 0
-    if (multiVote) {
+  if (!existing || voterCancelled || slotMode) {
+    let maxSlot = myBallots.reduce((max, ballot) => Math.max(max, Number(ballot.voteIndex ?? 0)), -1)
+    if (slotMode) {
       if (!allowRepeatVote && myBallots.some(ballot => ballot.singerId === singerId && Number(ballot.voided) === 0)) {
         conflictError('POPULARITY_VOTE_DUPLICATE', '同一选手最多投 1 票，请把票投给其他选手')
       }
       if (activeMine.length >= votesPerVoter) {
+        if (authMode === 'hybrid' && !hasWechatIdentity && wechatBonusVotes > 0) {
+          conflictError(
+            'POPULARITY_HYBRID_BASE_LIMIT',
+            `免关注普通票（${baseVotes} 票）已投完，关注公众号「${settings.wechatAccountName || '仰恩大学指南'}」发送「投票」可再获 ${wechatBonusVotes} 票`
+          )
+        }
         conflictError('POPULARITY_VOTE_LIMIT', `每人最多投 ${votesPerVoter} 票，你的票已经投满`)
       }
       if (revision != null && revision !== activeMine.length) {
@@ -2945,6 +3048,36 @@ export function recordPopularityBallot(
     const now = telemetry?.now ?? Date.now()
     const ballotId = randomUUID()
     const inserted = client.sqlite.transaction(() => {
+      // 混合模式下先投免关注首票、后关注领 vt 时，把同设备之前未绑定 openid 的有效票归入该微信号；若另一设备同槽位已有该微信选票则顺延 vote_index 避免唯一索引冲突。
+      if (authMode === 'hybrid' && normalizedOpenIdHash) {
+        const occupiedSlots = new Set<number>(
+          myBallots
+            .filter(ballot => ballot.voterOpenidHash === normalizedOpenIdHash && Number(ballot.voided) === 0)
+            .map(ballot => Number(ballot.voteIndex ?? 0))
+        )
+        for (const ballot of myBallots) {
+          if (ballot.deviceHash !== deviceHash || ballot.voterOpenidHash || Number(ballot.voided) !== 0) continue
+          const currentSlot = Number(ballot.voteIndex ?? 0)
+          if (occupiedSlots.has(currentSlot)) {
+            maxSlot += 1
+            const reassignedSlot = maxSlot
+            client.sqlite.prepare(
+              `UPDATE competition_popularity_ballots
+               SET voter_openid_hash = ?, vote_index = ?, updated_at = ?
+               WHERE id = ? AND voided = 0`
+            ).run(normalizedOpenIdHash, reassignedSlot, now, ballot.id)
+            occupiedSlots.add(reassignedSlot)
+          } else {
+            client.sqlite.prepare(
+              `UPDATE competition_popularity_ballots
+               SET voter_openid_hash = ?, updated_at = ?
+               WHERE id = ? AND voided = 0`
+            ).run(normalizedOpenIdHash, now, ballot.id)
+            occupiedSlots.add(currentSlot)
+          }
+        }
+      }
+      const nextVoteIndex = slotMode ? maxSlot + 1 : 0
       const result = client.db.insert(competitionPopularityBallots).values({
         id: ballotId,
         eventId,
@@ -3022,12 +3155,18 @@ export function recordPopularityBallot(
               eq(competitionPopularityBallots.deviceHash, deviceHash)
             ))
             .all())
-      if (multiVote) {
+      if (slotMode) {
         if (!allowRepeatVote && racedRows.some(ballot => ballot.singerId === singerId && Number(ballot.voided) === 0)) {
           conflictError('POPULARITY_VOTE_DUPLICATE', '同一选手最多投 1 票，请把票投给其他选手')
         }
         const racedActive = racedRows.filter(ballot => Number(ballot.voided) === 0)
         if (racedActive.length >= votesPerVoter) {
+          if (authMode === 'hybrid' && !hasWechatIdentity && wechatBonusVotes > 0) {
+            conflictError(
+              'POPULARITY_HYBRID_BASE_LIMIT',
+              `免关注普通票（${baseVotes} 票）已投完，关注公众号「${settings.wechatAccountName || '仰恩大学指南'}」发送「投票」可再获 ${wechatBonusVotes} 票`
+            )
+          }
           conflictError('POPULARITY_VOTE_LIMIT', `每人最多投 ${votesPerVoter} 票，你的票已经投满`)
         }
         conflictError('POPULARITY_CONFLICT', '投票状态已经变化，请刷新页面后重试')
@@ -3143,7 +3282,7 @@ export function withdrawPopularityBallot(
   const status = popularityStatusOf(settings)
   if (status === 'closed') conflictError('POPULARITY_CLOSED', '投票已经截止')
   if (status !== 'open') conflictError('POPULARITY_NOT_OPEN', '投票还没开始')
-  if (!Boolean(settings.allowWithdraw ?? true)) {
+  if (!settings.allowWithdraw) {
     conflictError('POPULARITY_WITHDRAW_DISABLED', '本场不支持取消投票')
   }
 
@@ -3180,7 +3319,8 @@ export function withdrawPopularityBallot(
   }).where(eq(competitionPopularityBallots.id, target.id)).run()
 
   return getPopularityPublicState(client, eventId, deviceHash, {
-    wechatVerified: Boolean(openIdHash || target.voterOpenidHash),
+    wechatVerified: Boolean(openIdHash),
+    openIdHash,
     requiresWechatTicket: false
   })
 }
@@ -3195,6 +3335,10 @@ export function updatePopularitySettings(
   }
   const existing = ensurePopularitySettings(client, eventId)
   const passcodeRotate = input.passcodeRotate ?? Boolean(existing.passcodeRotate ?? true)
+  const nextAuthMode = input.authMode ? normalizePopularityAuthMode(input.authMode) : normalizePopularityAuthMode(existing.authMode)
+  const nextBonusVotes = input.wechatBonusVotes !== undefined
+    ? clampPopularityBonusVotes(input.wechatBonusVotes)
+    : clampPopularityBonusVotes(existing.wechatBonusVotes)
   client.db.update(competitionPopularitySettings).set({
     enabled: input.enabled,
     title: input.title.trim(),
@@ -3204,12 +3348,14 @@ export function updatePopularitySettings(
     allowChange: input.allowChange,
     maxChanges: input.maxChanges,
     votesPerVoter: input.votesPerVoter,
+    wechatBonusVotes: nextBonusVotes,
     allowRepeatVote: input.allowRepeatVote,
     qrRotateSeconds: input.qrRotateSeconds,
     passcodeRotate,
     allowWithdraw: input.allowWithdraw ?? Boolean(existing.allowWithdraw ?? true),
     showResults: input.showResults,
-    authMode: input.authMode ?? existing.authMode,
+    showRankGap: input.showRankGap ?? Boolean(existing.showRankGap ?? false),
+    authMode: nextAuthMode,
     wechatAccountName: input.wechatAccountName !== undefined
       ? (input.wechatAccountName.trim() || '仰恩大学指南')
       : existing.wechatAccountName,

@@ -2,6 +2,13 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
+import fc from 'fast-check'
+import type { CompetitionPopularityCandidate } from '../shared/types'
+import {
+  popularityShareImageUrl,
+  popularitySingerPhotoPath,
+  resolvePopularityPageSharePayload
+} from '../app/utils/popularity-share'
 import {
   DEFAULT_SHARE_ICON_PATH,
   DEFAULT_SHARE_ICON_URL,
@@ -157,4 +164,160 @@ test('WeChat client diagnostics are bounded, rate limited and omit request secre
   assert.match(endpoint, /wechat_share_client/)
   assert.doesNotMatch(endpoint, /getHeader\(event, ['"]user-agent/)
   assert.doesNotMatch(endpoint, /input\.(?:signature|nonceStr|appSecret)/)
+})
+
+test('Popularity singer modal share card uses public media photo route, preserves ?id= and syncs WeChat/SSR meta', () => {
+  const origin = 'https://yx.huiliyill.cn'
+  const singerId = '11111111-2222-4333-8444-555555555555'
+  const withPhoto: CompetitionPopularityCandidate = {
+    singerId,
+    number: 7,
+    name: '林小声',
+    className: '25电子专升本1班',
+    photoUrl: 'https://example.cos.ap-guangzhou.myqcloud.com/a.jpg',
+    photoUpdatedAt: 1764200000123,
+    song: '晴天',
+    sortOrder: 7,
+    pairNo: null,
+    pairSlot: null
+  }
+  const withoutPhoto: CompetitionPopularityCandidate = {
+    ...withPhoto,
+    singerId: '99999999-2222-4333-8444-555555555555',
+    photoUrl: null,
+    photoUpdatedAt: null
+  }
+
+  assert.equal(
+    popularitySingerPhotoPath(singerId, 1764200000123),
+    `/media/competition/singer-photo/${singerId}.jpg?v=1764200000123`
+  )
+  assert.doesNotMatch(popularitySingerPhotoPath(singerId, 1764200000123), /^\/api\//)
+
+  assert.equal(
+    popularityShareImageUrl(withPhoto, origin),
+    `${origin}/media/competition/singer-photo/${singerId}.jpg?v=1764200000123`
+  )
+  assert.equal(popularityShareImageUrl(withoutPhoto, origin), DEFAULT_SHARE_ICON_URL)
+
+  const singerPayload = resolvePopularityPageSharePayload({
+    title: '人气奖投票',
+    subtitle: '投出你的关键一票',
+    candidate: withPhoto,
+    origin
+  })
+  assert.equal(singerPayload.title, '7号 林小声｜人气奖投票')
+  assert.match(singerPayload.description, /林小声（7号）《晴天》/)
+  assert.equal(singerPayload.imageUrl, `${origin}/media/competition/singer-photo/${singerId}.jpg?v=1764200000123`)
+  assert.equal(singerPayload.link, `${origin}/singer/popularity?id=${singerId}`)
+
+  const homePayload = resolvePopularityPageSharePayload({
+    title: '人气奖投票',
+    subtitle: '投出你的关键一票',
+    candidate: null,
+    origin
+  })
+  assert.equal(homePayload.title, '人气奖投票｜新声歌手大赛')
+  assert.equal(homePayload.description, '投出你的关键一票')
+  assert.equal(homePayload.imageUrl, DEFAULT_SHARE_ICON_URL)
+  assert.equal(homePayload.link, `${origin}/singer/popularity`)
+
+  fc.assert(
+    fc.property(
+      fc.record({
+        singerId: fc.uuid(),
+        number: fc.integer({ min: 1, max: 99 }),
+        name: fc.string({ minLength: 1, maxLength: 12 }),
+        song: fc.string({ minLength: 0, maxLength: 20 }),
+        hasPhoto: fc.boolean(),
+        photoUpdatedAt: fc.option(fc.integer({ min: 1, max: 2_000_000_000_000 }), { nil: null }),
+        selected: fc.boolean()
+      }),
+      (sample) => {
+        const candidate: CompetitionPopularityCandidate = {
+          singerId: sample.singerId,
+          number: sample.number,
+          name: sample.name,
+          className: null,
+          photoUrl: sample.hasPhoto ? 'https://cdn.example.com/photo.jpg' : null,
+          photoUpdatedAt: sample.photoUpdatedAt,
+          song: sample.song,
+          sortOrder: sample.number,
+          pairNo: null,
+          pairSlot: null
+        }
+        const photoPath = popularitySingerPhotoPath(candidate.singerId, candidate.photoUpdatedAt)
+        assert.equal(photoPath.startsWith('/media/competition/singer-photo/'), true)
+        assert.equal(photoPath.startsWith('/api/'), false)
+
+        const payload = resolvePopularityPageSharePayload({
+          title: '人气奖投票',
+          subtitle: '副标题',
+          candidate: sample.selected ? candidate : null,
+          origin
+        })
+        assert.equal(payload.imageUrl.includes('/api/'), false)
+        if (sample.selected) {
+          assert.equal(payload.link, `${origin}/singer/popularity?id=${encodeURIComponent(candidate.singerId)}`)
+          if (sample.hasPhoto) {
+            assert.equal(payload.imageUrl, `${origin}${photoPath}`)
+          } else {
+            assert.equal(payload.imageUrl, DEFAULT_SHARE_ICON_URL)
+          }
+        } else {
+          assert.equal(payload.link, `${origin}/singer/popularity`)
+          assert.equal(payload.imageUrl, DEFAULT_SHARE_ICON_URL)
+        }
+      }
+    ),
+    { numRuns: 100 }
+  )
+
+  assert.equal(existsSync(resolve('server/routes/media/competition/singer-photo/[id].ts')), true)
+  assert.equal(existsSync(resolve('server/routes/media/competition/singer-photo/[id].get.ts')), false)
+  assert.equal(existsSync(resolve('server/api/public/competition/popularity/singer-photo.get.ts')), false)
+
+  const popularityPage = readFileSync(resolve('app/pages/singer/popularity.vue'), 'utf8')
+  assert.match(popularityPage, /resolvePopularityPageSharePayload/)
+  assert.match(popularityPage, /itempropMeta/)
+  assert.match(popularityPage, /ogTitle/)
+  assert.match(popularityPage, /ogImage/)
+  assert.match(popularityPage, /configureWechatShare/)
+})
+
+test('WeChat timeline fallback image size >= 512px, HEAD preflight & CORP headers, and permission denied poster guidance', () => {
+  const app = readFileSync(resolve('app/app.vue'), 'utf8')
+  assert.doesNotMatch(app, /class="[^"]*\bsize-px\b[^"]*"/)
+  assert.match(app, /width="512"\s+height="512"/)
+  assert.match(app, /max-w-none/)
+  assert.match(app, /useState<string>\(\s*['"]wechat-fallback-share-image['"]/)
+
+  const popularityPage = readFileSync(resolve('app/pages/singer/popularity.vue'), 'utf8')
+  assert.match(popularityPage, /useState<string>\(\s*['"]wechat-fallback-share-image['"]/)
+
+  const mediaRoute = readFileSync(resolve('server/routes/media/competition/singer-photo/[id].ts'), 'utf8')
+  assert.match(mediaRoute, /getMethod\(event\)/)
+  assert.match(mediaRoute, /HEAD/)
+  assert.match(mediaRoute, /Cross-Origin-Resource-Policy/)
+  assert.match(mediaRoute, /cross-origin/)
+
+  const cachePlugin = readFileSync(resolve('server/plugins/email-image-cache-headers.ts'), 'utf8')
+  assert.match(cachePlugin, /Cross-Origin-Resource-Policy/)
+  assert.match(cachePlugin, /cross-origin/)
+
+  const composable = readFileSync(resolve('app/composables/useWechatShareCard.ts'), 'utf8')
+  assert.match(composable, /timelinePermitted/)
+  assert.match(composable, /appMessagePermitted/)
+
+  const shareActions = readFileSync(resolve('app/composables/useShareActions.ts'), 'utf8')
+  assert.match(shareActions, /timelinePermitted/)
+  assert.match(shareActions, /朋友圈/)
+
+  const sheet = readFileSync(resolve('app/components/competition/PopularitySingerSheet.vue'), 'utf8')
+  assert.match(sheet, /timelinePermitted/)
+  assert.match(sheet, /朋友圈海报/)
+
+  const shareEndpoint = readFileSync(resolve('server/api/public/wechat-share.get.ts'), 'utf8')
+  assert.match(shareEndpoint, /wechatMpAltAppId/)
+  assert.match(shareEndpoint, /wechatMpAltAppSecret/)
 })

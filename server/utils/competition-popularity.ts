@@ -21,8 +21,9 @@ const PAGE_TICKET_TTL_MS = 30 * 60_000
 const WECHAT_TICKET_TTL_MS = 45 * 60_000
 const PASSCODE_WINDOW_MS = 60_000
 export const POPULARITY_MIN_DWELL_MS = 400
+export const HYBRID_FIRST_VOTE_MIN_DWELL_MS = 1200
 
-const AUTOMATED_UA_PATTERN = /curl|wget|python-requests|python-urllib|aiohttp|httpx|go-http-client|okhttp|axios|node-fetch|undici|got\/|postmanruntime|insomnia|httpie|headlesschrome|phantomjs|playwright|puppeteer|selenium|webdriver/i
+const AUTOMATED_UA_PATTERN = /curl|wget|python-requests|python-urllib|aiohttp|httpx|go-http-client|go-resty|apache-httpclient|java\/|libwww-perl|mechanize|okhttp|axios|node-fetch|undici|got\/|postmanruntime|insomnia|httpie|headlesschrome|phantomjs|playwright|puppeteer|selenium|webdriver|jsdom|electron/i
 
 export interface PopularityTokenPayload {
   eventId: string
@@ -56,6 +57,11 @@ export interface PopularityVoteEnvInput {
   lang?: string
   screen?: string
   touch?: number
+  cores?: number
+  mem?: number
+  dpr?: number
+  gpu?: string
+  wd?: boolean
 }
 
 /**
@@ -311,7 +317,11 @@ export function popularityEnvHash(
     (clientEnv?.tz || '').trim().toLowerCase(),
     (clientEnv?.lang || '').trim().toLowerCase(),
     (clientEnv?.screen || '').trim().toLowerCase(),
-    clientEnv?.touch !== undefined ? String(clientEnv.touch) : ''
+    clientEnv?.touch !== undefined ? String(clientEnv.touch) : '',
+    clientEnv?.cores !== undefined ? String(clientEnv.cores) : '',
+    clientEnv?.mem !== undefined ? String(clientEnv.mem) : '',
+    clientEnv?.dpr !== undefined ? String(clientEnv.dpr) : '',
+    (clientEnv?.gpu || '').trim().toLowerCase()
   ]
   return hashOpaqueToken(secret, ENV_PURPOSE, parts.join('|'))
 }
@@ -477,4 +487,9 @@ export function hasBrowserFetchMetadata(event: H3Event): boolean {
   const mode = (getHeader(event, 'sec-fetch-mode') || '').trim().toLowerCase()
   const dest = (getHeader(event, 'sec-fetch-dest') || '').trim().toLowerCase()
   return (mode === 'cors' || mode === 'same-origin') && dest === 'empty'
+}
+
+export function hasCrossSiteFetchMetadata(event: H3Event): boolean {
+  const site = (getHeader(event, 'sec-fetch-site') || '').trim().toLowerCase()
+  return site === 'cross-site'
 }

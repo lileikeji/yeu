@@ -1641,12 +1641,14 @@ export const competitionPopularitySettingsSchema = z.object({
   allowChange: z.boolean(),
   maxChanges: z.number().int().min(0).max(20),
   votesPerVoter: z.number().int().min(1).max(20).default(1),
+  wechatBonusVotes: z.number().int().min(0).max(20).optional(),
   allowRepeatVote: z.boolean().default(true),
   qrRotateSeconds: z.number().int().min(10).max(300),
   passcodeRotate: z.boolean().optional(),
   allowWithdraw: z.boolean().optional(),
   showResults: z.boolean(),
-  authMode: z.enum(['wechat_mp', 'device_strict']).optional(),
+  showRankGap: z.boolean().optional(),
+  authMode: z.enum(['wechat_mp', 'device_strict', 'hybrid']).optional(),
   wechatAccountName: z.string().trim().min(1).max(40).optional(),
   wechatQrUrl: z.string().trim().max(260).optional(),
   autoQuarantine: z.boolean().optional(),
@@ -1665,7 +1667,12 @@ export const competitionPopularityVoteEnvSchema = z.object({
   tz: z.string().trim().max(64).optional(),
   lang: z.string().trim().max(32).optional(),
   screen: z.string().trim().max(32).optional(),
-  touch: z.number().int().min(0).max(32).optional()
+  touch: z.number().int().min(0).max(32).optional(),
+  cores: z.number().int().min(0).max(128).optional(),
+  mem: z.number().min(0).max(1024).optional(),
+  dpr: z.number().int().min(50).max(800).optional(),
+  gpu: z.string().trim().max(120).optional(),
+  wd: z.boolean().optional()
 }).strict()
 
 /** 投票：凭证来自微信口令专属链接或大屏二维码；revision 必填，防止两个窗口互相覆盖。 */
@@ -1678,6 +1685,8 @@ export const competitionPopularityVoteSchema = z.object({
   d: z.string().trim().min(20).max(2000).optional(),
   /** 页面加载时由 /state 签发的短时凭证，用于前置防脚本直调与服务端停留耗时核验。 */
   pageTicket: z.string().trim().min(20).max(2000).optional(),
+  /** 无 vt 免关注投票时的无感 PoW 凭证。 */
+  pow: z.string().trim().min(1).max(32).optional(),
   env: competitionPopularityVoteEnvSchema.optional()
 }).strict()
 

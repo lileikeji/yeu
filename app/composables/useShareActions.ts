@@ -31,7 +31,7 @@ async function writeClipboard(value: string): Promise<boolean> {
 export function useShareActions() {
   const toast = useToast()
   const isWechat = ref(false)
-  const { configureWechatShare } = useWechatShareCard()
+  const { configureWechatShare, timelinePermitted } = useWechatShareCard()
 
   onMounted(() => {
     isWechat.value = isWechatUserAgent(navigator.userAgent)
@@ -70,11 +70,21 @@ export function useShareActions() {
         link: stripEphemeralShareParams(url, window.location.origin)
       })
       if (configured) {
-        toast.add({ duration: 2600,
-          title: '微信分享已准备好',
-          description: '请点击右上角“…”选择发送给朋友或分享到朋友圈。',
-          color: 'success'
-        })
+        if (timelinePermitted.value === 'denied') {
+          toast.add({
+            duration: 3200,
+            title: '请点右上角“…”发送给朋友',
+            description: '当前公众号暂不支持朋友圈网页缩略图，发朋友圈请保存海报图。',
+            color: 'neutral'
+          })
+        } else {
+          toast.add({
+            duration: 2600,
+            title: '微信分享已准备好',
+            description: '请点击右上角“…”选择发送给朋友或分享到朋友圈。',
+            color: 'success'
+          })
+        }
       } else {
         toast.add({ duration: 2600,
           title: '微信分享未就绪',

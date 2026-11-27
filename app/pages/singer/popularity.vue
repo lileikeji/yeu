@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { LocationQuery } from 'vue-router'
+import { DEFAULT_SHARE_ICON_URL } from '~~/shared/config/brand'
 import type { CompetitionPopularityPublicState } from '~~/shared/types'
 import {
-  computePopularityStandingMap,
   groupPopularityCandidates,
+  resolvePopularityStandingMap,
   type PopularityCandidateStanding
 } from '~~/shared/utils/competition'
+import { solvePopularityVotePow } from '~~/shared/utils/popularity-pow'
 import { itempropMeta } from '~/utils/itemprop-meta'
 import { resolvePopularityPageSharePayload } from '~/utils/popularity-share'
 
@@ -23,6 +25,7 @@ const loading = ref(true)
 const savingId = ref('')
 const error = ref('')
 const now = ref(Date.now())
+const wechatGuideRef = ref<HTMLElement | null>(null)
 
 const { data: publicSeed } = await useAsyncData<CompetitionPopularityPublicState | null>(
   'competition-popularity-public',
@@ -48,6 +51,8 @@ const sharePayload = computed(() => resolvePopularityPageSharePayload({
   candidate: sheetCandidate.value,
   origin: requestUrl.origin
 }))
+const fallbackShareImage = useState<string>('wechat-fallback-share-image', () => sharePayload.value.imageUrl)
+fallbackShareImage.value = sharePayload.value.imageUrl
 
 useHead({
   meta: [
@@ -180,6 +185,22 @@ async function load(): Promise<void> {
   }
 }
 
+function readWebglRenderer(): string {
+  try {
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+    if (!gl) return ''
+    const webgl = gl as WebGLRenderingContext
+    const ext = webgl.getExtension('WEBGL_debug_renderer_info')
+    const raw = ext
+      ? webgl.getParameter(ext.UNMASKED_RENDERER_WEBGL)
+      : webgl.getParameter(webgl.RENDERER)
+    return typeof raw === 'string' ? raw.trim().slice(0, 120) : ''
+  } catch {
+    return ''
+  }
+}
+
 function collectClientEnv() {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone?.slice(0, 64) || ''
@@ -188,15 +209,35 @@ function collectClientEnv() {
     const height = Math.round((window.screen?.height ?? 0) / 10) * 10
     const screen = width > 0 && height > 0 ? `${width}x${height}` : ''
     const touch = Math.min(32, Math.max(0, Number(navigator.maxTouchPoints ?? 0) || 0))
+    const cores = Math.min(128, Math.max(0, Number(navigator.hardwareConcurrency ?? 0) || 0))
+    const memRaw = Number((navigator as { deviceMemory?: number }).deviceMemory ?? 0)
+    const mem = Number.isFinite(memRaw) && memRaw > 0 ? Math.min(1024, memRaw) : undefined
+    const dprRaw = Number(window.devicePixelRatio ?? 1)
+    const dpr = Number.isFinite(dprRaw) && dprRaw > 0 ? Math.min(800, Math.max(50, Math.round(dprRaw * 100))) : undefined
+    const gpu = readWebglRenderer()
+    const wd = Boolean((navigator as { webdriver?: boolean }).webdriver)
     return {
       ...(tz ? { tz } : {}),
       ...(lang ? { lang } : {}),
       ...(screen ? { screen } : {}),
-      touch
+      touch,
+      ...(cores > 0 ? { cores } : {}),
+      ...(mem !== undefined ? { mem } : {}),
+      ...(dpr !== undefined ? { dpr } : {}),
+      ...(gpu ? { gpu } : {}),
+      wd
     }
   } catch {
     return undefined
   }
+}
+
+function focusWechatGuide(): void {
+  wechatGuideRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  toast.add({
+    title: `普通票已投满，向公众号「${state.value?.wechatAccountName || '仰恩大学指南'}」发送「投票」可再领 ${bonusVotes.value} 票`,
+    color: 'warning'
+  })
 }
 
 async function vote(singerId: string): Promise<void> {
@@ -219,19 +260,23 @@ async function vote(singerId: string): Promise<void> {
     toast.add({ title: '投票还没开始或已经截止', color: 'warning' })
     return
   }
+  if (hybridNeedWechatForBonus.value) {
+    focusWechatGuide()
+    return
+  }
   if (multiVote.value && votesRemaining.value <= 0) {
     toast.add({ title: '你的票已经投满，不能继续投', color: 'warning' })
     return
   }
-  if (multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) {
+  if (slotMode.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) {
     toast.add({ title: '同一选手最多投 1 票，请投给其他选手', color: 'warning' })
     return
   }
-  if (!multiVote.value && state.value.myBallot?.singerId === singerId) {
+  if (!slotMode.value && state.value.myBallot?.singerId === singerId) {
     toast.add({ title: '你已经投给这位选手了', color: 'neutral' })
     return
   }
-  if (!multiVote.value && state.value.myBallot && !state.value.canChange) {
+  if (!slotMode.value && state.value.myBallot && !state.value.canChange) {
     toast.add({ title: '你已投票，不能继续改票', color: 'warning' })
     return
   }
@@ -240,6 +285,8 @@ async function vote(singerId: string): Promise<void> {
     const device = readDeviceToken()
     const vt = readWechatTicket()
     const env = collectClientEnv()
+    const pageTicket = state.value.pageTicket
+    const pow = !vt && pageTicket ? solvePopularityVotePow(pageTicket, singerId) : undefined
     const next = await plainFetch<CompetitionPopularityPublicState>(
       '/api/public/competition/popularity/vote',
       {
@@ -250,17 +297,20 @@ async function vote(singerId: string): Promise<void> {
           singerId,
           revision: state.value.revision ?? 0,
           ...(device ? { d: device } : {}),
-          ...(state.value.pageTicket ? { pageTicket: state.value.pageTicket } : {}),
+          ...(pageTicket ? { pageTicket } : {}),
+          ...(pow ? { pow } : {}),
           ...(env ? { env } : {})
         }
       }
     )
-    const changed = !multiVote.value && votesUsed.value > 0
+    const changed = !slotMode.value && votesUsed.value > 0
     state.value = next
     persistDeviceToken(next.deviceToken)
     toast.add({
-      title: multiVote.value
-        ? `投票成功（已投 ${next.votesUsed}/${next.votesPerVoter} 票）`
+      title: slotMode.value
+        ? (next.authMode === 'hybrid' && !next.wechatVerified && (next.wechatBonusVotes ?? 0) > 0 && next.votesRemaining <= 0
+            ? `基础票投票成功！关注公众号可再得 ${next.wechatBonusVotes} 票`
+            : `投票成功（已投 ${next.votesUsed}/${next.votesPerVoter} 票）`)
         : (changed ? '改票成功' : '投票成功'),
       color: 'success'
     })
@@ -272,7 +322,7 @@ async function vote(singerId: string): Promise<void> {
       void load()
     }
     toast.add({ title: messageOf(caught), color: 'error' })
-    if (err.statusCode === 409 || err.data?.data?.blockCode === 'MISSING_OR_INVALID_PAGE_TICKET') {
+    if (err.statusCode === 409 || err.data?.data?.blockCode === 'MISSING_OR_INVALID_PAGE_TICKET' || err.data?.data?.blockCode === 'INVALID_VOTE_PROOF') {
       void load()
     }
   } finally {
@@ -280,11 +330,11 @@ async function vote(singerId: string): Promise<void> {
   }
 }
 
-async function withdrawVote(): Promise<void> {
+async function withdrawVote(singerId?: string): Promise<void> {
   if (!state.value || savingId.value) return
-  const target = state.value.myBallot?.singerId
+  const target = singerId ?? state.value.myBallot?.singerId
   if (!target) return
-  savingId.value = 'withdraw'
+  savingId.value = `withdraw:${target}`
   try {
     const device = readDeviceToken()
     const vt = readWechatTicket()
@@ -302,7 +352,7 @@ async function withdrawVote(): Promise<void> {
     )
     state.value = next
     persistDeviceToken(next.deviceToken)
-    toast.add({ title: '已取消投票，可以重新选择', color: 'success' })
+    toast.add({ title: '已取消 1 票，可以重新选择', color: 'success' })
   } catch (caught) {
     toast.add({ title: messageOf(caught), color: 'error' })
     void load()
@@ -325,10 +375,21 @@ function remainingText(): string {
   return `还剩 ${minutes} 分 ${String(rest).padStart(2, '0')} 秒`
 }
 
+const isHybridMode = computed(() => state.value?.authMode === 'hybrid')
+const bonusVotes = computed(() => (isHybridMode.value ? Math.max(0, state.value?.wechatBonusVotes ?? 2) : 0))
+const maxVotesPerVoter = computed(() => Math.max(1, state.value?.maxVotesPerVoter ?? ((state.value?.votesPerVoter ?? 1) + bonusVotes.value)))
 const votesPerVoter = computed(() => Math.max(1, state.value?.votesPerVoter ?? 1))
 const votesUsed = computed(() => state.value?.votesUsed ?? 0)
 const votesRemaining = computed(() => state.value?.votesRemaining ?? Math.max(0, votesPerVoter.value - votesUsed.value))
 const multiVote = computed(() => votesPerVoter.value > 1)
+const slotMode = computed(() => maxVotesPerVoter.value > 1 || multiVote.value)
+const hybridNeedWechatForBonus = computed(() => (
+  isHybridMode.value
+  && !state.value?.wechatVerified
+  && bonusVotes.value > 0
+  && votesRemaining.value <= 0
+  && votesUsed.value < maxVotesPerVoter.value
+))
 const allowRepeatVote = computed(() => state.value?.allowRepeatVote !== false)
 const myVoteCounts = computed(() => {
   const counts = new Map<string, number>()
@@ -345,17 +406,17 @@ const canVote = computed(() => (
   && !state.value?.requiresQrScan
   && state.value?.status === 'open'
   && (state.value?.candidates.length ?? 0) > 0
-  && (!multiVote.value || votesRemaining.value > 0)
+  && (!slotMode.value || votesRemaining.value > 0)
 ))
 function canVoteFor(singerId: string): boolean {
   if (!canVote.value) return false
-  return !(multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0)
+  return !(slotMode.value && !allowRepeatVote.value && voteCountOf(singerId) > 0)
 }
 const hasBallot = computed(() => votesUsed.value > 0)
 const candidateGroups = computed(() => groupPopularityCandidates(state.value?.candidates ?? []))
 const standingMap = computed(() => (
   activeState.value
-    ? computePopularityStandingMap(activeState.value.candidates, activeState.value.results)
+    ? resolvePopularityStandingMap(activeState.value.candidates, activeState.value.results, activeState.value.standings)
     : null
 ))
 
@@ -369,12 +430,15 @@ function groupOrderLabel(numbers: number[]): string {
 }
 
 function standingGapText(standing: PopularityCandidateStanding): string {
+  const showExactVotes = Boolean(activeState.value?.showResults)
   if (standing.rank === null) return '等待投出第一票'
   if (standing.gapToPrev !== null && standing.prevRank !== null) {
-    return `距第 ${standing.prevRank} 名差 ${standing.gapToPrev} 票`
+    return showExactVotes
+      ? `距第 ${standing.prevRank} 名差 ${standing.gapToPrev} 票`
+      : `距前一名差 ${standing.gapToPrev} 票`
   }
   if (standing.rank === 1 && standing.tiedCount > 1) return '当前并列第 1 名'
-  if (standing.rank === 1 && standing.leadOverNext !== null) return `领先第 2 名 ${standing.leadOverNext} 票`
+  if (showExactVotes && standing.rank === 1 && standing.leadOverNext !== null) return `领先第 2 名 ${standing.leadOverNext} 票`
   return '当前第 1 名'
 }
 
@@ -390,6 +454,7 @@ const sheetRankText = computed(() => {
 const sheetGapText = computed(() => (sheetStanding.value ? standingGapText(sheetStanding.value) : ''))
 
 async function syncWechatShare(): Promise<void> {
+  fallbackShareImage.value = sharePayload.value.imageUrl
   if (!import.meta.client) return
   await nextTick()
   await configureWechatShare(sharePayload.value)
@@ -413,9 +478,10 @@ function voteLabelFor(singerId: string): string {
   if (!state.value) return '投给 TA'
   if (state.value.requiresWechatTicket) return '请先从公众号领链接'
   if (state.value.requiresQrScan) return '请扫现场大屏码'
-  if (multiVote.value && votesRemaining.value <= 0) return '票已投满'
-  if (multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) return '同一选手限一票'
-  if (multiVote.value) return voteCountOf(singerId) > 0 ? '再投一票' : '投给 TA'
+  if (hybridNeedWechatForBonus.value) return `关注再投 ${bonusVotes.value} 票`
+  if (slotMode.value && votesRemaining.value <= 0) return '票已投满'
+  if (slotMode.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) return '同一选手限一票'
+  if (slotMode.value) return voteCountOf(singerId) > 0 ? '再投一票' : '投给 TA'
   if (voteCountOf(singerId) > 0) return '你已投票'
   if (hasBallot.value && !state.value.canChange) return '你已投票'
   if (hasBallot.value) return '改投 TA'
@@ -425,8 +491,11 @@ function voteLabelFor(singerId: string): string {
 function voteDisabledFor(singerId: string): boolean {
   if (!state.value) return true
   if (savingId.value) return true
+  if (hybridNeedWechatForBonus.value && state.value.status === 'open') return false
   if (!canVoteFor(singerId)) return true
-  if (multiVote.value) return votesRemaining.value <= 0 || voteCountOf(singerId) > 0
+  if (slotMode.value) {
+    return votesRemaining.value <= 0 || (!allowRepeatVote.value && voteCountOf(singerId) > 0)
+  }
   return (hasBallot.value && !state.value.canChange) || voteCountOf(singerId) > 0
 }
 
@@ -459,6 +528,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
+  fallbackShareImage.value = DEFAULT_SHARE_ICON_URL
 })
 </script>
 
@@ -526,10 +596,19 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="flex items-center gap-2">
-              <div class="text-right">
+              <div
+                v-if="state?.showResults"
+                class="text-right"
+              >
                 <span class="text-base font-black tabular-nums text-[var(--ink)]">{{ state?.totalVotes ?? 0 }}</span>
-                <span class="ml-1 text-xs text-[var(--muted-ink)]">{{ multiVote ? '总票数' : '人已投' }}</span>
+                <span class="ml-1 text-xs text-[var(--muted-ink)]">{{ slotMode ? '总票数' : '人已投' }}</span>
               </div>
+              <span
+                v-else-if="state"
+                class="rounded-full bg-[var(--surface-sunken)] px-2.5 py-1 text-xs font-medium text-[var(--muted-ink)]"
+              >
+                {{ state.showRankGap ? '票数暂不公布 · 仅看差票' : '票数暂不公布' }}
+              </span>
               <button
                 type="button"
                 aria-label="刷新投票状态"
@@ -547,15 +626,22 @@ onBeforeUnmount(() => {
           </div>
 
           <div
-            v-if="multiVote"
+            v-if="slotMode"
             class="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-2 text-xs"
           >
             <span class="font-semibold text-[var(--ink)]">
               我的票数 <span class="tabular-nums text-rose-600 dark:text-rose-400">{{ votesUsed }}/{{ votesPerVoter }}</span>
+              <span
+                v-if="isHybridMode && !state?.wechatVerified && bonusVotes > 0"
+                class="ml-1 font-medium text-[var(--color-green-700)]"
+              >（关注公众号再 +{{ bonusVotes }} 票）</span>
             </span>
             <span class="text-[var(--muted-ink)]">
               <template v-if="votesRemaining > 0">
                 还可投 <strong class="text-[var(--ink)]">{{ votesRemaining }}</strong> 票 · {{ allowRepeatVote ? '可投同一选手' : '每位选手限 1 票' }}
+              </template>
+              <template v-else-if="hybridNeedWechatForBonus">
+                基础票已投满 · 关注公众号还可投 {{ bonusVotes }} 票
               </template>
               <template v-else>本轮票已投满</template>
             </span>
@@ -618,8 +704,42 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
+        <div
+          v-if="isHybridMode && !state.wechatVerified && bonusVotes > 0"
+          ref="wechatGuideRef"
+          class="flex flex-col gap-3 rounded-3xl border border-emerald-400/50 bg-[var(--surface)] p-4 text-sm text-[var(--ink)] shadow-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="space-y-1.5">
+            <p class="font-bold text-[var(--color-green-700)]">
+              免关注可直接投 {{ state.votesPerVoter }} 票 · 关注公众号再多得 {{ bonusVotes }} 票
+            </p>
+            <p class="text-xs leading-relaxed text-[var(--muted-ink)]">
+              1. 无需关注即可先投出 <strong>{{ state.votesPerVoter }}</strong> 票；<br>
+              2. 微信关注「<strong>{{ state.wechatAccountName || '仰恩大学指南' }}</strong>」并发送<template v-if="state.passcodeRequired">
+                大屏口令「<strong>投票 XX</strong>」
+              </template><template v-else>
+                「<strong>投票</strong>」
+              </template>，点回复链接即可多解锁 <strong>{{ bonusVotes }}</strong> 票；<br>
+              3. {{ allowRepeatVote ? '全部票都可自由投给同一位选手，也可分投多人。' : '每位选手最多可投 1 票。' }}
+            </p>
+          </div>
+          <div
+            v-if="state.wechatQrUrl"
+            class="flex shrink-0 items-end gap-2 self-center"
+          >
+            <div class="flex flex-col items-center gap-1">
+              <img
+                :src="state.wechatQrUrl"
+                :alt="state.wechatAccountName || '公众号二维码'"
+                class="size-24 rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] object-contain p-1"
+              >
+              <span class="text-[11px] font-semibold text-[var(--muted-ink)]">长按识别加 {{ bonusVotes }} 票</span>
+            </div>
+          </div>
+        </div>
+
         <p
-          v-if="hasBallot && !multiVote"
+          v-if="hasBallot && !slotMode"
           class="rounded-2xl border border-rose-300/70 bg-rose-500/10 px-4 py-3 text-sm text-[var(--ink)] shadow-sm"
         >
           你已投票给 <strong>{{ state.candidates.find(item => item.singerId === state?.myBallot?.singerId)?.name ?? '当前选手' }}</strong>。
@@ -638,8 +758,14 @@ onBeforeUnmount(() => {
             :disabled="Boolean(savingId)"
             @click="withdrawVote()"
           >
-            {{ savingId === 'withdraw' ? '取消中…' : '取消投票' }}
+            {{ savingId.startsWith('withdraw:') ? '取消中…' : '取消投票' }}
           </button>
+        </p>
+        <p
+          v-else-if="hasBallot && slotMode && state.canWithdraw"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-rose-300/60 bg-rose-500/10 px-4 py-2.5 text-xs text-[var(--ink)]"
+        >
+          <span>已投 {{ votesUsed }} 票（可在下方选手卡片点「撤回 1 票」重投）。</span>
         </p>
         <p
           v-else-if="!hasBallot && state.requiresQrScan"
@@ -766,7 +892,10 @@ onBeforeUnmount(() => {
                     v-if="standingOf(candidate.singerId)"
                     class="rounded-xl border border-[var(--line)] bg-[var(--surface-sunken)] px-2.5 py-2"
                   >
-                    <div class="flex items-center justify-between gap-1">
+                    <div
+                      v-if="state.showResults"
+                      class="flex items-center justify-between gap-1"
+                    >
                       <span class="whitespace-nowrap text-xs text-[var(--muted-ink)]">
                         <strong class="text-base font-black tabular-nums text-[var(--ink)] sm:text-lg">{{ standingOf(candidate.singerId)!.count }}</strong>
                         <span class="ml-0.5">票</span>
@@ -790,7 +919,39 @@ onBeforeUnmount(() => {
                         </template>
                       </span>
                     </div>
+                    <div
+                      v-else
+                      class="flex items-center justify-between gap-1.5"
+                    >
+                      <span
+                        class="min-w-0 truncate text-[11px] font-bold leading-tight tabular-nums"
+                        :class="standingOf(candidate.singerId)!.gapToPrev !== null
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : 'text-[var(--muted-ink)]'"
+                      >
+                        {{ standingGapText(standingOf(candidate.singerId)!) }}
+                      </span>
+                      <span
+                        class="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
+                        :class="standingOf(candidate.singerId)!.rank === 1
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : standingOf(candidate.singerId)!.rank !== null
+                            ? 'bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--line)]'
+                            : 'bg-[var(--surface)] text-[var(--muted-ink)]'"
+                      >
+                        <template v-if="standingOf(candidate.singerId)!.rank === null">
+                          暂未开榜
+                        </template>
+                        <template v-else-if="standingOf(candidate.singerId)!.rank === 1 && standingOf(candidate.singerId)!.tiedCount > 1">
+                          并列第 1
+                        </template>
+                        <template v-else>
+                          第 {{ standingOf(candidate.singerId)!.rank }} 名
+                        </template>
+                      </span>
+                    </div>
                     <p
+                      v-if="state.showResults"
                       class="mt-1 truncate text-[11px] font-medium leading-tight tabular-nums"
                       :class="standingOf(candidate.singerId)!.gapToPrev !== null
                         ? 'text-rose-700 dark:text-rose-300'
@@ -803,10 +964,10 @@ onBeforeUnmount(() => {
                   <button
                     type="button"
                     class="mt-auto flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold transition-transform active:scale-[0.98] disabled:cursor-not-allowed"
-                    :class="voteCountOf(candidate.singerId) > 0
+                    :class="voteCountOf(candidate.singerId) > 0 && !canVoteFor(candidate.singerId)
                       ? 'bg-rose-500/12 text-rose-700 ring-1 ring-rose-400/60 dark:text-rose-300'
                       : 'bg-rose-600 text-white shadow-xs hover:bg-rose-700 disabled:opacity-55'"
-                    :disabled="Boolean(savingId) || !canVoteFor(candidate.singerId) || (multiVote ? votesRemaining <= 0 : (hasBallot && !state.canChange) || voteCountOf(candidate.singerId) > 0)"
+                    :disabled="voteDisabledFor(candidate.singerId)"
                     @click="vote(candidate.singerId)"
                   >
                     <UIcon
@@ -814,15 +975,16 @@ onBeforeUnmount(() => {
                       name="i-lucide-loader-circle"
                       class="size-4 animate-spin"
                     />
-                    <span v-else-if="state.requiresWechatTicket">请先从公众号领链接</span>
-                    <span v-else-if="state.requiresQrScan">请扫现场大屏码</span>
-                    <span v-else-if="multiVote && votesRemaining <= 0">票已投满</span>
-                    <span v-else-if="multiVote && !allowRepeatVote && voteCountOf(candidate.singerId) > 0">同一选手限一票</span>
-                    <span v-else-if="multiVote">{{ voteCountOf(candidate.singerId) > 0 ? '再投一票' : '投给 TA' }}</span>
-                    <span v-else-if="voteCountOf(candidate.singerId) > 0">你已投票</span>
-                    <span v-else-if="hasBallot && !state.canChange">你已投票</span>
-                    <span v-else-if="hasBallot">改投 TA</span>
-                    <span v-else>投给 TA</span>
+                    <span v-else>{{ voteLabelFor(candidate.singerId) }}</span>
+                  </button>
+                  <button
+                    v-if="slotMode && state.canWithdraw && voteCountOf(candidate.singerId) > 0"
+                    type="button"
+                    class="mt-1.5 w-full rounded-lg border border-rose-300/70 px-2 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-55 dark:text-rose-300"
+                    :disabled="Boolean(savingId)"
+                    @click="withdrawVote(candidate.singerId)"
+                  >
+                    {{ savingId === `withdraw:${candidate.singerId}` ? '撤回中…' : '撤回 1 票' }}
                   </button>
                 </div>
               </article>
@@ -831,9 +993,11 @@ onBeforeUnmount(() => {
         </div>
 
         <p class="pt-1 text-center text-xs leading-relaxed text-[var(--muted-ink)]">
-          {{ multiVote
-            ? `每人最多 ${votesPerVoter} 票，${allowRepeatVote ? '可投给不同或同一位选手' : '同一选手最多 1 票'}；${state.allowWithdraw ? '投错了可点「取消投票」重投。' : '投出后不能改票。'}`
-            : (state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。') }}
+          {{ isHybridMode
+            ? `无需关注即可直接投 ${state.votesPerVoter - (state.wechatVerified ? bonusVotes : 0)} 票，关注公众号可再获 ${bonusVotes} 票（共 ${maxVotesPerVoter} 票，${allowRepeatVote ? '可全投同一位选手' : '每位选手限 1 票'}）。`
+            : slotMode
+              ? `每人最多 ${votesPerVoter} 票，${allowRepeatVote ? '可投给不同或同一位选手' : '同一选手最多 1 票'}；${state.allowWithdraw ? '投错了可点「撤回 1 票」重投。' : '投出后不能改票。'}`
+              : (state.authMode === 'wechat_mp' ? '一个微信号限投一票；链接失效请回公众号重领。' : '每台设备限投一票；二维码失效请重扫大屏。') }}
         </p>
 
         <div class="flex justify-center">
@@ -846,14 +1010,15 @@ onBeforeUnmount(() => {
             刷新投票状态
           </UButton>
         </div>
-
       </template>
     </div>
 
     <ClientOnly>
       <CompetitionPopularitySingerSheet
         :candidate="sheetCandidate"
-        :votes="sheetStanding ? sheetStanding.count : null"
+        :show-results="Boolean(activeState?.showResults)"
+        :show-rank-gap="Boolean(activeState?.showRankGap)"
+        :votes="activeState?.showResults && sheetStanding ? sheetStanding.count : null"
         :rank-text="sheetRankText"
         :gap-text="sheetGapText"
         :vote-label="sheetCandidate ? voteLabelFor(sheetCandidate.singerId) : '投给 TA'"

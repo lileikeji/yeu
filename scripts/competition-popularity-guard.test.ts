@@ -38,6 +38,7 @@ import {
   detectAutomatedPopularityAgent,
   hasBrowserFetchMetadata,
   hasMatchingPopularityDeviceCookie,
+  HYBRID_FIRST_VOTE_MIN_DWELL_MS,
   issuePopularityPageTicket,
   issuePopularityToken,
   issuePopularityWechatTicket,
@@ -51,6 +52,9 @@ import {
 } from '../server/utils/competition-popularity'
 import { hashOpaqueToken } from '../server/utils/security'
 import type { H3Event } from 'h3'
+import { createApp, createError, createRouter, eventHandler, getHeader, getMethod, getRequestURL, readRawBody, setHeader, toWebHandler } from 'h3'
+import { handlePopularityVote } from '../server/modules/competition/popularity-vote'
+import { solvePopularityVotePow } from '../shared/utils/popularity-pow'
 
 function tempDb(): { client: DatabaseClient, path: string } {
   const dir = mkdtempSync(join(tmpdir(), 'yeu-popularity-guard-test-'))
@@ -660,4 +664,225 @@ test('0087 实时自动冻结与 AI 巡检直接执法：等距节拍隔离不�
   assert.equal(getPopularityAdminState(client, event.id).totalVotes, 2)
 
   cleanup(client, path)
+})
+
+test('混合模式第一票防刷与单人多票免误伤：无PoW/短停留/缺Cookie拦截，无痕切号自动冻结，微信3票同投不误报', async () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const [singerA, singerB] = singers as [typeof singers[number], typeof singers[number]]
+
+  updatePopularitySettings(client, event.id, {
+    enabled: true,
+    title: '人气奖投票',
+    subtitle: '混合模式',
+    opensAt: Date.now() - 5_000,
+    closesAt: Date.now() + 300_000,
+    allowChange: false,
+    maxChanges: 0,
+    votesPerVoter: 1,
+    wechatBonusVotes: 2,
+    allowRepeatVote: true,
+    qrRotateSeconds: 30,
+    showResults: true,
+    authMode: 'hybrid',
+    autoQuarantine: true,
+    aiAutoModerate: true
+  })
+
+  // 1) 同 IP + 同 envHash 免关注连续切换设备刷第一票，应实时静默冻结隔离
+  const brushIp = popularityIpHash('hybrid-secret-0123456789abcdef0123', '198.51.100.77')
+  const brushEnv = 'hybrid-brush-env'
+  for (let i = 0; i < 3; i += 1) {
+    recordPopularityBallot(client, event.id, `hybrid-brush-dev-${i}`, singerA.id, 0, brushIp, {
+      uaSummary: 'iOS/Safari',
+      envHash: brushEnv,
+      dwellMs: 1400,
+      cookiePresent: true,
+      missingFetchMeta: false
+    })
+  }
+  const adminAfterBrush = getPopularityAdminState(client, event.id)
+  assert.ok((adminAfterBrush.quarantinedVotes ?? 0) >= 1, '同IP+同硬件环境切无痕刷第一票应进入静默冻结池')
+
+  // 2) 单个关注公众号用户把 3 票全投同一位选手 B，实时风控与事后簇分析均不得误判为刷票
+  const realIp = popularityIpHash('hybrid-secret-0123456789abcdef0123', '203.0.113.55')
+  const realOpenId = 'real-wechat-openid-hash-001'
+  for (let i = 0; i < 3; i += 1) {
+    recordPopularityBallot(client, event.id, 'real-wx-dev-1', singerB.id, i, realIp, {
+      uaSummary: 'iOS/WeChat',
+      envHash: 'real-iphone-env',
+      dwellMs: 2500,
+      cookiePresent: true,
+      missingFetchMeta: false,
+      voterOpenidHash: realOpenId
+    })
+  }
+  // 2.5) 4 台不同 IP、同款 iPhone envHash 投不同选手，不得误判为同环境刷票
+  for (let i = 0; i < 4; i += 1) {
+    const devId = `same-iphone-diff-ip-dev-${i}`
+    const targetSinger = singers[i % singers.length]!
+    recordPopularityBallot(
+      client,
+      event.id,
+      devId,
+      targetSinger.id,
+      0,
+      popularityIpHash('hybrid-secret-0123456789abcdef0123', `203.0.115.${10 + i}`),
+      {
+        uaSummary: 'iOS/WeChat',
+        envHash: 'shared-iphone15-pro-env',
+        dwellMs: 2800,
+        cookiePresent: true,
+        missingFetchMeta: false
+      }
+    )
+  }
+
+  const report = computePopularityGuardReport(client, event.id, { aiConfigured: false })
+  const wxLogs = report.logs.filter(log => log.singerId === singerB.id && log.wechatVerified)
+  assert.equal(wxLogs.length, 3)
+  assert.ok(wxLogs.every(log => log.effectiveScore < 30), '单个微信观众连投3票同选手不应被误标为 watch/suspect')
+  assert.ok(
+    report.logs.filter(log => log.uaSummary === 'iOS/WeChat' && !log.wechatVerified).every(log => log.effectiveScore < 30),
+    '不同 IP 下同款手机观众不应因 envHash 相同而被误判为可疑'
+  )
+  assert.equal(getPopularityAdminState(client, event.id).results.find(r => r.singerId === singerB.id)?.count, 4)
+
+  // 3) 通过真实 H3 路由入口验证免关注第一票的 Cookie / 1200ms 停留 / PoW 拦截与放行
+  assert.equal(HYBRID_FIRST_VOTE_MIN_DWELL_MS, 1200)
+  const testSecret = '0'.repeat(32)
+  const prevDbPath = process.env.NUXT_DATABASE_PATH
+  const prevSecret = process.env.NUXT_ADMIN_SESSION_SECRET
+  const prevSiteUrl = process.env.NUXT_PUBLIC_SITE_URL
+  process.env.NUXT_DATABASE_PATH = path
+  process.env.NUXT_ADMIN_SESSION_SECRET = testSecret
+  process.env.NUXT_PUBLIC_SITE_URL = 'https://yx.huiliyill.cn'
+
+  const g = globalThis as {
+    useRuntimeConfig?: (e?: H3Event) => Record<string, unknown>
+    getHeader?: typeof getHeader
+    getMethod?: typeof getMethod
+    getRequestURL?: typeof getRequestURL
+    readRawBody?: typeof readRawBody
+    setHeader?: typeof setHeader
+    createError?: typeof createError
+  }
+  const prevRuntimeConfig = g.useRuntimeConfig
+  const prevGetHeader = g.getHeader
+  const prevGetMethod = g.getMethod
+  const prevGetRequestURL = g.getRequestURL
+  const prevReadRawBody = g.readRawBody
+  const prevSetHeader = g.setHeader
+  const prevCreateError = g.createError
+  g.useRuntimeConfig = () => ({
+    databasePath: path,
+    adminSessionSecret: testSecret,
+    public: { siteUrl: 'https://yx.huiliyill.cn' }
+  })
+  g.getHeader = getHeader
+  g.getMethod = getMethod
+  g.getRequestURL = getRequestURL
+  g.readRawBody = readRawBody
+  g.setHeader = setHeader
+  g.createError = createError
+
+  try {
+    const app = createApp()
+    const router = createRouter()
+    router.post('/api/public/competition/popularity/vote', eventHandler(e => handlePopularityVote(e)))
+    app.use(router)
+    const webHandler = toWebHandler(app)
+
+    const deviceId = 'a'.repeat(32)
+    const deviceHash = hashOpaqueToken(testSecret, 'competition-popularity-device', deviceId)
+    const deviceToken = `${Buffer.from(`${event.id}.${deviceId}`).toString('base64url')}`
+    void deviceToken
+
+    // 缺少 PoW 的免关注请求 -> 403 INVALID_VOTE_PROOF
+    const oldTicket = issuePopularityPageTicket(testSecret, event.id, deviceHash, 0, Date.now() - 2000)
+    const noPowRes = await webHandler(new Request('https://yx.huiliyill.cn/api/public/competition/popularity/vote', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'origin': 'https://yx.huiliyill.cn',
+        'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) MicroMessenger/8.0.47',
+        'cookie': `yeu_popularity_device=${deviceId}`,
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-dest': 'empty'
+      },
+      body: JSON.stringify({
+        singerId: singerB.id,
+        revision: 0,
+        pageTicket: oldTicket
+      })
+    }))
+    assert.equal(noPowRes.status, 403)
+    const noPowBody = await noPowRes.json() as { data?: { blockCode?: string } }
+    assert.equal(noPowBody.data?.blockCode, 'INVALID_VOTE_PROOF')
+
+    // 停留不足 1200ms（即便带正确 PoW）-> 403 TOO_FAST_SUBMIT
+    const fastTicket = issuePopularityPageTicket(testSecret, event.id, deviceHash, 0, Date.now() - 500)
+    const fastPow = solvePopularityVotePow(fastTicket, singerB.id)
+    const fastRes = await webHandler(new Request('https://yx.huiliyill.cn/api/public/competition/popularity/vote', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'origin': 'https://yx.huiliyill.cn',
+        'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) MicroMessenger/8.0.47',
+        'cookie': `yeu_popularity_device=${deviceId}`,
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-dest': 'empty'
+      },
+      body: JSON.stringify({
+        singerId: singerB.id,
+        revision: 0,
+        pageTicket: fastTicket,
+        pow: fastPow
+      })
+    }))
+    assert.equal(fastRes.status, 403)
+    const fastBody = await fastRes.json() as { data?: { blockCode?: string } }
+    assert.equal(fastBody.data?.blockCode, 'TOO_FAST_SUBMIT')
+
+    // 带匹配 Cookie、停留 >= 1200ms 且带正确 PoW -> 200 投票成功
+    const validPow = solvePopularityVotePow(oldTicket, singerB.id)
+    const okRes = await webHandler(new Request('https://yx.huiliyill.cn/api/public/competition/popularity/vote', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'origin': 'https://yx.huiliyill.cn',
+        'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) MicroMessenger/8.0.47',
+        'cookie': `yeu_popularity_device=${deviceId}`,
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-dest': 'empty'
+      },
+      body: JSON.stringify({
+        singerId: singerB.id,
+        revision: 0,
+        pageTicket: oldTicket,
+        pow: validPow,
+        env: { tz: 'Asia/Shanghai', lang: 'zh-CN', screen: '390x840', touch: 5, cores: 6, dpr: 300, wd: false }
+      })
+    }))
+    assert.equal(okRes.status, 200)
+    const okBody = await okRes.json() as { votesUsed: number, votesRemaining: number }
+    assert.equal(okBody.votesUsed, 1)
+    assert.equal(okBody.votesRemaining, 0)
+  } finally {
+    g.useRuntimeConfig = prevRuntimeConfig
+    g.getHeader = prevGetHeader
+    g.getMethod = prevGetMethod
+    g.getRequestURL = prevGetRequestURL
+    g.readRawBody = prevReadRawBody
+    g.setHeader = prevSetHeader
+    g.createError = prevCreateError
+    if (prevDbPath === undefined) delete process.env.NUXT_DATABASE_PATH
+    else process.env.NUXT_DATABASE_PATH = prevDbPath
+    if (prevSecret === undefined) delete process.env.NUXT_ADMIN_SESSION_SECRET
+    else process.env.NUXT_ADMIN_SESSION_SECRET = prevSecret
+    if (prevSiteUrl === undefined) delete process.env.NUXT_PUBLIC_SITE_URL
+    else process.env.NUXT_PUBLIC_SITE_URL = prevSiteUrl
+    cleanup(client, path)
+  }
 })

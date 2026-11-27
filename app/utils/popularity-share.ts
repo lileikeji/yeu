@@ -5,6 +5,7 @@ export interface PopularityShareCardInput {
   candidate: CompetitionPopularityCandidate
   votes: number | null
   rankText: string
+  gapText?: string
   qrDataUrl: string
   siteLabel?: string
 }
@@ -234,30 +235,54 @@ export async function renderPopularityShareCard(input: PopularityShareCardInput)
     .join(' · ')
   context.fillText(fitText(context, meta || '决赛候选选手', contentWidth), padding, metaY)
 
-  // 票数徽标 + 名次，两段文字分列，避免叠字。
+  // 票数徽标 + 名次，两段文字分列，避免叠字；后台隐藏票数时不画票数与排名。
   const badgeY = metaY + 34
   const badgeH = 68
-  const voteText = input.votes === null ? '待开榜' : `${input.votes} 票`
-  context.font = `900 38px ${FONT_STACK}`
-  const voteWidth = context.measureText(voteText).width
-  const badgeW = Math.max(150, voteWidth + 48)
-  roundedRect(context, padding, badgeY, badgeW, badgeH, badgeH / 2)
-  context.fillStyle = '#be123c'
-  context.fill()
-  context.fillStyle = '#ffffff'
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.fillText(voteText, padding + badgeW / 2, badgeY + badgeH / 2 + 1)
+  if (input.votes === null) {
+    const hasGapHint = Boolean(input.gapText && input.gapText.trim())
+    const badgeLabel = hasGapHint ? (input.rankText || '人气投票中') : '人气投票中'
+    context.font = `900 32px ${FONT_STACK}`
+    const badgeW = Math.max(190, Math.min(280, context.measureText(badgeLabel).width + 52))
+    roundedRect(context, padding, badgeY, badgeW, badgeH, badgeH / 2)
+    context.fillStyle = '#be123c'
+    context.fill()
+    context.fillStyle = '#ffffff'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(badgeLabel, padding + badgeW / 2, badgeY + badgeH / 2 + 1)
 
-  context.textAlign = 'left'
-  context.textBaseline = 'alphabetic'
-  context.fillStyle = '#9f1239'
-  context.font = `800 30px ${FONT_STACK}`
-  context.fillText(
-    fitText(context, input.rankText || '暂未开榜', contentWidth - badgeW - 24),
-    padding + badgeW + 20,
-    badgeY + badgeH / 2 + 11,
-  )
+    context.textAlign = 'left'
+    context.textBaseline = 'alphabetic'
+    context.fillStyle = '#9f1239'
+    context.font = `800 28px ${FONT_STACK}`
+    context.fillText(
+      fitText(context, hasGapHint ? input.gapText! : '扫码为 TA 助力投票', contentWidth - badgeW - 24),
+      padding + badgeW + 20,
+      badgeY + badgeH / 2 + 10
+    )
+  } else {
+    const voteText = `${input.votes} 票`
+    context.font = `900 38px ${FONT_STACK}`
+    const voteWidth = context.measureText(voteText).width
+    const badgeW = Math.max(150, voteWidth + 48)
+    roundedRect(context, padding, badgeY, badgeW, badgeH, badgeH / 2)
+    context.fillStyle = '#be123c'
+    context.fill()
+    context.fillStyle = '#ffffff'
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillText(voteText, padding + badgeW / 2, badgeY + badgeH / 2 + 1)
+
+    context.textAlign = 'left'
+    context.textBaseline = 'alphabetic'
+    context.fillStyle = '#9f1239'
+    context.font = `800 30px ${FONT_STACK}`
+    context.fillText(
+      fitText(context, input.rankText || '暂未开榜', contentWidth - badgeW - 24),
+      padding + badgeW + 20,
+      badgeY + badgeH / 2 + 11
+    )
+  }
 
   const ruleY = badgeY + badgeH + 42
   context.strokeStyle = 'rgba(190, 18, 60, 0.16)'

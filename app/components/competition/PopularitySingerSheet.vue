@@ -3,6 +3,8 @@ import type { CompetitionPopularityCandidate } from '~~/shared/types'
 
 interface Props {
   candidate: CompetitionPopularityCandidate | null
+  showResults: boolean
+  showRankGap?: boolean
   votes: number | null
   rankText: string
   gapText: string
@@ -14,7 +16,8 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{ close: []; vote: [singerId: string] }>()
 
-const { sharePage, copyText } = useShareActions()
+const { sharePage, copyText, isWechat } = useShareActions()
+const { timelinePermitted } = useWechatShareCard()
 const sharing = ref(false)
 const savingCard = ref(false)
 const cardPreviewUrl = ref('')
@@ -60,8 +63,9 @@ async function saveCard(): Promise<void> {
     })
     const blob = await renderPopularityShareCard({
       candidate,
-      votes: props.votes,
+      votes: props.showResults ? props.votes : null,
       rankText: props.rankText,
+      gapText: !props.showResults && props.showRankGap ? props.gapText : undefined,
       qrDataUrl: qr.dataUrl
     })
     releasePreview()
@@ -176,7 +180,10 @@ onBeforeUnmount(() => {
                     {{ candidate.className || '班级未填' }}
                   </p>
                 </div>
-                <div class="shrink-0 text-right">
+                <div
+                  v-if="showResults"
+                  class="shrink-0 text-right"
+                >
                   <p class="text-2xl font-black tabular-nums text-rose-700">
                     {{ votes === null ? '—' : votes }}
                     <span class="text-sm font-bold text-[var(--muted-ink)]">票</span>
@@ -185,6 +192,14 @@ onBeforeUnmount(() => {
                     {{ rankText }}
                   </p>
                 </div>
+                <div
+                  v-else-if="showRankGap"
+                  class="shrink-0 text-right"
+                >
+                  <span class="inline-block rounded-full bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-700">
+                    {{ rankText }}
+                  </span>
+                </div>
               </div>
 
               <p class="flex items-center gap-1.5 text-sm font-medium text-[var(--muted-ink)]">
@@ -192,7 +207,11 @@ onBeforeUnmount(() => {
                 <span class="truncate">《{{ candidate.song || '曲目待定' }}》</span>
               </p>
 
-              <p class="text-xs font-medium text-[var(--muted-ink)]">
+              <p
+                v-if="showResults || showRankGap"
+                class="text-xs font-medium"
+                :class="!showResults && showRankGap ? 'text-rose-700 dark:text-rose-300' : 'text-[var(--muted-ink)]'"
+              >
                 {{ gapText }}
               </p>
 
@@ -208,7 +227,7 @@ onBeforeUnmount(() => {
                 </button>
                 <button
                   type="button"
-                  class="flex items-center justify-center gap-1.5 rounded-xl border border-[var(--line)] px-3 py-2.5 text-sm font-bold transition active:scale-[0.98] disabled:opacity-60"
+                  class="flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 px-3 py-2.5 text-sm font-bold text-rose-700 transition active:scale-[0.98] disabled:opacity-60 dark:border-rose-800/70 dark:bg-rose-950/35 dark:text-rose-300"
                   :disabled="savingCard"
                   @click="saveCard"
                 >
@@ -217,9 +236,16 @@ onBeforeUnmount(() => {
                     class="size-4"
                     :class="savingCard ? 'animate-spin' : ''"
                   />
-                  生成分享图
+                  朋友圈海报
                 </button>
               </div>
+
+              <p
+                v-if="isWechat && timelinePermitted === 'denied'"
+                class="rounded-xl bg-[var(--surface-sunken)] px-3 py-2 text-[11px] leading-relaxed text-[var(--muted-ink)]"
+              >
+                发给好友点右上角「…」；发朋友圈请点「朋友圈海报」保存带照片与二维码长图
+              </p>
 
               <button
                 type="button"
@@ -266,12 +292,12 @@ onBeforeUnmount(() => {
             class="max-h-[74vh] w-auto max-w-full rounded-2xl shadow-2xl"
           >
           <p class="text-center text-sm font-bold text-white/90">
-            在手机上长按图片即可保存，或点下面的按钮下载
+            长按图片保存相册，即可带照片和二维码发朋友圈或微信群
           </p>
           <div class="flex items-center gap-3">
             <button
               type="button"
-              class="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-900"
+              class="rounded-full border border-[var(--line)] bg-[var(--surface)] px-5 py-2.5 text-sm font-bold text-[var(--ink)]"
               @click="releasePreview"
             >
               关闭

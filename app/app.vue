@@ -44,6 +44,10 @@ useSeoMeta({
 const pwaManifestComponent = import.meta.dev
   ? null
   : resolveComponent('VitePwaManifest')
+const fallbackShareImage = useState<string>(
+  'wechat-fallback-share-image',
+  () => 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1'
+)
 </script>
 
 <template>
@@ -53,13 +57,14 @@ const pwaManifestComponent = import.meta.dev
   />
   <div
     aria-hidden="true"
-    class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
+    class="pointer-events-none fixed -left-[9999px] -top-[9999px] h-0 w-0 overflow-hidden opacity-0"
   >
     <img
-      src="https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1"
+      :src="fallbackShareImage || 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1'"
       alt=""
       width="512"
       height="512"
+      class="h-[512px] w-[512px] max-w-none"
     >
   </div>
   <UApp>

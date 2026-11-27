@@ -19,8 +19,10 @@ import { useAppDatabase } from '../../utils/database'
 import {
   detectAutomatedPopularityAgent,
   hasBrowserFetchMetadata,
+  hasCrossSiteFetchMetadata,
   hasMatchingPopularityDeviceCookie,
   hasPopularityDeviceCookie,
+  HYBRID_FIRST_VOTE_MIN_DWELL_MS,
   issuePopularityPageTicket,
   POPULARITY_MIN_DWELL_MS,
   popularityEnvHash,
@@ -31,6 +33,7 @@ import {
   verifyPopularityToken,
   verifyPopularityWechatTicket
 } from '../../utils/competition-popularity'
+import { verifyPopularityVotePow } from '../../../shared/utils/popularity-pow'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { assertRateLimit } from '../../utils/rate-limit'
 import { getSecurityConfig, assertTrustedOrigin } from '../../utils/security'
@@ -60,8 +63,11 @@ export async function handlePopularityVote(
   const contentId = findMusicAssociationContent(client).id
   const eventRow = ensureCompetitionEvent(client, contentId)
   const settings = getPopularitySettings(client, eventRow.id)
-  const isWechatMode = settings.authMode === 'wechat_mp'
-  const votesPerVoter = Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
+  const isWechatOnlyMode = settings.authMode === 'wechat_mp'
+  const isHybridMode = settings.authMode === 'hybrid'
+  const maxQuota = settings.authMode === 'hybrid'
+    ? Math.max(1, Number(settings.votesPerVoter) || 1) + Math.max(0, Number(settings.wechatBonusVotes ?? 2))
+    : Math.max(1, Math.min(20, Number(settings.votesPerVoter) || 1))
 
   const ip = getClientIpAddress(event)
   const ipHash = ip === 'unknown' ? null : popularityIpHash(security.secret, ip)
@@ -71,10 +77,20 @@ export async function handlePopularityVote(
   const envHash = popularityEnvHash(security.secret, event, input.env)
   const now = Date.now()
 
-  assertRateLimit(event, `popularity-vote-ip:${ip}`, isWechatMode ? Math.max(20, votesPerVoter + 10) : 6, 60_000, client)
-  assertRateLimit(event, `popularity-vote-ip-10m:${ip}`, isWechatMode ? 60 : 15, 600_000, client)
+  const verifiedWechatTicket = input.vt ? verifyPopularityWechatTicket(security.secret, input.vt, now) : null
+  const hasValidWechatTicket = Boolean(verifiedWechatTicket && verifiedWechatTicket.eventId === eventRow.id)
 
-  let voterHash = ''
+  // 免关注通道与公众号通道隔离限流，防止公共 Wi-Fi 下免关注严格限流误伤持 vt 加票观众。
+  if (hasValidWechatTicket) {
+    assertRateLimit(event, `popularity-vote-wx-ip:${ip}`, Math.max(25, maxQuota + 15), 60_000, client)
+    assertRateLimit(event, `popularity-vote-wx-ip-10m:${ip}`, 90, 600_000, client)
+  } else {
+    assertRateLimit(event, `popularity-vote-ip:${ip}`, isHybridMode ? 5 : 6, 60_000, client)
+    assertRateLimit(event, `popularity-vote-ip-10m:${ip}`, isHybridMode ? 12 : 15, 600_000, client)
+  }
+
+  let voterHash: string
+  let pageTicketIdentity: string
   let voterOpenidHash: string | null = null
   let deviceTokenToReturn: string | undefined
   let qrNonce: string | null = null
@@ -104,17 +120,14 @@ export async function handlePopularityVote(
     })
   }
 
-  if (isWechatMode) {
-    const wechatTicket = input.vt ? verifyPopularityWechatTicket(security.secret, input.vt, now) : null
-    if (!wechatTicket || wechatTicket.eventId !== eventRow.id) {
+  if (isWechatOnlyMode) {
+    if (!hasValidWechatTicket) {
       rejectScript(
         'WECHAT_TICKET_REQUIRED',
         '请先查看大屏数字口令，向公众号发送「投票 口令」领取专属投票链接'
       )
     }
-    voterHash = wechatTicket!.openIdHash
-    voterOpenidHash = wechatTicket!.openIdHash
-    assertRateLimit(event, `popularity-vote-device:${voterHash}`, Math.max(15, votesPerVoter + 5), 60_000, client)
+    voterOpenidHash = verifiedWechatTicket!.openIdHash
     const identity = resolvePopularityDevice(
       event,
       security.secret,
@@ -122,7 +135,34 @@ export async function handlePopularityVote(
       eventRow.id,
       input.d
     )
+    voterHash = identity.deviceHash
+    pageTicketIdentity = verifiedWechatTicket!.openIdHash
     deviceTokenToReturn = identity.token
+    assertRateLimit(event, `popularity-vote-device:${voterOpenidHash}`, Math.max(15, maxQuota + 5), 60_000, client)
+  } else if (isHybridMode) {
+    if (input.vt && !hasValidWechatTicket) {
+      rejectScript(
+        'POPULARITY_WECHAT_TICKET_INVALID',
+        '你的专属投票链接已过期或无效，请回公众号重新发送「投票」领取'
+      )
+    }
+    const identity = resolvePopularityDevice(
+      event,
+      security.secret,
+      security.secureCookies,
+      eventRow.id,
+      input.d
+    )
+    voterHash = identity.deviceHash
+    deviceTokenToReturn = identity.token
+    if (hasValidWechatTicket) {
+      voterOpenidHash = verifiedWechatTicket!.openIdHash
+      pageTicketIdentity = verifiedWechatTicket!.openIdHash
+      assertRateLimit(event, `popularity-vote-device:${voterOpenidHash}`, Math.max(15, maxQuota + 5), 60_000, client)
+    } else {
+      pageTicketIdentity = identity.deviceHash
+      assertRateLimit(event, `popularity-vote-device:${voterHash}`, 10, 60_000, client)
+    }
   } else {
     const token = input.token ? verifyPopularityToken(security.secret, input.token) : null
     if (!token) {
@@ -147,10 +187,11 @@ export async function handlePopularityVote(
       input.d
     )
     voterHash = identity.deviceHash
+    pageTicketIdentity = identity.deviceHash
     deviceTokenToReturn = identity.token
     qrNonce = token.nonce || null
     qrAgeMs = token.issuedAt != null ? Math.max(0, now - token.issuedAt) : null
-    assertRateLimit(event, `popularity-vote-device:${voterHash}`, Math.max(15, votesPerVoter + 5), 60_000, client)
+    assertRateLimit(event, `popularity-vote-device:${voterHash}`, Math.max(15, maxQuota + 5), 60_000, client)
   }
 
   const botReason = detectAutomatedPopularityAgent(userAgent)
@@ -158,7 +199,16 @@ export async function handlePopularityVote(
     rejectScript(botReason, '请在微信或手机浏览器中打开投票页面')
   }
 
-  if (isWechatMode) {
+  if (options.requireBrowserOrigin !== false && hasCrossSiteFetchMetadata(event)) {
+    rejectScript('CROSS_SITE_FETCH', '非法跨站投票请求，请直接在页面内点击投票')
+  }
+
+  if (isWechatOnlyMode) {
+    const hasSessionToken = options.allowSessionTokenIdentity === true && Boolean(input.d)
+    if (!cookiePresent && !hasSessionToken) {
+      rejectScript('MISSING_DEVICE_COOKIE', '浏览器未保留投票会话 Cookie，请确认开启 Cookie 后刷新重试')
+    }
+  } else if (isHybridMode && hasValidWechatTicket) {
     const hasSessionToken = options.allowSessionTokenIdentity === true && Boolean(input.d)
     if (!cookiePresent && !hasSessionToken) {
       rejectScript('MISSING_DEVICE_COOKIE', '浏览器未保留投票会话 Cookie，请确认开启 Cookie 后刷新重试')
@@ -171,7 +221,7 @@ export async function handlePopularityVote(
     security.secret,
     input.pageTicket,
     eventRow.id,
-    voterHash,
+    pageTicketIdentity,
     input.revision,
     now
   )
@@ -179,15 +229,21 @@ export async function handlePopularityVote(
     rejectScript('MISSING_OR_INVALID_PAGE_TICKET', '页面投票凭证已过期，请刷新页面后重试')
   }
 
+  const isGuestFirstVote = !hasValidWechatTicket && options.requireBrowserOrigin !== false
+  if (isGuestFirstVote && !verifyPopularityVotePow(input.pageTicket!, input.singerId, input.pow)) {
+    rejectScript('INVALID_VOTE_PROOF', '投票安全校验未通过，请刷新页面后重新点击投票')
+  }
+
   const dwellMs = Math.max(0, now - pageTicket!.issuedAt)
-  if (dwellMs < POPULARITY_MIN_DWELL_MS) {
+  const minDwellMs = isGuestFirstVote && isHybridMode ? HYBRID_FIRST_VOTE_MIN_DWELL_MS : POPULARITY_MIN_DWELL_MS
+  if (dwellMs < minDwellMs) {
     rejectScript('TOO_FAST_SUBMIT', '操作过快，请确认选手后重新点击投票', dwellMs)
   }
 
   const state = recordPopularityBallot(
     client,
     eventRow.id,
-    voterHash,
+    isWechatOnlyMode ? (voterOpenidHash ?? voterHash) : voterHash,
     input.singerId,
     input.revision,
     ipHash,
@@ -201,6 +257,7 @@ export async function handlePopularityVote(
       qrRotateSeconds: settings.qrRotateSeconds,
       missingFetchMeta: !hasBrowserFetchMetadata(event),
       voterOpenidHash,
+      webdriver: input.env?.wd === true,
       now
     }
   )
@@ -235,7 +292,7 @@ export async function handlePopularityVote(
   const nextTicket = issuePopularityPageTicket(
     security.secret,
     eventRow.id,
-    voterHash,
+    pageTicketIdentity,
     state.revision
   )
   return { ...state, deviceToken: deviceTokenToReturn, pageTicket: nextTicket }
@@ -257,16 +314,18 @@ export async function handlePopularityWithdraw(
 
   const eventRow = ensureCompetitionEvent(client, findMusicAssociationContent(client).id)
   const settings = getPopularitySettings(client, eventRow.id)
-  const isWechatMode = settings.authMode === 'wechat_mp'
+  const isWechatOnlyMode = settings.authMode === 'wechat_mp'
+  const isHybridMode = settings.authMode === 'hybrid'
   const ip = getClientIpAddress(event)
   assertRateLimit(event, `popularity-withdraw-ip:${ip}`, 30, 60_000, client)
 
   const now = Date.now()
-  let voterHash = ''
+  let voterHash: string
+  let pageTicketIdentity: string
   let voterOpenidHash: string | null = null
   let deviceTokenToReturn: string | undefined
 
-  if (isWechatMode) {
+  if (isWechatOnlyMode) {
     const wechatTicket = input.vt ? verifyPopularityWechatTicket(security.secret, input.vt, now) : null
     if (!wechatTicket || wechatTicket.eventId !== eventRow.id) {
       throw createError({
@@ -279,7 +338,33 @@ export async function handlePopularityWithdraw(
       })
     }
     voterHash = wechatTicket.openIdHash
+    pageTicketIdentity = wechatTicket.openIdHash
     voterOpenidHash = wechatTicket.openIdHash
+    const identity = resolvePopularityDevice(
+      event,
+      security.secret,
+      security.secureCookies,
+      eventRow.id,
+      input.d
+    )
+    deviceTokenToReturn = identity.token
+  } else if (isHybridMode) {
+    const identity = resolvePopularityDevice(
+      event,
+      security.secret,
+      security.secureCookies,
+      eventRow.id,
+      input.d
+    )
+    voterHash = identity.deviceHash
+    deviceTokenToReturn = identity.token
+    const wechatTicket = input.vt ? verifyPopularityWechatTicket(security.secret, input.vt, now) : null
+    if (wechatTicket && wechatTicket.eventId === eventRow.id) {
+      voterOpenidHash = wechatTicket.openIdHash
+      pageTicketIdentity = wechatTicket.openIdHash
+    } else {
+      pageTicketIdentity = identity.deviceHash
+    }
   } else {
     const token = input.token ? verifyPopularityToken(security.secret, input.token) : null
     if (!token || token.eventId !== eventRow.id) {
@@ -297,17 +382,7 @@ export async function handlePopularityWithdraw(
       input.d
     )
     voterHash = identity.deviceHash
-    deviceTokenToReturn = identity.token
-  }
-
-  if (isWechatMode) {
-    const identity = resolvePopularityDevice(
-      event,
-      security.secret,
-      security.secureCookies,
-      eventRow.id,
-      input.d
-    )
+    pageTicketIdentity = identity.deviceHash
     deviceTokenToReturn = identity.token
   }
 
@@ -320,7 +395,7 @@ export async function handlePopularityWithdraw(
   const nextTicket = issuePopularityPageTicket(
     security.secret,
     eventRow.id,
-    voterHash,
+    pageTicketIdentity,
     state.revision
   )
   return { ...state, deviceToken: deviceTokenToReturn, pageTicket: nextTicket }

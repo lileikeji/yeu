@@ -1,7 +1,8 @@
 import type {
   CompetitionDimension,
   CompetitionPopularityCandidate,
-  CompetitionPopularityResultRow
+  CompetitionPopularityResultRow,
+  CompetitionPopularityStandingHint
 } from '../types'
 
 export const COMPETITION_MAX_DIMENSION_SCORE = 10
@@ -343,5 +344,47 @@ export function computePopularityStandingMap(
     })
   }
 
+  return standingMap
+}
+
+/** 从完整结果生成脱敏差票数组，剥离具体得票数 count，避免在仅展示差票模式下泄露绝对票数。 */
+export function toPopularityStandingHints(
+  candidates: CompetitionPopularityCandidate[],
+  results: CompetitionPopularityResultRow[]
+): CompetitionPopularityStandingHint[] {
+  const map = computePopularityStandingMap(candidates, results)
+  if (!map) return []
+  return Array.from(map.values()).map(entry => ({
+    singerId: entry.singerId,
+    rank: entry.rank,
+    tiedCount: entry.tiedCount,
+    prevRank: entry.prevRank,
+    gapToPrev: entry.gapToPrev,
+    leadOverNext: entry.leadOverNext
+  }))
+}
+
+/** 统一解析公开页/弹窗/大屏使用的名次与差票映射：优先完整 results，其次脱敏 standings。 */
+export function resolvePopularityStandingMap(
+  candidates: CompetitionPopularityCandidate[],
+  results: CompetitionPopularityResultRow[] | null | undefined,
+  standings?: CompetitionPopularityStandingHint[] | null
+): Map<string, PopularityCandidateStanding> | null {
+  if (results) {
+    return computePopularityStandingMap(candidates, results)
+  }
+  if (!standings) return null
+  const standingMap = new Map<string, PopularityCandidateStanding>()
+  for (const hint of standings) {
+    standingMap.set(hint.singerId, {
+      singerId: hint.singerId,
+      count: 0,
+      rank: hint.rank,
+      tiedCount: hint.tiedCount,
+      prevRank: hint.prevRank,
+      gapToPrev: hint.gapToPrev,
+      leadOverNext: hint.leadOverNext
+    })
+  }
   return standingMap
 }

@@ -22,6 +22,17 @@ export interface WechatMpPopularityReplyInput {
   now?: number
 }
 
+function popularityTicketSummary(settings: ReturnType<typeof getPopularitySettings>): string {
+  if (settings.authMode === 'hybrid') {
+    const base = Math.max(1, Number(settings.votesPerVoter) || 1)
+    const bonus = Math.max(0, Number(settings.wechatBonusVotes ?? 2))
+    const total = base + bonus
+    const repeat = settings.allowRepeatVote !== false ? '可全投同一位选手' : '每位选手限 1 票'
+    return `关注公众号共可投 ${total} 票（含免关注 ${base} 票 + 关注额外 ${bonus} 票，${repeat}；45 分钟内有效，请勿转发他人）。`
+  }
+  return '一人一微信号一票（45 分钟内有效，请勿转发他人）。'
+}
+
 /**
  * 解析公众号内的人气奖口令领票消息：
  * - 非投票口令返回 null，交还原本的 AI 校园助手；
@@ -64,7 +75,7 @@ export function handleWechatMpPopularityMessage(
   return [
     settings.passcodeRotate ? '身份核验通过，请点击下方你的专属链接投票：' : '请点击下方你的专属链接投票：',
     link,
-    '一人一微信号一票（45 分钟内有效，请勿转发他人）。'
+    popularityTicketSummary(settings)
   ].join('\n')
 }
 
@@ -120,6 +131,6 @@ export function handleWechatMpPopularityFollow(
     welcome,
     '点击下方专属链接，为喜欢的歌手投票：',
     link,
-    '一人一微信号一票（45 分钟内有效，请勿转发他人）。'
+    popularityTicketSummary(settings)
   ].join('\n')
 }

@@ -84,6 +84,7 @@ export const POPULARITY_INSPECTOR_PROMPT = `你是仰恩大学歌手大赛人气
 
 你的职责（系统已开启自动执法，你的 flaggedSeqs 与 releaseSeqs 会直接执行数据库作废与放行）：
 - 结合 rollingMemory 与本批 logs 判断是否存在刷票（同 ip_xxx/env_xxx 切设备、等距节拍、缺少 Fetch 元数据、dwellMs 极短且无 cookie、同码段集中灌票、跨批次慢速注水）。
+- 若赛事开启混合模式，wechatVerified=true 的单用户合规享有多票权益且允许把多票投给同一选手，勿将同一微信用户连续多票误判为刷票；应重点稽查 wechatVerified=false 的免关注异常簇（如切无痕/飞行模式换 IP 批量灌第一票）。
 - 对确认刷票（且 adminProtected=false）的 seq 填入 flaggedSeqs，系统将直接自动作废其对应选票（voided=1）；对 adminProtected=true（管理员人工复核放行）不要重复标入 flaggedSeqs。
 - 对本批处于 status='quarantined'（实时冻结待审）但核验为正常观众的选票（例如 wechatVerified=true 且停顿自然、无同环境重复切号），填入 releaseSeqs，系统将自动解除冻结放行计票。
 - 输出直白短句，写清 seq 序号、选手姓名、数字（票数、毫秒、标签如 ip_a1b2c3），禁用「闭环/赋能/全方位/深度/值得关注/综合来看/呈现出/彰显」等空话。

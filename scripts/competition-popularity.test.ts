@@ -10,8 +10,15 @@ import type { CompetitionPopularityCandidate } from '../shared/types'
 import {
   computePopularityStandingMap,
   formatChineseGroupTitle,
-  groupPopularityCandidates
+  groupPopularityCandidates,
+  resolvePopularityStandingMap,
+  toPopularityStandingHints
 } from '../shared/utils/competition'
+import {
+  POPULARITY_FIRST_VOTE_POW_BITS,
+  solvePopularityVotePow,
+  verifyPopularityVotePow
+} from '../shared/utils/popularity-pow'
 import {
   closeDatabase,
   getDatabase,
@@ -95,8 +102,11 @@ function openWindow(
     allowChange: boolean
     maxChanges: number
     votesPerVoter: number
+    wechatBonusVotes: number
     allowRepeatVote: boolean
     showResults: boolean
+    showRankGap: boolean
+    authMode: 'wechat_mp' | 'device_strict' | 'hybrid'
     opensAt: number | null
     closesAt: number | null
   }> = {}
@@ -111,9 +121,12 @@ function openWindow(
     allowChange: overrides.allowChange ?? true,
     maxChanges: overrides.maxChanges ?? 2,
     votesPerVoter: overrides.votesPerVoter ?? 1,
+    ...(overrides.wechatBonusVotes !== undefined ? { wechatBonusVotes: overrides.wechatBonusVotes } : {}),
     allowRepeatVote: overrides.allowRepeatVote ?? true,
     qrRotateSeconds: 30,
-    showResults: overrides.showResults ?? true
+    showResults: overrides.showResults ?? true,
+    ...(overrides.showRankGap !== undefined ? { showRankGap: overrides.showRankGap } : {}),
+    ...(overrides.authMode !== undefined ? { authMode: overrides.authMode } : {})
   })
 }
 
@@ -729,4 +742,265 @@ test('性质测试：groupPopularityCandidates 与 computePopularityStandingMap 
     ),
     { numRuns: 200 }
   )
+})
+
+test('混合模式与迁移 0097：免关注投基础票、关注公众号加赠 2 票同投一人、跨阶段防刷与不公布票数设置', () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const { event, singers } = createFinalEvent(client)
+
+  const settingsCols = client.sqlite.prepare('PRAGMA table_info(competition_popularity_settings)').all() as Array<{ name: string }>
+  assert.ok(settingsCols.some(col => col.name === 'wechat_bonus_votes'), '0097 应新增 wechat_bonus_votes 列')
+
+  const defaultSettings = ensurePopularitySettings(client, event.id)
+  assert.equal(defaultSettings.wechatBonusVotes, 2)
+
+  // 开启混合模式：基础 1 票 + 关注公众号多 2 票（可全投同一人），且隐藏票数。
+  const hybridAdmin = openWindow(client, event.id, {
+    authMode: 'hybrid',
+    votesPerVoter: 1,
+    wechatBonusVotes: 2,
+    allowRepeatVote: true,
+    showResults: false
+  })
+  assert.equal(hybridAdmin.settings.authMode, 'hybrid')
+  assert.equal(hybridAdmin.settings.wechatBonusVotes, 2)
+  assert.equal(hybridAdmin.settings.showResults, false)
+
+  // 1) 未关注用户打开即享 1 票（总配额 1，最大上限 3），且公开页不公布票数（totalVotes 置 0，results 为 null）
+  const guestBefore = getPopularityPublicState(client, event.id, 'hybrid-dev-1')
+  assert.equal(guestBefore.authMode, 'hybrid')
+  assert.equal(guestBefore.requiresWechatTicket, false)
+  assert.equal(guestBefore.requiresQrScan, false)
+  assert.equal(guestBefore.votesPerVoter, 1)
+  assert.equal(guestBefore.wechatBonusVotes, 2)
+  assert.equal(guestBefore.maxVotesPerVoter, 3)
+  assert.equal(guestBefore.votesRemaining, 1)
+  assert.equal(guestBefore.results, null)
+  assert.equal(guestBefore.totalVotes, 0)
+
+  // 投出免关注第 1 票给选手 A
+  const afterBaseVote = recordPopularityBallot(client, event.id, 'hybrid-dev-1', singers[0]!.id, 0)
+  assert.equal(afterBaseVote.votesUsed, 1)
+  assert.equal(afterBaseVote.votesPerVoter, 1)
+  assert.equal(afterBaseVote.votesRemaining, 0)
+  assert.equal(afterBaseVote.totalVotes, 0, '不公布票数时公开 state 的 totalVotes 也应隐藏为 0')
+  assert.equal(afterBaseVote.results, null)
+  assert.equal(getPopularityAdminState(client, event.id).totalVotes, 1, '后台总票数应真实返回 1')
+
+  // 未关注时继续投第 2 票应被混合模式基础票上限拦截
+  assert.throws(() => recordPopularityBallot(client, event.id, 'hybrid-dev-1', singers[0]!.id, 1), error => (
+    codeOf(error) === 'POPULARITY_HYBRID_BASE_LIMIT'
+  ))
+
+  // 2) 同一浏览器随后关注公众号（带 openIdHash 进入）：已投的首票自动合并，解锁额外 2 票
+  const wxUser1 = 'openid-hash-user-1'
+  const mergedState = getPopularityPublicState(client, event.id, 'hybrid-dev-1', {
+    wechatVerified: true,
+    openIdHash: wxUser1
+  })
+  assert.equal(mergedState.wechatVerified, true)
+  assert.equal(mergedState.votesPerVoter, 3)
+  assert.equal(mergedState.votesUsed, 1)
+  assert.equal(mergedState.votesRemaining, 2)
+  assert.equal(mergedState.revision, 1)
+
+  // 把关注多出的 2 票全部投给同一位选手 A（共 3 票）
+  const afterBonus1 = recordPopularityBallot(client, event.id, 'hybrid-dev-1', singers[0]!.id, 1, null, {
+    voterOpenidHash: wxUser1
+  })
+  assert.equal(afterBonus1.votesUsed, 2)
+  assert.equal(afterBonus1.votesRemaining, 1)
+
+  const afterBonus2 = recordPopularityBallot(client, event.id, 'hybrid-dev-1', singers[0]!.id, 2, null, {
+    voterOpenidHash: wxUser1
+  })
+  assert.equal(afterBonus2.votesUsed, 3)
+  assert.equal(afterBonus2.votesRemaining, 0)
+  assert.equal(afterBonus2.myBallots.filter(row => row.singerId === singers[0]!.id).length, 3)
+
+  // 投满 3 票后再投第 4 票被拒
+  assert.throws(() => recordPopularityBallot(client, event.id, 'hybrid-dev-1', singers[1]!.id, 3, null, {
+    voterOpenidHash: wxUser1
+  }), error => codeOf(error) === 'POPULARITY_VOTE_LIMIT')
+
+  // 同一台设备清掉 vt 退回免关注，也无法白嫖第 4 票
+  const strippedVtState = getPopularityPublicState(client, event.id, 'hybrid-dev-1')
+  assert.equal(strippedVtState.votesUsed, 3)
+  assert.equal(strippedVtState.votesRemaining, 0)
+
+  // 同一台设备换第二个微信号企图再刷 3 票，因设备已有 3 票而被拦截
+  assert.throws(() => recordPopularityBallot(client, event.id, 'hybrid-dev-1', singers[1]!.id, 3, null, {
+    voterOpenidHash: 'openid-hash-user-2'
+  }), error => codeOf(error) === 'POPULARITY_VOTE_LIMIT')
+
+  // 同一微信号换另一台设备也不得绕过 3 票上限
+  assert.throws(() => recordPopularityBallot(client, event.id, 'hybrid-dev-other', singers[1]!.id, 3, null, {
+    voterOpenidHash: wxUser1
+  }), error => codeOf(error) === 'POPULARITY_VOTE_LIMIT')
+
+  // 3) 直接从公众号进入的新用户可直接连投 3 票给同一位选手
+  const wxUser3 = 'openid-hash-user-3'
+  recordPopularityBallot(client, event.id, 'hybrid-dev-3', singers[1]!.id, 0, null, { voterOpenidHash: wxUser3 })
+  recordPopularityBallot(client, event.id, 'hybrid-dev-3', singers[1]!.id, 1, null, { voterOpenidHash: wxUser3 })
+  const direct3 = recordPopularityBallot(client, event.id, 'hybrid-dev-3', singers[1]!.id, 2, null, { voterOpenidHash: wxUser3 })
+  assert.equal(direct3.votesUsed, 3)
+  assert.equal(direct3.myBallots.filter(row => row.singerId === singers[1]!.id).length, 3)
+
+  // 4) 跨双设备补绑合并：设备 A 用 wxUserCross 投 1 票（slot 0），设备 B 先免关注投 1 票（slot 0），随后在设备 B 带 wxUserCross 投第 3 票不冲突 slot
+  const wxUserCross = 'openid-hash-user-cross'
+  recordPopularityBallot(client, event.id, 'cross-dev-A', singers[2]!.id, 0, null, { voterOpenidHash: wxUserCross })
+  recordPopularityBallot(client, event.id, 'cross-dev-B', singers[2]!.id, 0)
+  const mergedCross = getPopularityPublicState(client, event.id, 'cross-dev-B', {
+    wechatVerified: true,
+    openIdHash: wxUserCross
+  })
+  assert.equal(mergedCross.votesUsed, 2)
+  assert.equal(mergedCross.votesRemaining, 1)
+  const crossThird = recordPopularityBallot(client, event.id, 'cross-dev-B', singers[2]!.id, 2, null, {
+    voterOpenidHash: wxUserCross
+  })
+  assert.equal(crossThird.votesUsed, 3)
+  assert.equal(crossThird.votesRemaining, 0)
+  assert.throws(() => recordPopularityBallot(client, event.id, 'cross-dev-B', singers[2]!.id, 3, null, {
+    voterOpenidHash: wxUserCross
+  }), error => codeOf(error) === 'POPULARITY_VOTE_LIMIT')
+
+  // 后台核对真实总票数为 9（A=3, B=3, C=3），切回公布票数后公开页即可看见真实票数与排名
+  const adminStats = getPopularityAdminState(client, event.id)
+  assert.equal(adminStats.totalVotes, 9)
+  assert.equal(adminStats.results.find(r => r.singerId === singers[0]!.id)?.count, 3)
+  assert.equal(adminStats.results.find(r => r.singerId === singers[1]!.id)?.count, 3)
+  assert.equal(adminStats.results.find(r => r.singerId === singers[2]!.id)?.count, 3)
+
+  openWindow(client, event.id, {
+    authMode: 'hybrid',
+    votesPerVoter: 1,
+    wechatBonusVotes: 2,
+    allowRepeatVote: true,
+    showResults: true
+  })
+  const revealedState = getPopularityPublicState(client, event.id, 'hybrid-dev-1')
+  assert.equal(revealedState.showResults, true)
+  assert.equal(revealedState.totalVotes, 9)
+  assert.ok(revealedState.results && revealedState.results.length === 3)
+
+  cleanup(client, path)
+})
+
+test('混合模式 PoW 纯函数：确定性求解、篡改拒绝与性质不变量', () => {
+  const nonce = solvePopularityVotePow('ticket-abc-123', 'singer-001', POPULARITY_FIRST_VOTE_POW_BITS)
+  assert.equal(verifyPopularityVotePow('ticket-abc-123', 'singer-001', nonce, POPULARITY_FIRST_VOTE_POW_BITS), true)
+  assert.equal(verifyPopularityVotePow('ticket-abc-123', 'singer-002', nonce, POPULARITY_FIRST_VOTE_POW_BITS), false)
+  assert.equal(verifyPopularityVotePow('ticket-abc-999', 'singer-001', nonce, POPULARITY_FIRST_VOTE_POW_BITS), false)
+  assert.equal(verifyPopularityVotePow('ticket-abc-123', 'singer-001', '', POPULARITY_FIRST_VOTE_POW_BITS), false)
+
+  fc.assert(
+    fc.property(
+      fc.string({ minLength: 8, maxLength: 64 }),
+      fc.string({ minLength: 4, maxLength: 32 }),
+      (ticket, singerId) => {
+        const solved = solvePopularityVotePow(ticket, singerId, 16)
+        assert.equal(verifyPopularityVotePow(ticket, singerId, solved, 16), true)
+        assert.equal(verifyPopularityVotePow(ticket, `${singerId}-tampered`, solved, 16), false)
+      }
+    ),
+    { numRuns: 15 }
+  )
+})
+
+test('票数不公布但显示距离前一名差票（showRankGap）：隐藏票数/总票数/百分比，仅下发脱敏名次与差票', () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const { event, singers } = createFinalEvent(client)
+
+  const settingsCols = client.sqlite.prepare('PRAGMA table_info(competition_popularity_settings)').all() as Array<{ name: string }>
+  assert.ok(settingsCols.some(col => col.name === 'show_rank_gap'), '0097 应新增 show_rank_gap 列')
+
+  const defaultSettings = ensurePopularitySettings(client, event.id)
+  assert.equal(defaultSettings.showRankGap, false)
+
+  // 给 3 位选手制造 10 / 7 / 2 票梯度
+  openWindow(client, event.id, {
+    authMode: 'device_strict',
+    votesPerVoter: 1,
+    showResults: false,
+    showRankGap: true
+  })
+
+  for (let i = 0; i < 10; i += 1) {
+    recordPopularityBallot(client, event.id, `gap-dev-a-${i}`, singers[0]!.id, 0)
+  }
+  for (let i = 0; i < 7; i += 1) {
+    recordPopularityBallot(client, event.id, `gap-dev-b-${i}`, singers[1]!.id, 0)
+  }
+  for (let i = 0; i < 2; i += 1) {
+    recordPopularityBallot(client, event.id, `gap-dev-c-${i}`, singers[2]!.id, 0)
+  }
+
+  const gapOnlyState = getPopularityPublicState(client, event.id, 'viewer-1')
+  assert.equal(gapOnlyState.showResults, false)
+  assert.equal(gapOnlyState.showRankGap, true)
+  assert.equal(gapOnlyState.totalVotes, 0)
+  assert.equal(gapOnlyState.results, null)
+  assert.ok(Array.isArray(gapOnlyState.standings) && gapOnlyState.standings.length === 3)
+
+  // 绝不能通过 standings 泄露具体票数 count 或百分比 percent
+  for (const hint of gapOnlyState.standings!) {
+    assert.equal('count' in hint, false)
+    assert.equal('percent' in hint, false)
+  }
+
+  const byId = new Map(gapOnlyState.standings!.map(item => [item.singerId, item]))
+  assert.deepEqual(byId.get(singers[0]!.id), {
+    singerId: singers[0]!.id,
+    rank: 1,
+    tiedCount: 1,
+    prevRank: null,
+    gapToPrev: null,
+    leadOverNext: 3
+  })
+  assert.deepEqual(byId.get(singers[1]!.id), {
+    singerId: singers[1]!.id,
+    rank: 2,
+    tiedCount: 1,
+    prevRank: 1,
+    gapToPrev: 3,
+    leadOverNext: null
+  })
+  assert.deepEqual(byId.get(singers[2]!.id), {
+    singerId: singers[2]!.id,
+    rank: 3,
+    tiedCount: 1,
+    prevRank: 2,
+    gapToPrev: 5,
+    leadOverNext: null
+  })
+
+  // 纯函数校验：resolvePopularityStandingMap 正确解析脱敏 standings，toPopularityStandingHints 剥离 count
+  const resolved = resolvePopularityStandingMap(gapOnlyState.candidates, gapOnlyState.results, gapOnlyState.standings)
+  assert.ok(resolved)
+  assert.equal(resolved.get(singers[1]!.id)?.gapToPrev, 3)
+  assert.equal(resolved.get(singers[2]!.id)?.gapToPrev, 5)
+  const adminState = getPopularityAdminState(client, event.id)
+  const hintsFromHelper = toPopularityStandingHints(adminState.candidates, adminState.results)
+  assert.equal(hintsFromHelper.length, 3)
+  assert.equal('count' in hintsFromHelper[0]!, false)
+
+  // 完全关闭 showResults 与 showRankGap 时，results 与 standings 均为 null
+  openWindow(client, event.id, {
+    authMode: 'device_strict',
+    votesPerVoter: 1,
+    showResults: false,
+    showRankGap: false
+  })
+  const fullyHidden = getPopularityPublicState(client, event.id, 'viewer-1')
+  assert.equal(fullyHidden.showResults, false)
+  assert.equal(fullyHidden.showRankGap, false)
+  assert.equal(fullyHidden.totalVotes, 0)
+  assert.equal(fullyHidden.results, null)
+  assert.equal(fullyHidden.standings, null)
+  assert.equal(resolvePopularityStandingMap(fullyHidden.candidates, fullyHidden.results, fullyHidden.standings), null)
+
+  cleanup(client, path)
 })

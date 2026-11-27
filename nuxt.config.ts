@@ -150,6 +150,7 @@ export default defineNuxtConfig({
     wechatMpToken: '',
     wechatMpEncodingAesKey: '',
     wechatMpAltAppId: '',
+    wechatMpAltAppSecret: '',
     wechatMpAltToken: '',
     wechatMpAltEncodingAesKey: '',
     wechatMiniappAppId: '',

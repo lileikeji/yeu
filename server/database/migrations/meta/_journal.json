@@ -680,6 +680,13 @@
                         "when":  1795559900000,
                         "tag":  "0096_competition_popularity_analytics",
                         "breakpoints":  true
+                    },
+                    {
+                        "idx":  97,
+                        "version":  "6",
+                        "when":  1795560000000,
+                        "tag":  "0097_competition_popularity_hybrid",
+                        "breakpoints":  true
                     }
                 ]
 }

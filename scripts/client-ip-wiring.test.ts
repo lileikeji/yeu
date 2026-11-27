@@ -13,6 +13,8 @@ test('rate-limited public and auth IP resolution uses hardened client-ip helper'
     'server/api/public/competition/popularity/token.get.ts',
     'server/api/public/competition/popularity/display-session.post.ts',
     'server/api/public/competition/popularity/state.get.ts',
+    'server/api/public/competition/popularity/share-qr.get.ts',
+    'server/routes/media/competition/singer-photo/[id].ts',
     'server/modules/competition/popularity-vote.ts'
   ]
   for (const rel of files) {

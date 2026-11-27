@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { getQuery, getRouterParam, setHeader } from 'h3'
+import { getMethod, getQuery, getRouterParam, setHeader } from 'h3'
 import { competitionSingers } from '../../../../database/schema'
 import { singerPhotoUrl } from '../../../../modules/competition/service'
 import { getClientIpAddress } from '../../../../utils/client-ip'
@@ -11,11 +11,15 @@ const PHOTO_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a
 /**
  * 选手照片的公开同源媒体路由：/media/competition/singer-photo/<uuid>.jpg
  *
- * 微信客户端与接收方手机拉取分享卡片缩略图时不带 Origin/Referer/PageContext，
- * 放在 /api/ 下会被 01-api-origin-guard 拦截并返回 403；放在 /media/competition/ 下
- * 既可被微信直接拉取，也可按 ?v=photoUpdatedAt 走 CDN 缓存（源站带宽仅 3Mbps）。
+ * 同时响应 GET 与 HEAD：微信/部分客户端分享缩略图爬虫会发 HEAD 预检，
+ * 仅注册 .get.ts 时 HEAD 会返回 404 导致缩略图抓不到。
  */
 export default defineEventHandler(async (event) => {
+  const method = getMethod(event).toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD') {
+    throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+  }
+
   const client = useAppDatabase(event)
   const ip = getClientIpAddress(event)
   assertRateLimit(event, `popularity-singer-photo:${ip}`, 180, 60_000, client)
@@ -51,6 +55,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'Content-Length', buffer.byteLength)
   setHeader(event, 'Cache-Control', hasVersion ? 'public, max-age=31536000, immutable' : 'public, max-age=1800')
   setHeader(event, 'CDN-Cache-Control', hasVersion ? 'public, max-age=31536000' : 'public, max-age=1800')
+  setHeader(event, 'Cross-Origin-Resource-Policy', 'cross-origin')
   setHeader(event, 'X-Content-Type-Options', 'nosniff')
-  return buffer
+  return method === 'HEAD' ? new Uint8Array(0) : buffer
 })

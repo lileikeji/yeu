@@ -29,6 +29,7 @@ export default defineNitroPlugin((nitroApp) => {
       setResponseHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable')
       setResponseHeader(event, 'CDN-Cache-Control', 'public, max-age=31536000')
     }
+    setResponseHeader(event, 'Cross-Origin-Resource-Policy', 'cross-origin')
     removeResponseHeader(event, 'Cloudflare-CDN-Cache-Control')
     removeResponseHeader(event, 'Surrogate-Control')
     removeResponseHeader(event, 'Edge-Control')
