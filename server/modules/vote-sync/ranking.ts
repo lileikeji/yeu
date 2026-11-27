@@ -45,8 +45,7 @@ function emptyTally(): Tally {
  * 构造榜单。排序：有效票降序 → 出场号升序 → 姓名；未匹配的条目排在最后。
  * 名次只在有有效票时给出，同票并列（1、1、3）。
  */
-/** 表单地址由调用方按环境拼接，这里只产出榜单本体。 */
-export function buildThirdPartyRanking(input: RankingInput): Omit<ThirdPartyRankingPayload, 'formUrl'> {
+export function buildThirdPartyRanking(input: RankingInput): ThirdPartyRankingPayload {
   const tally = new Map<string, Tally>()
   const totals = { received: 0, valid: 0, watch: 0, voided: 0 }
 
