@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { normalizeShareIconUrl } from '~~/shared/config/brand'
+import { itempropMeta } from '~/utils/itemprop-meta'
 import type { ApiPublicActivity } from '~~/shared/types/server'
 import { throwPublicDetailError } from '~/utils/public-errors'
 import { isActivityStartingToday } from '~/utils/activity-presentation'
@@ -65,12 +67,20 @@ function formatKind(kind: 'club' | 'department' | undefined): string {
   return kind === 'department' ? '部门活动' : '社团活动'
 }
 
+const requestUrl = useRequestURL()
+const shareImage = computed(() => normalizeShareIconUrl(activity.value?.photos[0], requestUrl.origin))
+useHead({
+  meta: [
+    itempropMeta('image', () => shareImage.value)
+  ]
+})
 useSeoMeta({
   title: () => activity.value?.title ?? '活动',
   description: () => activity.value?.summary ?? '',
   ogTitle: () => activity.value?.title ?? '活动',
   ogDescription: () => activity.value?.summary ?? '',
-  ogImage: () => activity.value?.photos[0] ?? undefined,
+  ogImage: () => shareImage.value,
+  twitterImage: () => shareImage.value,
   ogType: 'article'
 })
 </script>

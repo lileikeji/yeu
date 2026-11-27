@@ -295,6 +295,12 @@ async function main() {
     scale: 0.8
   })
 
+  const shareIcon512Svg = renderAppIconSvg({
+    shapes: standard,
+    rounded: false,
+    scale: 0.78
+  })
+
   const maskableIconSvg = renderAppIconSvg({
     shapes: standard,
     rounded: false,
@@ -323,7 +329,7 @@ async function main() {
     const markLightPng = await rasterizeSvg(page, markLightSvg, 512, 512)
     const markDarkPng = await rasterizeSvg(page, markDarkSvg, 512, 512)
     const appIcon192Png = await rasterizeSvg(page, appIconSvg, 192, 192)
-    const appIcon512Png = await rasterizeSvg(page, appIconSvg, 512, 512)
+    const appIcon512Png = await rasterizeSvg(page, shareIcon512Svg, 512, 512)
     const maskable512Png = await rasterizeSvg(page, maskableIconSvg, 512, 512)
     const lockupPng = await rasterizeSvg(page, lockupSvg, 760, 180)
 

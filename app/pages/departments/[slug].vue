@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { normalizeShareIconUrl } from '~~/shared/config/brand'
+import { itempropMeta } from '~/utils/itemprop-meta'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { findOfficialDepartment, officialSources } from '~~/data/seeds/public-content'
 import { mergePublicDepartments } from '~/utils/public-catalog'
@@ -34,7 +36,12 @@ if (!department.value) {
 }
 
 const requestUrl = useRequestURL()
-const shareImage = new URL('/icons/app-icon-512.png', requestUrl.origin).toString()
+const shareImage = normalizeShareIconUrl(null, requestUrl.origin)
+useHead({
+  meta: [
+    itempropMeta('image', shareImage)
+  ]
+})
 const verifiedDate = computed(() => resolveDepartmentVerifiedDate(
   content.value?.lastVerifiedAt,
   content.value?.updatedAt,

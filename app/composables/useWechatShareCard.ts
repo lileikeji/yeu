@@ -1,3 +1,4 @@
+import { normalizeShareIconUrl, stripEphemeralShareParams } from '~~/shared/config/brand'
 import { isWechatUserAgent } from '~/utils/browser-environment'
 
 interface WechatShareCardInput {
@@ -90,7 +91,7 @@ function reportWechatShareDiagnostic(
   if (reportedDiagnostics.has(key)) return
   reportedDiagnostics.add(key)
 
-  void plainFetch<void>('/api/public/wechat-share/report', {
+  void plainFetch<{ ok: boolean }>('/api/public/wechat-share/report', {
     method: 'POST',
     body: {
       stage,
@@ -213,6 +214,15 @@ function entryUrl(): string {
   return entryPageUrl
 }
 
+export function captureWechatEntryUrl(): string | null {
+  if (!import.meta.client || typeof window === 'undefined') return null
+  return entryUrl()
+}
+
+if (import.meta.client && typeof window !== 'undefined') {
+  captureWechatEntryUrl()
+}
+
 function currentPageUrl(): string {
   const url = new URL(window.location.href)
   url.hash = ''
@@ -224,9 +234,7 @@ function signingPageUrl(userAgent: string): string {
 }
 
 function shareUrl(rawUrl: string): string {
-  const url = new URL(rawUrl, window.location.origin)
-  url.hash = ''
-  return url.toString()
+  return stripEphemeralShareParams(rawUrl, window.location.origin)
 }
 
 export function useWechatShareCard() {
@@ -235,7 +243,7 @@ export function useWechatShareCard() {
 
     const signedUrl = signingPageUrl(navigator.userAgent)
     const shareLink = shareUrl(input.link || signedUrl)
-    const imageUrl = new URL(input.imageUrl, window.location.origin).toString()
+    const imageUrl = normalizeShareIconUrl(input.imageUrl, window.location.origin)
 
     try {
       const signaturePromise = plainFetch<WechatShareSignature>('/api/public/wechat-share', {
