@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
       >
         <div class="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl bg-[var(--surface)] text-[var(--ink)] shadow-2xl">
           <div class="relative">
-            <div class="relative h-[36vh] max-h-[360px] min-h-[200px] w-full overflow-hidden rounded-t-3xl bg-rose-100">
+            <div class="relative h-[44vh] max-h-[440px] min-h-[240px] w-full overflow-hidden rounded-t-3xl bg-rose-100">
               <img
                 v-if="!photoFailed"
                 :src="photoSrc"
