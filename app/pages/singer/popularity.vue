@@ -308,8 +308,22 @@ function standingGapText(standing: PopularityCandidateStanding): string {
   return '当前第 1 名'
 }
 
+/** 访问埋点：页面打开打一发，服务端负责拆设备/浏览器并区分公众号来源。 */
+async function reportVisit(): Promise<void> {
+  try {
+    const vt = readWechatTicket()
+    await plainFetch<{ ok: boolean }>('/api/public/competition/popularity/visit', {
+      method: 'POST',
+      body: { page: 'vote', ...(vt ? { vt } : {}) }
+    })
+  } catch {
+    // 埋点失败不影响阅读与投票。
+  }
+}
+
 onMounted(() => {
   syncWechatTicketFromLocation()
+  void reportVisit()
   void load()
   timer = setInterval(() => {
     now.value = Date.now()

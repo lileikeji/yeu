@@ -21,7 +21,8 @@ import {
 import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
 import { getSecurityConfig } from '../../utils/security'
-import { getRequestURL } from 'h3'
+import { getRequestURL, getHeader } from 'h3'
+import { getClientIpAddress } from '../../utils/client-ip'
 
 const MAX_CALLBACK_BYTES = 128 * 1024
 const PASSIVE_REPLY_BUDGET_MS = 3_800
@@ -121,7 +122,9 @@ export default defineEventHandler(async (event) => {
       return respond(handleWechatMpPopularityFollow(client, {
         fromUserName: eventMessage.fromUserName,
         siteOrigin,
-        secret: security.secret
+        secret: security.secret,
+        ip: getClientIpAddress(event),
+        userAgent: getHeader(event, 'user-agent') || ''
       }))
     }
     const menuVote = eventMessage.event === 'CLICK' && /^(vote|vote_vote|投票|人气奖投票)$/i.test(eventMessage.eventKey)

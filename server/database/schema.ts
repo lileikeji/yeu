@@ -1497,6 +1497,54 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   index('competition_popularity_ballots_event_quarantined_idx').on(table.eventId, table.quarantined, table.createdAt)
 ])
 
+/**
+ * 人气奖页面访问日志：投票页/大屏页每次打开都落一条，带设备型号、浏览器、系统与 IP。
+ * 与投票/关注分开记，是因为「有多少人来看」和「有多少人真投」是两条独立漏斗。
+ */
+export const competitionPopularityVisits = sqliteTable('competition_popularity_visits', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull(),
+  /** vote | display | miniapp */
+  page: text('page').notNull().default('vote'),
+  /** wechat（带专属票 vt 进来）| miniapp | direct */
+  source: text('source').notNull().default('direct'),
+  ip: text('ip').notNull().default(''),
+  country: text('country').notNull().default(''),
+  region: text('region').notNull().default(''),
+  city: text('city').notNull().default(''),
+  userAgent: text('user_agent').notNull().default(''),
+  deviceBrand: text('device_brand').notNull().default(''),
+  deviceModel: text('device_model').notNull().default(''),
+  osName: text('os_name').notNull().default(''),
+  osVersion: text('os_version').notNull().default(''),
+  browserName: text('browser_name').notNull().default(''),
+  browserVersion: text('browser_version').notNull().default(''),
+  isWechat: integer('is_wechat', { mode: 'boolean' }).notNull().default(false),
+  isBot: integer('is_bot', { mode: 'boolean' }).notNull().default(false),
+  /** 是否带着公众号签发的专属票进来（等价于「从公众号点进来」）。 */
+  hasTicket: integer('has_ticket', { mode: 'boolean' }).notNull().default(false),
+  visitorKey: text('visitor_key').notNull().default(''),
+  referer: text('referer').notNull().default(''),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('competition_popularity_visits_event_created_idx').on(table.eventId, table.createdAt),
+  index('competition_popularity_visits_source_created_idx').on(table.source, table.createdAt),
+  index('competition_popularity_visits_visitor_created_idx').on(table.visitorKey, table.createdAt)
+])
+
+/** 人气奖新关注流水：一个 openid 只计一次，用来算「新关注量」与关注→投票转化。 */
+export const competitionPopularityFollows = sqliteTable('competition_popularity_follows', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull(),
+  voterOpenidHash: text('voter_openid_hash').notNull(),
+  ip: text('ip').notNull().default(''),
+  userAgent: text('user_agent').notNull().default(''),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('competition_popularity_follows_event_openid_unique').on(table.eventId, table.voterOpenidHash),
+  index('competition_popularity_follows_event_created_idx').on(table.eventId, table.createdAt)
+])
+
 /** 人气奖逐票流水日志：记录每一次投票、改票与前置脚本拦截事件，支撑刷票预估与记忆 AI 巡检。 */
 export const competitionPopularityVoteLogs = sqliteTable('competition_popularity_vote_logs', {
   id: text('id').primaryKey(),

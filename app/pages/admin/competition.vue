@@ -2923,6 +2923,7 @@ onBeforeUnmount(stopLiveRefresh)
         v-show="activeSection === 'popularity'"
         class="space-y-4"
       >
+        <AdminCompetitionPopularityVisitsPanel />
         <AdminCompetitionPopularityPanel
           :state="payload?.popularity ?? null"
           @refresh="load"

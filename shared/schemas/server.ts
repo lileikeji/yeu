@@ -1708,6 +1708,22 @@ export const competitionPopularityInspectSchema = z.object({
   singerId: z.string().trim().min(1).max(64).optional()
 }).strict()
 
+export const competitionPopularityVisitSchema = z.object({
+  /** vote（手机投票页）| display（现场大屏）| miniapp（小程序） */
+  page: z.enum(['vote', 'display', 'miniapp']).default('vote'),
+  /** 公众号签发的专属票；带着它进来就算「从公众号进」。 */
+  vt: z.string().trim().min(20).max(2000).optional()
+}).strict()
+
+export const competitionPopularityVisitQuerySchema = z.object({
+  range: z.enum(['today', '24h', '7d', '30d', 'all']).optional(),
+  source: z.enum(['wechat', 'direct', 'miniapp']).optional(),
+  onlyWechat: z.coerce.boolean().optional(),
+  q: z.string().trim().max(120).optional(),
+  page: z.coerce.number().int().min(1).max(10000).optional(),
+  pageSize: z.coerce.number().int().min(10).max(200).optional()
+}).strict()
+
 export const competitionPopularityAuditQuerySchema = z.object({
   singerId: z.string().trim().max(64).optional(),
   filter: z.enum(['all', 'quarantined', 'suspect', 'watch', 'voided', 'blocked']).optional(),

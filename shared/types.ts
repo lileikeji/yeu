@@ -892,6 +892,58 @@ export interface CompetitionPopularityInspectionJobView {
   error: string | null
 }
 
+export interface CompetitionPopularityVisitRow {
+  id: string
+  createdAt: number
+  page: string
+  source: string
+  hasTicket: boolean
+  ip: string
+  locationLabel: string
+  deviceLabel: string
+  deviceBrand: string
+  deviceModel: string
+  osLabel: string
+  browserLabel: string
+  isWechat: boolean
+  isBot: boolean
+  referer: string
+  userAgent: string
+}
+
+export interface CompetitionPopularityVisitReport {
+  range: string
+  retentionDays: number
+  summary: {
+    visitsAll: number
+    visitorsAll: number
+    ticketVisitsAll: number
+    visitsToday: number
+    ticketVisitsToday: number
+    followsAll: number
+    followsToday: number
+    votesAll: number
+    votesToday: number
+    followRate: number
+    rangePv: number
+    rangeUv: number
+    rangeTicketPv: number
+    rangeDirectPv: number
+    rangeMiniappPv: number
+    rangeWechatUaPv: number
+    rangeBotPv: number
+    topDevices: Array<{ label: string, hits: number, visitors: number }>
+    topBrowsers: Array<{ label: string, hits: number }>
+  }
+  rows: CompetitionPopularityVisitRow[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    pages: number
+  }
+}
+
 export interface CompetitionPopularityAuditReport {
   overview: {
     validVotes: number
