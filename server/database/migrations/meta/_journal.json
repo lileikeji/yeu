@@ -1,678 +1,685 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1783942575136,
-      "tag": "0000_youthful_absorbing_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1783943433661,
-      "tag": "0001_nifty_bucky",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1783969382264,
-      "tag": "0002_windy_maria_hill",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1783972441014,
-      "tag": "0003_curvy_strong_guy",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1783982765946,
-      "tag": "0004_thankful_molly_hayes",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1783985054480,
-      "tag": "0005_motionless_quentin_quire",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1783988121637,
-      "tag": "0006_feedback_procedure_context",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1784218837937,
-      "tag": "0007_rate_limit_buckets",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1784320690237,
-      "tag": "0008_accounts_visitors_chat",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "6",
-      "when": 1784888926347,
-      "tag": "0009_gray_ulik",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "6",
-      "when": 1784893252742,
-      "tag": "0010_bizarre_crystal",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "6",
-      "when": 1785000207262,
-      "tag": "0011_neat_hiroim",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "6",
-      "when": 1785091918037,
-      "tag": "0012_wild_madame_hydra",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "6",
-      "when": 1785106984807,
-      "tag": "0013_material_talisman",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "6",
-      "when": 1785108763956,
-      "tag": "0014_steep_star_brand",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "6",
-      "when": 1785232355162,
-      "tag": "0015_youthful_thanos",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "6",
-      "when": 1785232499896,
-      "tag": "0016_polite_scarlet_witch",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "6",
-      "when": 1785234467052,
-      "tag": "0017_round_agent_zero",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "6",
-      "when": 1785235544390,
-      "tag": "0018_last_firestar",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1785500000000,
-      "tag": "0019_frontend_feature_layout",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "6",
-      "when": 1785586614620,
-      "tag": "0020_workable_squadron_supreme",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "6",
-      "when": 1786734669231,
-      "tag": "0021_true_hellfire_club",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "6",
-      "when": 1786748566606,
-      "tag": "0022_talented_stellaris",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "6",
-      "when": 1786752871880,
-      "tag": "0023_thin_sunset_bain",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "6",
-      "when": 1786757249955,
-      "tag": "0024_claims_fts_trigram",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "6",
-      "when": 1787936833933,
-      "tag": "0025_dry_whizzer",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "6",
-      "when": 1787937874915,
-      "tag": "0026_bouncy_maelstrom",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "6",
-      "when": 1787962276457,
-      "tag": "0027_shiny_toxin",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "6",
-      "when": 1788006954316,
-      "tag": "0028_sturdy_machine_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "6",
-      "when": 1788014371385,
-      "tag": "0029_old_galactus",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1788332400000,
-      "tag": "0030_frosty_merchant",
-      "breakpoints": true
-    },
-    {
-      "idx": 31,
-      "version": "6",
-      "when": 1788368498378,
-      "tag": "0031_worried_goblin_queen",
-      "breakpoints": true
-    },
-    {
-      "idx": 32,
-      "version": "6",
-      "when": 1789025752028,
-      "tag": "0032_stiff_dexter_bennett",
-      "breakpoints": true
-    },
-    {
-      "idx": 33,
-      "version": "6",
-      "when": 1790842829988,
-      "tag": "0033_remarkable_lady_ursula",
-      "breakpoints": true
-    },
-    {
-      "idx": 34,
-      "version": "6",
-      "when": 1791109999294,
-      "tag": "0034_short_sally_floyd",
-      "breakpoints": true
-    },
-    {
-      "idx": 35,
-      "version": "6",
-      "when": 1791116928510,
-      "tag": "0035_breezy_ultimo",
-      "breakpoints": true
-    },
-    {
-      "idx": 36,
-      "version": "6",
-      "when": 1791475845849,
-      "tag": "0036_curvy_silver_samurai",
-      "breakpoints": true
-    },
-    {
-      "idx": 37,
-      "version": "6",
-      "when": 1791479908910,
-      "tag": "0037_daily_the_enforcers",
-      "breakpoints": true
-    },
-    {
-      "idx": 38,
-      "version": "6",
-      "when": 1791483308677,
-      "tag": "0038_slippery_lady_deathstrike",
-      "breakpoints": true
-    },
-    {
-      "idx": 39,
-      "version": "6",
-      "when": 1792585413879,
-      "tag": "0039_nosy_salo",
-      "breakpoints": true
-    },
-    {
-      "idx": 40,
-      "version": "6",
-      "when": 1793619474465,
-      "tag": "0040_fantastic_doctor_spectrum",
-      "breakpoints": true
-    },
-    {
-      "idx": 41,
-      "version": "6",
-      "when": 1793981546529,
-      "tag": "0041_parallel_machine_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 42,
-      "version": "6",
-      "when": 1794020182837,
-      "tag": "0042_minor_puck",
-      "breakpoints": true
-    },
-    {
-      "idx": 43,
-      "version": "6",
-      "when": 1794030385802,
-      "tag": "0043_early_thena",
-      "breakpoints": true
-    },
-    {
-      "idx": 44,
-      "version": "6",
-      "when": 1794037022632,
-      "tag": "0044_wakeful_landau",
-      "breakpoints": true
-    },
-    {
-      "idx": 45,
-      "version": "6",
-      "when": 1794096461552,
-      "tag": "0045_breezy_microchip",
-      "breakpoints": true
-    },
-    {
-      "idx": 46,
-      "version": "6",
-      "when": 1794110892893,
-      "tag": "0046_steep_dorian_gray",
-      "breakpoints": true
-    },
-    {
-      "idx": 47,
-      "version": "6",
-      "when": 1794118480180,
-      "tag": "0047_nasty_miss_america",
-      "breakpoints": true
-    },
-    {
-      "idx": 48,
-      "version": "6",
-      "when": 1794118540180,
-      "tag": "0048_competition_current_entry",
-      "breakpoints": true
-    },
-    {
-      "idx": 49,
-      "version": "6",
-      "when": 1794221036461,
-      "tag": "0049_competition_email_images",
-      "breakpoints": true
-    },
-    {
-      "idx": 50,
-      "version": "6",
-      "when": 1794251800000,
-      "tag": "0050_competition_days",
-      "breakpoints": true
-    },
-    {
-      "idx": 51,
-      "version": "6",
-      "when": 1794252600000,
-      "tag": "0051_competition_edition_form",
-      "breakpoints": true
-    },
-    {
-      "idx": 52,
-      "version": "6",
-      "when": 1794339000000,
-      "tag": "0052_visitor_event_json_indexes",
-      "breakpoints": true
-    },
-    {
-      "idx": 53,
-      "version": "6",
-      "when": 1794342600000,
-      "tag": "0053_assistant_knowledge_state",
-      "breakpoints": true
-    },
-    {
-      "idx": 54,
-      "version": "6",
-      "when": 1794600000000,
-      "tag": "0054_feedback_receipt",
-      "breakpoints": true
-    },
-    {
-      "idx": 55,
-      "version": "6",
-      "when": 1794600001000,
-      "tag": "0055_activities",
-      "breakpoints": true
-    },
-    {
-      "idx": 56,
-      "version": "6",
-      "when": 1794600002000,
-      "tag": "0056_activity_comments",
-      "breakpoints": true
-    },
-    {
-      "idx": 57,
-      "version": "6",
-      "when": 1794600003000,
-      "tag": "0057_knowledge_claims_updated_index",
-      "breakpoints": true
-    },
-    {
-      "idx": 58,
-      "version": "6",
-      "when": 1794600004000,
-      "tag": "0058_knowledge_claims_health_index",
-      "breakpoints": true
-    },
-    {
-      "idx": 59,
-      "version": "6",
-      "when": 1794600005000,
-      "tag": "0059_visitor_stats_counter",
-      "breakpoints": true
-    },
-    {
-      "idx": 60,
-      "version": "6",
-      "when": 1794630000000,
-      "tag": "0060_competition_entry_checkin",
-      "breakpoints": true
-    },
-    {
-      "idx": 61,
-      "version": "6",
-      "when": 1794655000000,
-      "tag": "0061_competition_sequential_mode",
-      "breakpoints": true
-    },
-    {
-      "idx": 62,
-      "version": "6",
-      "when": 1794658000000,
-      "tag": "0062_competition_trim_extremes",
-      "breakpoints": true
-    },
-    {
-      "idx": 63,
-      "version": "6",
-      "when": 1794682000000,
-      "tag": "0063_competition_edition_receipts",
-      "breakpoints": true
-    },
-    {
-      "idx": 64,
-      "version": "6",
-      "when": 1794814122313,
-      "tag": "0064_competition_qq_group",
-      "breakpoints": true
-    },
-    {
-      "idx": 65,
-      "version": "6",
-      "when": 1794870000000,
-      "tag": "0065_competition_entry_song",
-      "breakpoints": true
-    },
-    {
-      "idx": 66,
-      "version": "6",
-      "when": 1794880000000,
-      "tag": "0066_competition_entry_accompaniment",
-      "breakpoints": true
-    },
-    {
-      "idx": 67,
-      "version": "6",
-      "when": 1794890000000,
-      "tag": "0067_computer_association",
-      "breakpoints": true
-    },
-    {
-      "idx": 68,
-      "version": "6",
-      "when": 1794900000000,
-      "tag": "0068_yeuca_extras",
-      "breakpoints": true
-    },
-    {
-      "idx": 69,
-      "version": "6",
-      "when": 1794950000000,
-      "tag": "0069_yeuca_members_activities",
-      "breakpoints": true
-    },
-    {
-      "idx": 70,
-      "version": "6",
-      "when": 1795050000000,
-      "tag": "0070_yeuca_visits",
-      "breakpoints": true
-    },
-    {
-      "idx": 71,
-      "version": "6",
-      "when": 1795100000000,
-      "tag": "0071_yeuca_department_admins",
-      "breakpoints": true
-    },
-    {
-      "idx": 72,
-      "version": "6",
-      "when": 1795200000000,
-      "tag": "0072_treasure_stamps",
-      "breakpoints": true
-    },
-    {
-      "idx": 73,
-      "version": "6",
-      "when": 1795240000000,
-      "tag": "0073_competition_accompaniment_original",
-      "breakpoints": true
-    },
-    {
-      "idx": 74,
-      "version": "6",
-      "when": 1795300000000,
-      "tag": "0074_yeuca_treasure",
-      "breakpoints": true
-    },
-    {
-      "idx": 75,
-      "version": "6",
-      "when": 1795400000000,
-      "tag": "0075_competition_round_dimensions",
-      "breakpoints": true
-    },
-    {
-      "idx": 76,
-      "version": "6",
-      "when": 1795404000000,
-      "tag": "0076_competition_round_trim_extremes",
-      "breakpoints": true
-    },
-    {
-      "idx": 77,
-      "version": "6",
-      "when": 1795480000000,
-      "tag": "0077_competition_accompaniment_updated_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 78,
-      "version": "6",
-      "when": 1795484000000,
-      "tag": "0078_recruit_submissions_created_index",
-      "breakpoints": true
-    },
-    {
-      "idx": 79,
-      "version": "6",
-      "when": 1795500000000,
-      "tag": "0079_competition_singer_photo",
-      "breakpoints": true
-    },
-    {
-      "idx": 80,
-      "version": "6",
-      "when": 1795503600000,
-      "tag": "0080_competition_final_second_round",
-      "breakpoints": true
-    },
-    {
-      "idx": 81,
-      "version": "6",
-      "when": 1795510000000,
-      "tag": "0081_competition_popularity",
-      "breakpoints": true
-    },
-    {
-      "idx": 82,
-      "version": "6",
-      "when": 1795513600000,
-      "tag": "0082_competition_final_duel",
-      "breakpoints": true
-    },
-    {
-      "idx": 83,
-      "version": "6",
-      "when": 1795520000000,
-      "tag": "0083_competition_popularity_risk",
-      "breakpoints": true
-    },
-    {
-      "idx": 84,
-      "version": "6",
-      "when": 1795523600000,
-      "tag": "0084_competition_final_song_videos",
-      "breakpoints": true
-    },
-    {
-      "idx": 85,
-      "version": "6",
-      "when": 1795527200000,
-      "tag": "0085_competition_revival",
-      "breakpoints": true
-    },
-    {
-      "idx": 86,
-      "version": "6",
-      "when": 1795530800000,
-      "tag": "0086_competition_popularity_guard",
-      "breakpoints": true
-    },
-    {
-      "idx": 87,
-      "version": "6",
-      "when": 1795534400000,
-      "tag": "0087_competition_popularity_fortress",
-      "breakpoints": true
-    },
-    {
-      "idx": 88,
-      "version": "6",
-      "when": 1795538000000,
-      "tag": "0088_third_party_vote_sync",
-      "breakpoints": true
-    },
-    {
-      "idx": 89,
-      "version": "6",
-      "when": 1795541600000,
-      "tag": "0089_votes_per_voter",
-      "breakpoints": true
-    },
-    {
-      "idx": 90,
-      "version": "6",
-      "when": 1795545200000,
-      "tag": "0090_repeat_vote_setting",
-      "breakpoints": true
-    },
-    {
-      "idx": 91,
-      "version": "6",
-      "when": 1795548800000,
-      "tag": "0091_popularity_show_results_on",
-      "breakpoints": true
-    },
-    {
-      "idx": 92,
-      "version": "6",
-      "when": 1795556000000,
-      "tag": "0092_final2_order",
-      "breakpoints": true
-    },
-    {
-      "idx": 93,
-      "version": "6",
-      "when": 1795559600000,
-      "tag": "0093_competition_popularity_passcode",
-      "breakpoints": true
-    },
-    {
-      "idx": 94,
-      "version": "6",
-      "when": 1795559700000,
-      "tag": "0094_competition_popularity_withdraw",
-      "breakpoints": true
-    },
-    {
-      "idx": 95,
-      "version": "6",
-      "when": 1795559800000,
-      "tag": "0095_competition_popularity_withdraw_slot",
-      "breakpoints": true
-    }
-  ]
+    "version":  "7",
+    "dialect":  "sqlite",
+    "entries":  [
+                    {
+                        "idx":  0,
+                        "version":  "6",
+                        "when":  1783942575136,
+                        "tag":  "0000_youthful_absorbing_man",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  1,
+                        "version":  "6",
+                        "when":  1783943433661,
+                        "tag":  "0001_nifty_bucky",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  2,
+                        "version":  "6",
+                        "when":  1783969382264,
+                        "tag":  "0002_windy_maria_hill",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  3,
+                        "version":  "6",
+                        "when":  1783972441014,
+                        "tag":  "0003_curvy_strong_guy",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  4,
+                        "version":  "6",
+                        "when":  1783982765946,
+                        "tag":  "0004_thankful_molly_hayes",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  5,
+                        "version":  "6",
+                        "when":  1783985054480,
+                        "tag":  "0005_motionless_quentin_quire",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  6,
+                        "version":  "6",
+                        "when":  1783988121637,
+                        "tag":  "0006_feedback_procedure_context",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  7,
+                        "version":  "6",
+                        "when":  1784218837937,
+                        "tag":  "0007_rate_limit_buckets",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  8,
+                        "version":  "6",
+                        "when":  1784320690237,
+                        "tag":  "0008_accounts_visitors_chat",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  9,
+                        "version":  "6",
+                        "when":  1784888926347,
+                        "tag":  "0009_gray_ulik",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  10,
+                        "version":  "6",
+                        "when":  1784893252742,
+                        "tag":  "0010_bizarre_crystal",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  11,
+                        "version":  "6",
+                        "when":  1785000207262,
+                        "tag":  "0011_neat_hiroim",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  12,
+                        "version":  "6",
+                        "when":  1785091918037,
+                        "tag":  "0012_wild_madame_hydra",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  13,
+                        "version":  "6",
+                        "when":  1785106984807,
+                        "tag":  "0013_material_talisman",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  14,
+                        "version":  "6",
+                        "when":  1785108763956,
+                        "tag":  "0014_steep_star_brand",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  15,
+                        "version":  "6",
+                        "when":  1785232355162,
+                        "tag":  "0015_youthful_thanos",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  16,
+                        "version":  "6",
+                        "when":  1785232499896,
+                        "tag":  "0016_polite_scarlet_witch",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  17,
+                        "version":  "6",
+                        "when":  1785234467052,
+                        "tag":  "0017_round_agent_zero",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  18,
+                        "version":  "6",
+                        "when":  1785235544390,
+                        "tag":  "0018_last_firestar",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  19,
+                        "version":  "7",
+                        "when":  1785500000000,
+                        "tag":  "0019_frontend_feature_layout",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  20,
+                        "version":  "6",
+                        "when":  1785586614620,
+                        "tag":  "0020_workable_squadron_supreme",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  21,
+                        "version":  "6",
+                        "when":  1786734669231,
+                        "tag":  "0021_true_hellfire_club",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  22,
+                        "version":  "6",
+                        "when":  1786748566606,
+                        "tag":  "0022_talented_stellaris",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  23,
+                        "version":  "6",
+                        "when":  1786752871880,
+                        "tag":  "0023_thin_sunset_bain",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  24,
+                        "version":  "6",
+                        "when":  1786757249955,
+                        "tag":  "0024_claims_fts_trigram",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  25,
+                        "version":  "6",
+                        "when":  1787936833933,
+                        "tag":  "0025_dry_whizzer",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  26,
+                        "version":  "6",
+                        "when":  1787937874915,
+                        "tag":  "0026_bouncy_maelstrom",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  27,
+                        "version":  "6",
+                        "when":  1787962276457,
+                        "tag":  "0027_shiny_toxin",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  28,
+                        "version":  "6",
+                        "when":  1788006954316,
+                        "tag":  "0028_sturdy_machine_man",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  29,
+                        "version":  "6",
+                        "when":  1788014371385,
+                        "tag":  "0029_old_galactus",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  30,
+                        "version":  "7",
+                        "when":  1788332400000,
+                        "tag":  "0030_frosty_merchant",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  31,
+                        "version":  "6",
+                        "when":  1788368498378,
+                        "tag":  "0031_worried_goblin_queen",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  32,
+                        "version":  "6",
+                        "when":  1789025752028,
+                        "tag":  "0032_stiff_dexter_bennett",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  33,
+                        "version":  "6",
+                        "when":  1790842829988,
+                        "tag":  "0033_remarkable_lady_ursula",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  34,
+                        "version":  "6",
+                        "when":  1791109999294,
+                        "tag":  "0034_short_sally_floyd",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  35,
+                        "version":  "6",
+                        "when":  1791116928510,
+                        "tag":  "0035_breezy_ultimo",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  36,
+                        "version":  "6",
+                        "when":  1791475845849,
+                        "tag":  "0036_curvy_silver_samurai",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  37,
+                        "version":  "6",
+                        "when":  1791479908910,
+                        "tag":  "0037_daily_the_enforcers",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  38,
+                        "version":  "6",
+                        "when":  1791483308677,
+                        "tag":  "0038_slippery_lady_deathstrike",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  39,
+                        "version":  "6",
+                        "when":  1792585413879,
+                        "tag":  "0039_nosy_salo",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  40,
+                        "version":  "6",
+                        "when":  1793619474465,
+                        "tag":  "0040_fantastic_doctor_spectrum",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  41,
+                        "version":  "6",
+                        "when":  1793981546529,
+                        "tag":  "0041_parallel_machine_man",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  42,
+                        "version":  "6",
+                        "when":  1794020182837,
+                        "tag":  "0042_minor_puck",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  43,
+                        "version":  "6",
+                        "when":  1794030385802,
+                        "tag":  "0043_early_thena",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  44,
+                        "version":  "6",
+                        "when":  1794037022632,
+                        "tag":  "0044_wakeful_landau",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  45,
+                        "version":  "6",
+                        "when":  1794096461552,
+                        "tag":  "0045_breezy_microchip",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  46,
+                        "version":  "6",
+                        "when":  1794110892893,
+                        "tag":  "0046_steep_dorian_gray",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  47,
+                        "version":  "6",
+                        "when":  1794118480180,
+                        "tag":  "0047_nasty_miss_america",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  48,
+                        "version":  "6",
+                        "when":  1794118540180,
+                        "tag":  "0048_competition_current_entry",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  49,
+                        "version":  "6",
+                        "when":  1794221036461,
+                        "tag":  "0049_competition_email_images",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  50,
+                        "version":  "6",
+                        "when":  1794251800000,
+                        "tag":  "0050_competition_days",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  51,
+                        "version":  "6",
+                        "when":  1794252600000,
+                        "tag":  "0051_competition_edition_form",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  52,
+                        "version":  "6",
+                        "when":  1794339000000,
+                        "tag":  "0052_visitor_event_json_indexes",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  53,
+                        "version":  "6",
+                        "when":  1794342600000,
+                        "tag":  "0053_assistant_knowledge_state",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  54,
+                        "version":  "6",
+                        "when":  1794600000000,
+                        "tag":  "0054_feedback_receipt",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  55,
+                        "version":  "6",
+                        "when":  1794600001000,
+                        "tag":  "0055_activities",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  56,
+                        "version":  "6",
+                        "when":  1794600002000,
+                        "tag":  "0056_activity_comments",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  57,
+                        "version":  "6",
+                        "when":  1794600003000,
+                        "tag":  "0057_knowledge_claims_updated_index",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  58,
+                        "version":  "6",
+                        "when":  1794600004000,
+                        "tag":  "0058_knowledge_claims_health_index",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  59,
+                        "version":  "6",
+                        "when":  1794600005000,
+                        "tag":  "0059_visitor_stats_counter",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  60,
+                        "version":  "6",
+                        "when":  1794630000000,
+                        "tag":  "0060_competition_entry_checkin",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  61,
+                        "version":  "6",
+                        "when":  1794655000000,
+                        "tag":  "0061_competition_sequential_mode",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  62,
+                        "version":  "6",
+                        "when":  1794658000000,
+                        "tag":  "0062_competition_trim_extremes",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  63,
+                        "version":  "6",
+                        "when":  1794682000000,
+                        "tag":  "0063_competition_edition_receipts",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  64,
+                        "version":  "6",
+                        "when":  1794814122313,
+                        "tag":  "0064_competition_qq_group",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  65,
+                        "version":  "6",
+                        "when":  1794870000000,
+                        "tag":  "0065_competition_entry_song",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  66,
+                        "version":  "6",
+                        "when":  1794880000000,
+                        "tag":  "0066_competition_entry_accompaniment",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  67,
+                        "version":  "6",
+                        "when":  1794890000000,
+                        "tag":  "0067_computer_association",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  68,
+                        "version":  "6",
+                        "when":  1794900000000,
+                        "tag":  "0068_yeuca_extras",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  69,
+                        "version":  "6",
+                        "when":  1794950000000,
+                        "tag":  "0069_yeuca_members_activities",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  70,
+                        "version":  "6",
+                        "when":  1795050000000,
+                        "tag":  "0070_yeuca_visits",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  71,
+                        "version":  "6",
+                        "when":  1795100000000,
+                        "tag":  "0071_yeuca_department_admins",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  72,
+                        "version":  "6",
+                        "when":  1795200000000,
+                        "tag":  "0072_treasure_stamps",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  73,
+                        "version":  "6",
+                        "when":  1795240000000,
+                        "tag":  "0073_competition_accompaniment_original",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  74,
+                        "version":  "6",
+                        "when":  1795300000000,
+                        "tag":  "0074_yeuca_treasure",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  75,
+                        "version":  "6",
+                        "when":  1795400000000,
+                        "tag":  "0075_competition_round_dimensions",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  76,
+                        "version":  "6",
+                        "when":  1795404000000,
+                        "tag":  "0076_competition_round_trim_extremes",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  77,
+                        "version":  "6",
+                        "when":  1795480000000,
+                        "tag":  "0077_competition_accompaniment_updated_at",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  78,
+                        "version":  "6",
+                        "when":  1795484000000,
+                        "tag":  "0078_recruit_submissions_created_index",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  79,
+                        "version":  "6",
+                        "when":  1795500000000,
+                        "tag":  "0079_competition_singer_photo",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  80,
+                        "version":  "6",
+                        "when":  1795503600000,
+                        "tag":  "0080_competition_final_second_round",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  81,
+                        "version":  "6",
+                        "when":  1795510000000,
+                        "tag":  "0081_competition_popularity",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  82,
+                        "version":  "6",
+                        "when":  1795513600000,
+                        "tag":  "0082_competition_final_duel",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  83,
+                        "version":  "6",
+                        "when":  1795520000000,
+                        "tag":  "0083_competition_popularity_risk",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  84,
+                        "version":  "6",
+                        "when":  1795523600000,
+                        "tag":  "0084_competition_final_song_videos",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  85,
+                        "version":  "6",
+                        "when":  1795527200000,
+                        "tag":  "0085_competition_revival",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  86,
+                        "version":  "6",
+                        "when":  1795530800000,
+                        "tag":  "0086_competition_popularity_guard",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  87,
+                        "version":  "6",
+                        "when":  1795534400000,
+                        "tag":  "0087_competition_popularity_fortress",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  88,
+                        "version":  "6",
+                        "when":  1795538000000,
+                        "tag":  "0088_third_party_vote_sync",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  89,
+                        "version":  "6",
+                        "when":  1795541600000,
+                        "tag":  "0089_votes_per_voter",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  90,
+                        "version":  "6",
+                        "when":  1795545200000,
+                        "tag":  "0090_repeat_vote_setting",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  91,
+                        "version":  "6",
+                        "when":  1795548800000,
+                        "tag":  "0091_popularity_show_results_on",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  92,
+                        "version":  "6",
+                        "when":  1795556000000,
+                        "tag":  "0092_final2_order",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  93,
+                        "version":  "6",
+                        "when":  1795559600000,
+                        "tag":  "0093_competition_popularity_passcode",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  94,
+                        "version":  "6",
+                        "when":  1795559700000,
+                        "tag":  "0094_competition_popularity_withdraw",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  95,
+                        "version":  "6",
+                        "when":  1795559800000,
+                        "tag":  "0095_competition_popularity_withdraw_slot",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  96,
+                        "version":  "6",
+                        "when":  1795559900000,
+                        "tag":  "0096_competition_popularity_analytics",
+                        "breakpoints":  true
+                    }
+                ]
 }

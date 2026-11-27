@@ -125,6 +125,7 @@ async function load(): Promise<void> {
     deviceToken.value = data.deviceToken || deviceToken.value
     state.value = data
     readyAt.value = Date.now() + 700
+    void postJson({ path: '/api/miniapp/v1/popularity/visit', body: { page: 'miniapp' } }).catch(() => undefined)
   } catch (cause) {
     const message = explainError(cause)
     if (message.includes('凭证')) {

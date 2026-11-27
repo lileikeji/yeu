@@ -20,7 +20,8 @@ const MINIAPP_POST_ROUTES = new Set([
   '/api/miniapp/v1/assistant',
   '/api/miniapp/v1/popularity/login',
   '/api/miniapp/v1/popularity/vote',
-  '/api/miniapp/v1/popularity/withdraw'
+  '/api/miniapp/v1/popularity/withdraw',
+  '/api/miniapp/v1/popularity/visit'
 ])
 
 function normalizeMiniAppPath(pathname: string): string {

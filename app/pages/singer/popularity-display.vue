@@ -184,6 +184,18 @@ function syncFullscreenState(): void {
   isFullscreen.value = Boolean(document.fullscreenElement)
 }
 
+/** 大屏每次打开也记一条访问，后台能看到现场用了什么设备投屏。 */
+async function reportVisit(): Promise<void> {
+  try {
+    await plainFetch<{ ok: boolean }>('/api/public/competition/popularity/visit', {
+      method: 'POST',
+      body: { page: 'display' }
+    })
+  } catch {
+    // 埋点失败不影响大屏刷新。
+  }
+}
+
 async function toggleFullscreen(): Promise<void> {
   try {
     if (document.fullscreenElement) {
@@ -199,6 +211,7 @@ async function toggleFullscreen(): Promise<void> {
 onMounted(() => {
   syncDisplayKeyFromLocation()
   syncFullscreenState()
+  void reportVisit()
   document.addEventListener('fullscreenchange', syncFullscreenState)
   void refreshToken()
   tickTimer = setInterval(() => {

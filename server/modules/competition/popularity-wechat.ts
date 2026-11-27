@@ -10,6 +10,7 @@ import {
   getPopularitySettings,
   getPopularityAdminState
 } from './service'
+import { recordPopularityFollow } from './popularity-visits'
 
 const VOTE_COMMAND_PATTERN = /^(?:人气奖?投票|歌手投票|投票|人气|tp)(?:[\s:：+-]*(\d{2,4}))?$/i
 
@@ -71,6 +72,9 @@ export interface WechatMpPopularityEventInput {
   fromUserName: string
   siteOrigin: string
   secret: string
+  /** 关注事件发生在微信服务器回源请求里，这里带上回源 IP 与 UA 便于后台核验。 */
+  ip?: string
+  userAgent?: string
   now?: number
 }
 
@@ -87,6 +91,13 @@ export function handleWechatMpPopularityFollow(
   const settings = getPopularitySettings(client, eventRow.id)
   const accountName = settings.wechatAccountName || '仰大音乐馆'
   const welcome = `欢迎关注「${accountName}」！`
+  recordPopularityFollow(client, {
+    eventId: eventRow.id,
+    voterOpenidHash: popularityOpenIdHash(input.secret, eventRow.id, input.fromUserName),
+    ip: input.ip,
+    userAgent: input.userAgent,
+    now: input.now
+  })
   if (!settings.enabled) {
     return `${welcome}\n本场「人气奖投票」尚未开启，请留意现场主持人通知。`
   }
