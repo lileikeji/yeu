@@ -20,6 +20,7 @@ const savingCard = ref(false)
 const cardPreviewUrl = ref('')
 const cardFileName = ref('人气奖投票.png')
 const photoFailed = ref(false)
+const photoZoom = ref(false)
 
 const open = computed(() => Boolean(props.candidate))
 const photoFallback = computed(() => props.candidate?.name?.slice(0, 1) || '?')
@@ -82,6 +83,10 @@ function downloadCard(): void {
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
+  if (photoZoom.value) {
+    photoZoom.value = false
+    return
+  }
   if (cardPreviewUrl.value) {
     releasePreview()
     return
@@ -100,6 +105,7 @@ watch(open, (value) => {
 
 watch(() => props.candidate?.singerId, () => {
   photoFailed.value = false
+  photoZoom.value = false
 })
 
 onBeforeUnmount(() => {
@@ -124,14 +130,15 @@ onBeforeUnmount(() => {
       >
         <div class="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl bg-[var(--surface)] text-[var(--ink)] shadow-2xl">
           <div class="relative">
-            <div class="relative h-[44vh] max-h-[440px] min-h-[240px] w-full overflow-hidden rounded-t-3xl bg-rose-100">
+            <div class="relative h-[48vh] max-h-[520px] min-h-[260px] w-full overflow-hidden rounded-t-3xl bg-rose-50">
               <img
                 v-if="!photoFailed"
                 :src="photoSrc"
                 :alt="candidate.name"
-                class="size-full object-cover"
+                class="size-full cursor-zoom-in object-contain"
                 referrerpolicy="no-referrer"
                 @error="photoFailed = true"
+                @click="photoZoom = true"
               >
               <div
                 v-else
@@ -218,6 +225,27 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
+        </div>
+
+        <div
+          v-if="photoZoom"
+          class="fixed inset-0 z-70 grid place-items-center bg-black/95 p-2"
+          @click="photoZoom = false"
+        >
+          <img
+            :src="photoSrc"
+            :alt="candidate.name"
+            class="max-h-full max-w-full object-contain"
+            referrerpolicy="no-referrer"
+          >
+          <button
+            type="button"
+            class="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/15 text-white backdrop-blur"
+            aria-label="close"
+            @click.stop="photoZoom = false"
+          >
+            <UIcon name="i-lucide-x" class="size-6" />
+          </button>
         </div>
 
         <div
