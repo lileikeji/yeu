@@ -3,6 +3,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
+  DEFAULT_SHARE_ICON_PATH,
+  DEFAULT_SHARE_ICON_URL,
+  normalizeShareIconUrl,
+  stripEphemeralShareParams
+} from '../shared/config/brand'
+import {
   buildWechatJsSdkSignature,
   normalizeWechatShareUrl
 } from '../server/modules/wechat/share'
@@ -52,6 +58,7 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   const plugin = readFileSync(resolve('app/plugins/wechat-share.client.ts'), 'utf8')
   const club = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
   const department = readFileSync(resolve('app/pages/departments/[slug].vue'), 'utf8')
+  const activity = readFileSync(resolve('app/pages/activities/[slug].vue'), 'utf8')
   const app = readFileSync(resolve('app/app.vue'), 'utf8')
   const nginxSetup = readFileSync(resolve('ops/configure-nginx.sh'), 'utf8')
 
@@ -83,10 +90,59 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   assert.match(shareActions, /Do not fall through to clipboard sharing/)
   assert.match(app, /ogTitle: '迎新指南｜报到、地图与校园生活'/)
   assert.match(app, /https:\/\/yx\.huiliyill\.cn\/icons\/app-icon-512\.png\?v=[a-z0-9]+/i)
+  assert.ok(app.includes(DEFAULT_SHARE_ICON_URL))
+  assert.match(app, /itempropMeta\('image'/)
+  const itempropHelper = readFileSync(resolve('app/utils/itemprop-meta.ts'), 'utf8')
+  assert.ok(itempropHelper.includes('key: `itemprop:${itemprop}`'))
+  assert.match(app, /<img[^>]*width="512"[^>]*height="512"/)
   assert.equal(existsSync(resolve('public/icons/app-icon-512.png')), true)
+  assert.match(composable, /export function captureWechatEntryUrl/)
+  assert.match(plugin, /captureWechatEntryUrl\(\)/)
+  assert.match(plugin, /DEFAULT_SHARE_ICON_PATH/)
+  assert.match(shareActions, /normalizeShareIconUrl/)
+  assert.match(club, /normalizeShareIconUrl/)
+  assert.match(department, /normalizeShareIconUrl/)
+  assert.match(activity, /normalizeShareIconUrl/)
+  for (const [name, source] of [
+    ['app/plugins/wechat-share.client.ts', plugin],
+    ['app/composables/useShareActions.ts', shareActions],
+    ['app/pages/clubs/[slug].vue', club],
+    ['app/pages/departments/[slug].vue', department],
+    ['app/pages/activities/[slug].vue', activity]
+  ] as const) {
+    assert.doesNotMatch(
+      source,
+      /['"]\/icons\/app-icon-512\.png['"]/,
+      `${name} 不得使用不带版本号的 /icons/app-icon-512.png`
+    )
+  }
   assert.ok(nginxSetup.includes('location \\/icons\\/'))
   assert.ok(nginxSetup.includes('location \\/images\\/'))
   assert.ok(nginxSetup.includes('try_files \\$uri @nuxt;'))
+})
+
+test('WeChat share thumbnail URL normalization and ticket parameter stripping', () => {
+  const origin = 'https://yx.huiliyill.cn'
+  assert.equal(DEFAULT_SHARE_ICON_PATH, '/icons/app-icon-512.png?v=20261127wx1')
+  assert.equal(DEFAULT_SHARE_ICON_URL, 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1')
+  assert.equal(normalizeShareIconUrl(undefined, origin), DEFAULT_SHARE_ICON_URL)
+  assert.equal(normalizeShareIconUrl('', origin), DEFAULT_SHARE_ICON_URL)
+  assert.equal(normalizeShareIconUrl('/icons/app-icon-512.png', origin), DEFAULT_SHARE_ICON_URL)
+  assert.equal(
+    normalizeShareIconUrl('https://yx.huiliyill.cn/icons/app-icon-512.png', origin),
+    DEFAULT_SHARE_ICON_URL
+  )
+  assert.equal(
+    normalizeShareIconUrl('/uploads/club.png', origin),
+    'https://yx.huiliyill.cn/uploads/club.png'
+  )
+  assert.equal(
+    stripEphemeralShareParams(
+      'https://yx.huiliyill.cn/singer/popularity?t=round1&vt=one-time-ticket&a=1#top',
+      origin
+    ),
+    'https://yx.huiliyill.cn/singer/popularity?t=round1&a=1'
+  )
 })
 
 test('WeChat client diagnostics are bounded, rate limited and omit request secrets', () => {

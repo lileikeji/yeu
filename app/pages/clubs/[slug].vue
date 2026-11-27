@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { normalizeShareIconUrl } from '~~/shared/config/brand'
+import { itempropMeta } from '~/utils/itemprop-meta'
 import { findOfficialClub, officialClubs } from '~~/data/seeds/public-content'
 import { publicClubs } from '~/utils/public-catalog'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
@@ -32,10 +34,12 @@ const club = computed(() => {
 if (!club.value) throw createError({ statusCode: 404, statusMessage: '社团不存在' })
 
 const requestUrl = useRequestURL()
-const shareImage = computed(() => new URL(
-  club.value?.iconUrl || '/icons/app-icon-512.png',
-  requestUrl.origin
-).toString())
+const shareImage = computed(() => normalizeShareIconUrl(club.value?.iconUrl, requestUrl.origin))
+useHead({
+  meta: [
+    itempropMeta('image', () => shareImage.value)
+  ]
+})
 useSeoMeta({
   title: () => club.value ? `${club.value.name}｜学生社团` : '学生社团',
   description: () => club.value

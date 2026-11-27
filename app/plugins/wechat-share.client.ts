@@ -1,10 +1,12 @@
-import { useWechatShareCard } from '~/composables/useWechatShareCard'
+import { DEFAULT_SHARE_ICON_PATH, stripEphemeralShareParams } from '~~/shared/config/brand'
+import { captureWechatEntryUrl, useWechatShareCard } from '~/composables/useWechatShareCard'
 
 function metaContent(selector: string): string {
   return document.querySelector<HTMLMetaElement>(selector)?.content?.trim() || ''
 }
 
 export default defineNuxtPlugin((nuxtApp) => {
+  captureWechatEntryUrl()
   const route = useRoute()
   const { configureWechatShare } = useWechatShareCard()
   let scheduleVersion = 0
@@ -23,12 +25,14 @@ export default defineNuxtPlugin((nuxtApp) => {
       const title = metaContent('meta[property="og:title"]') || document.title
       const description = metaContent('meta[property="og:description"]')
         || metaContent('meta[name="description"]')
-      const image = metaContent('meta[property="og:image"]') || '/icons/app-icon-512.png'
+      const image = metaContent('meta[property="og:image"]')
+        || metaContent('meta[itemprop="image"]')
+        || DEFAULT_SHARE_ICON_PATH
       await configureWechatShare({
         title,
         description,
         imageUrl: image,
-        link: `${window.location.origin}${route.fullPath}`
+        link: stripEphemeralShareParams(`${window.location.origin}${route.fullPath}`, window.location.origin)
       })
     })
   }

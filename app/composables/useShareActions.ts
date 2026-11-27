@@ -1,3 +1,4 @@
+import { normalizeShareIconUrl, stripEphemeralShareParams } from '~~/shared/config/brand'
 import { isShareCancellation, isWechatUserAgent } from '~/utils/browser-environment'
 import { useWechatShareCard } from '~/composables/useWechatShareCard'
 
@@ -61,12 +62,12 @@ export function useShareActions() {
       const description = input.text
         || document.querySelector('meta[name="description"]')?.getAttribute('content')
         || title
+      const metaImage = document.querySelector<HTMLMetaElement>('meta[property="og:image"]')?.content?.trim() || ''
       const configured = await configureWechatShare({
         title,
         description,
-        imageUrl: input.imageUrl
-          || new URL('/icons/app-icon-512.png', window.location.origin).toString(),
-        link: url
+        imageUrl: normalizeShareIconUrl(input.imageUrl || metaImage, window.location.origin),
+        link: stripEphemeralShareParams(url, window.location.origin)
       })
       if (configured) {
         toast.add({

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { itempropMeta } from '~/utils/itemprop-meta'
 import { themeColorFor } from '~/utils/theme-mode'
 
 const { palette, isDark } = useThemeMode()
@@ -13,7 +14,10 @@ useHead({
     { name: 'theme-color', content: themeColor },
     { name: 'mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-capable', content: 'yes' },
-    { name: 'apple-mobile-web-app-status-bar-style', content: 'default' }
+    { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+    itempropMeta('name', '迎新指南｜报到、地图与校园生活'),
+    itempropMeta('description', '查报到时间、宿舍、校园地图、办事流程和新生常见问题。'),
+    itempropMeta('image', 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1')
   ],
   link: [
     { rel: 'icon', type: 'image/png', href: '/icons/app-icon-192.png?v=20261126r2' },
@@ -29,12 +33,12 @@ useSeoMeta({
   ogSiteName: '迎新指南',
   ogType: 'website',
   ogLocale: 'zh_CN',
-  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261126r2',
+  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1',
   ogImageWidth: 512,
   ogImageHeight: 512,
   ogImageAlt: '迎新指南',
   twitterCard: 'summary_large_image',
-  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261126r2'
+  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1'
 })
 
 const pwaManifestComponent = import.meta.dev
@@ -47,6 +51,17 @@ const pwaManifestComponent = import.meta.dev
     :is="pwaManifestComponent"
     v-if="pwaManifestComponent"
   />
+  <div
+    aria-hidden="true"
+    class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
+  >
+    <img
+      src="https://yx.huiliyill.cn/icons/app-icon-512.png?v=20261127wx1"
+      alt=""
+      width="512"
+      height="512"
+    >
+  </div>
   <UApp>
     <NuxtLayout>
       <NuxtPage />
