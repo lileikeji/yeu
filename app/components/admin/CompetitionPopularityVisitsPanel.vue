@@ -69,7 +69,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+  <div class="rounded-xl border border-zinc-200 bg-[var(--surface)] p-4 dark:border-zinc-800 dark:bg-zinc-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -96,7 +96,7 @@ onMounted(load)
         </div>
         <select
           v-model="source"
-          class="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+          class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-2.5 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
         >
           <option value="">
             全部来源
@@ -115,7 +115,7 @@ onMounted(load)
           v-model="keyword"
           type="search"
           placeholder="IP / 机型"
-          class="w-32 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+          class="w-32 rounded-lg border border-zinc-200 bg-[var(--surface)] px-2.5 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
           @keydown.enter="changeRange(range)"
         >
         <UButton
