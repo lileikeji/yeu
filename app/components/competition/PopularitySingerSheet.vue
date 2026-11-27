@@ -134,8 +134,15 @@ onBeforeUnmount(() => {
               <img
                 v-if="candidate.photoUrl && !photoFailed"
                 :src="photoSrc"
+                alt=""
+                aria-hidden="true"
+                class="pointer-events-none absolute inset-0 size-full scale-125 object-cover opacity-45 blur-2xl"
+              >
+              <img
+                v-if="candidate.photoUrl && !photoFailed"
+                :src="photoSrc"
                 :alt="candidate.name"
-                class="size-full cursor-zoom-in object-contain"
+                class="relative size-full cursor-zoom-in object-contain"
                 referrerpolicy="no-referrer"
                 @error="photoFailed = true"
                 @click="photoZoom = true"
