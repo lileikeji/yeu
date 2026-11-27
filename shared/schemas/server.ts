@@ -1672,6 +1672,7 @@ export const competitionPopularityVoteEnvSchema = z.object({
   mem: z.number().min(0).max(1024).optional(),
   dpr: z.number().int().min(50).max(800).optional(),
   gpu: z.string().trim().max(120).optional(),
+  fp: z.string().trim().max(64).optional(),
   wd: z.boolean().optional()
 }).strict()
 

@@ -1483,6 +1483,8 @@ export const competitionPopularityBallots = sqliteTable('competition_popularity_
   /** 脱敏浏览器摘要（如 iOS/WeChat）与软特征哈希、页面停留毫秒。 */
   uaSummary: text('ua_summary'),
   envHash: text('env_hash'),
+  /** 浏览器综合指纹哈希（canvas/WebGL/字体/Audio/MIME）；不参与实时评分，仅巡检识别同指纹切身份。 */
+  clientFp: text('client_fp'),
   dwellMs: integer('dwell_ms'),
   changeCount: integer('change_count').notNull().default(0),
   /** 客户端回传 revision 做乐观锁；每次改票 +1。 */

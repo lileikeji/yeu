@@ -2701,6 +2701,7 @@ export function getPopularityPublicState(
 export interface PopularityVoteTelemetry {
   uaSummary?: string | null
   envHash?: string | null
+  clientFp?: string | null
   dwellMs?: number | null
   cookiePresent?: boolean
   qrNonce?: string | null
@@ -3004,6 +3005,7 @@ export function recordPopularityBallot(
   const normalizedIpHash = ipHash ?? null
   const uaSummary = (telemetry?.uaSummary || 'unknown').slice(0, 64)
   const envHash = telemetry?.envHash ?? null
+  const clientFp = telemetry?.clientFp ? telemetry.clientFp.slice(0, 64) : null
   const dwellMs = typeof telemetry?.dwellMs === 'number' && Number.isFinite(telemetry.dwellMs)
     ? Math.max(0, Math.round(telemetry.dwellMs))
     : null
@@ -3094,6 +3096,7 @@ export function recordPopularityBallot(
         suspicionReasonsJson: reasonsJson,
         uaSummary,
         envHash,
+        clientFp,
         dwellMs,
         changeCount: 0,
         version: 1,
@@ -3226,6 +3229,7 @@ export function recordPopularityBallot(
       suspicionReasonsJson: reasonsJson,
       uaSummary,
       envHash: envHash ?? existing.envHash,
+      clientFp: clientFp ?? existing.clientFp,
       dwellMs: dwellMs ?? existing.dwellMs,
       changeCount: Number(existing.changeCount) + 1,
       version: Number(existing.version) + 1,

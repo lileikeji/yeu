@@ -687,6 +687,13 @@
                         "when":  1795560000000,
                         "tag":  "0097_competition_popularity_hybrid",
                         "breakpoints":  true
+                    },
+                    {
+                        "idx":  98,
+                        "version":  "6",
+                        "when":  1795570000000,
+                        "tag":  "0098_popularity_client_fp",
+                        "breakpoints":  true
                     }
                 ]
 }

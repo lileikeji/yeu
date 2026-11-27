@@ -827,7 +827,7 @@ export interface CompetitionPopularityDistributionItem {
 }
 
 export interface CompetitionPopularityClusterItem {
-  kind: 'ip' | 'env' | 'qr'
+  kind: 'ip' | 'env' | 'qr' | 'fp'
   keyLabel: string
   ballotCount: number
   validCount: number

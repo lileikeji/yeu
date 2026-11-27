@@ -75,6 +75,7 @@ export async function handlePopularityVote(
   const userAgent = getHeader(event, 'user-agent') || ''
   const uaSummary = summarizePopularityUserAgent(userAgent)
   const envHash = popularityEnvHash(security.secret, event, input.env)
+  const clientFp = input.env?.fp ? input.env.fp.trim().toLowerCase() : null
   const now = Date.now()
 
   const verifiedWechatTicket = input.vt ? verifyPopularityWechatTicket(security.secret, input.vt, now) : null
@@ -250,6 +251,7 @@ export async function handlePopularityVote(
     {
       uaSummary,
       envHash,
+      clientFp,
       dwellMs,
       cookiePresent,
       qrNonce,

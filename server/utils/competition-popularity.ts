@@ -61,6 +61,8 @@ export interface PopularityVoteEnvInput {
   mem?: number
   dpr?: number
   gpu?: string
+  /** 浏览器综合指纹（canvas/WebGL/字体/Audio/MIME 哈希）；不参与实时 envHash，仅供巡检识别“同指纹切身份”。 */
+  fp?: string
   wd?: boolean
 }
 

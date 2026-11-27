@@ -10,7 +10,7 @@ import {
   type DatabaseClient
 } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { competitionPopularityVoteLogs, contents } from '../server/database/schema'
+import { competitionPopularityBallots, competitionPopularityVoteLogs, contents } from '../server/database/schema'
 import {
   computePopularityGuardReport,
   moderatePopularityBallots,
@@ -862,13 +862,21 @@ test('混合模式第一票防刷与单人多票免误伤：无PoW/短停留/缺
         revision: 0,
         pageTicket: oldTicket,
         pow: validPow,
-        env: { tz: 'Asia/Shanghai', lang: 'zh-CN', screen: '390x840', touch: 5, cores: 6, dpr: 300, wd: false }
+        env: { tz: 'Asia/Shanghai', lang: 'zh-CN', screen: '390x840', touch: 5, cores: 6, dpr: 300, wd: false, fp: 'E2E-Browser-FP-ABC123' }
       })
     }))
     assert.equal(okRes.status, 200)
     const okBody = await okRes.json() as { votesUsed: number, votesRemaining: number }
     assert.equal(okBody.votesUsed, 1)
     assert.equal(okBody.votesRemaining, 0)
+
+    // 该选手此前已有直接落库的测试票，按指纹字段精确定位本次 HTTP 投票写入的那一行。
+    const fpBallot = client.db.select().from(competitionPopularityBallots)
+      .all()
+      .find(row => row.clientFp === 'e2e-browser-fp-abc123')
+    assert.ok(fpBallot, '投票成功应把指纹按小写归一化后落库')
+    assert.equal(fpBallot.singerId, singerB.id)
+    assert.equal(typeof fpBallot.envHash, 'string', '指纹不应改变实时 envHash 的写入')
   } finally {
     g.useRuntimeConfig = prevRuntimeConfig
     g.getHeader = prevGetHeader
@@ -885,4 +893,102 @@ test('混合模式第一票防刷与单人多票免误伤：无PoW/短停留/缺
     else process.env.NUXT_PUBLIC_SITE_URL = prevSiteUrl
     cleanup(client, path)
   }
+})
+
+test('client_fp：同一浏览器指纹跨 4 台设备投同一选手，巡检抬到 70 分并单独成簇', () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  updatePopularitySettings(client, event.id, {
+    enabled: true,
+    title: '人气奖投票',
+    subtitle: '现场扫码',
+    opensAt: Date.now() - 5_000,
+    closesAt: Date.now() + 300_000,
+    allowChange: true,
+    maxChanges: 2,
+    votesPerVoter: 1,
+    allowRepeatVote: false,
+    qrRotateSeconds: 30,
+    showResults: true,
+    autoQuarantine: false
+  })
+  const singerA = singers[0]!
+  const sharedFingerprint = 'shared-browser-fp-0123456789abcdef'
+
+  // 4 台设备：IP 与 envHash 各不相同，只有浏览器指纹一致 —— 只应触发指纹规则。
+  for (let i = 0; i < 4; i += 1) {
+    recordPopularityBallot(
+      client,
+      event.id,
+      `fp-dev-${i}`,
+      singerA.id,
+      0,
+      popularityIpHash('secret-1', `198.51.100.${100 + i}`),
+      {
+        uaSummary: 'iOS/WeChat',
+        envHash: `fp-env-${i}`,
+        clientFp: sharedFingerprint,
+        dwellMs: 4200,
+        cookiePresent: true,
+        qrNonce: `qr-fp-${i}`,
+        qrAgeMs: 5000,
+        qrRotateSeconds: 30
+      }
+    )
+  }
+
+  const report = computePopularityGuardReport(client, event.id, { aiConfigured: false })
+  const fpCluster = report.clusters.find(cluster => cluster.kind === 'fp')
+  assert.ok(fpCluster, '同指纹 4 台设备应形成一个 fp 簇')
+  assert.equal(fpCluster.ballotCount, 4)
+  assert.ok(fpCluster.maxSuspicionScore >= 70, `同指纹簇分数应不低于 70，实际 ${fpCluster.maxSuspicionScore}`)
+  assert.equal(fpCluster.topSingerName, singerA.name)
+  cleanup(client, path)
+})
+
+test('client_fp：同一设备（同一 deviceHash）持同一指纹连投多票，不触发指纹规则', () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  updatePopularitySettings(client, event.id, {
+    enabled: true,
+    title: '人气奖投票',
+    subtitle: '现场扫码',
+    opensAt: Date.now() - 5_000,
+    closesAt: Date.now() + 300_000,
+    allowChange: true,
+    maxChanges: 10,
+    votesPerVoter: 3,
+    allowRepeatVote: true,
+    qrRotateSeconds: 30,
+    showResults: true,
+    autoQuarantine: false
+  })
+
+  // 真实观众：一台设备一个 deviceHash，三票投给不同选手。
+  for (let i = 0; i < 3; i += 1) {
+    recordPopularityBallot(
+      client,
+      event.id,
+      'single-device-hash',
+      singers[i]!.id,
+      i,
+      popularityIpHash('secret-1', '198.51.100.200'),
+      {
+        uaSummary: 'iOS/WeChat',
+        envHash: 'single-device-env',
+        clientFp: 'same-device-browser-fp',
+        dwellMs: 3200,
+        cookiePresent: true,
+        qrNonce: 'qr-single',
+        qrAgeMs: 5000,
+        qrRotateSeconds: 30
+      }
+    )
+  }
+
+  const report = computePopularityGuardReport(client, event.id, { aiConfigured: false })
+  assert.equal(report.clusters.find(cluster => cluster.kind === 'fp'), undefined, '同一设备不应形成指纹簇')
+  cleanup(client, path)
 })

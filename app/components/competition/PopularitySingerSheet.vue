@@ -14,7 +14,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ close: []; vote: [singerId: string] }>()
+const emit = defineEmits<{ close: [], vote: [singerId: string, anchor?: HTMLElement | null] }>()
 
 const { sharePage, copyText, isWechat } = useShareActions()
 const { timelinePermitted } = useWechatShareCard()
@@ -251,9 +251,22 @@ onBeforeUnmount(() => {
                 type="button"
                 class="flex w-full items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow-xs transition active:scale-[0.98] disabled:opacity-55"
                 :disabled="voteDisabled || busy"
-                @click="emit('vote', candidate.singerId)"
+                @click="emit('vote', candidate.singerId, $event.currentTarget as HTMLElement | null)"
               >
-                <UIcon v-if="busy" name="i-lucide-loader-circle" class="size-4 animate-spin" />
+                <UIcon
+                  v-if="busy"
+                  name="i-lucide-loader-circle"
+                  class="size-4 animate-spin"
+                />
+                <svg
+                  v-else-if="!voteDisabled"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  class="size-4 shrink-0"
+                  aria-hidden="true"
+                >
+                  <path d="M5.2 6.8V14H2.8a1 1 0 0 1-1-1V7.8a1 1 0 0 1 1-1h2.4Zm1.3 0 2.1-4.3a1.1 1.1 0 0 1 2 .5v2.6h2.6a1.3 1.3 0 0 1 1.3 1.5l-.8 5.2a1.4 1.4 0 0 1-1.4 1.2H6.5V6.8Z" />
+                </svg>
                 {{ voteLabel }}
               </button>
             </div>

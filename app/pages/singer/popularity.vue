@@ -8,8 +8,14 @@ import {
   type PopularityCandidateStanding
 } from '~~/shared/utils/competition'
 import { solvePopularityVotePow } from '~~/shared/utils/popularity-pow'
+import { primePopularityFingerprint, readPopularityFingerprint } from '~/composables/usePopularityTelemetry'
 import { itempropMeta } from '~/utils/itemprop-meta'
 import { resolvePopularityPageSharePayload } from '~/utils/popularity-share'
+import {
+  createVoteBurstController,
+  resolveElementCenterPoint,
+  type VoteBurstItem
+} from '~/utils/vote-burst'
 
 definePageMeta({ layout: false })
 
@@ -26,6 +32,34 @@ const savingId = ref('')
 const error = ref('')
 const now = ref(Date.now())
 const wechatGuideRef = ref<HTMLElement | null>(null)
+const voteBursts = shallowRef<readonly VoteBurstItem[]>([])
+const justVotedId = ref('')
+const cowCheering = ref(false)
+let justVotedTimer: ReturnType<typeof setTimeout> | null = null
+let cowCheerTimer: ReturnType<typeof setTimeout> | null = null
+
+const burstController = createVoteBurstController({
+  onChange: (items) => {
+    voteBursts.value = items
+  }
+})
+
+function triggerCowCheer(anchorEl?: HTMLElement | null): void {
+  if (import.meta.client) {
+    cowCheering.value = false
+    requestAnimationFrame(() => {
+      cowCheering.value = true
+    })
+  }
+  if (cowCheerTimer) clearTimeout(cowCheerTimer)
+  cowCheerTimer = setTimeout(() => {
+    cowCheering.value = false
+  }, 720)
+  if (anchorEl) {
+    const point = resolveElementCenterPoint(anchorEl)
+    burstController.trigger({ ...point, label: '加油!' })
+  }
+}
 
 const { data: publicSeed } = await useAsyncData<CompetitionPopularityPublicState | null>(
   'competition-popularity-public',
@@ -225,7 +259,8 @@ function collectClientEnv() {
       ...(mem !== undefined ? { mem } : {}),
       ...(dpr !== undefined ? { dpr } : {}),
       ...(gpu ? { gpu } : {}),
-      wd
+      wd,
+      ...readPopularityFingerprint()
     }
   } catch {
     return undefined
@@ -240,7 +275,7 @@ function focusWechatGuide(): void {
   })
 }
 
-async function vote(singerId: string): Promise<void> {
+async function vote(singerId: string, anchorEl?: HTMLElement | null): Promise<void> {
   if (!state.value || savingId.value) return
   if (state.value.requiresWechatTicket) {
     toast.add({
@@ -280,6 +315,7 @@ async function vote(singerId: string): Promise<void> {
     toast.add({ title: '你已投票，不能继续改票', color: 'warning' })
     return
   }
+  const fallbackPoint = resolveElementCenterPoint(anchorEl)
   savingId.value = singerId
   try {
     const device = readDeviceToken()
@@ -306,6 +342,15 @@ async function vote(singerId: string): Promise<void> {
     const changed = !slotMode.value && votesUsed.value > 0
     state.value = next
     persistDeviceToken(next.deviceToken)
+    await nextTick()
+    const point = resolveElementCenterPoint(anchorEl, fallbackPoint)
+    burstController.trigger({ ...point, label: changed ? '已改投' : '+1 票' })
+    justVotedId.value = singerId
+    if (justVotedTimer) clearTimeout(justVotedTimer)
+    justVotedTimer = setTimeout(() => {
+      justVotedId.value = ''
+    }, 680)
+    triggerCowCheer()
     toast.add({
       title: slotMode.value
         ? (next.authMode === 'hybrid' && !next.wechatVerified && (next.wechatBonusVotes ?? 0) > 0 && next.votesRemaining <= 0
@@ -413,6 +458,30 @@ function canVoteFor(singerId: string): boolean {
   return !(slotMode.value && !allowRepeatVote.value && voteCountOf(singerId) > 0)
 }
 const hasBallot = computed(() => votesUsed.value > 0)
+const hasGuideCard = computed(() => {
+  if (!state.value) return false
+  if (state.value.requiresWechatTicket) return true
+  return isHybridMode.value && !state.value.wechatVerified && bonusVotes.value > 0
+})
+type NoticeBarMode = 'ballot-single' | 'ballot-withdraw' | 'qr-required' | 'unavailable' | 'cheer'
+const noticeMode = computed<NoticeBarMode | null>(() => {
+  if (!state.value) return null
+  if (hasBallot.value && !slotMode.value) return 'ballot-single'
+  if (hasBallot.value && slotMode.value && state.value.canWithdraw) return 'ballot-withdraw'
+  if (!hasBallot.value && state.value.requiresQrScan) return 'qr-required'
+  if (!hasBallot.value && !canVote.value && !state.value.requiresWechatTicket && !state.value.requiresQrScan) return 'unavailable'
+  if (!hasGuideCard.value) return 'cheer'
+  return null
+})
+const noticeToneClass = computed(() => {
+  if (noticeMode.value === 'ballot-single' || noticeMode.value === 'ballot-withdraw') {
+    return 'border-rose-300/70 bg-rose-500/10'
+  }
+  if (noticeMode.value === 'qr-required' || noticeMode.value === 'unavailable') {
+    return 'border-amber-400/50 bg-[color-mix(in_srgb,var(--color-orange-500)_10%,var(--surface))]'
+  }
+  return 'border-[var(--line)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)]'
+})
 const candidateGroups = computed(() => groupPopularityCandidates(state.value?.candidates ?? []))
 const standingMap = computed(() => (
   activeState.value
@@ -499,8 +568,8 @@ function voteDisabledFor(singerId: string): boolean {
   return (hasBallot.value && !state.value.canChange) || voteCountOf(singerId) > 0
 }
 
-async function voteFromSheet(singerId: string): Promise<void> {
-  await vote(singerId)
+async function voteFromSheet(singerId: string, anchorEl?: HTMLElement | null): Promise<void> {
+  await vote(singerId, anchorEl)
   await closeSheet()
 }
 
@@ -521,6 +590,7 @@ onMounted(async () => {
   void reportVisit()
   void load()
   void syncWechatShare()
+  primePopularityFingerprint()
   timer = setInterval(() => {
     now.value = Date.now()
   }, 1000)
@@ -528,6 +598,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
+  if (justVotedTimer) clearTimeout(justVotedTimer)
+  if (cowCheerTimer) clearTimeout(cowCheerTimer)
+  burstController.dispose()
   fallbackShareImage.value = DEFAULT_SHARE_ICON_URL
 })
 </script>
@@ -684,11 +757,11 @@ onBeforeUnmount(() => {
               </template>
             </p>
           </div>
-          <div
-            v-if="state.wechatQrUrl"
-            class="flex shrink-0 items-end gap-2 self-center"
-          >
-            <div class="flex flex-col items-center gap-1">
+          <div class="flex shrink-0 items-end gap-2 self-center">
+            <div
+              v-if="state.wechatQrUrl"
+              class="flex flex-col items-center gap-1"
+            >
               <img
                 :src="state.wechatQrUrl"
                 :alt="state.wechatAccountName || '公众号二维码'"
@@ -696,11 +769,20 @@ onBeforeUnmount(() => {
               >
               <span class="text-[11px] font-semibold text-[var(--muted-ink)]">长按识别关注</span>
             </div>
-            <img
-              src="/brand/yougong-cow.png"
-              alt=""
-              class="mb-4 h-16 w-auto"
+            <button
+              type="button"
+              aria-label="优公牛牛为你点赞"
+              class="shrink-0 cursor-pointer rounded-xl p-0.5 transition active:scale-95"
+              :class="state.wechatQrUrl ? 'mb-4' : ''"
+              @click="triggerCowCheer($event.currentTarget as HTMLElement | null)"
             >
+              <img
+                src="/brand/yougong-cow.png"
+                alt="优公牛牛"
+                class="h-16 w-auto select-none sm:h-20"
+                :class="{ 'cow-cheer-anim': cowCheering }"
+              >
+            </button>
           </div>
         </div>
 
@@ -723,11 +805,11 @@ onBeforeUnmount(() => {
               3. {{ allowRepeatVote ? '全部票都可自由投给同一位选手，也可分投多人。' : '每位选手最多可投 1 票。' }}
             </p>
           </div>
-          <div
-            v-if="state.wechatQrUrl"
-            class="flex shrink-0 items-end gap-2 self-center"
-          >
-            <div class="flex flex-col items-center gap-1">
+          <div class="flex shrink-0 items-end gap-2 self-center">
+            <div
+              v-if="state.wechatQrUrl"
+              class="flex flex-col items-center gap-1"
+            >
               <img
                 :src="state.wechatQrUrl"
                 :alt="state.wechatAccountName || '公众号二维码'"
@@ -735,50 +817,97 @@ onBeforeUnmount(() => {
               >
               <span class="text-[11px] font-semibold text-[var(--muted-ink)]">长按识别加 {{ bonusVotes }} 票</span>
             </div>
+            <button
+              type="button"
+              aria-label="优公牛牛为你点赞"
+              class="shrink-0 cursor-pointer rounded-xl p-0.5 transition active:scale-95"
+              :class="state.wechatQrUrl ? 'mb-4' : ''"
+              @click="triggerCowCheer($event.currentTarget as HTMLElement | null)"
+            >
+              <img
+                src="/brand/yougong-cow.png"
+                alt="优公牛牛"
+                class="h-16 w-auto select-none sm:h-20"
+                :class="{ 'cow-cheer-anim': cowCheering }"
+              >
+            </button>
           </div>
         </div>
 
-        <p
-          v-if="hasBallot && !slotMode"
-          class="rounded-2xl border border-rose-300/70 bg-rose-500/10 px-4 py-3 text-sm text-[var(--ink)] shadow-sm"
+        <div
+          v-if="noticeMode"
+          class="flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 text-sm text-[var(--ink)] shadow-sm"
+          :class="noticeToneClass"
         >
-          你已投票给 <strong>{{ state.candidates.find(item => item.singerId === state?.myBallot?.singerId)?.name ?? '当前选手' }}</strong>。
-          <span
-            v-if="state.canChange && state.allowChange"
-            class="text-[var(--muted-ink)]"
-          >截止前还可以改 {{ Math.max(0, state.maxChanges - (state.myBallot?.changeCount ?? 0)) }} 次。</span>
-          <span
-            v-else
-            class="text-[var(--muted-ink)]"
-          >投票后不可更改。</span>
+          <div class="min-w-0 flex-1">
+            <p v-if="noticeMode === 'ballot-single'">
+              你已投票给 <strong>{{ state.candidates.find(item => item.singerId === state?.myBallot?.singerId)?.name ?? '当前选手' }}</strong>。
+              <span
+                v-if="state.canChange && state.allowChange"
+                class="text-[var(--muted-ink)]"
+              >截止前还可以改 {{ Math.max(0, state.maxChanges - (state.myBallot?.changeCount ?? 0)) }} 次。</span>
+              <span
+                v-else
+                class="text-[var(--muted-ink)]"
+              >投票后不可更改。</span>
+              <button
+                v-if="state.canWithdraw"
+                type="button"
+                class="ml-2 rounded-full border border-rose-300/80 bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                :disabled="Boolean(savingId)"
+                @click="withdrawVote()"
+              >
+                {{ savingId.startsWith('withdraw:') ? '取消中…' : '取消投票' }}
+              </button>
+            </p>
+            <p
+              v-else-if="noticeMode === 'ballot-withdraw'"
+              class="text-xs leading-relaxed"
+            >
+              已投 <strong>{{ votesUsed }}</strong> 票（可在下方选手卡片点「撤回 1 票」重投）。
+            </p>
+            <p v-else-if="noticeMode === 'qr-required'">
+              当前为只读分享预览；如需投票，请扫描现场大屏上的最新二维码进入。
+            </p>
+            <p v-else-if="noticeMode === 'unavailable'">
+              {{ state.status === 'scheduled' ? '还没到开始时间，先看看出场选手。' : state.status === 'closed' ? '投票已经截止。' : state.status === 'disabled' ? '主办方还没开启人气奖投票。' : '暂无可投票的候选名单。' }}
+            </p>
+            <div
+              v-else
+              class="space-y-0.5"
+            >
+              <p class="text-sm font-bold text-[var(--ink)]">
+                {{ isHybridMode && state.wechatVerified
+                  ? `微信已核验，可投共 ${maxVotesPerVoter} 票`
+                  : slotMode && hasBallot && votesRemaining > 0
+                    ? `已投 ${votesUsed}/${votesPerVoter} 票，还可投 ${votesRemaining} 票`
+                    : slotMode && votesRemaining <= 0
+                      ? `本轮 ${votesPerVoter} 票已全部投出`
+                      : '点击下方「投给 TA」为你喜欢的歌手点赞' }}
+              </p>
+              <p class="text-xs text-[var(--muted-ink)]">
+                {{ slotMode && votesRemaining > 0
+                  ? (allowRepeatVote ? '可继续投同一位或改投其他选手' : '每位选手最多可投 1 票')
+                  : '优公牛牛为你加油 · 点选手照片可生成应援海报' }}
+              </p>
+            </div>
+          </div>
+
           <button
-            v-if="state.canWithdraw"
+            v-if="!hasGuideCard"
             type="button"
-            class="ml-2 rounded-full border border-rose-300/80 bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
-            :disabled="Boolean(savingId)"
-            @click="withdrawVote()"
+            aria-label="优公牛牛为你点赞"
+            class="shrink-0 cursor-pointer rounded-xl p-0.5 transition active:scale-95"
+            @click="triggerCowCheer($event.currentTarget as HTMLElement | null)"
           >
-            {{ savingId.startsWith('withdraw:') ? '取消中…' : '取消投票' }}
+            <img
+              src="/brand/yougong-cow.png"
+              alt="优公牛牛"
+              class="h-14 w-auto select-none sm:h-16"
+              :class="{ 'cow-cheer-anim': cowCheering }"
+            >
           </button>
-        </p>
-        <p
-          v-else-if="hasBallot && slotMode && state.canWithdraw"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-rose-300/60 bg-rose-500/10 px-4 py-2.5 text-xs text-[var(--ink)]"
-        >
-          <span>已投 {{ votesUsed }} 票（可在下方选手卡片点「撤回 1 票」重投）。</span>
-        </p>
-        <p
-          v-else-if="!hasBallot && state.requiresQrScan"
-          class="rounded-2xl border border-amber-400/50 bg-[color-mix(in_srgb,var(--color-orange-500)_10%,var(--surface))] px-4 py-3 text-sm text-[var(--ink)] shadow-sm"
-        >
-          当前为只读分享预览；如需投票，请扫描现场大屏上的最新二维码进入。
-        </p>
-        <p
-          v-else-if="!hasBallot && !canVote && !state.requiresWechatTicket && !state.requiresQrScan"
-          class="rounded-2xl border border-amber-400/50 bg-[color-mix(in_srgb,var(--color-orange-500)_10%,var(--surface))] px-4 py-3 text-sm text-[var(--ink)] shadow-sm"
-        >
-          {{ state.status === 'scheduled' ? '还没到开始时间，先看看出场选手。' : state.status === 'closed' ? '投票已经截止。' : state.status === 'disabled' ? '主办方还没开启人气奖投票。' : '暂无可投票的候选名单。' }}
-        </p>
+        </div>
 
         <div
           v-if="candidateGroups.length > 0"
@@ -835,9 +964,12 @@ onBeforeUnmount(() => {
                 v-for="candidate in group.candidates"
                 :key="candidate.singerId"
                 class="flex flex-col overflow-hidden rounded-2xl border bg-[var(--surface)] shadow-xs transition"
-                :class="voteCountOf(candidate.singerId) > 0
-                  ? 'border-rose-400 ring-2 ring-rose-500/25'
-                  : 'border-[var(--line)]'"
+                :class="[
+                  voteCountOf(candidate.singerId) > 0
+                    ? 'border-rose-400 ring-2 ring-rose-500/25'
+                    : 'border-[var(--line)]',
+                  justVotedId === candidate.singerId ? 'vote-card-pop' : ''
+                ]"
               >
                 <div
                   class="relative aspect-[4/5] cursor-pointer overflow-hidden bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface-sunken))]"
@@ -968,14 +1100,25 @@ onBeforeUnmount(() => {
                       ? 'bg-rose-500/12 text-rose-700 ring-1 ring-rose-400/60 dark:text-rose-300'
                       : 'bg-rose-600 text-white shadow-xs hover:bg-rose-700 disabled:opacity-55'"
                     :disabled="voteDisabledFor(candidate.singerId)"
-                    @click="vote(candidate.singerId)"
+                    @click="vote(candidate.singerId, $event.currentTarget as HTMLElement | null)"
                   >
                     <UIcon
                       v-if="savingId === candidate.singerId"
                       name="i-lucide-loader-circle"
                       class="size-4 animate-spin"
                     />
-                    <span v-else>{{ voteLabelFor(candidate.singerId) }}</span>
+                    <template v-else>
+                      <svg
+                        v-if="!voteDisabledFor(candidate.singerId) && !hybridNeedWechatForBonus"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        class="size-3.5 shrink-0"
+                        aria-hidden="true"
+                      >
+                        <path d="M5.2 6.8V14H2.8a1 1 0 0 1-1-1V7.8a1 1 0 0 1 1-1h2.4Zm1.3 0 2.1-4.3a1.1 1.1 0 0 1 2 .5v2.6h2.6a1.3 1.3 0 0 1 1.3 1.5l-.8 5.2a1.4 1.4 0 0 1-1.4 1.2H6.5V6.8Z" />
+                      </svg>
+                      <span>{{ voteLabelFor(candidate.singerId) }}</span>
+                    </template>
                   </button>
                   <button
                     v-if="slotMode && state.canWithdraw && voteCountOf(candidate.singerId) > 0"
@@ -1014,6 +1157,7 @@ onBeforeUnmount(() => {
     </div>
 
     <ClientOnly>
+      <CompetitionVoteBurstLayer :bursts="voteBursts" />
       <CompetitionPopularitySingerSheet
         :candidate="sheetCandidate"
         :show-results="Boolean(activeState?.showResults)"
@@ -1030,3 +1174,47 @@ onBeforeUnmount(() => {
     </ClientOnly>
   </div>
 </template>
+
+<style scoped>
+.cow-cheer-anim {
+  animation: cow-cheer-bounce 680ms var(--ease-soft-fade);
+}
+
+.vote-card-pop {
+  animation: vote-card-pulse 520ms var(--ease-soft-fade);
+}
+
+@keyframes cow-cheer-bounce {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  28% {
+    transform: translate3d(0, -8px, 0) scale(1.1) rotate(-5deg);
+  }
+  58% {
+    transform: translate3d(0, -2px, 0) scale(1.04) rotate(4deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes vote-card-pulse {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.025);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cow-cheer-anim,
+  .vote-card-pop {
+    animation: none;
+  }
+}
+</style>

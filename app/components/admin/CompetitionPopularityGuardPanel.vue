@@ -101,9 +101,10 @@ function modeLabel(mode: CompetitionPopularityInspectionItem['mode']): string {
   return '手动批次'
 }
 
-function clusterKindLabel(kind: 'ip' | 'env' | 'qr'): string {
+function clusterKindLabel(kind: 'ip' | 'env' | 'qr' | 'fp'): string {
   if (kind === 'ip') return '同 IP'
   if (kind === 'env') return '同硬件环境'
+  if (kind === 'fp') return '同浏览器指纹'
   return '同码段'
 }
 

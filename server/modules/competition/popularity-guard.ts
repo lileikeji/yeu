@@ -119,6 +119,7 @@ function buildRetrospectiveBoosts(
 } {
   const ipDevices = new Map<string, Set<string>>()
   const envDevices = new Map<string, Set<string>>()
+  const fpDevices = new Map<string, Set<string>>()
   const ipEnvSingerActors = new Map<string, Set<string>>()
   const qrBallots = new Map<string, Set<string>>()
   const latestQrByBallot = new Map<string, string>()
@@ -150,6 +151,11 @@ function buildRetrospectiveBoosts(
       actorSet.add(ballot.voterOpenidHash || ballot.deviceHash)
       ipEnvSingerActors.set(key, actorSet)
     }
+    if (ballot.clientFp) {
+      const set = fpDevices.get(ballot.clientFp) ?? new Set<string>()
+      set.add(ballot.deviceHash)
+      fpDevices.set(ballot.clientFp, set)
+    }
   }
 
   const ballotScoreMap = new Map<string, number>()
@@ -175,6 +181,11 @@ function buildRetrospectiveBoosts(
         score = Math.max(score, 80)
         reasons.push(`同IP+环境同投该选手(${clusterSize}个身份)`)
       }
+    }
+    const fpCount = ballot.clientFp ? (fpDevices.get(ballot.clientFp)?.size ?? 0) : 0
+    if (fpCount >= 4) {
+      score = Math.max(score, 70)
+      if (!reasons.some(r => r.includes('同浏览器指纹'))) reasons.push(`同浏览器指纹切换身份(${fpCount}个设备)`)
     }
     const qrNonce = latestQrByBallot.get(ballot.id)
     if (qrNonce && (qrBallots.get(qrNonce)?.size ?? 0) >= 8) {
@@ -463,7 +474,7 @@ export function computePopularityGuardReport(
 
   // 4. 可疑聚集簇（IP / 硬件环境 / 二维码批次）
   const clusters: CompetitionPopularityClusterItem[] = []
-  const collectClusters = (kind: 'ip' | 'env' | 'qr', extractKey: (b: BallotRow) => string | null) => {
+  const collectClusters = (kind: 'ip' | 'env' | 'qr' | 'fp', extractKey: (b: BallotRow) => string | null) => {
     const grouped = new Map<string, BallotRow[]>()
     for (const ballot of ballots) {
       const key = extractKey(ballot)
@@ -473,7 +484,7 @@ export function computePopularityGuardReport(
       grouped.set(key, list)
     }
     for (const [key, list] of grouped.entries()) {
-      const minThreshold = kind === 'qr' ? 5 : 2
+      const minThreshold = kind === 'qr' ? 5 : (kind === 'fp' ? 4 : 2)
       if (list.length < minThreshold) continue
       const singerCounts = new Map<string, number>()
       let validCount = 0
@@ -508,6 +519,7 @@ export function computePopularityGuardReport(
   }
   collectClusters('ip', b => b.ipHash ?? null)
   collectClusters('env', b => b.envHash ?? null)
+  collectClusters('fp', b => b.clientFp ?? null)
   collectClusters('qr', b => latestQrByBallot.get(b.id) ?? null)
 
   clusters.sort((a, b) => b.maxSuspicionScore - a.maxSuspicionScore || b.ballotCount - a.ballotCount || b.latestAt - a.latestAt)
