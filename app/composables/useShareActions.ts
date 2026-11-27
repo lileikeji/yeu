@@ -41,10 +41,10 @@ export function useShareActions() {
     try {
       const copied = await writeClipboard(value)
       if (!copied) throw new Error('Clipboard copy was rejected')
-      toast.add({ title: `${label}已复制`, color: 'success' })
+      toast.add({ duration: 2600, title: `${label}已复制`, color: 'success' })
       return true
     } catch {
-      toast.add({
+      toast.add({ duration: 2600,
         title: `${label}复制失败`,
         description: '请长按内容后手动复制。',
         color: 'warning'
@@ -70,13 +70,13 @@ export function useShareActions() {
         link: stripEphemeralShareParams(url, window.location.origin)
       })
       if (configured) {
-        toast.add({
+        toast.add({ duration: 2600,
           title: '微信分享已准备好',
           description: '请点击右上角“…”选择发送给朋友或分享到朋友圈。',
           color: 'success'
         })
       } else {
-        toast.add({
+        toast.add({ duration: 2600,
           title: '微信分享未就绪',
           description: '请刷新页面后使用右上角“…”菜单分享。',
           color: 'warning'
@@ -100,7 +100,7 @@ export function useShareActions() {
 
     const copied = await copyText(url, '页面链接')
     if (copied && isWechat.value) {
-      toast.add({
+      toast.add({ duration: 2600,
         title: '可粘贴到微信会话发送',
         color: 'neutral'
       })

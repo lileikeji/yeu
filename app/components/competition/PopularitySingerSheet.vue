@@ -17,9 +17,14 @@ const emit = defineEmits<{ close: []; vote: [singerId: string] }>()
 const { sharePage, copyText } = useShareActions()
 const sharing = ref(false)
 const savingCard = ref(false)
+const cardPreviewUrl = ref('')
+const cardFileName = ref('人气奖投票.png')
+const photoFailed = ref(false)
 
 const open = computed(() => Boolean(props.candidate))
+const photoFallback = computed(() => props.candidate?.name?.slice(0, 1) || '?')
 const link = computed(() => (props.candidate ? popularitySingerShareLink(props.candidate.singerId) : ''))
+const photoSrc = computed(() => (props.candidate ? popularitySingerPhotoPath(props.candidate.singerId) : ''))
 
 async function shareToFriend(): Promise<void> {
   const candidate = props.candidate
@@ -30,11 +35,16 @@ async function shareToFriend(): Promise<void> {
       title: popularityShareTitle(candidate),
       text: popularityShareDescription(candidate),
       url: link.value,
-      imageUrl: candidate.photoUrl || undefined
+      imageUrl: popularityShareImageUrl(candidate)
     })
   } finally {
     sharing.value = false
   }
+}
+
+function releasePreview(): void {
+  if (cardPreviewUrl.value) URL.revokeObjectURL(cardPreviewUrl.value)
+  cardPreviewUrl.value = ''
 }
 
 async function saveCard(): Promise<void> {
@@ -51,7 +61,9 @@ async function saveCard(): Promise<void> {
       rankText: props.rankText,
       qrDataUrl: qr.dataUrl
     })
-    downloadBlob(blob, `${candidate.number}-${candidate.name}-人气奖.png`)
+    releasePreview()
+    cardPreviewUrl.value = URL.createObjectURL(blob)
+    cardFileName.value = `${candidate.number}-${candidate.name}-人气奖.png`
   } catch {
     await copyText(link.value, '选手链接')
   } finally {
@@ -59,23 +71,39 @@ async function saveCard(): Promise<void> {
   }
 }
 
-function openDetail(): void {
-  if (!props.candidate) return
-  void navigateTo(popularitySingerPath(props.candidate.singerId))
+function downloadCard(): void {
+  if (!cardPreviewUrl.value) return
+  void fetch(cardPreviewUrl.value)
+    .then(response => response.blob())
+    .then(blob => downloadBlob(blob, cardFileName.value))
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('close')
+  if (event.key !== 'Escape') return
+  if (cardPreviewUrl.value) {
+    releasePreview()
+    return
+  }
+  emit('close')
 }
 
 watch(open, (value) => {
   if (!import.meta.client) return
   if (value) document.addEventListener('keydown', onKeydown)
-  else document.removeEventListener('keydown', onKeydown)
+  else {
+    document.removeEventListener('keydown', onKeydown)
+    releasePreview()
+  }
+})
+
+watch(() => props.candidate?.singerId, () => {
+  photoFailed.value = false
 })
 
 onBeforeUnmount(() => {
-  if (import.meta.client) document.removeEventListener('keydown', onKeydown)
+  if (!import.meta.client) return
+  document.removeEventListener('keydown', onKeydown)
+  releasePreview()
 })
 </script>
 
@@ -95,18 +123,20 @@ onBeforeUnmount(() => {
         <div class="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl bg-[var(--surface)] text-[var(--ink)] shadow-2xl">
           <div class="relative">
             <div class="relative h-[36vh] max-h-[360px] min-h-[200px] w-full overflow-hidden rounded-t-3xl bg-rose-100">
-
               <img
-                v-if="candidate.photoUrl"
-                :src="candidate.photoUrl"
+                v-if="!photoFailed"
+                :src="photoSrc"
                 :alt="candidate.name"
                 class="size-full object-cover"
                 referrerpolicy="no-referrer"
+                @error="photoFailed = true"
               >
-              <span
+              <div
                 v-else
-                class="grid size-full place-items-center text-7xl font-black text-rose-700"
-              >{{ candidate.name.slice(0, 1) }}</span>
+                class="grid size-full place-items-center bg-linear-to-br from-rose-100 to-rose-200 text-6xl font-black text-rose-700"
+              >
+                {{ photoFallback }}
+              </div>
               <button
                 type="button"
                 class="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/55 text-white backdrop-blur"
@@ -171,7 +201,7 @@ onBeforeUnmount(() => {
                     class="size-4"
                     :class="savingCard ? 'animate-spin' : ''"
                   />
-                  保存卡片图
+                  生成分享图
                 </button>
               </div>
 
@@ -184,15 +214,38 @@ onBeforeUnmount(() => {
                 <UIcon v-if="busy" name="i-lucide-loader-circle" class="size-4 animate-spin" />
                 {{ voteLabel }}
               </button>
-
-              <button
-                type="button"
-                class="w-full rounded-xl px-4 py-2 text-xs font-bold text-[var(--muted-ink)] underline decoration-dotted"
-                @click="openDetail"
-              >
-                打开专属详情页
-              </button>
             </div>
+          </div>
+        </div>
+
+        <div
+          v-if="cardPreviewUrl"
+          class="fixed inset-0 z-60 flex flex-col items-center justify-center gap-4 bg-slate-950/85 p-4"
+          @click.self="releasePreview"
+        >
+          <img
+            :src="cardPreviewUrl"
+            alt="分享卡片"
+            class="max-h-[74vh] w-auto max-w-full rounded-2xl shadow-2xl"
+          >
+          <p class="text-center text-sm font-bold text-white/90">
+            在手机上长按图片即可保存，或点下面的按钮下载
+          </p>
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-900"
+              @click="releasePreview"
+            >
+              关闭
+            </button>
+            <button
+              type="button"
+              class="rounded-full bg-rose-600 px-5 py-2.5 text-sm font-bold text-white"
+              @click="downloadCard"
+            >
+              下载图片
+            </button>
           </div>
         </div>
       </div>

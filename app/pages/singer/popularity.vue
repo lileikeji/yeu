@@ -324,6 +324,16 @@ const sheetRankText = computed(() => {
 })
 const sheetGapText = computed(() => (sheetStanding.value ? standingGapText(sheetStanding.value) : ''))
 
+/** 分享链接带 ?id= 进来时自动打开这位选手的详情弹窗（详情就是弹窗本身）。 */
+let sheetAutoOpened = false
+watch(state, (value) => {
+  if (!value || sheetAutoOpened) return
+  const singerId = String(route.query.id ?? '').trim()
+  if (!singerId || !value.candidates.some(item => item.singerId === singerId)) return
+  sheetAutoOpened = true
+  openSheet(singerId)
+})
+
 function openSheet(singerId: string): void {
   sheetSingerId.value = singerId
 }

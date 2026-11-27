@@ -8,13 +8,26 @@ export interface PopularityShareCardInput {
   siteLabel?: string
 }
 
+const FONT_STACK = 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
+
+/** 选手详情 = 投票页上的详情弹窗，分享链接直接带选手 id 打开它。 */
 export function popularitySingerPath(singerId: string): string {
-  return `/singer/popularity-singer?id=${encodeURIComponent(singerId)}`
+  return `/singer/popularity?id=${encodeURIComponent(singerId)}`
 }
 
 export function popularitySingerShareLink(singerId: string, origin?: string): string {
   const base = origin ?? (import.meta.client ? window.location.origin : '')
   return `${base}${popularitySingerPath(singerId)}`
+}
+
+/** 同源照片代理：微信卡片与 canvas 都只认当前域名下的图片。 */
+export function popularitySingerPhotoPath(singerId: string): string {
+  return `/api/public/competition/popularity/singer-photo?id=${encodeURIComponent(singerId)}`
+}
+
+export function popularityShareImageUrl(candidate: CompetitionPopularityCandidate, origin?: string): string {
+  const base = origin ?? (import.meta.client ? window.location.origin : '')
+  return `${base}${popularitySingerPhotoPath(candidate.singerId)}`
 }
 
 export function popularityShareTitle(candidate: CompetitionPopularityCandidate): string {
@@ -55,12 +68,13 @@ function loadImage(src: string, crossOrigin: boolean): Promise<HTMLImageElement 
 }
 
 /**
- * 跨域照片先走一次 `cache: 'reload'` 的 CORS fetch 再转 blob：页面里的 <img> 已用无 CORS 的方式
- * 请求过同一张图，浏览器缓存下来的响应不带 Access-Control-Allow-Origin，直接给 canvas 用会被判污染。
+ * 页面里的 <img> 可能已用无 CORS 的方式请求过同一张图，浏览器缓存的响应不带
+ * Access-Control-Allow-Origin，直接交给 canvas 会被判污染。同源代理也走一次 reload，
+ * 保证拿到的是完整字节。
  */
 async function loadImageForCanvas(src: string): Promise<HTMLImageElement | null> {
   try {
-    const response = await fetch(src, { mode: 'cors', cache: 'reload', credentials: 'omit' })
+    const response = await fetch(src, { cache: 'reload', credentials: 'same-origin' })
     if (!response.ok) return null
     const blob = await response.blob()
     const objectUrl = URL.createObjectURL(blob)
@@ -88,10 +102,21 @@ function drawCover(
   context.drawImage(image, x + (width - drawWidth) / 2, y + (height - drawHeight) / 2, drawWidth, drawHeight)
 }
 
-/** 生成分享卡片长图（750×1000）。图片跨域失败时退化为纯文字卡。 */
+function fitText(context: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (context.measureText(text).width <= maxWidth) return text
+  let clipped = text
+  while (clipped.length > 1 && context.measureText(`${clipped}…`).width > maxWidth) {
+    clipped = clipped.slice(0, -1)
+  }
+  return `${clipped}…`
+}
+
+/** 生成分享卡片（750×1160）：票数、名次、二维码各自独立成行，不再互相压字。 */
 export async function renderPopularityShareCard(input: PopularityShareCardInput): Promise<Blob> {
   const width = 750
-  const height = 1000
+  const height = 1160
+  const padding = 56
+  const contentWidth = width - padding * 2
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -100,34 +125,36 @@ export async function renderPopularityShareCard(input: PopularityShareCardInput)
 
   const background = context.createLinearGradient(0, 0, width, height)
   background.addColorStop(0, '#fff1f2')
-  background.addColorStop(0.55, '#fff7f7')
+  background.addColorStop(0.55, '#fff8f8')
   background.addColorStop(1, '#ffe4e6')
   context.fillStyle = background
   context.fillRect(0, 0, width, height)
 
-  context.fillStyle = '#be123c'
-  context.font = '700 26px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
   context.textAlign = 'left'
-  context.fillText('仰恩大学音乐协会 · 新声歌手大赛', 56, 76)
+  context.textBaseline = 'alphabetic'
+  context.fillStyle = '#be123c'
+  context.font = `700 26px ${FONT_STACK}`
+  context.fillText('仰恩大学音乐协会 · 新声歌手大赛', padding, 74)
 
-  context.fillStyle = '#1f2937'
-  context.font = '900 40px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText(`人气奖 · ${input.candidate.number}号 ${input.candidate.name}`, 56, 132)
+  context.fillStyle = '#0f172a'
+  context.font = `900 44px ${FONT_STACK}`
+  context.fillText(`人气奖 · ${input.candidate.number}号`, padding, 134)
 
-  const photoX = 56
-  const photoY = 166
-  const photoW = width - 112
-  const photoH = 470
+  context.fillStyle = '#475569'
+  context.font = `700 32px ${FONT_STACK}`
+  context.fillText(fitText(context, input.candidate.name, contentWidth), padding, 184)
+
+  const photoX = padding
+  const photoY = 214
+  const photoW = contentWidth
+  const photoH = 500
 
   context.save()
   roundedRect(context, photoX, photoY, photoW, photoH, 32)
   context.fillStyle = '#fecdd3'
   context.fill()
   context.clip()
-  let photo: HTMLImageElement | null = null
-  if (input.candidate.photoUrl) {
-    photo = await loadImageForCanvas(input.candidate.photoUrl)
-  }
+  let photo: HTMLImageElement | null = await loadImageForCanvas(popularitySingerPhotoPath(input.candidate.singerId))
   if (photo) {
     try {
       drawCover(context, photo, photoX, photoY, photoW, photoH)
@@ -137,50 +164,76 @@ export async function renderPopularityShareCard(input: PopularityShareCardInput)
   }
   if (!photo) {
     context.fillStyle = '#be123c'
-    context.font = '900 150px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
+    context.font = `900 160px ${FONT_STACK}`
     context.textAlign = 'center'
-    context.fillText(input.candidate.name.slice(0, 1), photoX + photoW / 2, photoY + photoH / 2 + 52)
+    context.fillText(input.candidate.name.slice(0, 1), photoX + photoW / 2, photoY + photoH / 2 + 56)
     context.textAlign = 'left'
   }
   context.restore()
 
-  context.fillStyle = '#0f172a'
-  context.font = '900 46px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText(input.candidate.name, 56, photoY + photoH + 74)
-
+  const metaY = photoY + photoH + 62
   context.fillStyle = '#6b7280'
-  context.font = '500 26px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
+  context.font = `500 25px ${FONT_STACK}`
   const meta = [input.candidate.className || '', input.candidate.song ? `《${input.candidate.song}》` : '']
     .filter(Boolean)
     .join(' · ')
-  context.fillText(meta || '决赛候选选手', 56, photoY + photoH + 118)
+  context.fillText(fitText(context, meta || '决赛候选选手', contentWidth), padding, metaY)
 
+  // 票数徽标 + 名次，两段文字分列，避免叠字。
+  const badgeY = metaY + 34
+  const badgeH = 68
+  const voteText = input.votes === null ? '待开榜' : `${input.votes} 票`
+  context.font = `900 38px ${FONT_STACK}`
+  const voteWidth = context.measureText(voteText).width
+  const badgeW = Math.max(150, voteWidth + 48)
+  roundedRect(context, padding, badgeY, badgeW, badgeH, badgeH / 2)
   context.fillStyle = '#be123c'
-  context.font = '900 52px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
-  const voteText = input.votes === null ? '暂未开榜' : `${input.votes} 票`
-  context.fillText(voteText, 56, photoY + photoH + 190)
-  context.fillStyle = '#9f1239'
-  context.font = '700 26px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText(input.rankText, 56 + context.measureText(voteText).width + 24, photoY + photoH + 190)
+  context.fill()
+  context.fillStyle = '#ffffff'
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.fillText(voteText, padding + badgeW / 2, badgeY + badgeH / 2 + 1)
 
-  const qrSize = 150
-  const qrX = width - 56 - qrSize
-  const qrY = height - 56 - qrSize
+  context.textAlign = 'left'
+  context.textBaseline = 'alphabetic'
+  context.fillStyle = '#9f1239'
+  context.font = `800 30px ${FONT_STACK}`
+  context.fillText(
+    fitText(context, input.rankText || '暂未开榜', contentWidth - badgeW - 24),
+    padding + badgeW + 20,
+    badgeY + badgeH / 2 + 11,
+  )
+
+  const ruleY = badgeY + badgeH + 42
+  context.strokeStyle = 'rgba(190, 18, 60, 0.16)'
+  context.lineWidth = 2
+  context.beginPath()
+  context.moveTo(padding, ruleY)
+  context.lineTo(width - padding, ruleY)
+  context.stroke()
+
+  const qrSize = 168
+  const qrX = width - padding - qrSize
+  const qrY = ruleY + 34
   const qrImage = await loadImage(input.qrDataUrl, false)
   if (qrImage) {
     context.fillStyle = '#ffffff'
-    roundedRect(context, qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 18)
+    roundedRect(context, qrX - 12, qrY - 12, qrSize + 24, qrSize + 24, 20)
     context.fill()
     context.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
   }
 
-  context.fillStyle = '#6b7280'
-  context.font = '700 28px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText('长按识别二维码', 56, qrY + 52)
-  context.fillText('为 TA 投一票', 56, qrY + 96)
-  context.fillStyle = '#9ca3af'
-  context.font = '500 22px system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
-  context.fillText(input.siteLabel || 'yx.huiliyill.cn', 56, qrY + 138)
+  const hintX = padding
+  const hintWidth = qrX - padding - 28
+  context.fillStyle = '#be123c'
+  context.font = `800 30px ${FONT_STACK}`
+  context.fillText(fitText(context, '长按识别二维码', hintWidth), hintX, qrY + 58)
+  context.fillStyle = '#334155'
+  context.font = `800 30px ${FONT_STACK}`
+  context.fillText(fitText(context, '为 TA 投一票', hintWidth), hintX, qrY + 104)
+  context.fillStyle = '#94a3b8'
+  context.font = `500 22px ${FONT_STACK}`
+  context.fillText(fitText(context, input.siteLabel || 'yx.huiliyill.cn', hintWidth), hintX, qrY + 146)
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
