@@ -25,9 +25,9 @@ const photoZoom = ref(false)
 const open = computed(() => Boolean(props.candidate))
 const photoFallback = computed(() => props.candidate?.name?.slice(0, 1) || '?')
 const link = computed(() => (props.candidate ? popularitySingerShareLink(props.candidate.singerId) : ''))
-const photoSrc = computed(() =>
-  props.candidate ? popularitySingerPhotoPath(props.candidate.singerId, props.candidate.photoUrl) : '',
-)
+const photoSrc = computed(() => (
+  props.candidate ? popularitySingerPhotoPath(props.candidate.singerId, props.candidate.photoUpdatedAt) : ''
+))
 
 async function shareToFriend(): Promise<void> {
   const candidate = props.candidate
@@ -132,7 +132,7 @@ onBeforeUnmount(() => {
           <div class="relative">
             <div class="relative h-[48vh] max-h-[520px] min-h-[260px] w-full overflow-hidden rounded-t-3xl bg-rose-50">
               <img
-                v-if="!photoFailed"
+                v-if="candidate.photoUrl && !photoFailed"
                 :src="photoSrc"
                 :alt="candidate.name"
                 class="size-full cursor-zoom-in object-contain"

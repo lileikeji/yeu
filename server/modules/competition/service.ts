@@ -2485,6 +2485,7 @@ export function listPopularityCandidates(
     name: competitionSingers.name,
     className: competitionSingers.className,
     photoKey: competitionSingers.photoKey,
+    photoUpdatedAt: competitionSingers.photoUpdatedAt,
     entrySong: competitionRoundEntries.song,
     singerSong: competitionSingers.song,
     sortOrder: competitionRoundEntries.sortOrder,
@@ -2501,6 +2502,7 @@ export function listPopularityCandidates(
       name: row.name,
       className: row.className,
       photoUrl: singerPhotoUrl({ photoKey: row.photoKey }),
+      photoUpdatedAt: row.photoUpdatedAt == null ? null : Number(row.photoUpdatedAt),
       song: (row.entrySong ?? '').trim() || row.singerSong,
       sortOrder: Number(row.sortOrder),
       pairNo: isDuel && row.pairNo !== null && row.pairNo !== undefined ? Number(row.pairNo) : null,
@@ -2571,7 +2573,7 @@ export function getPopularityPublicState(
   client: DatabaseClient,
   eventId: string,
   deviceHash: string,
-  options: { wechatVerified?: boolean, requiresWechatTicket?: boolean } = {}
+  options: { wechatVerified?: boolean, requiresWechatTicket?: boolean, requiresQrScan?: boolean } = {}
 ): CompetitionPopularityPublicState {
   const settings = ensurePopularitySettings(client, eventId)
   const candidates = listPopularityCandidates(client, eventId)
@@ -2630,6 +2632,7 @@ export function getPopularityPublicState(
     authMode,
     wechatVerified: Boolean(options.wechatVerified),
     requiresWechatTicket,
+    requiresQrScan: Boolean(options.requiresQrScan),
     wechatAccountName: settings.wechatAccountName || '仰恩大学指南',
     wechatQrUrl: settings.wechatQrUrl || '',
     results: settings.showResults ? results : null,

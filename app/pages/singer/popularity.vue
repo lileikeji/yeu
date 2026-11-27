@@ -1,17 +1,22 @@
 <script setup lang="ts">
+import type { LocationQuery } from 'vue-router'
 import type { CompetitionPopularityPublicState } from '~~/shared/types'
 import {
   computePopularityStandingMap,
   groupPopularityCandidates,
   type PopularityCandidateStanding
 } from '~~/shared/utils/competition'
+import { itempropMeta } from '~/utils/itemprop-meta'
+import { resolvePopularityPageSharePayload } from '~/utils/popularity-share'
 
 definePageMeta({ layout: false })
 
-useSeoMeta({ title: '人气奖投票', robots: 'noindex, nofollow' })
-
 const route = useRoute()
+const router = useRouter()
 const toast = useToast()
+const requestUrl = useRequestURL()
+const requestFetch = useRequestFetch()
+const { configureWechatShare } = useWechatShareCard()
 const token = computed(() => String(route.query.t ?? '').trim())
 const state = ref<CompetitionPopularityPublicState | null>(null)
 const loading = ref(true)
@@ -19,9 +24,66 @@ const savingId = ref('')
 const error = ref('')
 const now = ref(Date.now())
 
+const { data: publicSeed } = await useAsyncData<CompetitionPopularityPublicState | null>(
+  'competition-popularity-public',
+  async () => {
+    try {
+      return await requestFetch<CompetitionPopularityPublicState>('/api/public/competition/popularity/state')
+    } catch {
+      return null
+    }
+  },
+  { default: () => null }
+)
+
+const activeState = computed(() => state.value ?? publicSeed.value)
+const selectedSingerId = computed(() => String(route.query.id ?? '').trim())
+const sheetCandidate = computed(() => {
+  if (!selectedSingerId.value) return null
+  return activeState.value?.candidates.find(item => item.singerId === selectedSingerId.value) ?? null
+})
+const sharePayload = computed(() => resolvePopularityPageSharePayload({
+  title: activeState.value?.title,
+  subtitle: activeState.value?.subtitle,
+  candidate: sheetCandidate.value,
+  origin: requestUrl.origin
+}))
+
+useHead({
+  meta: [
+    itempropMeta('name', () => sharePayload.value.title),
+    itempropMeta('description', () => sharePayload.value.description),
+    itempropMeta('image', () => sharePayload.value.imageUrl)
+  ]
+})
+
+useSeoMeta({
+  title: () => sharePayload.value.title,
+  description: () => sharePayload.value.description,
+  ogTitle: () => sharePayload.value.title,
+  ogDescription: () => sharePayload.value.description,
+  ogType: 'website',
+  ogImage: () => sharePayload.value.imageUrl,
+  twitterCard: 'summary',
+  twitterImage: () => sharePayload.value.imageUrl,
+  robots: 'noindex, nofollow'
+})
+
 const DEVICE_STORAGE_KEY = 'yeu:popularity-device:v1'
 const WECHAT_TICKET_STORAGE_KEY = 'yeu:popularity-wechat-ticket:v1'
 let timer: ReturnType<typeof setInterval> | null = null
+
+function buildRouteQuery(nextSingerId?: string): LocationQuery {
+  const next: LocationQuery = {}
+  for (const [key, value] of Object.entries(route.query)) {
+    if (key === 'vt' || key === 'id' || value === undefined) continue
+    next[key] = value
+  }
+  if (nextSingerId) {
+    next.id = nextSingerId
+  }
+  return next
+}
 
 function readWechatTicket(): string {
   try {
@@ -40,15 +102,14 @@ function persistWechatTicket(value: string | undefined): void {
   }
 }
 
-function syncWechatTicketFromLocation(): void {
+async function syncWechatTicketFromLocation(): Promise<void> {
   const queryVt = String(route.query.vt ?? '').trim()
   if (!queryVt) return
   persistWechatTicket(queryVt)
   try {
-    const clean = token.value ? `${window.location.pathname}?t=${encodeURIComponent(token.value)}` : window.location.pathname
-    window.history.replaceState(null, '', clean)
+    await router.replace({ query: buildRouteQuery(selectedSingerId.value || undefined) })
   } catch {
-    // 忽略 history 限制
+    // 忽略路由替换限制
   }
 }
 
@@ -115,6 +176,7 @@ async function load(): Promise<void> {
     error.value = messageOf(caught)
   } finally {
     loading.value = false
+    void syncWechatShare()
   }
 }
 
@@ -142,6 +204,13 @@ async function vote(singerId: string): Promise<void> {
   if (state.value.requiresWechatTicket) {
     toast.add({
       title: `请先向公众号「${state.value.wechatAccountName || '仰恩大学指南'}」发送大屏口令领专属链接`,
+      color: 'warning'
+    })
+    return
+  }
+  if (state.value.requiresQrScan) {
+    toast.add({
+      title: '请先扫描现场大屏上的最新二维码再投票',
       color: 'warning'
     })
     return
@@ -273,6 +342,7 @@ function voteCountOf(singerId: string): number {
 }
 const canVote = computed(() => (
   !state.value?.requiresWechatTicket
+  && !state.value?.requiresQrScan
   && state.value?.status === 'open'
   && (state.value?.candidates.length ?? 0) > 0
   && (!multiVote.value || votesRemaining.value > 0)
@@ -284,8 +354,8 @@ function canVoteFor(singerId: string): boolean {
 const hasBallot = computed(() => votesUsed.value > 0)
 const candidateGroups = computed(() => groupPopularityCandidates(state.value?.candidates ?? []))
 const standingMap = computed(() => (
-  state.value
-    ? computePopularityStandingMap(state.value.candidates, state.value.results)
+  activeState.value
+    ? computePopularityStandingMap(activeState.value.candidates, activeState.value.results)
     : null
 ))
 
@@ -308,11 +378,6 @@ function standingGapText(standing: PopularityCandidateStanding): string {
   return '当前第 1 名'
 }
 
-const sheetSingerId = ref('')
-const sheetCandidate = computed(() => (
-  state.value?.candidates.find(item => item.singerId === sheetSingerId.value) ?? null
-))
-
 const sheetStanding = computed(() => (
   sheetCandidate.value ? standingOf(sheetCandidate.value.singerId) : null
 ))
@@ -324,27 +389,30 @@ const sheetRankText = computed(() => {
 })
 const sheetGapText = computed(() => (sheetStanding.value ? standingGapText(sheetStanding.value) : ''))
 
-/** 分享链接带 ?id= 进来时自动打开这位选手的详情弹窗（详情就是弹窗本身）。 */
-let sheetAutoOpened = false
-watch(state, (value) => {
-  if (!value || sheetAutoOpened) return
-  const singerId = String(route.query.id ?? '').trim()
-  if (!singerId || !value.candidates.some(item => item.singerId === singerId)) return
-  sheetAutoOpened = true
-  openSheet(singerId)
-})
-
-function openSheet(singerId: string): void {
-  sheetSingerId.value = singerId
+async function syncWechatShare(): Promise<void> {
+  if (!import.meta.client) return
+  await nextTick()
+  await configureWechatShare(sharePayload.value)
 }
 
-function closeSheet(): void {
-  sheetSingerId.value = ''
+async function openSheet(singerId: string): Promise<void> {
+  if (selectedSingerId.value !== singerId) {
+    await router.replace({ query: buildRouteQuery(singerId) })
+  }
+  void syncWechatShare()
+}
+
+async function closeSheet(): Promise<void> {
+  if (selectedSingerId.value) {
+    await router.replace({ query: buildRouteQuery(undefined) })
+  }
+  void syncWechatShare()
 }
 
 function voteLabelFor(singerId: string): string {
   if (!state.value) return '投给 TA'
   if (state.value.requiresWechatTicket) return '请先从公众号领链接'
+  if (state.value.requiresQrScan) return '请扫现场大屏码'
   if (multiVote.value && votesRemaining.value <= 0) return '票已投满'
   if (multiVote.value && !allowRepeatVote.value && voteCountOf(singerId) > 0) return '同一选手限一票'
   if (multiVote.value) return voteCountOf(singerId) > 0 ? '再投一票' : '投给 TA'
@@ -364,7 +432,7 @@ function voteDisabledFor(singerId: string): boolean {
 
 async function voteFromSheet(singerId: string): Promise<void> {
   await vote(singerId)
-  closeSheet()
+  await closeSheet()
 }
 
 /** 访问埋点：页面打开打一发，服务端负责拆设备/浏览器并区分公众号来源。 */async function reportVisit(): Promise<void> {
@@ -379,10 +447,11 @@ async function voteFromSheet(singerId: string): Promise<void> {
   }
 }
 
-onMounted(() => {
-  syncWechatTicketFromLocation()
+onMounted(async () => {
+  await syncWechatTicketFromLocation()
   void reportVisit()
   void load()
+  void syncWechatShare()
   timer = setInterval(() => {
     now.value = Date.now()
   }, 1000)
@@ -573,7 +642,13 @@ onBeforeUnmount(() => {
           </button>
         </p>
         <p
-          v-else-if="!hasBallot && !canVote && !state.requiresWechatTicket"
+          v-else-if="!hasBallot && state.requiresQrScan"
+          class="rounded-2xl border border-amber-400/50 bg-[color-mix(in_srgb,var(--color-orange-500)_10%,var(--surface))] px-4 py-3 text-sm text-[var(--ink)] shadow-sm"
+        >
+          当前为只读分享预览；如需投票，请扫描现场大屏上的最新二维码进入。
+        </p>
+        <p
+          v-else-if="!hasBallot && !canVote && !state.requiresWechatTicket && !state.requiresQrScan"
           class="rounded-2xl border border-amber-400/50 bg-[color-mix(in_srgb,var(--color-orange-500)_10%,var(--surface))] px-4 py-3 text-sm text-[var(--ink)] shadow-sm"
         >
           {{ state.status === 'scheduled' ? '还没到开始时间，先看看出场选手。' : state.status === 'closed' ? '投票已经截止。' : state.status === 'disabled' ? '主办方还没开启人气奖投票。' : '暂无可投票的候选名单。' }}
@@ -740,6 +815,7 @@ onBeforeUnmount(() => {
                       class="size-4 animate-spin"
                     />
                     <span v-else-if="state.requiresWechatTicket">请先从公众号领链接</span>
+                    <span v-else-if="state.requiresQrScan">请扫现场大屏码</span>
                     <span v-else-if="multiVote && votesRemaining <= 0">票已投满</span>
                     <span v-else-if="multiVote && !allowRepeatVote && voteCountOf(candidate.singerId) > 0">同一选手限一票</span>
                     <span v-else-if="multiVote">{{ voteCountOf(candidate.singerId) > 0 ? '再投一票' : '投给 TA' }}</span>
@@ -774,16 +850,18 @@ onBeforeUnmount(() => {
       </template>
     </div>
 
-    <CompetitionPopularitySingerSheet
-      :candidate="sheetCandidate"
-      :votes="sheetStanding ? sheetStanding.count : null"
-      :rank-text="sheetRankText"
-      :gap-text="sheetGapText"
-      :vote-label="sheetCandidate ? voteLabelFor(sheetCandidate.singerId) : '投给 TA'"
-      :vote-disabled="sheetCandidate ? voteDisabledFor(sheetCandidate.singerId) : true"
-      :busy="Boolean(savingId)"
-      @close="closeSheet"
-      @vote="voteFromSheet"
-    />
+    <ClientOnly>
+      <CompetitionPopularitySingerSheet
+        :candidate="sheetCandidate"
+        :votes="sheetStanding ? sheetStanding.count : null"
+        :rank-text="sheetRankText"
+        :gap-text="sheetGapText"
+        :vote-label="sheetCandidate ? voteLabelFor(sheetCandidate.singerId) : '投给 TA'"
+        :vote-disabled="sheetCandidate ? voteDisabledFor(sheetCandidate.singerId) : true"
+        :busy="Boolean(savingId)"
+        @close="closeSheet"
+        @vote="voteFromSheet"
+      />
+    </ClientOnly>
   </div>
 </template>

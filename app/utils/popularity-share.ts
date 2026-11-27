@@ -36,10 +36,14 @@ export function popularitySingerShareLink(singerId: string, origin?: string): st
 }
 
 /** 同源公开媒体路径：微信卡片与 canvas 都走 /media/competition/singer-photo/<id>.jpg。 */
-export function popularitySingerPhotoPath(singerId: string, photoUpdatedAt?: number | null): string {
+export function popularitySingerPhotoPath(singerId: string, photoUpdatedAt?: number | string | null): string {
   const basePath = `/media/competition/singer-photo/${encodeURIComponent(singerId)}.jpg`
   if (typeof photoUpdatedAt === 'number' && Number.isFinite(photoUpdatedAt) && photoUpdatedAt > 0) {
     return `${basePath}?v=${Math.trunc(photoUpdatedAt)}`
+  }
+  if (typeof photoUpdatedAt === 'string') {
+    const stamp = photoUpdatedAt.replace(/[^0-9a-zA-Z]/g, '').slice(-16)
+    if (stamp) return `${basePath}?v=${stamp}`
   }
   return basePath
 }

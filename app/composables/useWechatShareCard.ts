@@ -54,6 +54,7 @@ let sdkConfigurationQueue: Promise<void> = Promise.resolve()
 let configuredSignatureUrl: string | null = null
 let queuedSignatureUrl: string | null = null
 let queuedSignaturePromise: Promise<void> | null = null
+let latestShareDataVersion = 0
 const reportedDiagnostics = new Set<string>()
 
 const SDK_READY_TIMEOUT_MS = 8_000
@@ -241,6 +242,7 @@ export function useWechatShareCard() {
   async function configureWechatShare(input: WechatShareCardInput): Promise<boolean> {
     if (!import.meta.client || !isWechatUserAgent(navigator.userAgent)) return false
 
+    const shareVersion = ++latestShareDataVersion
     const signedUrl = signingPageUrl(navigator.userAgent)
     const shareLink = shareUrl(input.link || signedUrl)
     const imageUrl = normalizeShareIconUrl(input.imageUrl, window.location.origin)
@@ -268,6 +270,7 @@ export function useWechatShareCard() {
       }
       try {
         await queueSdkConfiguration(sdk, normalizedSignature)
+        if (shareVersion !== latestShareDataVersion) return true
         reportWechatShareDiagnostic('wx_config', 'success')
       } catch (error) {
         reportWechatShareDiagnostic('wx_config', 'error', error)

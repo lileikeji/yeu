@@ -64,20 +64,6 @@ export default defineEventHandler((event) => {
     return { ...state, deviceToken: identity.token, pageTicket }
   }
 
-  if (query.t) {
-    const payload = verifyPopularityToken(security.secret, query.t)
-    if (!payload || payload.eventId !== eventRow.id) {
-      throw createError({
-        statusCode: 403,
-        message: payload ? '二维码不属于当前赛事' : '二维码已过期，请扫大屏上的新码',
-        data: {
-          code: 'POPULARITY_TOKEN_INVALID',
-          message: payload ? '二维码不属于当前赛事' : '二维码已过期，请扫大屏上的新码'
-        }
-      })
-    }
-  }
-
   if (settings.authMode === 'wechat_mp') {
     const state = getPopularityPublicState(client, eventRow.id, '', {
       wechatVerified: false,
@@ -86,12 +72,14 @@ export default defineEventHandler((event) => {
     return { ...state }
   }
 
-  if (!query.t) {
-    throw createError({
-      statusCode: 403,
-      message: '二维码已过期，请扫大屏上的新码',
-      data: { code: 'POPULARITY_TOKEN_INVALID', message: '二维码已过期，请扫大屏上的新码' }
+  const payload = query.t ? verifyPopularityToken(security.secret, query.t) : null
+  if (!payload || payload.eventId !== eventRow.id) {
+    const state = getPopularityPublicState(client, eventRow.id, '', {
+      wechatVerified: false,
+      requiresWechatTicket: false,
+      requiresQrScan: true
     })
+    return { ...state }
   }
 
   const identity = resolvePopularityDevice(

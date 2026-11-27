@@ -674,6 +674,7 @@ export interface CompetitionPopularityCandidate {
   name: string
   className: string | null
   photoUrl: string | null
+  photoUpdatedAt?: number | null
   /** 决赛第一轮曲目，方便投票人认人。 */
   song: string
   sortOrder: number
@@ -737,6 +738,7 @@ export interface CompetitionPopularityPublicState {
   authMode?: CompetitionPopularityAuthMode
   wechatVerified?: boolean
   requiresWechatTicket?: boolean
+  requiresQrScan?: boolean
   wechatAccountName?: string
   wechatQrUrl?: string
   /** 只有 showResults 为真时才有内容；否则一律 null。 */
