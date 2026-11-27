@@ -24,7 +24,9 @@ const photoFailed = ref(false)
 const open = computed(() => Boolean(props.candidate))
 const photoFallback = computed(() => props.candidate?.name?.slice(0, 1) || '?')
 const link = computed(() => (props.candidate ? popularitySingerShareLink(props.candidate.singerId) : ''))
-const photoSrc = computed(() => (props.candidate ? popularitySingerPhotoPath(props.candidate.singerId) : ''))
+const photoSrc = computed(() =>
+  props.candidate ? popularitySingerPhotoPath(props.candidate.singerId, props.candidate.photoUrl) : '',
+)
 
 async function shareToFriend(): Promise<void> {
   const candidate = props.candidate

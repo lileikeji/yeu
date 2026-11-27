@@ -21,13 +21,16 @@ export function popularitySingerShareLink(singerId: string, origin?: string): st
 }
 
 /** 同源照片代理：微信卡片与 canvas 都只认当前域名下的图片。 */
-export function popularitySingerPhotoPath(singerId: string): string {
-  return `/api/public/competition/popularity/singer-photo?id=${encodeURIComponent(singerId)}`
+export function popularitySingerPhotoPath(singerId: string, version?: string | null): string {
+  const base = `/api/public/competition/popularity/singer-photo?id=${encodeURIComponent(singerId)}`
+  // 换照片后必须换 URL，否则 CDN 会继续发旧图
+  const stamp = (version ?? '').replace(/[^0-9a-zA-Z]/g, '').slice(-16)
+  return stamp ? `${base}&v=${stamp}` : base
 }
 
 export function popularityShareImageUrl(candidate: CompetitionPopularityCandidate, origin?: string): string {
   const base = origin ?? (import.meta.client ? window.location.origin : '')
-  return `${base}${popularitySingerPhotoPath(candidate.singerId)}`
+  return `${base}${popularitySingerPhotoPath(candidate.singerId, candidate.photoUrl)}`
 }
 
 export function popularityShareTitle(candidate: CompetitionPopularityCandidate): string {
@@ -154,7 +157,9 @@ export async function renderPopularityShareCard(input: PopularityShareCardInput)
   context.fillStyle = '#fecdd3'
   context.fill()
   context.clip()
-  let photo: HTMLImageElement | null = await loadImageForCanvas(popularitySingerPhotoPath(input.candidate.singerId))
+  let photo: HTMLImageElement | null = await loadImageForCanvas(
+    popularitySingerPhotoPath(input.candidate.singerId, input.candidate.photoUrl),
+  )
   if (photo) {
     try {
       drawCover(context, photo, photoX, photoY, photoW, photoH)
