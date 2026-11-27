@@ -54,6 +54,26 @@ function loadImage(src: string, crossOrigin: boolean): Promise<HTMLImageElement 
   })
 }
 
+/**
+ * 跨域照片先走一次 `cache: 'reload'` 的 CORS fetch 再转 blob：页面里的 <img> 已用无 CORS 的方式
+ * 请求过同一张图，浏览器缓存下来的响应不带 Access-Control-Allow-Origin，直接给 canvas 用会被判污染。
+ */
+async function loadImageForCanvas(src: string): Promise<HTMLImageElement | null> {
+  try {
+    const response = await fetch(src, { mode: 'cors', cache: 'reload', credentials: 'omit' })
+    if (!response.ok) return null
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    try {
+      return await loadImage(objectUrl, false)
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+    }
+  } catch {
+    return null
+  }
+}
+
 function drawCover(
   context: CanvasRenderingContext2D,
   image: HTMLImageElement,
@@ -106,8 +126,7 @@ export async function renderPopularityShareCard(input: PopularityShareCardInput)
   context.clip()
   let photo: HTMLImageElement | null = null
   if (input.candidate.photoUrl) {
-    photo = await loadImage(input.candidate.photoUrl, true)
-    if (!photo) photo = await loadImage(input.candidate.photoUrl, false)
+    photo = await loadImageForCanvas(input.candidate.photoUrl)
   }
   if (photo) {
     try {
