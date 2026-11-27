@@ -1,4 +1,5 @@
-import type { CompetitionPopularityCandidate } from '~~/shared/types'
+import { DEFAULT_SHARE_ICON_URL, normalizeShareIconUrl } from '../../shared/config/brand'
+import type { CompetitionPopularityCandidate } from '../../shared/types'
 
 export interface PopularityShareCardInput {
   candidate: CompetitionPopularityCandidate
@@ -8,7 +9,21 @@ export interface PopularityShareCardInput {
   siteLabel?: string
 }
 
+export interface PopularityPageSharePayload {
+  title: string
+  description: string
+  imageUrl: string
+  link: string
+}
+
 const FONT_STACK = 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif'
+
+function defaultShareOrigin(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+  return new URL(DEFAULT_SHARE_ICON_URL).origin
+}
 
 /** 选手详情 = 投票页上的详情弹窗，分享链接直接带选手 id 打开它。 */
 export function popularitySingerPath(singerId: string): string {
@@ -16,21 +31,25 @@ export function popularitySingerPath(singerId: string): string {
 }
 
 export function popularitySingerShareLink(singerId: string, origin?: string): string {
-  const base = origin ?? (import.meta.client ? window.location.origin : '')
+  const base = (origin ?? defaultShareOrigin()).replace(/\/+$/, '')
   return `${base}${popularitySingerPath(singerId)}`
 }
 
-/** 同源照片代理：微信卡片与 canvas 都只认当前域名下的图片。 */
-export function popularitySingerPhotoPath(singerId: string, version?: string | null): string {
-  const base = `/api/public/competition/popularity/singer-photo?id=${encodeURIComponent(singerId)}`
-  // 换照片后必须换 URL，否则 CDN 会继续发旧图
-  const stamp = (version ?? '').replace(/[^0-9a-zA-Z]/g, '').slice(-16)
-  return stamp ? `${base}&v=${stamp}` : base
+/** 同源公开媒体路径：微信卡片与 canvas 都走 /media/competition/singer-photo/<id>.jpg。 */
+export function popularitySingerPhotoPath(singerId: string, photoUpdatedAt?: number | null): string {
+  const basePath = `/media/competition/singer-photo/${encodeURIComponent(singerId)}.jpg`
+  if (typeof photoUpdatedAt === 'number' && Number.isFinite(photoUpdatedAt) && photoUpdatedAt > 0) {
+    return `${basePath}?v=${Math.trunc(photoUpdatedAt)}`
+  }
+  return basePath
 }
 
 export function popularityShareImageUrl(candidate: CompetitionPopularityCandidate, origin?: string): string {
-  const base = origin ?? (import.meta.client ? window.location.origin : '')
-  return `${base}${popularitySingerPhotoPath(candidate.singerId, candidate.photoUrl)}`
+  const base = (origin || defaultShareOrigin()).replace(/\/+$/, '')
+  if (candidate.photoUrl) {
+    return `${base}${popularitySingerPhotoPath(candidate.singerId, candidate.photoUpdatedAt)}`
+  }
+  return normalizeShareIconUrl(undefined, base)
 }
 
 export function popularityShareTitle(candidate: CompetitionPopularityCandidate): string {
@@ -40,6 +59,31 @@ export function popularityShareTitle(candidate: CompetitionPopularityCandidate):
 export function popularityShareDescription(candidate: CompetitionPopularityCandidate): string {
   const song = candidate.song ? `《${candidate.song}》` : ''
   return `仰恩大学音乐协会·新声歌手大赛决赛，为 ${candidate.name}（${candidate.number}号）${song}投一票`
+}
+
+export function resolvePopularityPageSharePayload(input: {
+  title?: string | null
+  subtitle?: string | null
+  candidate: CompetitionPopularityCandidate | null
+  origin: string
+}): PopularityPageSharePayload {
+  const baseOrigin = (input.origin || defaultShareOrigin()).replace(/\/+$/, '')
+  if (input.candidate) {
+    return {
+      title: popularityShareTitle(input.candidate),
+      description: popularityShareDescription(input.candidate),
+      imageUrl: popularityShareImageUrl(input.candidate, baseOrigin),
+      link: popularitySingerShareLink(input.candidate.singerId, baseOrigin)
+    }
+  }
+  const pageTitle = (input.title || '').trim() || '人气奖投票'
+  const pageDescription = (input.subtitle || '').trim() || '仰恩大学音乐协会·新声歌手大赛决赛，为你喜欢的歌手投一票'
+  return {
+    title: `${pageTitle}｜新声歌手大赛`,
+    description: pageDescription,
+    imageUrl: normalizeShareIconUrl(undefined, baseOrigin),
+    link: `${baseOrigin}/singer/popularity`
+  }
 }
 
 function roundedRect(
@@ -114,10 +158,10 @@ function fitText(context: CanvasRenderingContext2D, text: string, maxWidth: numb
   return `${clipped}…`
 }
 
-/** 生成分享卡片（750×1160）：票数、名次、二维码各自独立成行，不再互相压字。 */
+/** 生成分享卡片（750×1340）：照片按 4:5 原比例完整呈现，票数与名次分行，不压字。 */
 export async function renderPopularityShareCard(input: PopularityShareCardInput): Promise<Blob> {
   const width = 750
-  const height = 1160
+  const height = 1340
   const padding = 56
   const contentWidth = width - padding * 2
   const canvas = document.createElement('canvas')
@@ -147,19 +191,21 @@ export async function renderPopularityShareCard(input: PopularityShareCardInput)
   context.font = `700 32px ${FONT_STACK}`
   context.fillText(fitText(context, input.candidate.name, contentWidth), padding, 184)
 
-  const photoX = padding
+  const photoW = 520
+  const photoH = 650
+  const photoX = (width - photoW) / 2
   const photoY = 214
-  const photoW = contentWidth
-  const photoH = 500
 
   context.save()
   roundedRect(context, photoX, photoY, photoW, photoH, 32)
   context.fillStyle = '#fecdd3'
   context.fill()
   context.clip()
-  let photo: HTMLImageElement | null = await loadImageForCanvas(
-    popularitySingerPhotoPath(input.candidate.singerId, input.candidate.photoUrl),
-  )
+  let photo: HTMLImageElement | null = input.candidate.photoUrl
+    ? await loadImageForCanvas(
+        popularitySingerPhotoPath(input.candidate.singerId, input.candidate.photoUpdatedAt)
+      )
+    : null
   if (photo) {
     try {
       drawCover(context, photo, photoX, photoY, photoW, photoH)
