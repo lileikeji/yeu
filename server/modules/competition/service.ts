@@ -634,6 +634,21 @@ export function entrySingerPublic(
   return { ...base, song: '' }
 }
 
+/**
+ * 人气奖公开页的照片地址：走站点自身的 /media 媒体路由，带 photoUpdatedAt 版本号，
+ * 由 CDN 长缓存（immutable）；预签名 COS 地址每次请求都变，无法命中任何缓存。
+ */
+export function popularitySingerPhotoUrl(
+  singerId: string,
+  photoKey: string | null,
+  photoUpdatedAt: number | null | undefined,
+): string | null {
+  if (!String(photoKey ?? '').trim()) return null
+  const base = `/media/competition/singer-photo/${singerId}.jpg`
+  const stamp = photoUpdatedAt == null ? 0 : Number(photoUpdatedAt)
+  return stamp > 0 ? `${base}?v=${Math.trunc(stamp)}` : base
+}
+
 /** 照片：库里存对象存储 key，读的时候现签 6 小时地址；没配 COS 时给出空值。 */
 export function singerPhotoUrl(row: { photoKey: string | null }): string | null {
   const key = String(row.photoKey ?? '').trim()
@@ -2501,7 +2516,7 @@ export function listPopularityCandidates(
       number: Number(row.sortOrder) > 0 ? Number(row.sortOrder) : index + 1,
       name: row.name,
       className: row.className,
-      photoUrl: singerPhotoUrl({ photoKey: row.photoKey }),
+      photoUrl: popularitySingerPhotoUrl(row.singerId, row.photoKey, row.photoUpdatedAt),
       photoUpdatedAt: row.photoUpdatedAt == null ? null : Number(row.photoUpdatedAt),
       song: (row.entrySong ?? '').trim() || row.singerSong,
       sortOrder: Number(row.sortOrder),
