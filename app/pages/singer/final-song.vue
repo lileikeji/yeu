@@ -20,7 +20,16 @@ const videoPercent = ref<number | null>(null)
 const firstAudioInput = ref<HTMLInputElement | null>(null)
 const secondVideoInput = ref<HTMLInputElement | null>(null)
 const secondFileInput = ref<HTMLInputElement | null>(null)
+const secondVideoEl = ref<HTMLVideoElement | null>(null)
+/** 预览是否已经点过播放：没点时盖一层「点一下播放」，免得黑底首帧被当成上传失败。 */
+const videoPreviewStarted = ref(false)
 const uploadDetail = ref('')
+
+function playSecondVideo(): void {
+  const video = secondVideoEl.value
+  if (!video) return
+  void video.play().catch(() => undefined)
+}
 const resumable = ref<ResumeRecord | null>(null)
 
 useSeoMeta({ title: '决赛两首歌提交', robots: 'noindex, nofollow' })
@@ -759,13 +768,40 @@ onBeforeUnmount(() => {
             >
               {{ uploadDetail }}
             </p>
-            <video
+            <div
               v-if="state.secondVideo && !isZip(state.secondVideo.name)"
-              :src="state.secondVideo.url"
-              controls
-              playsinline
-              class="mt-3 max-h-56 w-full rounded-lg bg-black"
-            />
+              class="relative mt-3"
+            >
+              <video
+                ref="secondVideoEl"
+                :src="state.secondVideo.url"
+                controls
+                playsinline
+                class="max-h-56 w-full rounded-lg bg-black"
+                @loadedmetadata="videoPreviewStarted = false"
+                @play="videoPreviewStarted = true"
+              />
+              <button
+                v-if="!videoPreviewStarted"
+                type="button"
+                class="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-black/45 text-xs font-medium text-white"
+                @click="playSecondVideo"
+              >
+                <UIcon
+                  name="i-lucide-play"
+                  class="size-7"
+                  aria-hidden="true"
+                />
+                点一下播放预览
+              </button>
+            </div>
+            <p
+              v-if="state.secondVideo && !isZip(state.secondVideo.name)"
+              class="mt-2 text-[11px] leading-relaxed text-[var(--muted-ink)]"
+            >
+              预览开头是黑屏不代表传坏了：很多视频前几秒就是黑底字幕卡，点播放看到画面就正常。
+              若一直只有声音没有画面，说明是 H.265 编码，请按 iPhone 的「兼容性最佳」重新导出成 H.264 再传，否则现场电脑会黑屏。
+            </p>
             <a
               v-else-if="state.secondVideo"
               :href="state.secondVideo.url"

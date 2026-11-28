@@ -26,6 +26,7 @@ import { hashPasswordWithMinLength } from '../../utils/password'
 import { transcodeToMp3 } from '../../utils/audio-transcode'
 import { MAX_UPLOADED_AUDIO_BYTES, detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
 import { createZip, StreamingZip } from '../../utils/zip-archive'
+import { probeVideoCodec, videoCodecLabel } from '../../utils/media-probe'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
@@ -35,6 +36,7 @@ import {
   completeCosMultipart,
   contentTypeForName,
   cosConfig,
+  deleteCosObject,
   headCosObject,
   listCosMultipartParts,
   newAccompanimentKey,
@@ -6639,6 +6641,26 @@ const FINAL_SONG_VIDEO_CONTENT_TYPES = new Set([
   'binary/octet-stream'
 ])
 
+/**
+ * 第二首背景视频要在现场电脑上放：只有 H.264 是 Windows Chrome、安卓 WebView 都能解的，
+ * HEVC（iPhone 默认）/AV1 传上去现场就是黑屏。这里在上传收口时用 ffprobe 读一次编码，
+ * 不合格直接拒收并清掉刚传的残件；ffprobe 不可用时放行，避免把选手挡在门外。
+ */
+async function assertPlayableFinalSongVideo(config: CosConfig, key: string): Promise<void> {
+  const probe = await probeVideoCodec(presignCosGet(config, key, 300, 'video/mp4'))
+  if (probe.unavailable) return
+  if (probe.codec === 'h264') return
+  await deleteCosObject(config, key)
+  if (!probe.codec) {
+    validationError('这个 MP4 里没有能播放的视频轨（可能只有声音），请换一个视频文件再传', 'key')
+  }
+  validationError(
+    `这个视频是 ${videoCodecLabel(probe.codec)} 编码，Windows 的 Chrome 和多数安卓浏览器放不出来，现场会黑屏。`
+    + '请在相册里导出成 H.264 的 MP4 再传（iPhone：设置 → 相机 → 格式 → 兼容性最佳；或把视频发到微信里再保存一遍）。',
+    'key'
+  )
+}
+
 /** 校验刚传到桶里的决赛文件：扩展名、体积、Content-Type 与前端报的大小。 */
 async function verifyFinalSongMediaUpload(
   config: CosConfig,
@@ -6669,6 +6691,9 @@ async function verifyFinalSongMediaUpload(
   }
   if (Math.abs(head.size - reportedSize) > 1024 * 1024) {
     validationError('文件大小对不上，请重新上传', 'size')
+  }
+  if (slot === 2 && extension === 'mp4') {
+    await assertPlayableFinalSongVideo(config, key)
   }
   return { size: head.size, extension }
 }

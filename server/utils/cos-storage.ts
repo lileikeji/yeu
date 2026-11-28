@@ -277,6 +277,12 @@ export async function putCosObject(
   }
 }
 
+/** 删除对象：上传被服务端拒收（例如 H.265）时清掉刚传上去的残件。 */
+export async function deleteCosObject(config: CosConfig, key: string): Promise<void> {
+  const url = signCosUrl(config, { method: 'DELETE', key, expiresIn: 300 })
+  await fetch(url, { method: 'DELETE' }).catch(() => undefined)
+}
+
 /** HEAD 校验对象是否真的存在、多大、什么类型——不能只信客户端上报。 */
 export async function headCosObject(
   config: CosConfig,
