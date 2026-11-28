@@ -628,21 +628,14 @@ onBeforeUnmount(() => {
             />
             {{ saving ? '提交中…' : '提交两首歌' }}
           </button>
-
-          <p class="mt-2 text-center text-[11px] text-[var(--muted-ink)]">
-            当前版本：v{{ state.revision }}
-          </p>
         </template>
 
         <div class="mt-5 border-t border-[var(--line)] pt-5">
           <h2 class="text-base font-bold">
             第一首伴奏 / 第二首背景视频
           </h2>
-          <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-            第一首交伴奏音频（mp3 / m4a / wav / aac / ogg / flac，400MB 以内）；第二首交 MP4 背景视频或 ZIP 压缩包（1GB 以内）。先提交歌名再上传。
-          </p>
-          <p class="mt-1 text-xs leading-relaxed text-[var(--muted-ink)]">
-            大文件自动分片上传：网络断了、切到后台都不要紧，回来重新选同一个文件，会从断开的那一片接着传。
+          <p class="mt-1 text-xs text-[var(--muted-ink)]">
+            音频 mp3 / m4a / wav，视频 MP4 或 ZIP；400MB / 1GB 以内
           </p>
 
           <div
@@ -651,9 +644,6 @@ onBeforeUnmount(() => {
           >
             <p class="font-medium">
               上次没传完：{{ resumable.filename }}（{{ formatSize(resumable.size) }}）
-            </p>
-            <p class="mt-1 leading-relaxed">
-              重新选中同一个文件就能接着传，已经传上去的分片不会白费。
             </p>
             <div class="mt-2 flex gap-2">
               <button
@@ -728,8 +718,8 @@ onBeforeUnmount(() => {
           <div class="mt-3 rounded-xl border border-[var(--line)] p-3">
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <p class="truncate text-sm font-medium">
-                  第二首背景视频 / 压缩包{{ state.secondSong ? `《${state.secondSong}》` : '（未填）' }}
+                <p class="text-sm font-medium leading-snug">
+                  第二首视频{{ state.secondSong ? `《${state.secondSong}》` : '（未填）' }}
                 </p>
                 <p
                   v-if="state.secondVideo"
@@ -799,13 +789,6 @@ onBeforeUnmount(() => {
                 点一下播放预览
               </button>
             </div>
-            <p
-              v-if="state.secondVideo && !isZip(state.secondVideo.name)"
-              class="mt-2 text-[11px] leading-relaxed text-[var(--muted-ink)]"
-            >
-              预览开头是黑屏不代表传坏了：很多视频前几秒就是黑底字幕卡，点播放看到画面就正常。
-              若一直只有声音没有画面，说明是 H.265 编码，请按 iPhone 的「兼容性最佳」重新导出成 H.264 再传，否则现场电脑会黑屏。
-            </p>
             <a
               v-else-if="state.secondVideo"
               :href="state.secondVideo.url"
@@ -818,7 +801,7 @@ onBeforeUnmount(() => {
                 class="size-4"
                 aria-hidden="true"
               />
-              压缩包已上传，点这里下载核对
+              下载压缩包核对
             </a>
             <a
               v-if="state.secondVideo && !isZip(state.secondVideo.name)"
@@ -832,7 +815,7 @@ onBeforeUnmount(() => {
                 class="size-3.5"
                 aria-hidden="true"
               />
-              手机上看不了？点这里用系统播放器打开
+              用系统播放器打开
             </a>
             <input
               ref="secondVideoInput"
@@ -850,12 +833,6 @@ onBeforeUnmount(() => {
             >
           </div>
 
-          <p
-            v-if="state.editable && state.revision < 1"
-            class="mt-2 text-xs text-amber-700"
-          >
-            先提交上面两首歌，伴奏和视频按钮才会启用。
-          </p>
         </div>
       </div>
 
