@@ -708,6 +708,13 @@
                         "when":  1796000000000,
                         "tag":  "0100_popularity_visit_fingerprint",
                         "breakpoints":  true
+                    },
+                    {
+                        "idx":  101,
+                        "version":  "6",
+                        "when":  1797000000000,
+                        "tag":  "0101_popularity_wechat_biz",
+                        "breakpoints":  true
                     }
                 ]
 }
