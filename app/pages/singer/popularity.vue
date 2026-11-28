@@ -267,7 +267,23 @@ function collectClientEnv() {
   }
 }
 
+function resolveWechatProfileUrl(): string {
+  const biz = String(activeState.value?.wechatBiz ?? '').trim()
+  if (!biz) return ''
+  return `https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=${encodeURIComponent(biz)}&scene=124#wechat_redirect`
+}
+
+/** 微信内配置了 __biz 就直接进公众号主页；返回 false 表示需要退回二维码引导。 */
+function openWechatProfile(): boolean {
+  if (!import.meta.client) return false
+  const url = resolveWechatProfileUrl()
+  if (!url || !/MicroMessenger/i.test(navigator.userAgent)) return false
+  window.location.href = url
+  return true
+}
+
 function focusWechatGuide(): void {
+  if (openWechatProfile()) return
   wechatGuideRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   toast.add({
     title: `普通票已投满，向公众号「${state.value?.wechatAccountName || '仰恩大学指南'}」发送「投票」可再领 ${bonusVotes.value} 票`,
@@ -278,6 +294,7 @@ function focusWechatGuide(): void {
 async function vote(singerId: string, anchorEl?: HTMLElement | null): Promise<void> {
   if (!state.value || savingId.value) return
   if (state.value.requiresWechatTicket) {
+    if (openWechatProfile()) return
     toast.add({
       title: `请先向公众号「${state.value.wechatAccountName || '仰恩大学指南'}」发送大屏口令领专属链接`,
       color: 'warning'

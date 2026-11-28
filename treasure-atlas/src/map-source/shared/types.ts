@@ -670,6 +670,8 @@ export interface CompetitionPopularitySettings {
   authMode: CompetitionPopularityAuthMode
   wechatAccountName: string
   wechatQrUrl: string
+  /** 公众号 __biz 或任意一篇文章链接；微信内点按钮可直接跳到公众号主页。 */
+  wechatBiz: string
   autoQuarantine: boolean
   aiAutoModerate: boolean
   updatedAt: number
@@ -764,6 +766,8 @@ export interface CompetitionPopularityPublicState {
   requiresQrScan?: boolean
   wechatAccountName?: string
   wechatQrUrl?: string
+  /** 已解析成 __biz；微信内可直接跳公众号主页，未配置时为空串。 */
+  wechatBiz?: string
   /** 只有 showResults 为真时才有内容；否则一律 null。 */
   results: CompetitionPopularityResultRow[] | null
   /** 仅包含名次与距前一名差票（不含绝对票数）；showResults 或 showRankGap 开启时返回，否则 null。 */

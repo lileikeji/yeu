@@ -94,6 +94,7 @@ export default defineEventHandler(async (event) => {
     authMode: settings.authMode,
     wechatAccountName: settings.wechatAccountName,
     wechatQrUrl: settings.wechatQrUrl,
+    wechatBiz: settings.wechatBiz,
     wechatPasscode: passcodeRequired
       ? computePopularityWechatPasscode(security.secret, eventRow.id, Date.now())
       : '',

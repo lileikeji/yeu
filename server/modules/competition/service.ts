@@ -2409,6 +2409,7 @@ export interface CompetitionPopularitySettingsInput {
   authMode?: CompetitionPopularityAuthMode
   wechatAccountName?: string
   wechatQrUrl?: string
+  wechatBiz?: string
   autoQuarantine?: boolean
   aiAutoModerate?: boolean
 }
@@ -2419,6 +2420,15 @@ function normalizePopularityAuthMode(value: unknown): CompetitionPopularityAuthM
   if (value === 'device_strict') return 'device_strict'
   if (value === 'hybrid') return 'hybrid'
   return 'wechat_mp'
+}
+
+/** 后台可以填 `__biz`，也可以粘贴该号任意一篇文章链接；统一解析成 `__biz`。 */
+export function normalizeWechatBiz(raw: string | null | undefined): string {
+  const text = String(raw ?? '').trim()
+  if (!text) return ''
+  const fromQuery = text.match(/[?&#]__biz=([A-Za-z0-9+/=%]+)/)
+  const candidate = fromQuery?.[1] ? decodeURIComponent(fromQuery[1]) : text
+  return /^[A-Za-z0-9+/]{8,}={0,2}$/.test(candidate) ? candidate : ''
 }
 
 function clampPopularityBonusVotes(value: unknown): number {
@@ -2458,6 +2468,7 @@ function popularitySettingsView(row: PopularitySettingsRow): CompetitionPopulari
     authMode: normalizePopularityAuthMode(row.authMode),
     wechatAccountName: row.wechatAccountName || '仰恩大学指南',
     wechatQrUrl: row.wechatQrUrl || '',
+    wechatBiz: normalizeWechatBiz(row.wechatBiz),
     autoQuarantine: Boolean(row.autoQuarantine ?? true),
     aiAutoModerate: Boolean(row.aiAutoModerate ?? true),
     updatedAt: Number(row.updatedAt ?? 0)
@@ -2497,6 +2508,7 @@ export function ensurePopularitySettings(
     authMode: 'wechat_mp',
     wechatAccountName: '仰恩大学指南',
     wechatQrUrl: '',
+    wechatBiz: '',
     autoQuarantine: true,
     aiAutoModerate: true,
     displaySessionHash: null,
@@ -2693,6 +2705,7 @@ export function getPopularityPublicState(
     requiresQrScan: Boolean(options.requiresQrScan),
     wechatAccountName: settings.wechatAccountName || '仰恩大学指南',
     wechatQrUrl: settings.wechatQrUrl || '',
+    wechatBiz: normalizeWechatBiz(settings.wechatBiz),
     results: settings.showResults ? results : null,
     standings: (settings.showResults || showRankGap)
       ? toPopularityStandingHints(candidates, results)
@@ -3443,6 +3456,9 @@ export function updatePopularitySettings(
     wechatQrUrl: input.wechatQrUrl !== undefined
       ? input.wechatQrUrl.trim()
       : existing.wechatQrUrl,
+    wechatBiz: input.wechatBiz !== undefined
+      ? input.wechatBiz.trim()
+      : existing.wechatBiz,
     autoQuarantine: input.autoQuarantine ?? existing.autoQuarantine,
     aiAutoModerate: input.aiAutoModerate ?? existing.aiAutoModerate,
     updatedAt: Date.now()

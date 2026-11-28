@@ -36,6 +36,7 @@ const draft = reactive<SettingsDraft>({
   authMode: 'wechat_mp' as CompetitionPopularityAuthMode,
   wechatAccountName: '仰恩大学指南',
   wechatQrUrl: '',
+  wechatBiz: '',
   autoQuarantine: true,
   aiAutoModerate: true
 })
@@ -101,6 +102,7 @@ function sync(): void {
     authMode: settings.authMode ?? 'wechat_mp',
     wechatAccountName: settings.wechatAccountName ?? '仰恩大学指南',
     wechatQrUrl: settings.wechatQrUrl ?? '',
+    wechatBiz: settings.wechatBiz ?? '',
     autoQuarantine: settings.autoQuarantine ?? true,
     aiAutoModerate: settings.aiAutoModerate ?? true
   })
@@ -170,6 +172,7 @@ async function saveSettings(): Promise<void> {
         authMode: draft.authMode,
         wechatAccountName: draft.wechatAccountName.trim() || '仰恩大学指南',
         wechatQrUrl: draft.wechatQrUrl.trim(),
+        wechatBiz: draft.wechatBiz.trim(),
         autoQuarantine: draft.autoQuarantine,
         aiAutoModerate: draft.aiAutoModerate
       }
@@ -493,6 +496,23 @@ async function copyDisplayUrl(): Promise<void> {
                 class="mt-1 w-full"
                 maxlength="260"
               />
+            </div>
+            <div class="sm:col-span-2">
+              <label
+                class="block text-xs text-zinc-600 dark:text-zinc-400"
+                for="popularity-wechat-biz"
+              >公众号文章链接或 __biz（选填，填了才能在微信内一键进公众号）</label>
+              <UInput
+                id="popularity-wechat-biz"
+                v-model="draft.wechatBiz"
+                size="sm"
+                placeholder="粘贴该号任意一篇文章链接，或 MzA...=="
+                class="mt-1 w-full"
+                maxlength="300"
+              />
+              <p class="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                微信里点「关注再得票」会直接打开公众号主页；没填或非微信环境仍显示上方二维码。
+              </p>
             </div>
           </div>
           <div class="space-y-1.5">

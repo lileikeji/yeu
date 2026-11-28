@@ -1438,6 +1438,8 @@ export const competitionPopularitySettings = sqliteTable('competition_popularity
   /** 现场引导关注的公众号名称与二维码 URL（留空则展示内置默认二维码）。 */
   wechatAccountName: text('wechat_account_name').notNull().default('仰恩大学指南'),
   wechatQrUrl: text('wechat_qr_url').notNull().default(''),
+  /** 公众号 __biz（或任意一篇文章链接），微信内可直接跳到公众号主页。 */
+  wechatBiz: text('wechat_biz').notNull().default(''),
   /** 实时规则命中高危分值时是否自动进入冻结隔离池（不计入公开与大屏票数）。 */
   autoQuarantine: integer('auto_quarantine', { mode: 'boolean' }).notNull().default(true),
   /** AI 巡检是否直接将确认刷票作废、将复核正常冻结票放行。 */

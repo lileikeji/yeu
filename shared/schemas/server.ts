@@ -1651,6 +1651,7 @@ export const competitionPopularitySettingsSchema = z.object({
   authMode: z.enum(['wechat_mp', 'device_strict', 'hybrid']).optional(),
   wechatAccountName: z.string().trim().min(1).max(40).optional(),
   wechatQrUrl: z.string().trim().max(260).optional(),
+  wechatBiz: z.string().trim().max(300).optional(),
   autoQuarantine: z.boolean().optional(),
   aiAutoModerate: z.boolean().optional()
 }).strict()
