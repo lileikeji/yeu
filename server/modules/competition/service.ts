@@ -26,7 +26,7 @@ import { hashPasswordWithMinLength } from '../../utils/password'
 import { transcodeToMp3 } from '../../utils/audio-transcode'
 import { MAX_UPLOADED_AUDIO_BYTES, detectUploadedAudioType, storeUploadedAudio } from '../../utils/uploaded-audio'
 import { createZip, StreamingZip } from '../../utils/zip-archive'
-import { probeVideoCodec, videoCodecLabel } from '../../utils/media-probe'
+import { captureVideoPoster, posterOffsetFor, probeVideoCodec, probeVideoDuration, videoCodecLabel } from '../../utils/media-probe'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { uploadDirectory } from '../../utils/uploaded-images'
@@ -40,6 +40,7 @@ import {
   headCosObject,
   listCosMultipartParts,
   newAccompanimentKey,
+  posterKeyOf,
   presignCosGet,
   presignCosMultipartPart,
   presignCosPut,
@@ -6647,9 +6648,13 @@ const FINAL_SONG_VIDEO_CONTENT_TYPES = new Set([
  * 不合格直接拒收并清掉刚传的残件；ffprobe 不可用时放行，避免把选手挡在门外。
  */
 async function assertPlayableFinalSongVideo(config: CosConfig, key: string): Promise<void> {
-  const probe = await probeVideoCodec(presignCosGet(config, key, 300, 'video/mp4'))
+  const playableUrl = presignCosGet(config, key, 300, 'video/mp4')
+  const probe = await probeVideoCodec(playableUrl)
   if (probe.unavailable) return
-  if (probe.codec === 'h264') return
+  if (probe.codec === 'h264') {
+    await writeFinalSongVideoPoster(config, key, playableUrl)
+    return
+  }
   await deleteCosObject(config, key)
   if (!probe.codec) {
     validationError('这个 MP4 里没有能播放的视频轨（可能只有声音），请换一个视频文件再传', 'key')
@@ -6659,6 +6664,15 @@ async function assertPlayableFinalSongVideo(config: CosConfig, key: string): Pro
     + '请在相册里导出成 H.264 的 MP4 再传（iPhone：设置 → 相机 → 格式 → 兼容性最佳；或把视频发到微信里再保存一遍）。',
     'key'
   )
+}
+
+/** 顺手给视频抽一张封面图放进桶里；失败只是没封面，不影响上传成功。 */
+async function writeFinalSongVideoPoster(config: CosConfig, key: string, playableUrl: string): Promise<void> {
+  const posterKey = posterKeyOf(key)
+  if (!posterKey) return
+  const poster = await captureVideoPoster(playableUrl, posterOffsetFor(await probeVideoDuration(playableUrl)))
+  if (!poster) return
+  await putCosObject(config, posterKey, poster, 'image/jpeg').catch(() => undefined)
 }
 
 /** 校验刚传到桶里的决赛文件：扩展名、体积、Content-Type 与前端报的大小。 */
@@ -7192,6 +7206,10 @@ function serializeAccompaniment(row: unknown): CompetitionEntryAccompaniment | n
     name: displayName || url.split('/').at(-1) || '伴奏',
     url: playable,
     size: source.accompanimentSize ?? null,
+    // 视频给一张封面图：手机上不点播放时也有画面，不会被当成黑屏没传上去。
+    poster: isVideo && key && config
+      ? presignCosGet(config, posterKeyOf(key), 6 * 60 * 60, 'image/jpeg')
+      : null,
     original
   }
 }

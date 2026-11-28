@@ -277,6 +277,15 @@ export async function putCosObject(
   }
 }
 
+/** 视频对象的封面图 key：同目录同名，只把扩展名换成 `.poster.jpg`。 */
+export function posterKeyOf(key: string): string {
+  const trimmed = key.trim()
+  if (!trimmed) return ''
+  return /\.(mp4|m4v|mov)$/i.test(trimmed)
+    ? trimmed.replace(/\.(mp4|m4v|mov)$/i, '.poster.jpg')
+    : `${trimmed}.poster.jpg`
+}
+
 /** 删除对象：上传被服务端拒收（例如 H.265）时清掉刚传上去的残件。 */
 export async function deleteCosObject(config: CosConfig, key: string): Promise<void> {
   const url = signCosUrl(config, { method: 'DELETE', key, expiresIn: 300 })

@@ -26,8 +26,11 @@ const videoPreviewStarted = ref(false)
 const uploadDetail = ref('')
 
 function playSecondVideo(): void {
+  // 先把遮罩收掉：Safari 上编程式 play() 可能被拦，退回原生控件也能点。
+  videoPreviewStarted.value = true
   const video = secondVideoEl.value
   if (!video) return
+  if (video.readyState === 0) video.load()
   void video.play().catch(() => undefined)
 }
 const resumable = ref<ResumeRecord | null>(null)
@@ -775,6 +778,7 @@ onBeforeUnmount(() => {
               <video
                 ref="secondVideoEl"
                 :src="state.secondVideo.url"
+                :poster="state.secondVideo.poster || undefined"
                 controls
                 playsinline
                 class="max-h-56 w-full rounded-lg bg-black"
@@ -815,6 +819,20 @@ onBeforeUnmount(() => {
                 aria-hidden="true"
               />
               压缩包已上传，点这里下载核对
+            </a>
+            <a
+              v-if="state.secondVideo && !isZip(state.secondVideo.name)"
+              :href="state.secondVideo.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mt-2 inline-flex items-center gap-1 text-[11px] text-[var(--color-green-700)] underline"
+            >
+              <UIcon
+                name="i-lucide-external-link"
+                class="size-3.5"
+                aria-hidden="true"
+              />
+              手机上看不了？点这里用系统播放器打开
             </a>
             <input
               ref="secondVideoInput"

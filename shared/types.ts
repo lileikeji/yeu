@@ -618,6 +618,8 @@ export interface CompetitionEntryAccompaniment {
   name: string
   url: string
   size: number | null
+  /** 视频封面图（临时签名地址）；手机上不点播放也能看到画面。 */
+  poster?: string | null
   /** 选手上传的原始文件（m4a/wav 等）；导出伴奏包时用它 */
   original?: { name: string, url: string, size: number | null } | null
 }
