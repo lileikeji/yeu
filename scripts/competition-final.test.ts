@@ -376,6 +376,7 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
     firstSong: '后台一曲12',
     secondSong: '后台二曲12',
     secondVideoName: null,
+    secondVideo: null,
     revision: 5
   })
   // 后台拿旧版本改也要报冲突，不能静默覆盖。
@@ -588,6 +589,18 @@ test('决赛两轮：两首歌提交、版本冲突、第一轮前六、第二�
   assert.equal(withVideos.firstAccompaniment?.size, 1234)
   assert.equal(withVideos.secondVideo?.name, '选手1-决赛二曲1.mp4')
   assert.equal(withVideos.secondVideo?.size, 2345)
+
+  // 后台决赛名单带出同一份视频，前端「观看」直接拿这个地址播放；没配 COS 时原样回显 cos: key。
+  const adminWithVideo = roundView(getAdminCompetitionPayload(client, contentId), 'final').entries
+    .find(entry => entry.singer.id === singers[0]!.id)
+  assert.equal(adminWithVideo?.finalSongs?.secondVideoName, '选手1-决赛二曲1.mp4')
+  assert.equal(adminWithVideo?.finalSongs?.secondVideo?.name, '选手1-决赛二曲1.mp4')
+  assert.equal(adminWithVideo?.finalSongs?.secondVideo?.size, 2345)
+  assert.equal(adminWithVideo?.finalSongs?.secondVideo?.url, 'cos:final/video-two.mp4')
+  // 没传第二首视频的选手保持 null，后台不显示「观看」。
+  const adminWithoutVideo = roundView(getAdminCompetitionPayload(client, contentId), 'final').entries
+    .find(entry => entry.singer.id === singers[6]!.id)
+  assert.equal(adminWithoutVideo?.finalSongs?.secondVideo, null)
 
   closeDatabase(path)
   rmSync(join(path, '..'), { recursive: true, force: true })

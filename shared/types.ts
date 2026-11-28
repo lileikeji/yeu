@@ -625,8 +625,10 @@ export interface CompetitionEntryAccompaniment {
 export interface CompetitionFinalSongsPair {
   firstSong: string
   secondSong: string
-  /** 第二首已上传的背景视频文件名；后台据此显示「已传/未传」，不含签名地址。 */
+  /** 第二首已上传的背景视频文件名；后台据此显示「已传/未传」。 */
   secondVideoName: string | null
+  /** 第二首背景视频（MP4/ZIP）的临时签名地址，后台点「观看」直接播放/下载；没传为 null。 */
+  secondVideo: CompetitionEntryAccompaniment | null
   revision: number
 }
 

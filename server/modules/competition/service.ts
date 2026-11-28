@@ -6376,11 +6376,14 @@ function readFinalSongsForEvent(
     .all()
   const result = new Map<string, CompetitionFinalSongsPair>()
   for (const row of rows) {
-    const pair = result.get(row.singerId) ?? { firstSong: '', secondSong: '', secondVideoName: null, revision: 0 }
+    const pair = result.get(row.singerId)
+      ?? { firstSong: '', secondSong: '', secondVideoName: null, secondVideo: null, revision: 0 }
     if (row.slot === 1) pair.firstSong = row.song
     else if (row.slot === 2) {
       pair.secondSong = row.song
       pair.secondVideoName = row.videoName ?? null
+      // 后台名单要能直接观看第二首背景视频，签名地址跟伴奏走同一套序列化。
+      pair.secondVideo = finalSongVideoOf(row)
     }
     pair.revision = Math.max(pair.revision, Number(row.version ?? 0))
     result.set(row.singerId, pair)

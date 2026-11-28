@@ -348,6 +348,20 @@ function openAccompaniment(entry: CompetitionRoundEntry): void {
   accompanimentPreviewOpen.value = true
 }
 
+/** 决赛第二首背景视频挂在两首歌表上，不在出场记录里；观看复用同一个预览弹窗。 */
+function openFinalVideo(entry: CompetitionRoundEntry): void {
+  const video = entry.finalSongs?.secondVideo
+  if (!video) return
+  accompanimentPreview.value = {
+    name: video.name,
+    url: video.url,
+    size: video.size,
+    updatedAt: null,
+    original: null
+  }
+  accompanimentPreviewOpen.value = true
+}
+
 const liveRefreshing = ref(false)
 let liveTimer: ReturnType<typeof setInterval> | null = null
 
@@ -2172,7 +2186,20 @@ onBeforeUnmount(stopLiveRefresh)
                         <span
                           v-if="activeRound?.key === 'final' && entry.finalSongs?.secondVideoName"
                           class="ml-1 text-[11px] text-zinc-400"
-                        >{{ entry.finalSongs.secondVideoName }}</span>
+                        >{{ entry.finalSongs.secondVideoName }}<span v-if="entry.finalSongs.secondVideo?.size"> · {{ accompanimentSize(entry.finalSongs.secondVideo.size) }}</span></span>
+                        <button
+                          v-if="activeRound?.key === 'final' && entry.finalSongs?.secondVideo"
+                          type="button"
+                          class="ml-1 inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                          :aria-label="accompanimentKind(entry.finalSongs.secondVideo.name) === 'zip' ? '下载第二首压缩包' : '观看第二首背景视频'"
+                          @click="openFinalVideo(entry)"
+                        >
+                          <UIcon
+                            name="i-lucide-play"
+                            class="size-3"
+                          />
+                          {{ accompanimentKind(entry.finalSongs.secondVideo.name) === 'zip' ? '下载' : '观看' }}
+                        </button>
                         <span
                           v-if="activeRound?.key === 'final2'"
                           class="text-[11px] text-zinc-400"
