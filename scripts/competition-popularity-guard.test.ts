@@ -18,6 +18,7 @@ import {
 } from '../server/modules/competition/popularity-guard'
 import {
   maybeTriggerAutoPopularityInspection,
+  isPopularitySoloVoteSafe,
   POPULARITY_TAIL_IDLE_MS,
   preparePopularityInspection,
   readPopularityInspectionBacklog,
@@ -54,6 +55,7 @@ import {
   verifyPopularityWechatTicket
 } from '../server/utils/competition-popularity'
 import { hashOpaqueToken } from '../server/utils/security'
+import type { PopularityInspectionDigest } from '../server/modules/competition/popularity-inspector'
 import type { H3Event } from 'h3'
 import { createApp, createError, createRouter, eventHandler, getHeader, getMethod, getRequestURL, readRawBody, setHeader, toWebHandler } from 'h3'
 import { handlePopularityVote } from '../server/modules/competition/popularity-vote'
@@ -1260,6 +1262,56 @@ test('孤立票护栏不放过代理池：每个出口只出现一次，靠同�
   assert.equal(result.autoVoidedCount, 3, '换出口连投同一选手的簇必须整片作废，不能被「每出口只一票」放过')
 
   cleanup(client, path)
+})
+
+test('孤立票判据单测：同出口无邻居、同选手无簇才算孤立', () => {
+  const log = (seq: number, atMs: number, extra: Partial<PopularityInspectionDigest['logs'][number]> = {}) => ({
+    seq,
+    at: '00:00:00',
+    atMs,
+    action: 'cast',
+    blockCode: null,
+    singer: '林敬凯',
+    prevSinger: null,
+    dwellMs: 2400,
+    cookiePresent: true,
+    ua: 'iOS/WeChat',
+    device: `dev-${seq}`,
+    ip: `ip-${seq}`,
+    env: `env-${seq}`,
+    fp: `fp-${seq}`,
+    qr: null,
+    score: 52,
+    status: 'valid' as const,
+    wechatVerified: false,
+    adminProtected: false,
+    ipBurst: 1,
+    ipGapMs: null,
+    reasons: [],
+    ...extra
+  })
+  const base = 1_795_891_000_000
+
+  assert.equal(
+    isPopularitySoloVoteSafe(log(1, base), [log(1, base), log(2, base + 14 * 60_000)]),
+    true,
+    '隔了 14 分钟才来的一票，周边没有同出口邻居、同选手也没有簇，必须豁免'
+  )
+  assert.equal(
+    isPopularitySoloVoteSafe(log(1, base), [log(1, base), log(2, base + 3_000), log(3, base + 6_000)]),
+    false,
+    '三票换三个出口三秒内投同一选手，属于代理池簇，不许豁免'
+  )
+  assert.equal(
+    isPopularitySoloVoteSafe(log(1, base, { ipBurst: 3 }), [log(1, base, { ipBurst: 3 })]),
+    false,
+    '同出口窗口内已有 3 条日志，属于爆发'
+  )
+  assert.equal(
+    isPopularitySoloVoteSafe(log(1, base, { score: 88 }), [log(1, base, { score: 88 })]),
+    false,
+    '分数到 80 以上直接可作废'
+  )
 })
 
 test('巡检水位：尾巴静止超过阈值才补扫，投票进行中不打断当场节奏', async () => {

@@ -44,6 +44,8 @@ export interface PopularityInspectionDigest {
   logs: Array<{
     seq: number
     at: string
+    /** 原始毫秒时间戳：at 只是给人看的本地时间字符串，跨日志聚类必须用它。 */
+    atMs: number
     action: string
     blockCode: string | null
     singer: string
@@ -404,6 +406,7 @@ export function preparePopularityInspection(
       return {
         seq: Number(row.seq),
         at: new Date(Number(row.createdAt)).toLocaleTimeString('zh-CN', { hour12: false }),
+        atMs: Number(row.createdAt),
         action: row.action,
         blockCode: row.blockCode,
         singer: row.singerId ? (singerNameById.get(row.singerId) ?? '未知') : '—',
@@ -519,15 +522,9 @@ export function isPopularitySoloVoteSafe(
   if (log.ipBurst >= POPULARITY_IP_BURST_MIN_LOGS) return false
 
   // 代理池刷票每个出口只出现一次，ipBurst 恒为 1；真正露馅的是「同一选手在几十秒内被灌了好几票」。
-  const at = Date.parse(log.at)
-  if (Number.isFinite(at)) {
-    const sameSingerBurst = batchLogs.filter((item) => {
-      if (item.singer !== log.singer) return false
-      const other = Date.parse(item.at)
-      return Number.isFinite(other) && Math.abs(other - at) <= POPULARITY_IP_BURST_WINDOW_MS
-    }).length
-    if (sameSingerBurst >= POPULARITY_SINGER_BURST_MIN_LOGS) return false
-  }
+  const sameSingerBurst = batchLogs.filter(item => item.singer === log.singer
+    && Math.abs(item.atMs - log.atMs) <= POPULARITY_IP_BURST_WINDOW_MS).length
+  if (sameSingerBurst >= POPULARITY_SINGER_BURST_MIN_LOGS) return false
 
   const countLabel = (pick: (item: PopularityInspectionDigest['logs'][number]) => string | null): number => {
     const value = pick(log)
