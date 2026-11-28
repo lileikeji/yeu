@@ -18,8 +18,11 @@ import {
 } from '../server/modules/competition/popularity-guard'
 import {
   maybeTriggerAutoPopularityInspection,
+  POPULARITY_TAIL_IDLE_MS,
   preparePopularityInspection,
-  runPopularityInspectionNow
+  readPopularityInspectionBacklog,
+  runPopularityInspectionNow,
+  sweepPopularityInspectionBacklog
 } from '../server/modules/competition/popularity-inspector'
 import { handleWechatMpPopularityMessage } from '../server/modules/competition/popularity-wechat'
 import {
@@ -1053,5 +1056,134 @@ test('共用出口免误伤：礼堂同一 WiFi 下 6 台不同手机构成聚�
      WHERE event_id = ? AND quarantined = 1 AND device_hash LIKE 'crowd-device-%'`
   ).get(event.id) as { n: number }
   assert.equal(crowdFrozen.n, 0, '回溯连坐不能冻结同一出口下的其他正常观众')
+  cleanup(client, path)
+})
+
+function tailSweepFetch(flaggedBatches: number[][]): { fetchImpl: typeof fetch, calls: () => number } {
+  let call = 0
+  const fetchImpl: typeof fetch = async () => {
+    const seqs = flaggedBatches[call] ?? []
+    call += 1
+    return new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            verdict: 'suspect',
+            confidence: 95,
+            estimatedBrushCount: seqs.length,
+            headline: `seq ${seqs.join(',')} 同出口免核验连投`,
+            findings: ['同 IP 换设备连投同一选手，全部未微信核验'],
+            flaggedSeqs: seqs,
+            releaseSeqs: [],
+            memoryNote: '同出口连投'
+          })
+        }
+      }]
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }
+  return { fetchImpl, calls: () => call }
+}
+
+test('巡检水位：脚本停止后不足一批的尾巴必须由补扫作废，不能烂在库里', async () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const singerA = singers[0]!
+  const sharedIp = popularityIpHash('secret-9', '203.0.113.7')
+
+  // 先 20 条够一批，脚本又灌了 7 条后被掐断：这 7 条就是线上 2026-11-28 的漏检形态
+  for (let i = 0; i < 20; i += 1) {
+    recordPopularityBallot(client, event.id, `tail-dev-${i}`, singerA.id, 0, sharedIp, {
+      uaSummary: 'Android/Chrome',
+      envHash: `tail-env-${i}`,
+      clientFp: `tail-fp-${i}`,
+      dwellMs: 1500,
+      cookiePresent: true,
+      missingFetchMeta: false
+    })
+  }
+
+  const config = { baseUrl: 'http://127.0.0.1:18080', apiKey: 'k', model: 'm', timeoutMs: 10_000 }
+  const mock = tailSweepFetch([[1, 2, 3], [21, 22, 23]])
+
+  const firstBatch = maybeTriggerAutoPopularityInspection(client, event.id, config, { fetchImpl: mock.fetchImpl })
+  assert.ok(firstBatch, '满 20 条应照常触发第一批自动巡检')
+  await firstBatch
+
+  for (let i = 20; i < 27; i += 1) {
+    recordPopularityBallot(client, event.id, `tail-dev-${i}`, singerA.id, 0, sharedIp, {
+      uaSummary: 'Android/Chrome',
+      envHash: `tail-env-${i}`,
+      clientFp: `tail-fp-${i}`,
+      dwellMs: 1500,
+      cookiePresent: true,
+      missingFetchMeta: false
+    })
+  }
+
+  const backlog = readPopularityInspectionBacklog(client, event.id)
+  assert.equal(backlog.latestSeq, 27)
+  assert.equal(backlog.lastToSeq, 20)
+  assert.equal(backlog.pendingCount, 7, '第一批之后 seq 21-27 仍是无人巡检的尾巴')
+  assert.equal(getPopularityAdminState(client, event.id).voidedVotes, 3, '第一批只作废了它覆盖到的 seq 1-3')
+
+  const swept = await sweepPopularityInspectionBacklog(client, event.id, config, { fetchImpl: mock.fetchImpl })
+  assert.equal(swept.batches, 1)
+  assert.equal(swept.inspected, 7, '补扫必须把 21-27 全部纳入 digest')
+  assert.equal(swept.voided, 3, '补扫应作废它标记的 3 票')
+  assert.equal(readPopularityInspectionBacklog(client, event.id).pendingCount, 0, '补扫后水位必须追上最新 seq')
+  assert.equal(getPopularityAdminState(client, event.id).voidedVotes, 6)
+
+  // 无积压时不得白烧一次模型调用
+  const idle = await sweepPopularityInspectionBacklog(client, event.id, config, { fetchImpl: mock.fetchImpl })
+  assert.equal(idle.batches, 0)
+  assert.equal(mock.calls(), 2)
+
+  cleanup(client, path)
+})
+
+test('巡检水位：尾巴静止超过阈值才补扫，投票进行中不打断当场节奏', async () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const singerA = singers[0]!
+  const sharedIp = popularityIpHash('secret-10', '203.0.113.8')
+
+  for (let i = 0; i < 7; i += 1) {
+    recordPopularityBallot(client, event.id, `tail2-dev-${i}`, singerA.id, 0, sharedIp, {
+      uaSummary: 'Android/Chrome',
+      envHash: `tail2-env-${i}`,
+      clientFp: `tail2-fp-${i}`,
+      dwellMs: 1500,
+      cookiePresent: true,
+      missingFetchMeta: false
+    })
+  }
+
+  const config = { baseUrl: 'http://127.0.0.1:18080', apiKey: 'k', model: 'm', timeoutMs: 10_000 }
+  const mock = tailSweepFetch([[1, 2, 3, 4, 5, 6, 7]])
+  const backlog = readPopularityInspectionBacklog(client, event.id)
+  assert.equal(backlog.pendingCount, 7)
+
+  assert.equal(
+    maybeTriggerAutoPopularityInspection(client, event.id, config, {
+      fetchImpl: mock.fetchImpl,
+      allowTailSweep: true,
+      now: backlog.lastLogAt + 1
+    }),
+    null,
+    '尾巴刚写入、尚未静止时不应触发补扫'
+  )
+
+  const tail = maybeTriggerAutoPopularityInspection(client, event.id, config, {
+    fetchImpl: mock.fetchImpl,
+    allowTailSweep: true,
+    now: backlog.lastLogAt + POPULARITY_TAIL_IDLE_MS + 1
+  })
+  assert.ok(tail, '尾巴静止超过阈值后应补扫')
+  await tail
+  assert.equal(readPopularityInspectionBacklog(client, event.id).pendingCount, 0)
+  assert.equal(getPopularityAdminState(client, event.id).voidedVotes, 7)
+
   cleanup(client, path)
 })

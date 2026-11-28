@@ -590,46 +590,96 @@ export async function runPopularityInspectionNow(
   return savePopularityInspectionResult(client, eventId, input, prepared, parsed, config.model)
 }
 
-/**
- * 每满 20 条新增投票日志时在后台自动启动微批巡检；另有两条加急通道：
- * 产生实时冻结且未检积压 >= 3 条，或出现「聚集但无机器证据」的高危未冻票且积压 >= 5 条。
- * 加急通道带 45 秒冷却，避免一次刷票把巡检调用打成洪水。巡检结论会直接自动作废确认刷票或放行正常冻结票。
- */
-export function maybeTriggerAutoPopularityInspection(
-  client: DatabaseClient,
-  eventId: string,
-  config: CompetitionInsightConfig | null,
-  options: { fetchImpl?: typeof fetch, hasNewQuarantined?: boolean, hasHighRiskPending?: boolean } = {}
-): Promise<void> | null {
-  if (!config) return null
-  const seqRow = client.sqlite.prepare(
-    'SELECT COALESCE(MAX(seq), 0) AS maxSeq FROM competition_popularity_vote_logs WHERE event_id = ?'
-  ).get(eventId) as { maxSeq: number } | undefined
-  const latestSeq = Number(seqRow?.maxSeq ?? 0)
-  if (latestSeq <= 0) return null
+/** 尾巴静止多久之后补扫：一次刷票脚本停止后，剩下的零头必须有人接着检。 */
+export const POPULARITY_TAIL_IDLE_MS = 10_000
+/** 积压时单批上限，与 digest 的 MAX_LOGS_IN_PROMPT 对齐；再大就会截断日志。 */
+export const POPULARITY_SWEEP_BATCH_SIZE = MAX_LOGS_IN_PROMPT
 
+export interface PopularityInspectionBacklog {
+  latestSeq: number
+  lastToSeq: number
+  pendingCount: number
+  lastLogAt: number
+}
+
+/** 巡检水位：auto-batch 已覆盖到哪一条，还剩多少条从没进过任何批次。 */
+export function readPopularityInspectionBacklog(
+  client: DatabaseClient,
+  eventId: string
+): PopularityInspectionBacklog {
+  const logRow = client.sqlite.prepare(
+    `SELECT COALESCE(MAX(seq), 0) AS maxSeq, COALESCE(MAX(created_at), 0) AS lastAt
+     FROM competition_popularity_vote_logs WHERE event_id = ?`
+  ).get(eventId) as { maxSeq: number, lastAt: number } | undefined
+  const latestSeq = Number(logRow?.maxSeq ?? 0)
   const lastRow = client.sqlite.prepare(
     `SELECT COALESCE(MAX(to_seq), 0) AS lastToSeq FROM competition_popularity_inspections
      WHERE event_id = ? AND mode = 'auto-batch'`
   ).get(eventId) as { lastToSeq: number } | undefined
   const lastToSeq = Number(lastRow?.lastToSeq ?? 0)
-  const pendingCount = latestSeq - lastToSeq
+  return {
+    latestSeq,
+    lastToSeq,
+    pendingCount: Math.max(0, latestSeq - lastToSeq),
+    lastLogAt: Number(logRow?.lastAt ?? 0)
+  }
+}
+
+/**
+ * 每满 20 条新增投票日志时在后台自动启动微批巡检；另有两条加急通道：
+ * 产生实时冻结且未检积压 >= 3 条，或出现「聚集但无机器证据」的高危未冻票且积压 >= 5 条。
+ * 加急通道带 45 秒冷却，避免一次刷票把巡检调用打成洪水。巡检结论会直接自动作废确认刷票或放行正常冻结票。
+ *
+ * 触发只挂在投票请求上：脚本一停，最后不足一批的尾巴就永远排不上队，事后也不会有人补扫
+ * （2026-11-28 线上 80 票因此从未进入巡检）。allowTailSweep 打开后，只要最后一条日志静止超过
+ * POPULARITY_TAIL_IDLE_MS，就用一次带冷却的补扫把尾巴清掉。
+ */
+export function maybeTriggerAutoPopularityInspection(
+  client: DatabaseClient,
+  eventId: string,
+  config: CompetitionInsightConfig | null,
+  options: {
+    fetchImpl?: typeof fetch
+    hasNewQuarantined?: boolean
+    hasHighRiskPending?: boolean
+    allowTailSweep?: boolean
+    now?: number
+  } = {}
+): Promise<void> | null {
+  if (!config) return null
+  const backlog = readPopularityInspectionBacklog(client, eventId)
+  const latestSeq = backlog.latestSeq
+  const lastToSeq = backlog.lastToSeq
+  const pendingCount = backlog.pendingCount
+  if (latestSeq <= 0) return null
+
+  const now = options.now ?? Date.now()
+  const idleMs = backlog.lastLogAt > 0 ? now - backlog.lastLogAt : 0
   const fastQuarantineTrigger = Boolean(options.hasNewQuarantined) && pendingCount >= 3
   const fastRiskTrigger = Boolean(options.hasHighRiskPending) && pendingCount >= 5
-  if (pendingCount < POPULARITY_AUTO_BATCH_SIZE && !fastQuarantineTrigger && !fastRiskTrigger) return null
+  const tailSweepTrigger = Boolean(options.allowTailSweep)
+    && pendingCount > 0
+    && idleMs >= POPULARITY_TAIL_IDLE_MS
+  if (
+    pendingCount < POPULARITY_AUTO_BATCH_SIZE
+    && !fastQuarantineTrigger
+    && !fastRiskTrigger
+    && !tailSweepTrigger
+  ) return null
 
-  if ((fastQuarantineTrigger || fastRiskTrigger) && pendingCount < POPULARITY_AUTO_BATCH_SIZE) {
+  if ((fastQuarantineTrigger || fastRiskTrigger || tailSweepTrigger) && pendingCount < POPULARITY_AUTO_BATCH_SIZE) {
     const lastAutoRow = client.sqlite.prepare(
       `SELECT COALESCE(MAX(created_at), 0) AS lastAt FROM competition_popularity_inspections
        WHERE event_id = ? AND trigger_source = 'auto'`
     ).get(eventId) as { lastAt: number } | undefined
-    if (Date.now() - Number(lastAutoRow?.lastAt ?? 0) < POPULARITY_FAST_INSPECTION_COOLDOWN_MS) return null
+    if (now - Number(lastAutoRow?.lastAt ?? 0) < POPULARITY_FAST_INSPECTION_COOLDOWN_MS) return null
   }
 
   const fromSeq = lastToSeq + 1
-  const toSeq = pendingCount >= POPULARITY_AUTO_BATCH_SIZE
-    ? lastToSeq + POPULARITY_AUTO_BATCH_SIZE
-    : latestSeq
+  const batchSize = pendingCount >= POPULARITY_AUTO_BATCH_SIZE
+    ? POPULARITY_SWEEP_BATCH_SIZE
+    : pendingCount
+  const toSeq = Math.min(latestSeq, fromSeq + batchSize - 1)
   const jobKey = `auto:${eventId}:${fromSeq}-${toSeq}`
   const { promise } = ensurePopularityInspectionJob(eventId, jobKey, 'auto-batch', config.model, async () => {
     const result = await runPopularityInspectionNow(client, eventId, config, {
@@ -642,4 +692,55 @@ export function maybeTriggerAutoPopularityInspection(
     return Boolean(result)
   })
   return promise
+}
+
+export interface PopularityInspectionSweepResult {
+  batches: number
+  inspected: number
+  voided: number
+}
+
+/**
+ * 把水位之后积压的日志成批补扫完（每批 POPULARITY_SWEEP_BATCH_SIZE 条，串行）。
+ *
+ * 为什么需要它：自动巡检只在投票请求里被动触发，脚本 3 票/秒 时模型一次 3-6 秒，
+ * 积压只会越滚越大；投票一停，尾巴彻底没人管。这里由进程内的定时器驱动，
+ * 与请求路径解耦，单次最多 maxBatches 批，AI 返回失败立即停下等下一轮。
+ */
+export async function sweepPopularityInspectionBacklog(
+  client: DatabaseClient,
+  eventId: string,
+  config: CompetitionInsightConfig | null,
+  options: { fetchImpl?: typeof fetch, maxBatches?: number } = {}
+): Promise<PopularityInspectionSweepResult> {
+  const summary: PopularityInspectionSweepResult = { batches: 0, inspected: 0, voided: 0 }
+  if (!config) return summary
+  const maxBatches = Math.max(1, options.maxBatches ?? 2)
+  while (summary.batches < maxBatches) {
+    const backlog = readPopularityInspectionBacklog(client, eventId)
+    if (backlog.pendingCount <= 0) break
+    const fromSeq = backlog.lastToSeq + 1
+    const toSeq = Math.min(backlog.latestSeq, fromSeq + POPULARITY_SWEEP_BATCH_SIZE - 1)
+    const holder: { item: CompetitionPopularityInspectionItem | null } = { item: null }
+    const jobKey = `auto:${eventId}:${fromSeq}-${toSeq}`
+    const { promise, job } = ensurePopularityInspectionJob(eventId, jobKey, 'auto-batch', config.model, async () => {
+      const item = await runPopularityInspectionNow(client, eventId, config, {
+        mode: 'auto-batch',
+        triggerSource: 'auto',
+        adminId: null,
+        fromSeq,
+        toSeq
+      }, options)
+      holder.item = item
+      return Boolean(item)
+    })
+    await promise
+    const item = holder.item
+    // 同一区间已有在跑的批次（投票请求抢先触发）时不重复计数，留给下一轮。
+    if (job.state !== 'done' || !item) break
+    summary.batches += 1
+    summary.inspected += item.logCount
+    summary.voided += item.autoVoidedCount
+  }
+  return summary
 }
