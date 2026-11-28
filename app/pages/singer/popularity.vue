@@ -576,9 +576,10 @@ async function voteFromSheet(singerId: string, anchorEl?: HTMLElement | null): P
 /** 访问埋点：页面打开打一发，服务端负责拆设备/浏览器并区分公众号来源。 */async function reportVisit(): Promise<void> {
   try {
     const vt = readWechatTicket()
+    const env = collectClientEnv()
     await plainFetch<{ ok: boolean }>('/api/public/competition/popularity/visit', {
       method: 'POST',
-      body: { page: 'vote', ...(vt ? { vt } : {}) }
+      body: { page: 'vote', ...(vt ? { vt } : {}), ...(env ? { env } : {}) }
     })
   } catch {
     // 埋点失败不影响阅读与投票。
@@ -587,10 +588,11 @@ async function voteFromSheet(singerId: string, anchorEl?: HTMLElement | null): P
 
 onMounted(async () => {
   await syncWechatTicketFromLocation()
+  // 先把指纹算好：访问埋点与投票要共用同一份环境特征，否则两次 env 哈希不一致。
+  primePopularityFingerprint()
   void reportVisit()
   void load()
   void syncWechatShare()
-  primePopularityFingerprint()
   timer = setInterval(() => {
     now.value = Date.now()
   }, 1000)

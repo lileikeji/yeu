@@ -1532,11 +1532,16 @@ export const competitionPopularityVisits = sqliteTable('competition_popularity_v
   hasTicket: integer('has_ticket', { mode: 'boolean' }).notNull().default(false),
   visitorKey: text('visitor_key').notNull().default(''),
   referer: text('referer').notNull().default(''),
+  /** 与选票同算法的 IP HMAC，用来把「访问」和「投票」对齐到同一来源。 */
+  ipHash: text('ip_hash'),
+  /** 浏览器环境软特征哈希；仅落库供后台聚类，不参与投票判定。 */
+  envHash: text('env_hash'),
   createdAt: timestamp('created_at')
 }, table => [
   index('competition_popularity_visits_event_created_idx').on(table.eventId, table.createdAt),
   index('competition_popularity_visits_source_created_idx').on(table.source, table.createdAt),
-  index('competition_popularity_visits_visitor_created_idx').on(table.visitorKey, table.createdAt)
+  index('competition_popularity_visits_visitor_created_idx').on(table.visitorKey, table.createdAt),
+  index('competition_popularity_visits_event_iphash_created_idx').on(table.eventId, table.ipHash, table.createdAt)
 ])
 
 /** 人气奖新关注流水：一个 openid 只计一次，用来算「新关注量」与关注→投票转化。 */

@@ -10,7 +10,7 @@ import {
   type PopularityVisitRange
 } from './popularity-visits'
 import { ensureCompetitionEvent, findMusicAssociationContent, getPopularitySettings } from './service'
-import { verifyPopularityWechatTicket } from '../../utils/competition-popularity'
+import { verifyPopularityWechatTicket, popularityEnvHash, popularityIpHash } from '../../utils/competition-popularity'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { useAppDatabase } from '../../utils/database'
 import { resolveGeoLocation } from '../../utils/geoip'
@@ -49,6 +49,9 @@ export async function handlePopularityVisit(event: H3Event, options: { requireBr
     })
   })
   const geo = resolveGeoLocation(event, ip)
+  // 与投票侧同一套 HMAC：后台才能把「打开页面」和「投出这一票」对齐到同一来源。
+  const ipHash = ip === 'unknown' ? null : popularityIpHash(security.secret, ip)
+  const envHash = popularityEnvHash(security.secret, event, input.env)
 
   recordPopularityVisit(client, {
     eventId: eventRow.id,
@@ -56,6 +59,8 @@ export async function handlePopularityVisit(event: H3Event, options: { requireBr
     source: input.page === 'miniapp' ? 'miniapp' : hasTicket ? 'wechat' : 'direct',
     hasTicket,
     ip,
+    ipHash,
+    envHash,
     country: geo.country ?? '',
     region: geo.region ?? '',
     city: geo.city ?? '',

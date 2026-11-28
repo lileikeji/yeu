@@ -244,6 +244,17 @@ export async function handlePopularityVote(
     rejectScript('TOO_FAST_SUBMIT', '操作过快，请确认选手后重新点击投票', dwellMs)
   }
 
+  // 「打开页面」与「投出这一票」是两条独立漏斗：这里只做同源 IP 的弱比对。
+  // 埋点会因广告拦截、隐私模式、旧缓存丢失，所以命中缺失只计入可疑度，不阻断。
+  const visitRow = ipHash
+    ? client.sqlite.prepare(
+        `SELECT count(*) AS n FROM competition_popularity_visits
+         WHERE event_id = ? AND page = 'vote' AND ip_hash = ?
+           AND created_at BETWEEN ? AND ?`
+      ).get(eventRow.id, ipHash, pageTicket!.issuedAt - 60_000, now) as { n: number } | undefined
+    : undefined
+  const noPageVisit = Boolean(ipHash) && Number(visitRow?.n ?? 0) === 0
+
   const state = recordPopularityBallot(
     client,
     eventRow.id,
@@ -261,6 +272,7 @@ export async function handlePopularityVote(
       qrAgeMs,
       qrRotateSeconds: settings.qrRotateSeconds,
       missingFetchMeta: !hasBrowserFetchMetadata(event),
+      noPageVisit,
       voterOpenidHash,
       webdriver: input.env?.wd === true,
       now

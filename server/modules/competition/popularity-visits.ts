@@ -161,6 +161,10 @@ export interface PopularityVisitInput {
   source: string
   hasTicket: boolean
   ip: string
+  /** 与选票同一 HMAC 算法；空值表示拿不到可信 IP。 */
+  ipHash?: string | null
+  /** 浏览器环境软特征哈希；小程序等无指纹场景为空。 */
+  envHash?: string | null
   country?: string
   region?: string
   city?: string
@@ -182,8 +186,8 @@ export function recordPopularityVisit(client: DatabaseClient, input: PopularityV
       INSERT INTO competition_popularity_visits (
         id, event_id, page, source, ip, country, region, city, user_agent,
         device_brand, device_model, os_name, os_version, browser_name, browser_version,
-        is_wechat, is_bot, has_ticket, visitor_key, referer, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_wechat, is_bot, has_ticket, visitor_key, referer, ip_hash, env_hash, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       randomUUID(),
       input.eventId,
@@ -205,6 +209,8 @@ export function recordPopularityVisit(client: DatabaseClient, input: PopularityV
       input.hasTicket ? 1 : 0,
       cleanText(input.visitorKey, 64),
       cleanText(input.referer, 512),
+      input.ipHash ?? null,
+      input.envHash ?? null,
       createdAt
     )
 

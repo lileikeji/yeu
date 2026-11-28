@@ -2711,6 +2711,8 @@ export interface PopularityVoteTelemetry {
   qrAgeMs?: number | null
   qrRotateSeconds?: number | null
   missingFetchMeta?: boolean
+  /** 页面票据有效期内没有同源页面访问记录；弱信号，只加分不冻结。 */
+  noPageVisit?: boolean
   voterOpenidHash?: string | null
   webdriver?: boolean
   autoQuarantineOverride?: boolean
@@ -2943,6 +2945,13 @@ function evaluateRealtimeBallotSuspicion(
   if (input.telemetry?.missingFetchMeta) {
     score += 20
     reasons.push('请求头缺少浏览器Fetch元数据')
+  }
+
+  // 「有投票无访问」只作弱信号：埋点是旁路，广告拦截、隐私模式、旧缓存都会让它丢，
+  // 因此单独计分且不设 behavioralEvidence，不把真人推进自动冻结。
+  if (input.telemetry?.noPageVisit) {
+    score += 25
+    reasons.push('页面无访问记录直投')
   }
 
   const qrAgeMs = input.telemetry?.qrAgeMs

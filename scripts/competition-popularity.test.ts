@@ -1004,3 +1004,48 @@ test('票数不公布但显示距离前一名差票（showRankGap）：隐藏票
 
   cleanup(client, path)
 })
+
+test('人气奖：页面无访问记录直投只加 25 分弱信号，不构成自动冻结证据', () => {
+  const { client, path } = temporaryDatabase()
+  runMigrations(client)
+  const { event, singers } = createFinalEvent(client)
+  openWindow(client, event.id, { authMode: 'device_strict', votesPerVoter: 1 })
+
+  const base = {
+    uaSummary: 'iOS/Safari',
+    dwellMs: 3000,
+    cookiePresent: true,
+    now: Date.now()
+  }
+  const read = (deviceHash: string) => client.sqlite.prepare(
+    'SELECT suspicion_score AS score, suspicion_reasons_json AS reasons, quarantined FROM competition_popularity_ballots WHERE device_hash = ?'
+  ).get(deviceHash) as { score: number, reasons: string, quarantined: number }
+
+  // 先访问后投票：不加分。
+  recordPopularityBallot(client, event.id, 'device-visited', singers[0]!.id, 0, null, { ...base, noPageVisit: false })
+  // 直接打投票接口、没有页面访问埋点：只加 25 分。
+  recordPopularityBallot(client, event.id, 'device-direct', singers[0]!.id, 0, null, { ...base, noPageVisit: true })
+
+  const visited = read('device-visited')
+  const direct = read('device-direct')
+  assert.equal(visited.score, 0)
+  assert.equal(direct.score, 25)
+  assert.equal(direct.score - visited.score, 25)
+  assert.equal(direct.reasons.includes('页面无访问记录直投'), true)
+  assert.equal(visited.reasons.includes('页面无访问记录直投'), false)
+  assert.equal(direct.quarantined, 0)
+
+  // 共用出口（同 IP 5 台设备，聚集 40 分）叠加无访问记录（25 分）合计 65 分已过 60 分冻结线，
+  // 但两者都不是机器证据，礼堂同一 WiFi 下的真实观众不能被自动冻结。
+  const crowdIp = popularityIpHash('popularity-test-secret', '203.0.113.9')
+  for (let index = 0; index < 5; index += 1) {
+    recordPopularityBallot(client, event.id, `crowd-device-${index}`, singers[0]!.id, 0, crowdIp, { ...base, noPageVisit: true })
+  }
+  const crowd = client.sqlite.prepare(
+    "SELECT suspicion_score AS score, quarantined FROM competition_popularity_ballots WHERE device_hash = 'crowd-device-4'"
+  ).get() as { score: number, quarantined: number }
+  assert.ok(crowd.score >= 60)
+  assert.equal(crowd.quarantined, 0)
+
+  cleanup(client, path)
+})

@@ -1722,7 +1722,9 @@ export const competitionPopularityVisitSchema = z.object({
   /** vote（手机投票页）| display（现场大屏）| miniapp（小程序） */
   page: z.enum(['vote', 'display', 'miniapp']).default('vote'),
   /** 公众号签发的专属票；带着它进来就算「从公众号进」。 */
-  vt: z.string().trim().min(20).max(2000).optional()
+  vt: z.string().trim().min(20).max(2000).optional(),
+  /** 页面环境软特征：服务端据此补 ip_hash / env_hash，供「有投票无访问」比对。 */
+  env: competitionPopularityVoteEnvSchema.optional()
 }).strict()
 
 export const competitionPopularityVisitQuerySchema = z.object({
