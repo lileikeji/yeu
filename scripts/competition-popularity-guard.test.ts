@@ -1142,6 +1142,70 @@ test('巡检水位：脚本停止后不足一批的尾巴必须由补扫作废�
   cleanup(client, path)
 })
 
+test('孤立票护栏：脚本收手 14 分钟后真人补投的一票，不因「同IP集中」被整片连坐作废', async () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const singerA = singers[0]!
+  const sharedIp = popularityIpHash('secret-11', '203.0.113.9')
+
+  // 6 票机器洪流（10 秒节拍）
+  for (let i = 0; i < 6; i += 1) {
+    recordPopularityBallot(client, event.id, `solo-bot-${i}`, singerA.id, 0, sharedIp, {
+      uaSummary: 'Android/Chrome',
+      envHash: `solo-bot-env-${i}`,
+      clientFp: `solo-bot-fp-${i}`,
+      dwellMs: 800,
+      cookiePresent: false
+    })
+  }
+  // 第 7 票：真人隔了 14 分钟才来，同一出口、带 cookie、停留正常
+  recordPopularityBallot(client, event.id, 'solo-real-user', singerA.id, 0, sharedIp, {
+    uaSummary: 'iOS/WeChat',
+    envHash: 'solo-real-env',
+    dwellMs: 2400,
+    cookiePresent: true
+  })
+  client.sqlite.prepare(
+    'UPDATE competition_popularity_vote_logs SET created_at = ? WHERE event_id = ? AND seq = 7'
+  ).run(Date.now() - 14 * 60_000, event.id)
+
+  const config = { baseUrl: 'http://127.0.0.1:18080', apiKey: 'k', model: 'm', timeoutMs: 10_000 }
+  const mock: typeof fetch = async () => new Response(JSON.stringify({
+    choices: [{
+      message: {
+        content: JSON.stringify({
+          verdict: 'suspect',
+          confidence: 99,
+          estimatedBrushCount: 7,
+          headline: 'ip 同簇连投，尾票应作废',
+          findings: ['seq1-6 机器洪流', 'seq7 同簇尾巴'],
+          flaggedSeqs: [1, 2, 3, 4, 5, 6, 7],
+          releaseSeqs: [],
+          memoryNote: '同出口历史脏'
+        })
+      }
+    }]
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+  const result = await runPopularityInspectionNow(client, event.id, config, {
+    mode: 'singer-focus',
+    triggerSource: 'manual',
+    adminId: 'admin-1',
+    singerId: singerA.id
+  }, { fetchImpl: mock })
+
+  assert.ok(result)
+  assert.equal(result.autoVoidedCount, 6, '只作废 6 条机器洪流')
+  const solo = client.sqlite.prepare(
+    `SELECT voided, voided_by FROM competition_popularity_ballots WHERE device_hash = 'solo-real-user'`
+  ).get() as { voided: number, voided_by: string | null }
+  assert.equal(solo.voided, 0, '孤立真人票不得自动作废')
+  assert.equal(solo.voided_by, null)
+
+  cleanup(client, path)
+})
+
 test('巡检水位：尾巴静止超过阈值才补扫，投票进行中不打断当场节奏', async () => {
   const { client, path } = tempDb()
   runMigrations(client)

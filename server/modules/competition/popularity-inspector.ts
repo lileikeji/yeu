@@ -60,6 +60,10 @@ export interface PopularityInspectionDigest {
     status: 'valid' | 'quarantined' | 'voided' | 'blocked'
     wechatVerified: boolean
     adminProtected: boolean
+    /** 同一 ip 标签在前后 60 秒内的日志条数：>=5 才算「真爆发」，孤立 1 条不是。 */
+    ipBurst: number
+    /** 距同一 ip 上一条日志的间隔毫秒（该 ip 首条为 null）。 */
+    ipGapMs: number | null
     reasons: string[]
   }>
 }
@@ -78,6 +82,12 @@ export interface PopularityInspectionParsedResult {
 const MAX_LOGS_IN_PROMPT = 35
 const MAX_FINDINGS = 6
 const MAX_TEXT_LEN = 180
+/** 「爆发」判定窗口：同一出口在这个窗口内的日志条数才算同一片机器洪流。 */
+export const POPULARITY_IP_BURST_WINDOW_MS = 60_000
+/** 窗口内至少这么多条同出口日志才算爆发；单条/两条是真人，不是洪流。 */
+export const POPULARITY_IP_BURST_MIN_LOGS = 5
+/** 孤立票要自动作废，自身分数必须硬到这一档，否则交人工。 */
+export const POPULARITY_SOLO_VOID_SCORE_FLOOR = 80
 
 export const POPULARITY_INSPECTOR_PROMPT = `你是仰恩大学歌手大赛人气奖投票的风控日志巡检与自动执法员。
 输入包含：
@@ -408,9 +418,62 @@ export function preparePopularityInspection(
         status,
         wechatVerified: Boolean(ballot?.voterOpenidHash),
         adminProtected: ballot?.voidedBy === 'admin-restored',
+        ipBurst: 1,
+        ipGapMs: null,
         reasons
       }
     })
+  }
+
+  // 出口节奏：给每条日志补上「同 ip 前后 60 秒有几条」与「距同 ip 上一条多久」。
+  // 这两个数是把「整片爆发」和「爆发之后隔了十几分钟又冒出来的一票」分开的唯一依据：
+  // 2026-11-28 脚本刷完 14 分钟后真人补投的那一票，就是被「同 IP 集中」整片连坐作废的。
+  const timingWindow = {
+    from: Math.min(...selectedRows.map(r => Number(r.createdAt))) - POPULARITY_IP_BURST_WINDOW_MS,
+    to: Math.max(...selectedRows.map(r => Number(r.createdAt))) + POPULARITY_IP_BURST_WINDOW_MS
+  }
+  const ipHashes = Array.from(new Set(
+    selectedRows.map(r => r.ipHash).filter((hash): hash is string => Boolean(hash))
+  ))
+  const ipTimeline = ipHashes.length > 0
+    ? client.db.select({
+        seq: competitionPopularityVoteLogs.seq,
+        ipHash: competitionPopularityVoteLogs.ipHash,
+        createdAt: competitionPopularityVoteLogs.createdAt
+      })
+        .from(competitionPopularityVoteLogs)
+        .where(and(
+          eq(competitionPopularityVoteLogs.eventId, eventId),
+          inArray(competitionPopularityVoteLogs.ipHash, ipHashes),
+          gte(competitionPopularityVoteLogs.createdAt, timingWindow.from - 60 * 60_000),
+          lte(competitionPopularityVoteLogs.createdAt, timingWindow.to)
+        ))
+        .orderBy(asc(competitionPopularityVoteLogs.createdAt))
+        .all()
+    : []
+  const timesByIp = new Map<string, number[]>()
+  for (const item of ipTimeline) {
+    const ip = String(item.ipHash ?? '')
+    if (!ip) continue
+    const bucket = timesByIp.get(ip) ?? []
+    bucket.push(Number(item.createdAt))
+    timesByIp.set(ip, bucket)
+  }
+  const selectedBySeq = new Map(selectedRows.map(row => [Number(row.seq), row]))
+  for (const log of digest.logs) {
+    const row = selectedBySeq.get(log.seq)
+    const ip = String(row?.ipHash ?? '')
+    const times = ip ? (timesByIp.get(ip) ?? []) : []
+    if (times.length === 0) continue
+    const at = Number(row?.createdAt ?? 0)
+    let burst = 0
+    let gapMs: number | null = null
+    for (const stamp of times) {
+      if (stamp >= at - POPULARITY_IP_BURST_WINDOW_MS && stamp <= at + POPULARITY_IP_BURST_WINDOW_MS) burst += 1
+      if (stamp < at && (gapMs === null || at - stamp < gapMs)) gapMs = at - stamp
+    }
+    log.ipBurst = burst
+    log.ipGapMs = gapMs
   }
 
   // 出口聚合：校园网会把整场观众 NAT 到少数几个公网 IP，
@@ -436,6 +499,33 @@ export function preparePopularityInspection(
     logCount: selectedRows.length,
     digest
   }
+}
+
+/**
+ * 孤立票判定：这一票周边没有同出口洪流，自身也没有机器证据时，不许自动作废。
+ *
+ * 2026-11-28 线上：脚本 02:38:55 收手，真人 02:53:23 用同一出口正常投了一票，
+ * 因为「同 IP 集中投该选手」继续累加，被巡检整片连坐作废。判据必须落在
+ * 「这一票自己有没有机器证据」上，而不是「它所在的出口历史脏不脏」。
+ */
+export function isPopularitySoloVoteSafe(
+  log: PopularityInspectionDigest['logs'][number],
+  batchLogs: PopularityInspectionDigest['logs']
+): boolean {
+  if (log.status === 'quarantined') return false
+  if (log.score >= POPULARITY_SOLO_VOID_SCORE_FLOOR) return false
+  if (log.ipBurst >= POPULARITY_IP_BURST_MIN_LOGS) return false
+
+  const countLabel = (pick: (item: PopularityInspectionDigest['logs'][number]) => string | null): number => {
+    const value = pick(log)
+    if (!value) return 0
+    return batchLogs.filter(item => pick(item) === value).length
+  }
+  const machineEvidence = countLabel(item => item.device) > 1
+    || countLabel(item => item.env) > 1
+    || countLabel(item => item.fp) > 1
+    || countLabel(item => item.qr) > 1
+  return !machineEvidence
 }
 
 export function savePopularityInspectionResult(
@@ -481,9 +571,31 @@ export function savePopularityInspectionResult(
 
     if (aiAutoModerate) {
       const flaggedSet = new Set(parsed.flaggedSeqs)
-      const voidTargetIds = (parsed.verdict === 'suspect' || parsed.confidence >= 65)
-        ? flaggedBallotIds
+      // 孤立票护栏：模型很容易把「爆发之后隔了十几分钟又冒出来的一票」当成同簇尾巴。
+      // 只有同出口真爆发（窗口内 >=5 条）、或这一票自带机器证据（同设备/同环境/同指纹重复、
+      // 已被实时冻结、分数硬到 SOLO_VOID_SCORE_FLOOR），才允许自动作废；否则记下来交人工。
+      const soloSkipped: number[] = []
+      const voidableSeqs = (parsed.verdict === 'suspect' || parsed.confidence >= 65)
+        ? parsed.flaggedSeqs.filter((seq) => {
+            const item = prepared.digest.logs.find(log => log.seq === seq)
+            if (!item) return false
+            if (isPopularitySoloVoteSafe(item, prepared.digest.logs)) {
+              soloSkipped.push(seq)
+              return false
+            }
+            return true
+          })
         : []
+      if (soloSkipped.length > 0) {
+        console.warn(`[popularity-inspector] 跳过孤立票自动作废 seq=${soloSkipped.join(',')}（同出口无爆发、无机器证据）`)
+      }
+      const voidableSet = new Set(voidableSeqs)
+      const voidTargetIds = Array.from(new Set(
+        parsed.flaggedSeqs
+          .filter(seq => voidableSet.has(seq))
+          .map(seq => ballotBySeq.get(seq) ?? null)
+          .filter((bid): bid is string => Boolean(bid))
+      ))
 
       if (voidTargetIds.length > 0) {
         const placeholders = voidTargetIds.map(() => '?').join(', ')
