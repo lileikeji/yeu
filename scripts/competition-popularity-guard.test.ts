@@ -1206,6 +1206,62 @@ test('孤立票护栏：脚本收手 14 分钟后真人补投的一票，不因�
   cleanup(client, path)
 })
 
+test('孤立票护栏不放过代理池：每个出口只出现一次，靠同选手簇作废', async () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const singerA = singers[0]!
+
+  // 3 票三秒内投同一选手，但每票换一个出口（与线上刷票脚本一致），设备/环境/指纹全不重复
+  for (let i = 0; i < 3; i += 1) {
+    recordPopularityBallot(
+      client,
+      event.id,
+      `pool-dev-${i}`,
+      singerA.id,
+      0,
+      popularityIpHash('secret-12', `203.0.116.${i + 1}`),
+      {
+        uaSummary: 'Android/Chrome',
+        envHash: `pool-env-${i}`,
+        clientFp: `pool-fp-${i}`,
+        dwellMs: 2200,
+        cookiePresent: true
+      }
+    )
+  }
+
+  const config = { baseUrl: 'http://127.0.0.1:18080', apiKey: 'k', model: 'm', timeoutMs: 10_000 }
+  const mock: typeof fetch = async () => new Response(JSON.stringify({
+    choices: [{
+      message: {
+        content: JSON.stringify({
+          verdict: 'suspect',
+          confidence: 88,
+          estimatedBrushCount: 3,
+          headline: '同一选手三秒内被三个新出口灌票',
+          findings: ['seq1-3 换设备换出口连投同一选手'],
+          flaggedSeqs: [1, 2, 3],
+          releaseSeqs: [],
+          memoryNote: '代理池簇'
+        })
+      }
+    }]
+  }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+  const result = await runPopularityInspectionNow(client, event.id, config, {
+    mode: 'singer-focus',
+    triggerSource: 'manual',
+    adminId: 'admin-1',
+    singerId: singerA.id
+  }, { fetchImpl: mock })
+
+  assert.ok(result)
+  assert.equal(result.autoVoidedCount, 3, '换出口连投同一选手的簇必须整片作废，不能被「每出口只一票」放过')
+
+  cleanup(client, path)
+})
+
 test('巡检水位：尾巴静止超过阈值才补扫，投票进行中不打断当场节奏', async () => {
   const { client, path } = tempDb()
   runMigrations(client)

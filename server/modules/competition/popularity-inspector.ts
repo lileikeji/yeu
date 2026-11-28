@@ -84,8 +84,10 @@ const MAX_FINDINGS = 6
 const MAX_TEXT_LEN = 180
 /** 「爆发」判定窗口：同一出口在这个窗口内的日志条数才算同一片机器洪流。 */
 export const POPULARITY_IP_BURST_WINDOW_MS = 60_000
-/** 窗口内至少这么多条同出口日志才算爆发；单条/两条是真人，不是洪流。 */
-export const POPULARITY_IP_BURST_MIN_LOGS = 5
+/** 窗口内至少这么多条同出口日志才算爆发；单条是真人，两条起就可能是换设备连投。 */
+export const POPULARITY_IP_BURST_MIN_LOGS = 2
+/** 同一选手在窗口内的爆发条数：代理池刷票每个出口只出现一次，靠这条轴才抓得住。 */
+export const POPULARITY_SINGER_BURST_MIN_LOGS = 3
 /** 孤立票要自动作废，自身分数必须硬到这一档，否则交人工。 */
 export const POPULARITY_SOLO_VOID_SCORE_FLOOR = 80
 
@@ -516,6 +518,17 @@ export function isPopularitySoloVoteSafe(
   if (log.score >= POPULARITY_SOLO_VOID_SCORE_FLOOR) return false
   if (log.ipBurst >= POPULARITY_IP_BURST_MIN_LOGS) return false
 
+  // 代理池刷票每个出口只出现一次，ipBurst 恒为 1；真正露馅的是「同一选手在几十秒内被灌了好几票」。
+  const at = Date.parse(log.at)
+  if (Number.isFinite(at)) {
+    const sameSingerBurst = batchLogs.filter((item) => {
+      if (item.singer !== log.singer) return false
+      const other = Date.parse(item.at)
+      return Number.isFinite(other) && Math.abs(other - at) <= POPULARITY_IP_BURST_WINDOW_MS
+    }).length
+    if (sameSingerBurst >= POPULARITY_SINGER_BURST_MIN_LOGS) return false
+  }
+
   const countLabel = (pick: (item: PopularityInspectionDigest['logs'][number]) => string | null): number => {
     const value = pick(log)
     if (!value) return 0
@@ -572,8 +585,9 @@ export function savePopularityInspectionResult(
     if (aiAutoModerate) {
       const flaggedSet = new Set(parsed.flaggedSeqs)
       // 孤立票护栏：模型很容易把「爆发之后隔了十几分钟又冒出来的一票」当成同簇尾巴。
-      // 只有同出口真爆发（窗口内 >=5 条）、或这一票自带机器证据（同设备/同环境/同指纹重复、
-      // 已被实时冻结、分数硬到 SOLO_VOID_SCORE_FLOOR），才允许自动作废；否则记下来交人工。
+      // 只有同出口真爆发（窗口内 >=2 条）、同选手在窗口内被灌 >=3 票、或这一票自带机器证据
+      // （同设备/同环境/同指纹重复、已被实时冻结、分数硬到 SOLO_VOID_SCORE_FLOOR），
+      // 才允许自动作废；否则记下来交人工。
       const soloSkipped: number[] = []
       const voidableSeqs = (parsed.verdict === 'suspect' || parsed.confidence >= 65)
         ? parsed.flaggedSeqs.filter((seq) => {
@@ -587,7 +601,7 @@ export function savePopularityInspectionResult(
           })
         : []
       if (soloSkipped.length > 0) {
-        console.warn(`[popularity-inspector] 跳过孤立票自动作废 seq=${soloSkipped.join(',')}（同出口无爆发、无机器证据）`)
+        console.warn(`[popularity-inspector] 跳过孤立票自动作废 seq=${soloSkipped.join(',')}（同出口无爆发、同选手无簇、无机器证据）`)
       }
       const voidableSet = new Set(voidableSeqs)
       const voidTargetIds = Array.from(new Set(
