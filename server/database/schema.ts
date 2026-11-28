@@ -2155,6 +2155,9 @@ export const thirdPartyVoteSyncStates = sqliteTable('third_party_vote_sync_state
   lastEntryAt: integer('last_entry_at'),
   totalSynced: integer('total_synced').notNull().default(0),
   lastError: text('last_error'),
+  lastErrorAt: integer('last_error_at'),
+  failureStreak: integer('failure_streak').notNull().default(0),
+  totalFailures: integer('total_failures').notNull().default(0),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [

@@ -86,8 +86,11 @@ export async function handlePopularityVote(
     assertRateLimit(event, `popularity-vote-wx-ip:${ip}`, Math.max(25, maxQuota + 15), 60_000, client)
     assertRateLimit(event, `popularity-vote-wx-ip-10m:${ip}`, 90, 600_000, client)
   } else {
-    assertRateLimit(event, `popularity-vote-ip:${ip}`, isHybridMode ? 5 : 6, 60_000, client)
-    assertRateLimit(event, `popularity-vote-ip-10m:${ip}`, isHybridMode ? 12 : 15, 600_000, client)
+    // 校园网、礼堂 WiFi 会把整场观众 NAT 到极少数公网 IP：开票十分钟内峰值可达数百票/分钟。
+    // 这里按「出口 IP」只设防洪泛上限，单设备与单身份的限额在下面几行独立生效，
+    // 真正的刷票判定交给实时评分与巡检，不能让正常观众吃 429。
+    assertRateLimit(event, `popularity-vote-ip:${ip}`, 240, 60_000, client)
+    assertRateLimit(event, `popularity-vote-ip-10m:${ip}`, 1200, 600_000, client)
   }
 
   let voterHash: string
@@ -283,9 +286,18 @@ export async function handlePopularityVote(
     Number(row.quarantined) === 1 && Number(row.voided) === 0
   ))
 
+  // 只有分数明显越过「聚集+爆发」正常上限（40+20）才值得占用一次模型调用；
+  // 现场几百人同投一位会稳定落在 60 分，这条阈值必须抬到 80 以上。
+  const highRiskRow = client.sqlite.prepare(
+    `SELECT COUNT(*) AS n FROM competition_popularity_ballots
+     WHERE event_id = ? AND quarantined = 0 AND voided = 0 AND suspicion_score >= 80 AND created_at > ?`
+  ).get(eventRow.id, now - 10 * 60_000) as { n: number } | undefined
+  const hasHighRiskPending = Number(highRiskRow?.n ?? 0) >= 3
+
   const aiConfig = inspectorConfigFromValues(useRuntimeConfig(event) as Record<string, unknown>)
   const autoTask = maybeTriggerAutoPopularityInspection(client, eventRow.id, aiConfig, {
-    hasNewQuarantined
+    hasNewQuarantined,
+    hasHighRiskPending
   })
   if (autoTask) {
     event.waitUntil(autoTask)

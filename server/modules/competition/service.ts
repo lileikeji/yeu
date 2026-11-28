@@ -2724,6 +2724,13 @@ export interface PopularityVoteTelemetry {
  */
 const POPULARITY_IP_WINDOW_MS = 30 * 60 * 1000
 const POPULARITY_IP_DEVICE_THRESHOLD = 5
+/**
+ * 证据分族上界：同 IP 聚集与节拍都属于「环境/节奏」侧证据，正常人群在同一出口
+ * （礼堂、宿舍共用 WiFi）本就会聚集，因此这两族封顶后单靠它们无法越过冻结线，
+ * 只有叠加机器行为证据（等距节拍、WebDriver、同环境切号、极短停留）才会自动冻结。
+ */
+const POPULARITY_CLUSTER_SCORE_CAP = 40
+const POPULARITY_TEMPO_SCORE_CAP = 55
 
 function nextPopularityLogSeq(client: DatabaseClient, eventId: string): number {
   const row = client.sqlite.prepare(
@@ -2742,12 +2749,24 @@ function evaluateRealtimeBallotSuspicion(
     action: 'cast' | 'change'
     telemetry?: PopularityVoteTelemetry
   }
-): { risk: number, suspicionScore: number, suspicionReasons: string[] } {
+): {
+  risk: number
+  suspicionScore: number
+  suspicionReasons: string[]
+  /**
+   * 是否命中机器行为证据（等距节拍、WebDriver、同环境切号、极短停留）。
+   * 只有 true 时实时评分才允许自动冻结，避免礼堂/宿舍共用出口的正常观众被误冻。
+   */
+  behavioralEvidence: boolean
+} {
   const now = input.telemetry?.now ?? Date.now()
   const since = now - POPULARITY_IP_WINDOW_MS
   const reasons: string[] = []
   let score = 0
   let risk = 0
+  let clusterScore = 0
+  let tempoScore = 0
+  let behavioralEvidence = false
 
   if (input.ipHash) {
     const ipRows = client.db.select({
@@ -2766,9 +2785,11 @@ function evaluateRealtimeBallotSuspicion(
     if (devices.size >= POPULARITY_IP_DEVICE_THRESHOLD) {
       risk = 1
       score += 40
+      clusterScore += 40
       reasons.push(`同IP30分钟第${devices.size}台设备`)
     } else if (devices.size >= 3) {
       score += 20
+      clusterScore += 20
       reasons.push(`同IP30分钟${devices.size}台设备`)
     }
 
@@ -2778,9 +2799,11 @@ function evaluateRealtimeBallotSuspicion(
     sameSingerDevices.add(input.deviceHash)
     if (sameSingerDevices.size >= 4) {
       score += 25
+      clusterScore += 25
       reasons.push(`同IP集中投该选手(${sameSingerDevices.size}票)`)
     } else if (sameSingerDevices.size === 3) {
       score += 20
+      clusterScore += 20
       reasons.push('同IP连投该选手(3票)')
     }
 
@@ -2804,8 +2827,10 @@ function evaluateRealtimeBallotSuspicion(
           if (mean >= 1500 && mean <= 30_000) {
             const variance = gaps.reduce((sum, v) => sum + (v - mean) ** 2, 0) / gaps.length
             const cv = Math.sqrt(variance) / mean
-            if (cv < 0.18) {
+            if (cv < 0.10) {
               score += 40
+              tempoScore += 40
+              behavioralEvidence = true
               reasons.push(`等距节拍规律提交(${Math.round(mean / 1000)}s间隔)`)
             }
           }
@@ -2845,9 +2870,11 @@ function evaluateRealtimeBallotSuspicion(
       sameIpEnvGuestDevices.add(input.deviceHash)
       if (sameIpEnvGuestDevices.size >= 3) {
         score += 75
+        behavioralEvidence = true
         reasons.push(`同IP+同硬件免关注切号刷该选手(${sameIpEnvGuestDevices.size}台)`)
       } else if (sameIpEnvGuestDevices.size === 2) {
         score += 55
+        behavioralEvidence = true
         reasons.push('同IP+同硬件免关注切号投同选手')
       }
     }
@@ -2873,10 +2900,26 @@ function evaluateRealtimeBallotSuspicion(
       score += 20
       reasons.push('同设备环境重复投票')
     }
+
+    // 同一设备换指纹环境：真实观众在一次投票里不会换 UA/时区/屏幕组合，换环境即视为掩饰身份。
+    const deviceEnvRow = client.sqlite.prepare(
+      `SELECT COUNT(DISTINCT env_hash) AS n FROM competition_popularity_ballots
+       WHERE event_id = ? AND device_hash = ? AND env_hash IS NOT NULL AND created_at > ?`
+    ).get(eventId, input.deviceHash, since) as { n: number } | undefined
+    const deviceEnvCount = Number(deviceEnvRow?.n ?? 0) + 1
+    if (deviceEnvCount >= 3) {
+      score += 35
+      behavioralEvidence = true
+      reasons.push(`同设备切换指纹环境(${deviceEnvCount}套)`)
+    } else if (deviceEnvCount === 2) {
+      score += 20
+      reasons.push('同设备更换指纹环境')
+    }
   }
 
   if (input.telemetry?.webdriver === true) {
     score += 75
+    behavioralEvidence = true
     reasons.push('检测到自动化WebDriver环境')
   }
 
@@ -2884,6 +2927,7 @@ function evaluateRealtimeBallotSuspicion(
   if (typeof dwellMs === 'number' && Number.isFinite(dwellMs)) {
     if (dwellMs < 1200) {
       score += 25
+      behavioralEvidence = true
       reasons.push(`极快投票(${Math.round(dwellMs)}ms)`)
     } else if (dwellMs < 2500) {
       score += 12
@@ -2915,9 +2959,14 @@ function evaluateRealtimeBallotSuspicion(
     `SELECT count(*) AS cnt FROM competition_popularity_vote_logs
      WHERE event_id = ? AND singer_id = ? AND action IN ('cast', 'change') AND created_at > ?`
   ).get(eventId, input.singerId, burstSince) as { cnt: number } | undefined
-  if (Number(burstRow?.cnt ?? 0) >= 8) {
-    score += 20
-    reasons.push(`1分钟同选手爆发(${Number(burstRow?.cnt ?? 0) + 1}票)`)
+  const burstCount = Number(burstRow?.cnt ?? 0) + 1
+  if (burstCount >= 8) {
+    // 现场开票瞬间几百人同投一位是常态，爆发本身只能是弱信号：随规模缓慢增长并封顶 20，
+    // 与聚集分族（封顶 40）相加仍低于免关注冻结线 60，不会把整场观众冻掉。
+    const burstScore = Math.min(20, 12 + (burstCount - 8))
+    score += burstScore
+    tempoScore += burstScore
+    reasons.push(`1分钟同选手爆发(${burstCount}票)`)
   }
 
   if (input.action === 'change') {
@@ -2929,10 +2978,19 @@ function evaluateRealtimeBallotSuspicion(
     score = Math.max(0, score - 20)
   }
 
+  // 分族封顶：聚集与节拍两族只保留上界内的分值，其余个体异常分值原样保留。
+  if (clusterScore > POPULARITY_CLUSTER_SCORE_CAP || tempoScore > POPULARITY_TEMPO_SCORE_CAP) {
+    score = Math.max(0,
+      score
+      - clusterScore + Math.min(clusterScore, POPULARITY_CLUSTER_SCORE_CAP)
+      - tempoScore + Math.min(tempoScore, POPULARITY_TEMPO_SCORE_CAP))
+  }
+
   return {
     risk,
     suspicionScore: Math.min(100, score),
-    suspicionReasons: reasons
+    suspicionReasons: reasons,
+    behavioralEvidence
   }
 }
 
@@ -3045,7 +3103,7 @@ export function recordPopularityBallot(
       action: 'cast',
       telemetry
     })
-    const quarantined = autoQuarantine && evalResult.suspicionScore >= quarantineThreshold ? 1 : 0
+    const quarantined = autoQuarantine && evalResult.behavioralEvidence && evalResult.suspicionScore >= quarantineThreshold ? 1 : 0
     const quarantinedReason = quarantined
       ? `高危特征自动冻结(${evalResult.suspicionScore}分)`
       : null
@@ -3129,17 +3187,23 @@ export function recordPopularityBallot(
         createdAt: now
       }).run()
       if (quarantined === 1 && normalizedIpHash && !normalizedOpenIdHash) {
+        // 回溯连坐只冻结「同一台机器」的兄弟票（同硬件指纹或同浏览器指纹），
+        // 不能按出口 IP 一把扫掉——礼堂/宿舍共用 WiFi 时那是正常观众的票。
+        const siblingClause = envHash || clientFp
+          ? 'AND (env_hash = ? OR client_fp = ?)'
+          : ''
+        const siblingParams = envHash || clientFp ? [envHash, clientFp] : []
         client.sqlite.prepare(
           `UPDATE competition_popularity_ballots
            SET quarantined = 1,
-               quarantined_reason = COALESCE(quarantined_reason, '同IP聚集簇回溯连坐冻结'),
+               quarantined_reason = COALESCE(quarantined_reason, '同机聚集簇回溯连坐冻结'),
                updated_at = ?
            WHERE event_id = ? AND ip_hash = ? AND singer_id = ?
              AND voter_openid_hash IS NULL
              AND voided = 0 AND quarantined = 0
              AND COALESCE(voided_by, '') != 'admin-restored'
-             AND created_at > ?`
-        ).run(now, eventId, normalizedIpHash, singerId, now - POPULARITY_IP_WINDOW_MS)
+             AND created_at > ? ${siblingClause}`
+        ).run(now, eventId, normalizedIpHash, singerId, now - POPULARITY_IP_WINDOW_MS, ...siblingParams)
       }
       return true
     })()
@@ -3213,6 +3277,7 @@ export function recordPopularityBallot(
     || (
       autoQuarantine
       && existing.voidedBy !== 'admin-restored'
+      && evalResult.behavioralEvidence
       && evalResult.suspicionScore >= quarantineThreshold
     )
   const nextQuarantined = shouldQuarantine ? 1 : 0

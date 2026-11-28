@@ -579,7 +579,8 @@ test('0087 实时自动冻结与 AI 巡检直接执法：等距节拍隔离不�
 
   const adminBeforeAi = getPopularityAdminState(client, event.id)
   const reportBeforeAi = computePopularityGuardReport(client, event.id, { aiConfigured: true })
-  assert.ok((adminBeforeAi.quarantinedVotes ?? 0) >= 4, '等距节拍与同IP多新设备票应实时自动冻结隔离')
+  // 回溯连坐只覆盖同机（同 env/同指纹）兄弟票，因此这里冻结的是节拍成立后的第 4-6 票。
+  assert.ok((adminBeforeAi.quarantinedVotes ?? 0) >= 3, '等距节拍票应实时自动冻结隔离')
   assert.ok(adminBeforeAi.totalVotes < 4, '被冻结隔离的高危票不得计入公开有效票')
   assert.equal(getPopularityPublicState(client, event.id, '').totalVotes, adminBeforeAi.totalVotes)
 
@@ -990,5 +991,67 @@ test('client_fp：同一设备（同一 deviceHash）持同一指纹连投多票
 
   const report = computePopularityGuardReport(client, event.id, { aiConfigured: false })
   assert.equal(report.clusters.find(cluster => cluster.kind === 'fp'), undefined, '同一设备不应形成指纹簇')
+  cleanup(client, path)
+})
+
+test('共用出口免误伤：礼堂同一 WiFi 下 6 台不同手机构成聚集分但无机器证据，不自动冻结', () => {
+  const { client, path } = tempDb()
+  runMigrations(client)
+  const { event, singers } = createEventWithSingers(client)
+  const [singerA] = singers as [typeof singers[number]]
+
+  updatePopularitySettings(client, event.id, {
+    enabled: true,
+    title: '人气奖投票',
+    subtitle: '现场扫码',
+    opensAt: Date.now() - 5_000,
+    closesAt: Date.now() + 300_000,
+    allowChange: false,
+    maxChanges: 0,
+    votesPerVoter: 3,
+    allowRepeatVote: true,
+    qrRotateSeconds: 30,
+    showResults: true,
+    autoQuarantine: true,
+    aiAutoModerate: true
+  })
+
+  // 真实观众：同一出口 IP，各自不同手机（envHash 各不相同），都投人气最高的同一位选手。
+  const sharedIp = popularityIpHash('secret-1', '198.51.100.88')
+  for (let i = 0; i < 6; i += 1) {
+    recordPopularityBallot(client, event.id, `crowd-device-${i}`, singerA.id, 0, sharedIp, {
+      uaSummary: 'iOS/WeChat',
+      envHash: `crowd-iphone-${i}`,
+      clientFp: `crowd-fp-${i}`,
+      dwellMs: 2600 + i * 250,
+      cookiePresent: true,
+      missingFetchMeta: false
+    })
+  }
+
+  const admin = getPopularityAdminState(client, event.id)
+  assert.equal(admin.quarantinedVotes ?? 0, 0, '同一出口的正常观众不应进入冻结池')
+  assert.equal(admin.results.find(r => r.singerId === singerA.id)?.count, 6, '正常观众的票应全部计入')
+
+  // 同一出口 + 同一台机器换多个指纹环境投同一选手，属于机器证据，仍应进入冻结池。
+  for (let i = 0; i < 3; i += 1) {
+    recordPopularityBallot(client, event.id, 'crowd-rotator-device', singerA.id, i, sharedIp, {
+      uaSummary: 'iOS/WeChat',
+      envHash: `crowd-rotator-${i}`,
+      clientFp: `crowd-rotator-fp-${i}`,
+      dwellMs: 3000,
+      cookiePresent: true,
+      missingFetchMeta: false
+    })
+  }
+  assert.ok(
+    (getPopularityAdminState(client, event.id).quarantinedVotes ?? 0) >= 1,
+    '同一设备换指纹环境仍应实时冻结'
+  )
+  const crowdFrozen = client.sqlite.prepare(
+    `SELECT COUNT(*) AS n FROM competition_popularity_ballots
+     WHERE event_id = ? AND quarantined = 1 AND device_hash LIKE 'crowd-device-%'`
+  ).get(event.id) as { n: number }
+  assert.equal(crowdFrozen.n, 0, '回溯连坐不能冻结同一出口下的其他正常观众')
   cleanup(client, path)
 })

@@ -21,6 +21,8 @@ import type {
 import { listPopularityCandidates } from './service'
 
 export const POPULARITY_AUTO_BATCH_SIZE = 20
+/** 加急巡检冷却：冻结/高危未冻票触发的自动巡检最多 45 秒一次，防止刷票把模型调用打成洪水。 */
+export const POPULARITY_FAST_INSPECTION_COOLDOWN_MS = 45_000
 const BLOCKED_LOG_RATE_WINDOW_MS = 60_000
 const BLOCKED_LOG_MAX_PER_IP_PER_MINUTE = 30
 const DWELL_BUCKETS = [

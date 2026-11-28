@@ -12,7 +12,7 @@ import type {
   CompetitionPopularityMemoryEntry
 } from '../../../shared/types'
 import { chatCompletionsUrl, insightConfigFromValues, type CompetitionInsightConfig } from './insight'
-import { computePopularityGuardReport, POPULARITY_AUTO_BATCH_SIZE } from './popularity-guard'
+import { computePopularityGuardReport, POPULARITY_AUTO_BATCH_SIZE, POPULARITY_FAST_INSPECTION_COOLDOWN_MS } from './popularity-guard'
 import { ensurePopularityInspectionJob } from './popularity-inspection-jobs'
 import { ensurePopularitySettings } from './service'
 
@@ -39,6 +39,8 @@ export interface PopularityInspectionDigest {
     estimatedBrushInBatch: number
     memoryNote: string
   }>
+  /** 出口聚合：每个 ip 标签的日志条数与互不相同的浏览器指纹数（区分共用出口与刷票簇）。 */
+  egress?: Array<{ ip: string, logs: number, distinctFps: number }>
   logs: Array<{
     seq: number
     at: string
@@ -52,6 +54,7 @@ export interface PopularityInspectionDigest {
     device: string
     ip: string | null
     env: string | null
+    fp: string | null
     qr: string | null
     score: number
     status: 'valid' | 'quarantined' | 'voided' | 'blocked'
@@ -80,10 +83,13 @@ export const POPULARITY_INSPECTOR_PROMPT = `你是仰恩大学歌手大赛人气
 输入包含：
 1. candidateOverview：各选手当前有效票数与预估刷票数；
 2. rollingMemory：之前各个巡检批次留下的跨批次记忆（历史 ip/env/qr 聚集特征与异常倾向）；
-3. logs：本次待检的投票/改票/拦截日志（每条带 seq 序号、时间、动作、当前 status[valid/quarantined/voided/blocked]、wechatVerified、adminProtected、停留 dwellMs、cookiePresent、ua、脱敏短标签 device/ip/env/qr、规则分与命中原因）。
+3. logs：本次待检的投票/改票/拦截日志（每条带 seq 序号、时间、动作、当前 status[valid/quarantined/voided/blocked]、wechatVerified、adminProtected、停留 dwellMs、cookiePresent、ua、脱敏短标签 device/ip/env/fp/qr、规则分与命中原因）；
+4. egress：按 ip 标签聚合的日志条数与互不相同的浏览器指纹数量。
 
 你的职责（系统已开启自动执法，你的 flaggedSeqs 与 releaseSeqs 会直接执行数据库作废与放行）：
 - 结合 rollingMemory 与本批 logs 判断是否存在刷票（同 ip_xxx/env_xxx 切设备、等距节拍、缺少 Fetch 元数据、dwellMs 极短且无 cookie、同码段集中灌票、跨批次慢速注水）。
+- 校园网、礼堂 WiFi 会把整场观众 NAT 到极少数公网 IP：同一个 ip 标签下出现大量互不相同的 fp、不同 ua、自然起伏的间隔，属于现场观众正常投票，不得仅凭「同 ip 集中投同一人」判刷票；真正的刷票簇特征是同一 fp 或同一 env 反复出现、间隔等距、dwellMs 极短。
+- 开票瞬间几百人同投一位是正常的现场行为，logs 里的爆发类理由只算弱信号，不能单独作为作废依据。
 - 若赛事开启混合模式，wechatVerified=true 的单用户合规享有多票权益且允许把多票投给同一选手，勿将同一微信用户连续多票误判为刷票；应重点稽查 wechatVerified=false 的免关注异常簇（如切无痕/飞行模式换 IP 批量灌第一票）。
 - 对确认刷票（且 adminProtected=false）的 seq 填入 flaggedSeqs，系统将直接自动作废其对应选票（voided=1）；对 adminProtected=true（管理员人工复核放行）不要重复标入 flaggedSeqs。
 - 对本批处于 status='quarantined'（实时冻结待审）但核验为正常观众的选票（例如 wechatVerified=true 且停顿自然、无同环境重复切号），填入 releaseSeqs，系统将自动解除冻结放行计票。
@@ -332,7 +338,8 @@ export function preparePopularityInspection(
         voided: competitionPopularityBallots.voided,
         quarantined: competitionPopularityBallots.quarantined,
         voidedBy: competitionPopularityBallots.voidedBy,
-        voterOpenidHash: competitionPopularityBallots.voterOpenidHash
+        voterOpenidHash: competitionPopularityBallots.voterOpenidHash,
+        clientFp: competitionPopularityBallots.clientFp
       })
         .from(competitionPopularityBallots)
         .where(and(
@@ -381,6 +388,7 @@ export function preparePopularityInspection(
           : ballot && Number(ballot.quarantined) === 1
             ? 'quarantined'
             : 'valid'
+      const fp = shortLabel('fp', ballot?.clientFp)
       return {
         seq: Number(row.seq),
         at: new Date(Number(row.createdAt)).toLocaleTimeString('zh-CN', { hour12: false }),
@@ -394,6 +402,7 @@ export function preparePopularityInspection(
         device: shortLabel('dev', row.deviceHash) ?? 'dev_none',
         ip: shortLabel('ip', row.ipHash),
         env: shortLabel('env', row.envHash),
+        fp,
         qr: shortLabel('qr', row.qrNonce),
         score: Number(row.suspicionScore),
         status,
@@ -403,6 +412,21 @@ export function preparePopularityInspection(
       }
     })
   }
+
+  // 出口聚合：校园网会把整场观众 NAT 到少数几个公网 IP，
+  // 同一个 ip 标签下出现大量互不相同的浏览器指纹才是「正常观众」，重复指纹才是刷票。
+  const ipStats = new Map<string, { logs: number, fps: Set<string> }>()
+  for (const log of digest.logs) {
+    if (!log.ip) continue
+    const entry = ipStats.get(log.ip) ?? { logs: 0, fps: new Set<string>() }
+    entry.logs += 1
+    if (log.fp) entry.fps.add(log.fp)
+    ipStats.set(log.ip, entry)
+  }
+  digest.egress = Array.from(ipStats.entries())
+    .map(([ip, stat]) => ({ ip, logs: stat.logs, distinctFps: stat.fps.size }))
+    .sort((a, b) => b.logs - a.logs)
+    .slice(0, 5)
 
   return {
     fromSeq,
@@ -567,14 +591,15 @@ export async function runPopularityInspectionNow(
 }
 
 /**
- * 每满 20 条新增投票日志（或产生实时冻结且未检积压 >= 3 条）时在后台自动启动微批巡检，
- * 不阻塞观众端响应；巡检结论会直接自动作废确认刷票或放行正常冻结票。
+ * 每满 20 条新增投票日志时在后台自动启动微批巡检；另有两条加急通道：
+ * 产生实时冻结且未检积压 >= 3 条，或出现「聚集但无机器证据」的高危未冻票且积压 >= 5 条。
+ * 加急通道带 45 秒冷却，避免一次刷票把巡检调用打成洪水。巡检结论会直接自动作废确认刷票或放行正常冻结票。
  */
 export function maybeTriggerAutoPopularityInspection(
   client: DatabaseClient,
   eventId: string,
   config: CompetitionInsightConfig | null,
-  options: { fetchImpl?: typeof fetch, hasNewQuarantined?: boolean } = {}
+  options: { fetchImpl?: typeof fetch, hasNewQuarantined?: boolean, hasHighRiskPending?: boolean } = {}
 ): Promise<void> | null {
   if (!config) return null
   const seqRow = client.sqlite.prepare(
@@ -590,7 +615,16 @@ export function maybeTriggerAutoPopularityInspection(
   const lastToSeq = Number(lastRow?.lastToSeq ?? 0)
   const pendingCount = latestSeq - lastToSeq
   const fastQuarantineTrigger = Boolean(options.hasNewQuarantined) && pendingCount >= 3
-  if (pendingCount < POPULARITY_AUTO_BATCH_SIZE && !fastQuarantineTrigger) return null
+  const fastRiskTrigger = Boolean(options.hasHighRiskPending) && pendingCount >= 5
+  if (pendingCount < POPULARITY_AUTO_BATCH_SIZE && !fastQuarantineTrigger && !fastRiskTrigger) return null
+
+  if ((fastQuarantineTrigger || fastRiskTrigger) && pendingCount < POPULARITY_AUTO_BATCH_SIZE) {
+    const lastAutoRow = client.sqlite.prepare(
+      `SELECT COALESCE(MAX(created_at), 0) AS lastAt FROM competition_popularity_inspections
+       WHERE event_id = ? AND trigger_source = 'auto'`
+    ).get(eventId) as { lastAt: number } | undefined
+    if (Date.now() - Number(lastAutoRow?.lastAt ?? 0) < POPULARITY_FAST_INSPECTION_COOLDOWN_MS) return null
+  }
 
   const fromSeq = lastToSeq + 1
   const toSeq = pendingCount >= POPULARITY_AUTO_BATCH_SIZE

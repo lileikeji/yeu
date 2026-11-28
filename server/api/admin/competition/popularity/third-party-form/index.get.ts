@@ -101,7 +101,12 @@ export default defineEventHandler(async (event) => {
           lastSyncedAt: syncState.lastSyncedAt,
           lastEntryAt: syncState.lastEntryAt,
           totalSynced: syncState.totalSynced,
-          lastError: syncState.lastError
+          lastError: syncState.lastError,
+          lastErrorAt: syncState.lastErrorAt,
+          failureStreak: syncState.failureStreak,
+          totalFailures: syncState.totalFailures,
+          // 连续两轮以上失败才算「同步挂了」：单次网络抖动不应该在后台亮红灯。
+          healthy: syncState.failureStreak < 2
         }
       : null
   }

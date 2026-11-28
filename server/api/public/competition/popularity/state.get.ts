@@ -24,7 +24,9 @@ export default defineEventHandler((event) => {
   assertTrustedOrigin(event)
   const client = useAppDatabase(event)
   const ip = getClientIpAddress(event)
-  assertRateLimit(event, `popularity-state:${ip}`, 120, 60_000, client)
+  // 开票瞬间整场观众会一起打开投票页，校园网 NAT 后同一出口 IP 的并发很高；
+  // 领票是幂等只读操作，这里只防单点洪水，不承担防刷职责。
+  assertRateLimit(event, `popularity-state:${ip}`, 1800, 60_000, client)
 
   const query = parseQuery(event, competitionPopularityStateQuerySchema)
   const security = getSecurityConfig(event)

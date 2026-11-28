@@ -63,6 +63,10 @@ interface FormState {
     lastEntryAt: number | null
     totalSynced: number
     lastError: string | null
+    lastErrorAt: number | null
+    failureStreak: number
+    totalFailures: number
+    healthy: boolean
   } | null
 }
 
@@ -124,6 +128,8 @@ const records = computed(() => votes.value?.records ?? [])
 const summary = computed(() => votes.value?.summary ?? formState.value?.summary ?? { total: 0, valid: 0, watch: 0, voided: 0 })
 const choices = computed<Choice[]>(() => formState.value?.form?.fields[0]?.choices ?? [])
 const syncState = computed(() => formState.value?.syncState ?? null)
+// 定时任务每 5 分钟跑一轮，连续两轮失败才算真挂了；单次抖动只在下面留一行淡提示。
+const syncBroken = computed(() => syncState.value?.healthy === false)
 
 const statusOptions: Array<{ value: VoteStatus, label: string }> = [
   { value: 'valid', label: '有效票' },
@@ -789,13 +795,32 @@ async function deleteForm(token: string, name: string): Promise<void> {
             </dt>
             <dd>{{ syncState?.totalSynced ?? 0 }}</dd>
           </div>
+          <div
+            v-if="(syncState?.totalFailures ?? 0) > 0"
+            class="flex justify-between"
+          >
+            <dt class="text-zinc-500">
+              失败次数（连续 / 累计）
+            </dt>
+            <dd :class="syncBroken ? 'text-rose-600 dark:text-rose-400' : ''">
+              {{ syncState?.failureStreak ?? 0 }} / {{ syncState?.totalFailures ?? 0 }}
+            </dd>
+          </div>
         </dl>
 
         <p
-          v-if="syncState?.lastError"
+          v-if="syncBroken"
           class="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
         >
-          上次失败：{{ syncState.lastError }}
+          同步已连续失败 {{ syncState?.failureStreak ?? 0 }} 次（累计 {{ syncState?.totalFailures ?? 0 }} 次），
+          最后一次 {{ formatTime(syncState?.lastErrorAt ?? null) }}：{{ syncState?.lastError }}
+          —— 这期间观众投的票不会丢，但库里暂时看不到新票，恢复后会自动追平。
+        </p>
+        <p
+          v-else-if="syncState?.lastError"
+          class="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+        >
+          上次同步失败（尚未连续两轮，暂不告警）：{{ formatTime(syncState?.lastErrorAt ?? null) }} · {{ syncState.lastError }}
         </p>
 
         <label class="mt-3 flex items-center gap-2 text-xs">

@@ -194,6 +194,7 @@ export function recordThirdPartySyncState(
   const client = context.client
   const now = Date.now()
   const id = `${provider}:${options.formToken}`
+  const failed = Boolean(options.error)
   const current = client.db
     .select()
     .from(thirdPartyVoteSyncStates)
@@ -210,6 +211,9 @@ export function recordThirdPartySyncState(
       lastEntryAt: options.lastEntryAt ?? null,
       totalSynced: options.added ?? 0,
       lastError: options.error ?? null,
+      lastErrorAt: failed ? now : null,
+      failureStreak: failed ? 1 : 0,
+      totalFailures: failed ? 1 : 0,
       createdAt: now,
       updatedAt: now
     }).run()
@@ -226,6 +230,10 @@ export function recordThirdPartySyncState(
         : lastEntryAt,
       totalSynced: current.totalSynced + (options.added ?? 0),
       lastError: options.error ?? null,
+      lastErrorAt: failed ? now : current.lastErrorAt,
+      // 连续失败次数用于后台提示「同步一直在挂」，累计失败次数用于判断是否偶发。
+      failureStreak: failed ? current.failureStreak + 1 : 0,
+      totalFailures: current.totalFailures + (failed ? 1 : 0),
       updatedAt: now
     })
     .where(eq(thirdPartyVoteSyncStates.id, id))
